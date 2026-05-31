@@ -1,0 +1,6 @@
+{
+  "name": "Verifolio",
+  "description": "Where Verified Talent Meets Opportunity - Premium talent verification, internship, and employment ecosystem.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
