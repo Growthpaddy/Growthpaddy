@@ -39,7 +39,7 @@ const PILAR_STAGES = [
     icon: ShieldCheck,
     color: 'emerald',
     description: 'Identity & Score Audited',
-    detailedInfo: 'We perform robust identity verification (KYC), verify credential source legitimacy, and audit exam logs to append the official Verifolio stamp.'
+    detailedInfo: 'We perform robust identity verification (KYC), verify credential source legitimacy, and audit exam logs to append the official DSP Talent Hub stamp.'
   },
   {
     id: 'internship',
@@ -142,7 +142,7 @@ export function HeroInteractivePipeline() {
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
               <p className="font-mono text-xs uppercase tracking-widest font-semibold text-brand-700">
-                Verifolio Pillar Breakdown
+                DSP Talent Hub Pillar Breakdown
               </p>
             </div>
             <h4 className="font-display font-semibold text-lg text-neutral-900">
@@ -182,12 +182,12 @@ const STEPS: StepInfo[] = [
   },
   {
     step: 2,
-    title: 'Get Assessed',
-    subtitle: 'Competency Testing Sandbox',
-    description: 'We subject candidates to an exhaustive technical verification. Rather than simple multiple-choice quizzes, candidates resolve real scenario tickets in physical sandboxes audited by AI analyzers and expert evaluators.',
+    title: 'The Gauntlet',
+    subtitle: 'Brutal 48-Hour Assessment',
+    description: 'Candidates undergo "The Gauntlet" — a brutal 48-hour scenario-based assessment that filters for real-world execution. Most applicants fail within the first two hours. We subject applicants to exhaustive technical verification targeting complex automated marketing/AI workloads.',
     badge: '90+ Score Threshold',
     details: [
-      'Scenarios simulation environments',
+      'Realistic sandbox scenario workloads',
       'Real-time automated code/workflow testing',
       'Soft-skills & business communication readiness'
     ]
@@ -197,11 +197,11 @@ const STEPS: StepInfo[] = [
     title: 'Get Verified',
     subtitle: 'Robust Quality & Identity Seal',
     description: 'Candidates who pass the high-bar assessments undergo robust audits. We execute secure KYC identity matching, ensure compliance logs, and cross-reference background certificates before branding them as Verified.',
-    badge: 'Verifolio Verified Stamp',
+    badge: 'DSP Talent Verified Stamp',
     details: [
       'Secure government KYC checks',
       'Anti-cheat assessment logs verification',
-      'Dossier published on the living ledger'
+      'Verified dossier published on directory'
     ]
   },
   {
@@ -220,7 +220,7 @@ const STEPS: StepInfo[] = [
     step: 5,
     title: 'Get Discovered',
     subtitle: 'Live Intelligence Employer Sourcing',
-    description: 'High-intent employers unlock search tools on the Verifolio Directory to recruit verified, proven specialists directly. Say goodbye to spam candidates and slow recruiting pipelines.',
+    description: 'High-intent employers unlock search tools on the DSP Talent Hub Directory to recruit verified, proven specialists directly. Say goodbye to spam candidates and slow recruiting pipelines.',
     badge: 'Instant Direct Connection',
     details: [
       'Direct interview requests features',
@@ -367,8 +367,8 @@ export function FiveStepVisualizer() {
                         <ShieldCheck className="w-6 h-6" />
                       </div>
                       <div className="space-y-1">
-                        <h5 className="font-display font-bold text-neutral-900 text-base">Verifolio Verification Approved</h5>
-                        <p className="text-xs text-neutral-400">KYC Verified · Credentials Audited · Ledger Signed</p>
+                        <h5 className="font-display font-bold text-neutral-900 text-base">DSP Talent Verification Approved</h5>
+                        <p className="text-xs text-neutral-400">KYC Verified · Credentials Audited · Account Activated</p>
                       </div>
                       <div className="grid grid-cols-3 gap-2 border-t border-neutral-100 pt-3">
                         <div>
@@ -377,7 +377,7 @@ export function FiveStepVisualizer() {
                         </div>
                         <div>
                           <span className="text-[10px] text-neutral-400 block uppercase">Audited By</span>
-                          <span className="text-xs font-bold font-mono text-neutral-800">Verifolio AI</span>
+                          <span className="text-xs font-bold font-mono text-neutral-800 font-bold">DSP AI</span>
                         </div>
                         <div>
                           <span className="text-[10px] text-neutral-400 block uppercase">Status</span>

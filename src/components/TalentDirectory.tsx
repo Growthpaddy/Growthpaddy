@@ -84,7 +84,7 @@ const MOCK_TALENT: TalentCandidate[] = [
       metrics: 'Decreased Cost-Per-Lead (CPL) by 31% while maintaining volume'
     },
     experienceCount: 2,
-    bio: 'Trained PPC operator with extensive hands-on budget experience during Verifolio Practical Labs. Fully Certified in Google Ads.'
+    bio: 'Trained PPC operator with extensive hands-on budget experience during DSP Practical Labs. Fully Certified in Google Ads.'
   },
   {
     id: 'T5',
@@ -303,7 +303,7 @@ export default function TalentDirectory() {
                       </div>
 
                       <div className="text-right hidden sm:block">
-                        <span className="text-xs font-mono text-neutral-400">Verifolio Score</span>
+                        <span className="text-xs font-mono text-neutral-400">DSP Assessment Score</span>
                         <p className="text-lg font-bold font-display text-brand-dark flex items-center justify-end gap-1">
                           <Award className="w-4 h-4 text-emerald-500" />
                           {candidate.portfolioScore}
@@ -450,7 +450,7 @@ export default function TalentDirectory() {
                     Impact: {selectedCandidate.featuredProject.metrics}
                   </div>
                   <p className="text-xs text-neutral-500">
-                    This business outcome was achieved during a structured internship facilitated and audited directly on the Verifolio platform.
+                    This business outcome was achieved during a structured internship facilitated and audited directly on the DSP Talent Hub platform.
                   </p>
                 </div>
               </div>

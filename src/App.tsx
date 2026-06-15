@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion, useScroll, useSpring } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   ArrowRight, 
   ShieldCheck, 
@@ -22,12 +22,22 @@ import {
   Database,
   Building2,
   Clock,
-  Heart
+  Heart,
+  Globe,
+  Terminal,
+  Cpu,
+  Layers,
+  CheckCircle,
+  HelpCircle,
+  Lock,
+  LineChart,
+  FileSpreadsheet
 } from 'lucide-react';
 
 import { Header, Footer } from './components/HeaderAndFooter';
 import TalentDirectory from './components/TalentDirectory';
 import { HeroInteractivePipeline, FiveStepVisualizer } from './components/ProcessVisualizer';
+import FAQSection from './components/FAQSection';
 import { BadgeExplanation } from './types';
 
 // Badges Section Data
@@ -67,7 +77,7 @@ const TRUST_BADGES: BadgeExplanation[] = [
     name: 'Employer Recommended',
     iconName: 'ThumbsUp',
     tagline: 'Highly Rated by Modern Teams',
-    description: 'Recognized stars with outstanding references and professional recommendations directly provided by verified growth agency partners on the Verifolio ledger.',
+    description: 'Recognized stars with outstanding references and professional recommendations directly provided by verified growth agency partners within the DSP Talent Hub platform.',
     bgColor: 'bg-indigo-500/5',
     borderColor: 'border-indigo-500/20',
     textColor: 'text-indigo-700'
@@ -77,7 +87,7 @@ const TRUST_BADGES: BadgeExplanation[] = [
     name: 'Top Performer',
     iconName: 'Award',
     tagline: 'The Top 5% Vetting Score',
-    description: 'Elite candidates demonstrating flawless execution in advanced sandboxes, placing them in the highest tier of competence audits within our global ecosystem.',
+    description: 'Elite candidates demonstrating flawless execution on real-world benchmark tests, placing them in the highest tier of verified professional candidates.',
     bgColor: 'bg-amber-500/5',
     borderColor: 'border-amber-500/20',
     textColor: 'text-amber-800'
@@ -85,6 +95,9 @@ const TRUST_BADGES: BadgeExplanation[] = [
 ];
 
 export default function App() {
+  // Navigation Routing State
+  const [currentPage, setCurrentPage] = useState<'home' | 'problem' | 'how-it-works' | 'tracks' | 'directory' | 'portfolio' | 'badges'>('home');
+
   // Stats Animation logic
   const [stats, setStats] = useState({
     verifiedTalent: 0,
@@ -94,8 +107,8 @@ export default function App() {
   });
 
   useEffect(() => {
-    const duration = 2000;
-    const steps = 50;
+    const duration = 1500;
+    const steps = 40;
     const stepTime = duration / steps;
     let step = 0;
 
@@ -122,11 +135,31 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  // Sandbox interactive simulator states (demonstrate Verifolio vetting logic dynamically)
+  // Sandbox interactive simulator states (demonstrate DSP Talent Hub vetting logic dynamically)
   const [testStage, setTestStage] = useState<'idle' | 'testing' | 'verified'>('idle');
   const [testResultScore, setTestResultScore] = useState(0);
   const [sandboxCandidateName, setSandboxCandidateName] = useState('Alex Rivera');
   const [sandboxRole, setSandboxRole] = useState<'SEO' | 'AI Automation' | 'PPC'>('AI Automation');
+
+  const getGauntletLogs = (score: number) => {
+    const logs: string[] = [];
+    if (score >= 2) {
+      logs.push("⏱️ [0-2 Hours]: Initialized system audit. Filtering for real-world execution capacity. Setup environment check.");
+    }
+    if (score >= 20) {
+      logs.push("⚙️ [2-12 Hours]: Executing structural automation scripts and configuring multi-stage data pipelines.");
+    }
+    if (score >= 45) {
+      logs.push("📊 [12-24 Hours]: Testing keyword coverage, checking response latency & debugging pipeline failures.");
+    }
+    if (score >= 70) {
+      logs.push("🛡️ [24-36 Hours]: Reviewing anti-cheat telemetry data and environment security parameters.");
+    }
+    if (score >= 90) {
+      logs.push("🏆 [36-48 Hours]: Finalizing peer recommendation dossiers and appending verified skill badges.");
+    }
+    return logs;
+  };
 
   const runVettingSimulation = () => {
     setTestStage('testing');
@@ -142,7 +175,7 @@ export default function App() {
       } else {
         setTestResultScore(score);
       }
-    }, 100);
+    }, 120);
   };
 
   // Badge interactive detail toggle
@@ -158,945 +191,974 @@ export default function App() {
   const [talentForm, setTalentForm] = useState({ name: '', email: '', track: 'Internship Track', skills: '' });
   const [talentSubmitted, setTalentSubmitted] = useState(false);
 
+  // Helper to change page and scroll smoothly
+  const navigateToPage = (pageName: 'home' | 'problem' | 'how-it-works' | 'tracks' | 'directory' | 'portfolio' | 'badges') => {
+    setCurrentPage(pageName);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
-    <div className="min-h-screen bg-[#fafbfa] text-neutral-900 selection:bg-brand-primary/20 flex flex-col font-sans">
+    <div className="min-h-screen bg-[#f8fafc] text-neutral-900 selection:bg-emerald-500/20 flex flex-col font-sans">
       
-      {/* Dynamic Promo Banner */}
-      <div className="bg-neutral-950 py-2 px-4 text-center text-xs text-neutral-300 font-medium flex items-center justify-center gap-1.5 flex-wrap">
-        <span className="bg-emerald-500 text-neutral-950 font-mono font-bold px-1.5 py-0.5 rounded text-[10px]">NEW VERSION</span>
-        <span>Every candidate is certified with cryptographic vetting logs on the live Ledger.</span>
-        <a href="#how-it-works" className="text-white hover:text-brand-primary underline transition font-semibold ml-1">Explore our Vetting Standard →</a>
+      {/* Premium Notification Banner */}
+      <div className="bg-neutral-950 py-2.5 px-4 text-center text-xs text-neutral-300 font-sans font-medium flex items-center justify-center gap-2 flex-wrap border-b border-neutral-900">
+        <span className="bg-red-600 text-white font-mono font-bold px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider animate-pulse">The Gauntlet</span>
+        <span className="font-secondary">A brutal 48-hour scenario-based assessment that filters for real-world execution. Most applicants fail within the first two hours.</span>
+        <button 
+          onClick={() => navigateToPage('how-it-works')} 
+          className="text-white hover:text-red-400 underline transition font-semibold ml-1 cursor-pointer font-mono text-[11px]"
+        >
+          Check Survival Rates →
+        </button>
       </div>
 
       {/* Premium Navigation Header */}
-      <Header />
+      <Header 
+        currentPage={currentPage} 
+        setCurrentPage={setCurrentPage} 
+        openHireModal={() => setIsHireModalOpen(true)}
+        openTalentModal={() => setIsTalentModalOpen(true)}
+      />
 
       {/* MAIN CONTAINER */}
-      <main className="flex-grow">
+      <main className="flex-grow font-secondary">
         
-        {/* ======================================= */}
-        {/* SECTION 1 — HERO                        */}
-        {/* ======================================= */}
-        <section className="relative pt-12 md:pt-20 pb-20 px-4 sm:px-6 lg:px-8 border-b border-neutral-100 overflow-hidden">
-          {/* Subtle elegant background elements */}
-          <div className="absolute right-0 top-0 w-1/3 h-1/2 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:24px_24px] opacity-15 pointer-events-none" />
-          <div className="absolute -left-12 top-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentPage}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.25 }}
+          >
 
-          <div className="max-w-7xl mx-auto text-center space-y-12">
-            
-            {/* Tagline Badge */}
-            <div className="inline-flex items-center gap-1.5 bg-brand-light px-3.5 py-1.5 rounded-full border border-brand-200/50 shadow-xs animate-fade-in">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <p className="text-xs font-mono font-bold text-brand-dark uppercase tracking-widest">
-                Where Verified Talent Meets Opportunity
-              </p>
-            </div>
-
-            {/* Core Titles */}
-            <div className="max-w-4xl mx-auto space-y-6">
-              <h1 className="font-display font-medium text-4xl sm:text-5xl md:text-6xl text-neutral-950 tracking-tight leading-[1.05]">
-                Hire Talent That Has Been{" "}
-                <span className="relative inline-block">
-                  <span className="relative z-10 font-bold text-[#064e43]">Trained, Tested, and Verified</span>
-                  <span className="absolute left-0 bottom-1.5 w-full h-[6px] bg-brand-200 -z-0 rounded-full" />
-                </span>
-              </h1>
-              
-              <p className="text-base sm:text-lg md:text-xl text-neutral-600 max-w-2xl mx-auto leading-relaxed font-normal">
-                Discover internship-ready and employment-ready digital professionals who have completed rigorous training, passed competency assessments, and demonstrated practical capability.
-              </p>
-            </div>
-
-            {/* CTAs */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <a
-                href="#live-talent-directory"
-                className="w-full sm:w-auto text-center bg-neutral-900 hover:bg-neutral-800 text-white font-semibold px-8 py-4 rounded-2xl text-sm flex items-center justify-center gap-2 transition duration-200 cursor-pointer shadow-md"
-              >
-                <span>Find Talent</span>
-                <ChevronRight className="w-4 h-4 text-emerald-400" />
-              </a>
-
-              <a
-                href="#choose-your-path"
-                className="w-full sm:w-auto text-center bg-white hover:bg-neutral-100 text-neutral-800 font-semibold px-8 py-4 rounded-2xl text-sm border border-neutral-350 flex items-center justify-center gap-2 transition duration-200 cursor-pointer shadow-xs"
-              >
-                <span>Join As Talent</span>
-                <ArrowUpRight className="w-4 h-4 text-neutral-400" />
-              </a>
-            </div>
-
-            {/* Interactive Hero Illustration of the 5 Pillars */}
-            <div className="max-w-5xl mx-auto pt-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between text-left border-b border-neutral-200/60 pb-3">
-                  <div>
-                    <span className="text-xs uppercase font-mono font-bold text-neutral-400">Verifolio System Blueprint</span>
-                    <h3 className="font-display font-bold text-neutral-900 text-lg">Interactive Talent Placement Lifecycle</h3>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-neutral-500 font-sans">
-                    <span>Scroll or Click Nodes to Inspect Vetting Pillar</span>
-                  </div>
-                </div>
-                
-                {/* Embedded custom interactive workflow diagram */}
-                <HeroInteractivePipeline />
-              </div>
-            </div>
-
-            {/* Quick trust metrics row */}
-            <div className="pt-8 border-t border-neutral-100 flex flex-wrap justify-center items-center gap-x-12 gap-y-6 text-xs text-neutral-500">
-              <span className="font-semibold uppercase tracking-wider text-neutral-400">Supported Placement Ecosystem Roles:</span>
-              <span className="flex items-center gap-1.5 font-medium"><Check className="w-4 h-4 text-brand-primary" /> Technical SEO specialists</span>
-              <span className="flex items-center gap-1.5 font-medium"><Check className="w-4 h-4 text-brand-primary" /> Growth Engineers</span>
-              <span className="flex items-center gap-1.5 font-medium"><Check className="w-4 h-4 text-brand-primary" /> AI Automation Architects</span>
-              <span className="flex items-center gap-1.5 font-medium"><Check className="w-4 h-4 text-brand-primary" /> PPC Marketers</span>
-            </div>
-
-          </div>
-        </section>
-
-        {/* ======================================= */}
-        {/* SECTION 2 — THE PROBLEM                 */}
-        {/* ======================================= */}
-        <section id="the-problem" className="py-20 px-4 sm:px-6 lg:px-8 bg-neutral-950 text-white relative overflow-hidden">
-          <div className="absolute left-0 bottom-0 w-1/4 h-1/2 bg-[linear-gradient(to_bottom,transparent,#042f20/30)] pointer-events-none" />
-          
-          <div className="max-w-7xl mx-auto space-y-16">
-            
-            {/* Section Header */}
-            <div className="text-center max-w-3xl mx-auto space-y-4">
-              <span className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-widest block">Structural Inefficiencies</span>
-              <h2 className="font-display font-medium text-3xl sm:text-4.5xl tracking-tight">The Hiring Process Is Broken</h2>
-              <p className="text-[#a4b4a6] text-sm sm:text-base max-w-2xl mx-auto">
-                Traditional recruiting networks are plagued with unverified resume bloat, slow cycle times, and misaligned skills, creating costly mismatch problems for both recruiters and aspiring stars.
-              </p>
-            </div>
-
-            {/* 3 Broken Pillar Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              
-              {/* Card 1: Traditional Job Boards */}
-              <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-3xl relative overflow-hidden flex flex-col justify-between text-left group hover:border-neutral-700 transition duration-300">
-                <div className="space-y-4">
-                  <div className="w-12 h-12 bg-red-500/10 text-red-400 rounded-2xl flex items-center justify-center">
-                    <AlertCircle className="w-5 h-5" />
-                  </div>
-                  <h3 className="font-display font-semibold text-lg text-white">Traditional Job Boards</h3>
-                  <p className="text-neutral-400 text-xs sm:text-sm leading-relaxed">
-                    Based entirely on unvalidated resumes. Open application filters lead to a flood of spam applicants, creating hundreds of hours of manual labor.
-                  </p>
-                </div>
-                <ul className="mt-6 pt-6 border-t border-neutral-800 space-y-2 text-xs text-neutral-500">
-                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-red-400" /> Anyone can write profiles with no check</li>
-                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-red-400" /> Zero verified practical metrics or skills</li>
-                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-red-400" /> High attrition rate from misplaced hires</li>
-                </ul>
-              </div>
-
-              {/* Card 2: Businesses */}
-              <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-3xl relative overflow-hidden flex flex-col justify-between text-left group hover:border-neutral-700 transition duration-300">
-                <div className="space-y-4">
-                  <div className="w-12 h-12 bg-red-500/10 text-red-400 rounded-2xl flex items-center justify-center">
-                    <AlertCircle className="w-5 h-5" />
-                  </div>
-                  <h3 className="font-display font-semibold text-lg text-white">Businesses</h3>
-                  <p className="text-neutral-400 text-xs sm:text-sm leading-relaxed">
-                    Recruiters cannot easily identify actual capability. Sourcing is forced to pass through expensive headhunters or slow background check providers.
-                  </p>
-                </div>
-                <ul className="mt-6 pt-6 border-t border-neutral-800 space-y-2 text-xs text-neutral-500">
-                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-red-400" /> Flood of unqualified cover letters</li>
-                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-red-400" /> Extremely slow candidate selection delays</li>
-                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-red-400" /> Lack of standardized vetting tests</li>
-                </ul>
-              </div>
-
-              {/* Card 3: Talent */}
-              <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-3xl relative overflow-hidden flex flex-col justify-between text-left group hover:border-neutral-700 transition duration-300">
-                <div className="space-y-4">
-                  <div className="w-12 h-12 bg-red-500/10 text-red-400 rounded-2xl flex items-center justify-center">
-                    <AlertCircle className="w-5 h-5" />
-                  </div>
-                  <h3 className="font-display font-semibold text-lg text-white">Talent</h3>
-                  <p className="text-neutral-400 text-xs sm:text-sm leading-relaxed">
-                    Highly trained and capable digital professionals struggle to find opportunities, hidden away in job board listing filters with no way to demonstrate real metrics.
-                  </p>
-                </div>
-                <ul className="mt-6 pt-6 border-t border-neutral-800 space-y-2 text-xs text-neutral-500">
-                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-red-400" /> Low visibility in classic databases</li>
-                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-red-400" /> Unfair reliance on school prestige</li>
-                  <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-red-400" /> No direct, trusted channel to partners</li>
-                </ul>
-              </div>
-
-            </div>
-
-          </div>
-        </section>
-
-        {/* ======================================= */}
-        {/* SECTION 3 — HOW VERIFOLIO WORKS         */}
-        {/* ======================================= */}
-        <section id="how-it-works" className="py-20 px-4 sm:px-6 lg:px-8 bg-[#f5f7f5]/40 border-b border-neutral-100 text-center relative">
-          <div className="max-w-7xl mx-auto space-y-12">
-            
-            <div className="space-y-4 max-w-3xl mx-auto">
-              <span className="text-xs font-mono font-bold text-brand-dark bg-brand-100 px-3 py-1 rounded-full uppercase tracking-widest inline-block">The Five Stages</span>
-              <h2 className="font-display font-medium text-3xl sm:text-4.5xl text-neutral-950 tracking-tight">How Verifolio Works</h2>
-              <p className="text-neutral-600 text-sm max-w-xl mx-auto font-normal">
-                An airtight pipeline built for zero-error talent matching. Discover our strict vetting steps designed to save employers thousands of recruiting hours.
-              </p>
-            </div>
-
-            {/* Dynamic Step visualizer component */}
-            <FiveStepVisualizer />
-
-          </div>
-        </section>
-
-        {/* ======================================= */}
-        {/* INTERACTIVE COMPONENT: VETTING SIMULATOR */}
-        {/* ======================================= */}
-        <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white border-b border-neutral-100">
-          <div className="max-w-7xl mx-auto">
-            <div className="bg-neutral-50 rounded-3xl border border-neutral-200/90 p-6 md:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center text-left">
-              
-              <div className="lg:col-span-5 space-y-6">
-                <div className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-800 border-emerald-200 border text-xs font-mono px-3 py-1 rounded-full font-bold">
-                  <Activity className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
-                  <span>Deno Vetting Terminal</span>
-                </div>
-                <h3 className="font-display font-bold text-2xl md:text-3xl text-neutral-900 leading-tight">
-                  Simulate Our AI-Powered Vetting Audit
-                </h3>
-                <p className="text-sm text-neutral-600 leading-relaxed">
-                  Verifolio doesn't trust resumes. Experience how we evaluate candidates in our simulation engine. Every audit evaluates syntax precision, delivery turnaround, and operational correctness.
-                </p>
-
-                <div className="space-y-3 pt-2">
-                  <div className="flex gap-2">
-                    <label className="text-xs font-mono text-neutral-400 font-bold uppercase self-center">1. Pick Candidate Target Role:</label>
-                    <div className="flex gap-1">
-                      {(['AI Automation', 'SEO', 'PPC'] as const).map((r) => (
-                        <button
-                          key={r}
-                          onClick={() => {
-                            setSandboxRole(r);
-                            setSandboxCandidateName(r === 'SEO' ? 'Amara Okafor' : r === 'PPC' ? 'Liam Vance' : 'Marcus Chen');
-                            setTestStage('idle');
-                          }}
-                          className={`text-[10px] uppercase font-mono font-bold px-2 py-1 rounded border cursor-pointer transition ${
-                            sandboxRole === r 
-                              ? 'border-neutral-900 bg-neutral-900 text-white' 
-                              : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
-                          }`}
-                        >
-                          {r}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Simulation Screen Wrapper */}
-              <div className="lg:col-span-7 bg-neutral-950 text-neutral-200 rounded-2xl p-5 md:p-6 border-2 border-neutral-800 shadow-xl font-mono text-xs space-y-4">
-                
-                <div className="flex items-center justify-between border-b border-neutral-900 pb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-red-400"></div>
-                    <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
-                    <div className="w-3 h-3 rounded-full bg-green-400"></div>
-                  </div>
-                  <span className="text-neutral-500 text-[10px]">VERIFOLIO-SANDBOX-v2.8.sh</span>
-                  <span className="text-neutral-500 text-[10px]">Status: ONLINE</span>
-                </div>
-
-                <div className="space-y-2 font-mono leading-relaxed h-[180px] overflow-y-auto text-neutral-400 bg-neutral-950 p-2 rounded">
-                  <p className="text-neutral-500"># Verifolio automated compiler initialized.</p>
-                  <p className="text-neutral-300 flex items-center gap-1.5">
-                    <span className="text-emerald-400">$</span> fetch --dossier --target="{sandboxCandidateName}" --role="{sandboxRole}"
-                  </p>
+            {/* ======================================= */}
+            {/* VIEW 1 — HOME OVERVIEW HUB              */}
+            {/* ======================================= */}
+            {currentPage === 'home' && (
+              <div>
+                {/* HERO AREA WITH FLOATING TECH ICONS */}
+                <section className="relative pt-12 md:pt-20 pb-20 px-4 sm:px-6 lg:px-8 border-b border-neutral-200/40 bg-zinc-50/40 overflow-hidden">
                   
-                  {testStage === 'idle' && (
-                    <p className="text-amber-500 animate-pulse">✓ Ready to execute. Click "Evaluate Portfolio" below to begin real-time verification sequence.</p>
-                  )}
+                  {/* Subtle technical lines background */}
+                  <div className="absolute inset-0 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:32px_32px] opacity-10 pointer-events-none" />
+                  <div className="absolute right-0 top-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+                  <div className="absolute left-1/4 bottom-0 w-80 h-80 bg-teal-500/5 rounded-full blur-2xl pointer-events-none" />
 
-                  {testStage === 'testing' && (
-                    <div className="space-y-1">
-                      <p className="text-blue-400 animate-pulse">⚡ Compiling local container... injecting {sandboxRole} test suites.</p>
-                      <p className="text-neutral-400">⚡ Injecting credentials and background security check... STATUS: PASSED</p>
-                      <p className="text-[#a4b4a6]">⚡ running AI analysis code logs (Score progress: {testResultScore}%)</p>
-                      <div className="h-1 w-full bg-neutral-900 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-emerald-500 transition-all duration-100" 
-                          style={{ width: `${testResultScore}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
+                  {/* Subtle animated floating tech icons on left and right */}
+                  <motion.div
+                    animate={{ y: [-10, 10, -10] }}
+                    transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
+                    className="absolute left-12 top-1/4 hidden lg:flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-neutral-200/50 shadow-xs text-xs font-mono font-bold text-neutral-800"
+                  >
+                    <Terminal className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>$ make audit_test</span>
+                  </motion.div>
 
-                  {testStage === 'verified' && (
-                    <div className="space-y-1.5 text-neutral-300">
-                      <p className="text-emerald-400">✓ VETTING VERIFICATION COMPLETED FOR {sandboxCandidateName.toUpperCase()}</p>
-                      <p className="text-neutral-400">· Final Grading Score: <span className="text-white font-bold">{testResultScore} / 100</span> (Passed Threshold: 90)</p>
-                      <p className="text-neutral-400">· Identity Audit Check: <span className="text-emerald-500">VERIFIED</span></p>
-                      <p className="text-neutral-400">· Deliverable Integrity Code: <span className="text-emerald-500">SECURE-LEDGER-SIGNED</span></p>
-                      <p className="text-emerald-400 font-bold bg-emerald-900/20 p-2 rounded inline-block mt-2">
-                        ✓ Candidate status marked as: DIRECTLY INTERNSHIP-READY
+                  <motion.div
+                    animate={{ y: [8, -8, 8] }}
+                    transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+                    className="absolute right-16 top-1/3 hidden lg:flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-neutral-200/50 shadow-xs text-xs font-mono font-bold text-neutral-800"
+                  >
+                    <Cpu className="w-3.5 h-3.5 text-teal-600 animate-pulse" />
+                    <span>Gemini-1.5-Pro</span>
+                  </motion.div>
+
+                  <motion.div
+                    animate={{ y: [-6, 6, -6] }}
+                    transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
+                    className="absolute left-20 bottom-1/4 hidden lg:flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-neutral-200/50 shadow-xs text-xs font-mono font-semibold text-neutral-600"
+                  >
+                    <Database className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Verified Talent Profile</span>
+                  </motion.div>
+
+                  <motion.div
+                    animate={{ y: [10, -10, 10] }}
+                    transition={{ duration: 5.5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+                    className="absolute right-24 bottom-1/3 hidden lg:flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-neutral-200/50 shadow-xs text-xs font-mono font-semibold text-neutral-600"
+                  >
+                    <LineChart className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>94% Placements KPI</span>
+                  </motion.div>
+
+                  <div className="max-w-5xl mx-auto text-center space-y-10 relative z-10">
+                    
+                    {/* Minimalist Tagline Chip */}
+                    <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-500/20 px-3.5 py-1.5 rounded-full shadow-2xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                      <p className="text-[10px] font-mono font-bold text-emerald-800 uppercase tracking-wider">
+                        Proven Competence • 100% Free Candidate Track
                       </p>
                     </div>
-                  )}
-                </div>
 
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-neutral-900">
-                  <div className="text-neutral-500 text-[10px] text-left">
-                    Target Score Threshold: <span className="text-white font-semibold">90/100</span> to attain Verified Seal
+                    {/* Headline Display Text */}
+                    <div className="max-w-4xl mx-auto space-y-5">
+                      <h1 className="font-display font-semibold text-4xl sm:text-5xl md:text-6.5xl text-neutral-950 tracking-tight leading-[1.08]">
+                        Hire Digital Experts Who have Been{' '}
+                        <strong className="text-emerald-700 bg-emerald-50 px-3 py-0.5 rounded-xl border border-emerald-500/10 font-bold block sm:inline-block mt-2 sm:mt-0">
+                          Trained, Tested & Verified
+                        </strong>
+                      </h1>
+                      
+                      <p className="text-sm sm:text-base md:text-lg text-neutral-500 max-w-2xl mx-auto leading-relaxed font-normal font-secondary">
+                        DSP Talent Hub bridges the trust gap. We vet candidates through "The Gauntlet" — a brutal 48-hour scenario-based assessment that filters for real-world execution. Most applicants fail within the first two hours.
+                      </p>
+                    </div>
+
+                    {/* High Precision CTA Action Buttons */}
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 max-w-md mx-auto">
+                      <button
+                        onClick={() => navigateToPage('directory')}
+                        className="w-full bg-neutral-950 hover:bg-neutral-900 text-white font-bold px-7 py-3 rounded-xl text-xs flex items-center justify-center gap-2 transition duration-200 cursor-pointer shadow-md"
+                      >
+                        <span>Search Filter Directory</span>
+                        <ArrowRight className="w-4 h-4 text-emerald-400" />
+                      </button>
+
+                      <button
+                        onClick={() => navigateToPage('tracks')}
+                        className="w-full bg-white hover:bg-neutral-50 text-neutral-800 font-bold px-7 py-3 rounded-xl text-xs border border-neutral-300 flex items-center justify-center gap-2 transition duration-200 cursor-pointer shadow-xs"
+                      >
+                        <span>Analyze Fellowship Tracks</span>
+                        <ArrowUpRight className="w-4 h-4 text-emerald-500" />
+                      </button>
+                    </div>
+
+                    {/* Large Blueprint Teaser Illustration */}
+                    <div className="pt-8 max-w-5xl mx-auto">
+                      <div className="bg-white border border-neutral-200/70 rounded-3xl p-5 md:p-7 shadow-xs">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-neutral-200/50 pb-4 mb-6 text-left">
+                          <div>
+                            <span className="text-[10px] uppercase font-mono font-bold text-neutral-400 tracking-widest">DSP Protocol Engine</span>
+                            <h3 className="font-display font-medium text-lg text-neutral-900">Interactive Talent Placement Lifecycle</h3>
+                          </div>
+                          <button 
+                            onClick={() => navigateToPage('how-it-works')}
+                            className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1.5 pt-2 sm:pt-0 cursor-pointer"
+                          >
+                            <span>How Vetting works</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <HeroInteractivePipeline />
+                      </div>
+                    </div>
+
+                    {/* Supported Roles Directory Summary */}
+                    <div className="pt-6 flex flex-wrap justify-center items-center gap-x-10 gap-y-3.5 text-[11px] text-neutral-500 font-mono">
+                      <span className="font-bold text-neutral-400 uppercase tracking-widest">Verified Roles:</span>
+                      <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-500 stroke-[2.5]" /> AI AUTOMATION ARCHITECTS</span>
+                      <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-500 stroke-[2.5]" /> TECHNICAL SEO MANAGERS</span>
+                      <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-500 stroke-[2.5]" /> PAID SEARCH SPECIALISTS</span>
+                    </div>
+
                   </div>
+                </section>
+
+                {/* 3 CORE PILLARS TEASER CARD SECTION */}
+                <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white border-b border-neutral-100">
+                  <div className="max-w-6xl mx-auto space-y-12">
+                    <div className="text-center max-w-2xl mx-auto space-y-3">
+                      <span className="text-[10px] font-mono font-bold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-0.5 rounded">Core Foundations</span>
+                      <h2 className="font-display font-medium text-2xl sm:text-3xl text-neutral-950 tracking-tight">Vetting Designed Around Evidence</h2>
+                      <p className="text-neutral-500 text-xs sm:text-sm font-secondary">
+                        Traditional job boards rely on unchecked claims. DSP Talent Hub establishes truth by testing actual operational outputs inside secure instances.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+                      <div className="border border-neutral-200/60 p-6 sm:p-8 rounded-2xl bg-neutral-50/50 hover:bg-neutral-50 hover:border-neutral-900 transition-all duration-350 flex flex-col justify-between">
+                        <div className="space-y-4">
+                          <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 border border-orange-200/50 flex items-center justify-center">
+                            <AlertCircle className="w-5 h-5" />
+                          </div>
+                          <h3 className="font-display font-bold text-neutral-900 text-base">The System Is Broken</h3>
+                          <p className="text-neutral-500 text-xs leading-relaxed font-secondary">
+                            Mismatched talent outcomes waste recruitment capital and drag down operational velocity. Resumes do not show practical engineering capability.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => navigateToPage('problem')}
+                          className="mt-6 inline-flex items-center gap-1 text-xs font-bold text-neutral-800 hover:text-emerald-600 self-start cursor-pointer text-left"
+                        >
+                          <span>Analyze Broken Sourcing</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="border border-neutral-200/60 p-6 sm:p-8 rounded-2xl bg-neutral-50/50 hover:bg-neutral-50 hover:border-neutral-900 transition-all duration-350 flex flex-col justify-between">
+                        <div className="space-y-4">
+                          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/50 flex items-center justify-center">
+                            <Activity className="w-5 h-5" />
+                          </div>
+                          <h3 className="font-display font-bold text-neutral-900 text-base">Metric-Driven Performance Exams</h3>
+                          <p className="text-neutral-500 text-xs leading-relaxed font-secondary">
+                            We deploy advanced diagnostic test suites targeting complex workloads (workflow automation, search visibility, launching paid marketing clusters) and review real deliverables.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => navigateToPage('how-it-works')}
+                          className="mt-6 inline-flex items-center gap-1 text-xs font-bold text-neutral-800 hover:text-emerald-600 self-start cursor-pointer text-left"
+                        >
+                          <span>View Our Vetting Standards</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="border border-neutral-200/60 p-6 sm:p-8 rounded-2xl bg-neutral-50/50 hover:bg-neutral-50 hover:border-neutral-900 transition-all duration-350 flex flex-col justify-between">
+                        <div className="space-y-4">
+                          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-200/50 flex items-center justify-center">
+                            <FileText className="w-5 h-5" />
+                          </div>
+                          <h3 className="font-display font-bold text-neutral-900 text-base">Verified Performance Dossier</h3>
+                          <p className="text-neutral-500 text-xs leading-relaxed font-secondary">
+                            We compile rigorous hands-on performance results, completed milestone project deliverables, and real 12-week commercial placement metrics into an authenticated dossier for each candidate.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => navigateToPage('portfolio')}
+                          className="mt-6 inline-flex items-center gap-1 text-xs font-bold text-neutral-800 hover:text-emerald-600 self-start cursor-pointer text-left"
+                        >
+                          <span>Explore Certified Portfolios</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* VETTING EXPLAINER TEASER SLIDER (Interative badge dashboard widget) */}
+                <section className="py-20 px-4 sm:px-6 lg:px-8 bg-neutral-50/40 border-b border-neutral-200/30">
+                  <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+                    
+                    <div className="lg:col-span-5 text-left space-y-5">
+                      <span className="text-[10px] font-mono font-bold text-emerald-600 uppercase tracking-widest bg-emerald-100/60 px-2.5 py-1 rounded">Vetting Protocol Seal</span>
+                      <h2 className="font-display font-medium text-3xl text-neutral-950 tracking-tight leading-none">Standardized Quality Seals</h2>
+                      <p className="text-neutral-500 text-sm leading-relaxed font-secondary">
+                        We append audited, tamper-proof quality badges containing actual grading metrics. Sourcing teams can directly view score diagnostics for every single individual.
+                      </p>
+                      
+                      <div className="space-y-2 pt-2">
+                        {TRUST_BADGES.slice(0, 3).map((badge) => (
+                          <button
+                            key={badge.id}
+                            onClick={() => {
+                              setSelectedBadgeId(badge.id);
+                              navigateToPage('badges');
+                            }}
+                            className="w-full text-left p-3.5 rounded-xl border border-neutral-200/60 bg-white hover:border-neutral-900 cursor-pointer flex items-center gap-3 transition-all duration-200"
+                          >
+                            <div className={`w-8 h-8 rounded-lg ${badge.bgColor} ${badge.borderColor} ${badge.textColor} flex items-center justify-center border font-bold text-xs`}>
+                              <ShieldCheck className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="font-bold text-xs text-neutral-900">{badge.name}</p>
+                              <p className="text-[11px] text-neutral-400 font-secondary mt-0.5">{badge.tagline}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+
+                      <button
+                        onClick={() => navigateToPage('badges')}
+                        className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 pt-2 cursor-pointer"
+                      >
+                        <span>View Vetting Schema Standards</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="lg:col-span-1" />
+
+                    <div className="lg:col-span-6 bg-white border border-neutral-200/85 p-6 md:p-8 rounded-3xl text-left space-y-6 shadow-xs relative">
+                      <div className="absolute right-0 top-0 w-24 h-24 bg-emerald-500/5 rounded-full pointer-events-none blur-xl" />
+                      <div className="flex items-center gap-2">
+                        <Activity className="w-5 h-5 text-emerald-600" />
+                        <span className="font-mono text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Dynamic Skills Assessment Simulator</span>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <h4 className="font-display font-bold text-neutral-900 text-lg">Verify Real-World Performance</h4>
+                        <p className="text-xs text-neutral-500 font-secondary leading-relaxed">
+                          Click below to execute the live simulator and observe how the DSP Talent Hub platform audits technical skills, API workflows, and keyword strategy execution.
+                        </p>
+
+                        <div className="bg-neutral-950 text-neutral-200 rounded-xl p-4 md:p-5 border border-neutral-900 font-mono text-xs space-y-2 h-[220px] overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-800">
+                          <p className="text-neutral-500"># Initializing "The Gauntlet" telemetry parser...</p>
+                          <p className="text-neutral-400"># Candidate Reference: Alex Rivera (AI Automation)</p>
+                          {testStage === 'idle' && (
+                            <p className="text-amber-500 animate-pulse">⚡ Status: STANDBY. Click "Run Skills Evaluation" below to simulate assessment audits.</p>
+                          )}
+                          {testStage === 'testing' && (
+                            <div className="space-y-1.5">
+                              <p className="text-blue-400 animate-pulse">⚡ Actively tracking execution scorecard: {testResultScore}% completed...</p>
+                              {getGauntletLogs(testResultScore).map((log, i) => (
+                                <p key={i} className="text-neutral-300 text-[11px] pl-2 border-l border-neutral-800 animate-fade-in">{log}</p>
+                              ))}
+                            </div>
+                          )}
+                          {testStage === 'verified' && (
+                            <div className="space-y-2">
+                              <p className="text-emerald-400 font-bold">✓ GAUNTLET AUDIT COMPLETED: {testResultScore}/100 certified.</p>
+                              <p className="text-neutral-400">Status: CREDENTIALS SIGNED & DIGITALLY APPROVED.</p>
+                              <p className="text-amber-500 font-semibold text-[11px]">★ Elite 5% Top Performer approved for Active Placement Sourcing.</p>
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          onClick={runVettingSimulation}
+                          disabled={testStage === 'testing'}
+                          className="w-full bg-neutral-950 hover:bg-neutral-900 text-white font-bold py-3 px-5 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          <Zap className="w-4 h-4 text-emerald-400 animate-pulse" />
+                          <span>{testStage === 'testing' ? 'Evaluating Skills...' : 'Run Skills Evaluation'}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                  </div>
+                </section>
+
+                {/* COUNTERS STATS */}
+                <section className="py-16 px-4 bg-zinc-50 border-b border-neutral-200/30">
+                  <div className="max-w-4xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-8 text-center text-neutral-900">
+                    <div className="space-y-1">
+                      <p className="font-display font-bold text-3xl sm:text-4xl text-neutral-950">{stats.verifiedTalent.toLocaleString()}+</p>
+                      <p className="text-[11px] font-mono font-bold uppercase text-neutral-400 tracking-wider">Vetted Dossiers</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-display font-bold text-3xl sm:text-4xl text-neutral-1000 text-neutral-950">{stats.internshipsCompleted.toLocaleString()}+</p>
+                      <p className="text-[11px] font-mono font-bold uppercase text-neutral-400 tracking-wider">Managed Placements</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-display font-bold text-3xl sm:text-4xl text-neutral-950">{stats.employersHiring.toLocaleString()}+</p>
+                      <p className="text-[11px] font-mono font-bold uppercase text-neutral-400 tracking-wider">Hiring Agencies</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-display font-bold text-3xl sm:text-4xl text-neutral-950">{stats.projectsDelivered.toLocaleString()}+</p>
+                      <p className="text-[11px] font-mono font-bold uppercase text-neutral-400 tracking-wider">Audited Deliverables</p>
+                    </div>
+                  </div>
+                </section>
+
+                <FAQSection />
+              </div>
+            )}
+
+
+            {/* ======================================= */}
+            {/* VIEW 2 — THE PROBLEM PAGE               */}
+            {/* ======================================= */}
+            {currentPage === 'problem' && (
+              <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+                <div className="max-w-4xl mx-auto space-y-16 text-left">
                   
-                  <button
-                    onClick={runVettingSimulation}
-                    disabled={testStage === 'testing'}
-                    className={`px-4 py-2.5 rounded-xl uppercase tracking-wider font-bold text-xs flex items-center justify-center gap-1.5 w-full sm:w-auto transition cursor-pointer ${
-                      testStage === 'testing'
-                        ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
-                        : 'bg-[#10b981] hover:bg-emerald-600 text-neutral-950'
-                    }`}
-                  >
-                    <Zap className="w-3.5 h-3.5" />
-                    <span>Evaluate Portfolio</span>
-                  </button>
-                </div>
-
-              </div>
-
-            </div>
-          </div>
-        </section>
-
-        {/* ======================================= */}
-        {/* SECTION 4 — CHOOSE YOUR PATH            */}
-        {/* ======================================= */}
-        <section id="choose-your-path" className="py-20 px-4 sm:px-6 lg:px-8 bg-white relative">
-          <div className="max-w-7xl mx-auto space-y-16">
-            
-            {/* Section Header */}
-            <div className="text-center max-w-3xl mx-auto space-y-4">
-              <span className="text-xs font-mono font-bold text-brand-dark uppercase tracking-widest block">Core Pathways</span>
-              <h2 className="font-display font-medium text-3xl sm:text-4.5xl text-neutral-950 tracking-tight">Choose Your Track</h2>
-              <p className="text-neutral-600 text-sm max-w-xl mx-auto">
-                Verifolio services two distinct talent categories to match the growth velocity and operational standards of modern teams.
-              </p>
-            </div>
-
-            {/* 2 Large Cards */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
-              
-              {/* Card One: Internship Track */}
-              <div className="bg-[#fafbfa] border-2 border-neutral-200 hover:border-neutral-900 p-8 md:p-10 rounded-3xl flex flex-col justify-between text-left transition-all duration-300 shadow-xs hover:shadow-md relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-lg pointer-events-none" />
-                
-                <div className="space-y-6">
-                  <div className="inline-flex items-center gap-1.5 uppercase font-mono text-[10px] font-bold bg-neutral-900 text-emerald-400 px-3 py-1 rounded-full">
-                    <span>Aspiring Professionals</span>
-                  </div>
-
-                  <div className="space-y-2">
-                    <h3 className="font-display font-bold text-2xl text-neutral-950">Internship Track</h3>
-                    <p className="text-neutral-500 text-sm leading-relaxed">
-                      Perfect for aspiring digital professionals looking to gain practical experience and kickstart their commercial marketing or automation career.
+                  {/* Page Title */}
+                  <div className="space-y-4">
+                    <span className="text-[10px] uppercase font-mono font-bold text-neutral-400 tracking-widest block">Operational Inefficiencies</span>
+                    <h1 className="font-display font-bold text-4xl sm:text-5xl text-neutral-950 tracking-tight leading-none">
+                      Why Resume Sourcing is Terminally Broken
+                    </h1>
+                    <p className="text-sm sm:text-base text-neutral-500 max-w-2xl font-secondary leading-relaxed">
+                      Traditional hiring lists are plagued with unverified resume padding, excessive recruiting commission fees, and massive mismatch rates, resulting in hundreds of wasted hours.
                     </p>
                   </div>
 
-                  {/* Feature Lists */}
-                  <div className="space-y-3 pt-4 border-t border-neutral-100">
-                    <span className="text-[10px] font-mono font-bold uppercase text-neutral-400 tracking-wider block">Key Deliverables:</span>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {[
-                        { title: 'AI assessment', desc: 'Custom code/performance audit' },
-                        { title: 'Internship matching', desc: 'With top-tier agency partners' },
-                        { title: 'Skill development', desc: 'Expert mentors guidelines' },
-                        { title: 'Portfolio building', desc: 'Chronicles actual deliverables' },
-                        { title: 'Employer visibility', desc: 'Included in active directory list' }
-                      ].map((feat, idx) => (
-                        <div key={idx} className="space-y-0.5">
-                          <div className="text-xs font-semibold text-neutral-900 flex items-center gap-1.5">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-brand-primary flex-shrink-0" />
-                            {feat.title}
-                          </div>
-                          <p className="text-[11px] text-neutral-500 pl-5">{feat.desc}</p>
-                        </div>
-                      ))}
+                  {/* High Contrast Side-by-Side Comparison Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
+                    <div className="border border-red-200/50 p-6 md:p-8 rounded-2xl bg-red-50/10 space-y-6">
+                      <h3 className="font-display font-bold text-neutral-900 text-lg flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                        <span>Traditional Sourcing Models</span>
+                      </h3>
+                      
+                      <ul className="space-y-4 text-xs text-neutral-600 font-secondary">
+                        <li className="flex items-start gap-2.5">
+                          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                          <span><strong>Self-Reported Resumes:</strong> Open to inflation, exaggerations, or unverified software proficiencies.</span>
+                        </li>
+                        <li className="flex items-start gap-2.5">
+                          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                          <span><strong>Prestige-Driven Filtering:</strong> Biased toward university pedigree rather than verified capability.</span>
+                        </li>
+                        <li className="flex items-start gap-2.5">
+                          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                          <span><strong>Extremely Slow Timelines:</strong> Sourcing managers spend weeks filtering, screening, and interviewing.</span>
+                        </li>
+                      </ul>
+                    </div>
+
+                    <div className="border border-emerald-200/50 p-6 md:p-8 rounded-2xl bg-emerald-50/10 space-y-6">
+                      <h3 className="font-display font-bold text-emerald-950 text-lg flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>The DSP Talent Hub Standard</span>
+                      </h3>
+                      
+                      <ul className="space-y-4 text-xs text-neutral-600 font-secondary">
+                        <li className="flex items-start gap-2.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+                          <span><strong>Verified Performance Portfolios:</strong> Every candidate profile displays objective technical exam scores and direct, certified deliverables.</span>
+                        </li>
+                        <li className="flex items-start gap-2.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+                          <span><strong>Competence-First Standard:</strong> Talent is selected purely based on automated operational audits.</span>
+                        </li>
+                        <li className="flex items-start gap-2.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+                          <span><strong>Near-Instant Sourcing:</strong> Employers download structured summaries containing certified scoring records.</span>
+                        </li>
+                      </ul>
                     </div>
                   </div>
-                </div>
 
-                <div className="pt-8">
-                  <button 
-                    onClick={() => {
-                      setTalentForm(prev => ({ ...prev, track: 'Internship Track' }));
-                      setIsTalentModalOpen(true);
-                    }}
-                    className="w-full text-center bg-white hover:bg-neutral-950 hover:text-white border border-neutral-900 text-neutral-900 font-bold py-3.5 px-6 rounded-2xl text-sm transition duration-200 cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    <span>Explore Internship Opportunities</span>
-                    <ArrowRight className="w-4 h-4 text-emerald-500" />
-                  </button>
-                </div>
-              </div>
+                  {/* Systemic Recruitment Obstacles Cards */}
+                  <div className="space-y-6 pt-6">
+                    <h3 className="font-display font-medium text-xl text-neutral-900 border-b border-neutral-100 pb-3">Recruitment Obstacles We Eliminate</h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="p-6 bg-neutral-50 rounded-xl border border-neutral-250/20 space-y-2">
+                        <p className="font-mono text-xs font-bold text-neutral-400">OBSTACLE 01</p>
+                        <h4 className="font-bold text-neutral-950 text-sm">Skills Bluffing</h4>
+                        <p className="text-xs text-neutral-500 leading-relaxed font-secondary">
+                          "Familiar with SEO" often means watching a quick video tutorial. We enforce actual competency exams ensuring true platform capability.
+                        </p>
+                      </div>
 
-              {/* Card Two: Professional Track */}
-              <div className="bg-[#fafbfa] border-2 border-neutral-200 hover:border-neutral-900 p-8 md:p-10 rounded-3xl flex flex-col justify-between text-left transition-all duration-300 shadow-xs hover:shadow-md relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-teal-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-lg pointer-events-none" />
-                
-                <div className="space-y-6">
-                  <div className="inline-flex items-center gap-1.5 uppercase font-mono text-[10px] font-bold bg-[#10b981]/20 text-brand-dark px-3 py-1 rounded-full border border-[#10b981]/30">
-                    <span>Immediate Employment Hiring</span>
+                      <div className="p-6 bg-neutral-50 rounded-xl border border-neutral-250/20 space-y-2">
+                        <p className="font-mono text-xs font-bold text-neutral-400">OBSTACLE 02</p>
+                        <h4 className="font-bold text-neutral-950 text-sm">Long Sourcing Lag</h4>
+                        <p className="text-xs text-neutral-500 leading-relaxed font-secondary">
+                          Agencies waste weeks checking references. We make performance scores transparent, lowering hiring timelines by several weeks.
+                        </p>
+                      </div>
+
+                      <div className="p-6 bg-neutral-50 rounded-xl border border-neutral-250/20 space-y-2">
+                        <p className="font-mono text-xs font-bold text-neutral-450">OBSTACLE 03</p>
+                        <h4 className="font-bold text-neutral-950 text-sm">Absence of Oversight</h4>
+                        <p className="text-xs text-neutral-500 leading-relaxed font-secondary">
+                          Internships lack structured accountability benchmarks. We continuously track commercial deliverables during matched 12-week placements.
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <h3 className="font-display font-bold text-2xl text-neutral-950">Professional Track</h3>
-                    <p className="text-neutral-500 text-sm leading-relaxed">
-                      For certified commercial specialists seeking immediate full-time, part-time, freelance, or remote digital opportunities with established teams.
+                  {/* Direct Call to Action */}
+                  <div className="bg-neutral-950 text-white rounded-3xl p-6 sm:p-10 text-center space-y-6 relative overflow-hidden">
+                    <div className="absolute right-0 top-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-xl pointer-events-none" />
+                    <h3 className="font-display font-bold text-2xl sm:text-3xl text-white">Ready to transition to an evidence-based hiring protocol?</h3>
+                    <p className="text-neutral-400 text-xs sm:text-sm max-w-xl mx-auto font-secondary">
+                      Stop guessing. Browse the active, verified roster now, or submit your specific tech placement criteria.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                      <button 
+                        onClick={() => navigateToPage('directory')} 
+                        className="w-full sm:w-auto bg-[#10b981] hover:bg-emerald-500 text-neutral-950 font-bold px-6 py-3 rounded-xl text-xs uppercase tracking-wider cursor-pointer"
+                      >
+                        Explore Roster
+                      </button>
+                      <button 
+                        onClick={() => setIsHireModalOpen(true)}
+                        className="w-full sm:w-auto bg-neutral-900 border border-neutral-800 text-white font-bold px-6 py-3 rounded-xl text-xs uppercase tracking-wider cursor-pointer"
+                      >
+                        Request Custom Shortlist
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+              </section>
+            )}
+
+
+            {/* ======================================= */}
+            {/* VIEW 3 — HOW IT WORKS PAGE              */}
+            {/* ======================================= */}
+            {currentPage === 'how-it-works' && (
+              <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+                <div className="max-w-5xl mx-auto space-y-16 text-left">
+                  
+                  {/* Page Title */}
+                  <div className="space-y-4">
+                    <span className="text-[10px] uppercase font-mono font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-sm tracking-wider inline-block">The Five Stages</span>
+                    <h1 className="font-display font-bold text-4xl sm:text-5xl text-neutral-950 tracking-tight leading-none">
+                      How DSP Talent Hub Vetting Runs
+                    </h1>
+                    <p className="text-sm sm:text-base text-neutral-500 max-w-2xl font-secondary leading-relaxed">
+                      Our system is designed to provide complete protection against credential bluffing through robust skill testing, identity audits, and placement dashboards.
                     </p>
                   </div>
 
-                  {/* Feature Lists */}
-                  <div className="space-y-3 pt-4 border-t border-neutral-100">
-                    <span className="text-[10px] font-mono font-bold uppercase text-neutral-400 tracking-wider block">Key Deliverables:</span>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {[
-                        { title: 'Advanced assessment', desc: 'Enterprise scenario stress test' },
-                        { title: 'Talent verification', desc: 'Secure KYC & references audit' },
-                        { title: 'Portfolio showcase', desc: 'Interactive live analytics charts' },
-                        { title: 'Employer discovery', desc: 'Direct direct match interface' },
-                        { title: 'Career growth', desc: 'Transition pipeline to director' }
-                      ].map((feat, idx) => (
-                        <div key={idx} className="space-y-0.5">
-                          <div className="text-xs font-semibold text-neutral-900 flex items-center gap-1.5">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-                            {feat.title}
-                          </div>
-                          <p className="text-[11px] text-neutral-500 pl-5">{feat.desc}</p>
-                        </div>
-                      ))}
-                    </div>
+                  {/* Five Step Visualizer element */}
+                  <div className="border border-neutral-100 rounded-3xl p-5 md:p-8 bg-zinc-50/60 shadow-2xs">
+                    <FiveStepVisualizer />
                   </div>
-                </div>
 
-                <div className="pt-8">
-                  <button 
-                    onClick={() => {
-                      setTalentForm(prev => ({ ...prev, track: 'Professional Track' }));
-                      setIsTalentModalOpen(true);
-                    }}
-                    className="w-full text-center bg-neutral-900 hover:bg-white hover:text-neutral-950 hover:border-neutral-900 text-white font-bold py-3.5 px-6 rounded-2xl text-sm transition duration-200 cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    <span>Explore Professional Opportunities</span>
-                    <ArrowRight className="w-4 h-4 text-emerald-400" />
-                  </button>
-                </div>
-              </div>
+                  {/* Real Vetting Simulator Sandbox Interface */}
+                  <div className="bg-neutral-50 border border-neutral-200 p-6 md:p-10 rounded-3xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                    
+                    <div className="lg:col-span-5 space-y-5">
+                      <div className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-800 border-emerald-200 border text-xs font-mono px-3 py-1 rounded-full font-bold">
+                        <Activity className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+                        <span>Interactive Competency Demo</span>
+                      </div>
+                      <h3 className="font-display font-bold text-2xl text-neutral-900 leading-tight">
+                        Experience Our Automated Evaluation Sequence
+                      </h3>
+                      <p className="text-xs text-neutral-500 leading-relaxed font-secondary">
+                        Pick a target role and check how DSP Talent Hub reviews technical capability. Every live audit inspects execution accuracy and grading thresholds before certifying candidate portfolios.
+                      </p>
 
-            </div>
-
-          </div>
-        </section>
-
-        {/* ======================================= */}
-        {/* SECTION 5 — WHY EMPLOYERS TRUST US      */}
-        {/* ======================================= */}
-        <section id="trust-badges" className="py-20 px-4 sm:px-6 lg:px-8 bg-neutral-50/50 border-y border-neutral-100 text-center relative">
-          <div className="max-w-7xl mx-auto space-y-12">
-            
-            <div className="space-y-4 max-w-3xl mx-auto">
-              <span className="text-xs font-mono font-bold text-brand-dark uppercase tracking-widest block">Strict Evaluation Protocol</span>
-              <h2 className="font-display font-medium text-3xl sm:text-4.5xl text-neutral-950 tracking-tight">Every Listed Talent Has Been Evaluated</h2>
-              <p className="text-neutral-600 text-sm max-w-xl mx-auto">
-                No self-appointed claims or inflated resumes. We audit every single candidate across multiple tiers, appending specific quality badges containing encrypted performance data.
-              </p>
-            </div>
-
-            {/* Interactive Badge List & Panel */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch max-w-5xl mx-auto text-left">
-              
-              {/* Badges Stack Left */}
-              <div className="lg:col-span-5 flex flex-col gap-3">
-                {TRUST_BADGES.map((badge) => {
-                  const isSelected = selectedBadgeId === badge.id;
-                  return (
-                    <button
-                      key={badge.id}
-                      onClick={() => setSelectedBadgeId(badge.id)}
-                      className={`p-4 rounded-2xl border text-left flex items-center justify-between transition-all duration-350 cursor-pointer ${
-                        isSelected 
-                          ? 'bg-white border-neutral-950 shadow-md ring-1 ring-neutral-950/5' 
-                          : 'bg-white border-neutral-200/50 hover:border-neutral-300 text-neutral-600'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center border font-semibold ${badge.bgColor} ${badge.borderColor} ${badge.textColor}`}>
-                          <ShieldCheck className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <p className="font-display font-semibold text-neutral-950 text-sm">{badge.name}</p>
-                          <p className="text-[11px] text-neutral-400 mt-0.5">{badge.tagline}</p>
+                      <div className="space-y-3 pt-2">
+                        <div className="flex gap-2 flex-wrap items-center">
+                          <label className="text-[10px] font-mono text-neutral-400 font-bold uppercase">Target Specialization:</label>
+                          <div className="flex gap-1.5">
+                            {(['AI Automation', 'SEO', 'PPC'] as const).map((r) => (
+                              <button
+                                key={r}
+                                onClick={() => {
+                                  setSandboxRole(r);
+                                  setSandboxCandidateName(r === 'SEO' ? 'Amara Okafor' : r === 'PPC' ? 'Liam Vance' : 'Marcus Chen');
+                                  setTestStage('idle');
+                                }}
+                                className={`text-[10px] uppercase font-mono font-bold px-2.5 py-1 rounded-lg border cursor-pointer transition ${
+                                  sandboxRole === r 
+                                    ? 'border-neutral-950 bg-neutral-950 text-white' 
+                                    : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
+                                }`}
+                              >
+                                {r}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-neutral-400" />
-                    </button>
-                  );
-                })}
-              </div>
+                    </div>
 
-              {/* Explainer Panel Right */}
-              <div className="lg:col-span-7">
-                <div className="bg-white border-2 border-neutral-900 rounded-3xl p-6 md:p-10 h-full flex flex-col justify-between space-y-6 shadow-md">
-                  {TRUST_BADGES.map((badge) => {
-                    if (badge.id !== selectedBadgeId) return null;
-                    return (
-                      <div key={badge.id} className="space-y-6 text-left flex flex-col justify-between h-full">
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-2">
-                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                            <span className="text-[10px] uppercase font-mono text-neutral-400 font-bold">Standard Certification Protocol</span>
-                          </div>
-                          
-                          <div className="space-y-1">
-                            <h3 className="font-display font-bold text-3xl text-neutral-950 flex items-center gap-2">
-                              {badge.name} 
-                              <span className="text-xs bg-emerald-100 text-brand-dark px-2 py-0.5 rounded-md font-mono font-normal">Active Seal</span>
-                            </h3>
-                            <p className="text-emerald-700 font-mono text-xs font-semibold">{badge.tagline.toUpperCase()}</p>
-                          </div>
+                    <div className="lg:col-span-7 bg-neutral-950 text-neutral-200 rounded-2xl p-5 md:p-6 border border-neutral-900 shadow-xl font-mono text-xs space-y-4">
+                      
+                      <div className="flex items-center justify-between border-b border-neutral-900 pb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2.5 h-2.5 rounded-full bg-red-400"></div>
+                          <div className="w-2.5 h-2.5 rounded-full bg-yellow-400"></div>
+                          <div className="w-2.5 h-2.5 rounded-full bg-green-400"></div>
+                        </div>
+                        <span className="text-neutral-500 text-[10px]">DSP-GAUNTLET-v3.0.sh</span>
+                        <span className="text-neutral-500 text-[10px]">Status: ONLINE</span>
+                      </div>
 
-                          <p className="text-sm text-neutral-600 leading-relaxed pt-2">
-                            {badge.description}
+                      <div className="space-y-2 font-mono leading-relaxed h-[220px] overflow-y-auto text-neutral-300 bg-neutral-950 p-3 rounded-xl border border-neutral-800 scrollbar-thin scrollbar-thumb-neutral-800">
+                        <p className="text-neutral-500"># DSP Talent Hub evaluation engine initialized.</p>
+                        <p className="text-neutral-450 flex items-center gap-1.5">
+                          <span className="text-emerald-400">$</span> run-gauntlet --target="{sandboxCandidateName}" --track="{sandboxRole}"
+                        </p>
+                        
+                        {testStage === 'idle' && (
+                          <p className="text-amber-500 animate-pulse">✓ Ready. Click "Evaluate Portfolio" below to run interactive "Gauntlet" checks.</p>
+                        )}
+
+                        {testStage === 'testing' && (
+                          <div className="space-y-1.5">
+                            <p className="text-blue-400 animate-pulse">⚡ Executing robust 48h active diagnostic telemetry [Completion: {testResultScore}%]</p>
+                            {getGauntletLogs(testResultScore).map((log, i) => (
+                              <p key={i} className="text-neutral-400 text-xs pl-2 border-l border-neutral-800 animate-fade-in">{log}</p>
+                            ))}
+                          </div>
+                        )}
+
+                        {testStage === 'verified' && (
+                          <div className="space-y-2 text-neutral-300">
+                            <p className="text-emerald-400 font-bold">✓ THE GAUNTLET PASSED FOR {sandboxCandidateName.toUpperCase()}</p>
+                            <p className="text-neutral-450">· Verified Score: <span className="text-white font-bold">{testResultScore} / 100</span> (Threshold: 90)</p>
+                            <p className="text-neutral-450">· Vetting Status: <span className="text-emerald-500 font-bold">LICENSED & DEPLOYABLE</span></p>
+                            <p className="text-neutral-500"># Real-world outputs audited. Account added to live discoverable roster.</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-neutral-900">
+                        <div className="text-neutral-500 text-[10px] text-left">
+                          Required Score: <span className="text-white font-semibold">90/100</span> to attain stamp seal
+                        </div>
+                        
+                        <button
+                          onClick={runVettingSimulation}
+                          disabled={testStage === 'testing'}
+                          className={`px-4 py-2 rounded-xl uppercase tracking-wider font-bold text-xs flex items-center justify-center gap-1.5 w-full sm:w-auto transition cursor-pointer ${
+                            testStage === 'testing'
+                              ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
+                              : 'bg-emerald-500 hover:bg-emerald-600 text-neutral-950'
+                          }`}
+                        >
+                          <Zap className="w-3 h-3" />
+                          <span>Evaluate Portfolio</span>
+                        </button>
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                </div>
+              </section>
+            )}
+
+
+            {/* ======================================= */}
+            {/* VIEW 4 — CHOOSE YOUR TRACK PAGE          */}
+            {/* ======================================= */}
+            {currentPage === 'tracks' && (
+              <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+                <div className="max-w-6xl mx-auto space-y-16 text-left">
+                  
+                  {/* Page Title */}
+                  <div className="text-center max-w-2xl mx-auto space-y-3">
+                    <span className="text-[10px] uppercase font-mono font-bold text-neutral-450 bg-emerald-50 text-emerald-800 border border-emerald-500/20 px-3 py-1 rounded-full tracking-wider inline-block">Fellowship Core Tracks</span>
+                    <h1 className="font-display font-medium text-4xl text-neutral-950 tracking-tight leading-none">
+                      Select Your Placement Track
+                    </h1>
+                    <p className="text-neutral-500 text-sm max-w-xl mx-auto font-secondary">
+                      DSP Talent Hub services two core pathways designed to support the growth standards of digital marketing agencies and enterprise operations.
+                    </p>
+                  </div>
+
+                  {/* Track Cards */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto pt-6">
+                    
+                    {/* Internship Track */}
+                    <div className="border-2 border-neutral-200 hover:border-neutral-900 p-8 md:p-10 rounded-3xl bg-neutral-50/40 relative overflow-hidden flex flex-col justify-between transition-all duration-300 group shadow-xs">
+                      <div className="space-y-6">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase text-emerald-700 bg-emerald-50 border border-emerald-200/50 px-2.5 py-1 rounded">
+                          MENTORED ENTRY PROGRAM
+                        </span>
+                        
+                        <div className="space-y-2">
+                          <h3 className="font-display font-bold text-2xl text-neutral-950">Internship Track</h3>
+                          <p className="text-neutral-500 text-xs sm:text-sm font-secondary leading-relaxed">
+                            For aspiring candidates seeking hands-on, practical commercial experience in digital roles. Build valid deliverables and match to structured 12-week placements with stellar mentors.
                           </p>
                         </div>
 
-                        {/* Audit check items */}
-                        <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200 space-y-3">
-                          <span className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider block font-bold">Vetting Checklist Processed:</span>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                            <div className="flex items-center gap-2">
-                              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                              <span>Standard KYC Reference</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                              <span>IP Anti-Cheat Exam Audit</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                              <span>Live Mentor Performance Panel</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                              <span>Output Ledger Cryptography Sync</span>
-                            </div>
+                        <div className="pt-4 border-t border-neutral-100 space-y-3">
+                          <p className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-widest">Key Deliverables:</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-neutral-700">
+                            <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" /> 100% Free fellowship checks</div>
+                            <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" /> Hands-on practical diagnostics</div>
+                            <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" /> Verified placement stipend</div>
+                            <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" /> Roster discoverability</div>
                           </div>
                         </div>
+                      </div>
 
-                        <a 
-                          href="#live-talent-directory"
-                          className="w-full text-center bg-neutral-900 hover:bg-neutral-800 text-white font-bold py-3 rounded-2xl text-xs flex items-center justify-center gap-2"
+                      <div className="pt-8">
+                        <button
+                          onClick={() => {
+                            setTalentForm(prev => ({ ...prev, track: 'Internship Track' }));
+                            setIsTalentModalOpen(true);
+                          }}
+                          className="w-full text-center bg-white hover:bg-neutral-950 hover:text-white border border-neutral-900 text-neutral-900 font-bold py-3 px-5 rounded-xl text-xs transition duration-200 cursor-pointer flex items-center justify-center gap-1.5"
                         >
-                          <span>Filter Directory For {badge.name}s</span>
-                          <ArrowRight className="w-3.5 h-3.5 text-emerald-400" />
-                        </a>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-            </div>
-
-          </div>
-        </section>
-
-        {/* ======================================= */}
-        {/* SECTION 6 — LIVE TALENT DIRECTORY PREVIEW*/}
-        {/* ======================================= */}
-        <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[#fafbfa] border-b border-neutral-100">
-          <div className="max-w-7xl mx-auto space-y-12">
-            
-            {/* Section Header */}
-            <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6">
-              <div className="space-y-4 text-left">
-                <span className="text-xs font-mono font-bold text-brand-dark bg-brand-light border border-brand-200/50 px-3.5 py-1.5 rounded-full uppercase tracking-widest inline-block">Real-time Catalog</span>
-                <h2 className="font-display font-medium text-3xl sm:text-4.5xl text-neutral-950 tracking-tight leading-none">
-                  Live Talent Directory
-                </h2>
-                <p className="text-neutral-600 text-sm max-w-xl font-normal leading-relaxed">
-                  Search, inspect, and connect directly with vetted internship and employment professionals. Click on a candidate to view their complete metric breakdown and Living Portfolio deliverables.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-1.5 text-xs text-neutral-500 self-start md:self-end font-mono">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-                <span>Ledger Synchronized with 8 Cohorts</span>
-              </div>
-            </div>
-
-            {/* Imported directory component */}
-            <TalentDirectory />
-
-          </div>
-        </section>
-
-        {/* ======================================= */}
-        {/* SECTION 7 — PORTFOLIO ECOSYSTEM         */}
-        {/* ======================================= */}
-        <section id="portfolio-ecosystem" className="py-20 px-4 sm:px-6 lg:px-8 bg-neutral-950 text-white relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-1/4 h-1/4 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:20px_20px] opacity-10 pointer-events-none" />
-          
-          <div className="max-w-7xl mx-auto space-y-12">
-            
-            <div className="text-center max-w-3xl mx-auto space-y-4">
-              <span className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-widest block">No Prior Experience Required</span>
-              <h2 className="font-display font-medium text-3xl sm:text-4.5xl tracking-tight">Every Talent Builds a Living Portfolio</h2>
-              <p className="text-neutral-400 text-sm max-w-xl mx-auto">
-                Candidates do not need established portfolios before joining. The Verifolio platform enables them to construct a validated showcase naturally as they deliver items.
-              </p>
-            </div>
-
-            {/* Living Portfolio visualizer blocks */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-6">
-              
-              <div className="bg-neutral-900 border border-neutral-800 p-6 sm:p-8 rounded-3xl text-left space-y-4">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold">
-                  01
-                </div>
-                <h4 className="font-display font-semibold text-lg text-white">Audited Class Deliverables</h4>
-                <p className="text-sm text-neutral-400 leading-relaxed">
-                  Every assignment resolved in the training sandbox is converted to an interactive code or operational block on the portfolio ledger, detailing speed analytics and errors audit logs.
-                </p>
-                <div className="pt-2">
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-neutral-500">Includes: API sandboxes, Keyword maps, content clusters</span>
-                </div>
-              </div>
-
-              <div className="bg-neutral-900 border border-neutral-800 p-6 sm:p-8 rounded-3xl text-left space-y-4">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold">
-                  02
-                </div>
-                <h4 className="font-display font-semibold text-lg text-white">12-Week Managed Internships</h4>
-                <p className="text-sm text-neutral-400 leading-relaxed">
-                  As candidates work with scale-up clients during guided internships, they capture real-time KPI data (such as user conversion, PPC savings, organic visits index) into their dashboard.
-                </p>
-                <div className="pt-2">
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-neutral-500">Includes: Live Meta & Google ads accounts metrics, Klaviyo recovery logs</span>
-                </div>
-              </div>
-
-              <div className="bg-neutral-900 border border-neutral-800 p-6 sm:p-8 rounded-3xl text-left space-y-4">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold">
-                  03
-                </div>
-                <h4 className="font-display font-semibold text-lg text-white">Client References & Reviews</h4>
-                <p className="text-sm text-neutral-400 leading-relaxed">
-                  Real employer sponsors review milestones and sign off on credentials. This generates a cryptographic validation block that employers can trace back directly on our platform.
-                </p>
-                <div className="pt-2">
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-neutral-500">Includes: Vetted recommendations, performance reports, scorecard charts</span>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Automated growth pipeline mock ui widget (vibe stripe/ deel style dashboard) */}
-            <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-5 md:p-8 text-left max-w-4xl mx-auto space-y-6">
-              <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                  <span className="font-mono text-xs uppercase text-neutral-400">Verifolio Ledger Event Stream</span>
-                </div>
-                <span className="text-[10px] font-mono text-neutral-500">Updated seconds ago</span>
-              </div>
-
-              <div className="space-y-4 text-xs font-mono">
-                <div className="flex items-start gap-4 p-3 bg-neutral-950 rounded-xl border border-neutral-800">
-                  <div className="bg-emerald-500/10 p-1.5 rounded-lg text-emerald-400 font-bold text-[10px]">COHORT #8</div>
-                  <div className="space-y-1">
-                    <p className="text-white font-semibold">Sarah Jenkins added custom automation deliverable to dossier</p>
-                    <p className="text-neutral-500">"Zapier webhook setup routing 10,000 requests into Notion CRM" - impact verified via API test run (98%)</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-4 p-3 bg-neutral-950 rounded-xl border border-neutral-800">
-                  <div className="bg-blue-500/10 p-1.5 rounded-lg text-blue-400 font-bold text-[10px]">INTERN PLACEMENT</div>
-                  <div className="space-y-1">
-                    <p className="text-white font-semibold">A Acme Analytics approved marketing performance audit</p>
-                    <p className="text-neutral-500">Amara Okafor completed technical SEO directory implementation - organically index page grew traffic by +34%</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </section>
-
-        {/* ======================================= */}
-        {/* SECTION 8 — EMPLOYER SECTION            */}
-        {/* ======================================= */}
-        <section id="employer-features" className="py-20 px-4 sm:px-6 lg:px-8 bg-white border-b border-neutral-100 text-left">
-          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-            
-            <div className="lg:col-span-6 space-y-8">
-              <div className="space-y-4">
-                <span className="text-xs font-mono font-bold text-brand-dark bg-brand-light px-3 py-1 rounded-full uppercase tracking-widest inline-block">For Hiring Managers</span>
-                <h2 className="font-display font-medium text-3.5xl sm:text-4.5xl text-neutral-950 tracking-tight leading-[1.1]">
-                  Find Trusted Talent Without Guesswork
-                </h2>
-                <p className="text-neutral-600 text-sm sm:text-base leading-relaxed">
-                  Stop looking through spam resume pipelines. Verifolio gives standard hiring teams access to vetted, trained, and tested digital executioners who are ready to make a commercial impact on day one.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-neutral-100">
-                {[
-                  { title: 'Verified candidates only', desc: 'No unverified or low-quality applicants' },
-                  { title: 'Skills-based live search', desc: 'Query and sort by real tested scores' },
-                  { title: 'Internship talent pool', desc: '12-week placements with metric tracking' },
-                  { title: 'Professional talent pool', desc: 'Full-time specialists ready to execute' },
-                  { title: 'Assessment records access', desc: 'Inspect code, writing, and strategic plans' },
-                  { title: 'Portfolio visibility', desc: 'Living dossiers synchronized via ledger' }
-                ].map((feat, idx) => (
-                  <div key={idx} className="space-y-1 text-left">
-                    <div className="font-semibold text-sm text-neutral-900 flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-emerald-100 text-brand-dark flex items-center justify-center font-bold text-xs">✓</div>
-                      {feat.title}
-                    </div>
-                    <p className="text-xs text-neutral-500 pl-7">{feat.desc}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="pt-4">
-                <button
-                  onClick={() => setIsHireModalOpen(true)}
-                  className="inline-flex items-center gap-2 bg-neutral-900 hover:bg-neutral-850 text-white font-bold py-4 px-8 rounded-2xl text-sm transition duration-150 cursor-pointer shadow-md"
-                >
-                  <span>Start Sourcing Verified Candidates</span>
-                  <ArrowRight className="w-4 h-4 text-emerald-400" />
-                </button>
-              </div>
-            </div>
-
-            {/* Visual preview representation of search panel */}
-            <div className="lg:col-span-6 bg-[#f3faf5]/50 border border-brand-200/50 p-6 md:p-8 rounded-3xl relative overflow-hidden space-y-6">
-              <div className="absolute right-0 top-0 w-32 h-32 bg-brand-primary/5 rounded-full blur-xl pointer-events-none" />
-              
-              <div className="bg-white rounded-2xl border border-neutral-200 p-5 shadow-sm space-y-4 text-left">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-neutral-900 text-white flex items-center justify-center">
-                    <Search className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h5 className="font-semibold text-xs text-neutral-400 uppercase tracking-widest font-mono">Talent Intelligence Panel</h5>
-                    <p className="text-sm font-semibold text-neutral-800">Advanced Filter: 'AI Automation' + 'Score &gt; 94'</p>
-                  </div>
-                </div>
-
-                <div className="space-y-2 pt-2">
-                  <div className="p-3 bg-neutral-50 rounded-xl flex items-center justify-between border border-neutral-100">
-                    <div className="flex items-center gap-3">
-                      <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150" alt="Marcus" className="w-8 h-8 rounded-full object-cover" />
-                      <div>
-                        <p className="text-xs font-bold text-neutral-950">Marcus Chen</p>
-                        <p className="text-[10px] text-neutral-400">AI Automation Operations</p>
+                          <span>Explore Internship Fellowship</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
-                    <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">99 Grade</span>
-                  </div>
 
-                  <div className="p-3 bg-neutral-50 rounded-xl flex items-center justify-between border border-neutral-100 opacity-80">
-                    <div className="flex items-center gap-3">
-                      <img src="https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&q=80&w=150" alt="Jordan" className="w-8 h-8 rounded-full object-cover" />
-                      <div>
-                        <p className="text-xs font-bold text-neutral-950">Jordan Miller</p>
-                        <p className="text-[10px] text-neutral-400">AI Workflows Developer</p>
+                    {/* Professional Track */}
+                    <div className="border-2 border-neutral-200 hover:border-neutral-900 p-8 md:p-10 rounded-3xl bg-neutral-50/40 relative overflow-hidden flex flex-col justify-between transition-all duration-300 group shadow-xs">
+                      <div className="space-y-6">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase text-white bg-neutral-950 px-2.5 py-1 rounded">
+                          IMMEDIATE ROSTER HIRING
+                        </span>
+                        
+                        <div className="space-y-2">
+                          <h3 className="font-display font-bold text-2xl text-neutral-950">Professional Track</h3>
+                          <p className="text-neutral-500 text-xs sm:text-sm font-secondary leading-relaxed">
+                            For certified marketing, ad tech, and operations specialists seeking instant full-time, part-time, or remote roles. Highlight actual campaign performance and skip screen filters.
+                          </p>
+                        </div>
+
+                        <div className="pt-4 border-t border-neutral-100 space-y-3">
+                          <p className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-widest">Key Deliverables:</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-neutral-700">
+                            <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" /> Advanced performance metrics</div>
+                            <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" /> Verified metric credentials</div>
+                            <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" /> Immediate agency routing</div>
+                            <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" /> Verified salary guarantees</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-8">
+                        <button
+                          onClick={() => {
+                            setTalentForm(prev => ({ ...prev, track: 'Professional Track' }));
+                            setIsTalentModalOpen(true);
+                          }}
+                          className="w-full text-center bg-neutral-950 hover:bg-neutral-900 border border-neutral-950 text-white font-bold py-3 px-5 rounded-xl text-xs transition duration-200 cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <span>Explore Professional Track</span>
+                          <ArrowRight className="w-3.5 h-3.5 text-emerald-450" />
+                        </button>
                       </div>
                     </div>
-                    <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">95 Grade</span>
+
                   </div>
+
                 </div>
-              </div>
+              </section>
+            )}
 
-              <div className="p-4 bg-white/70 rounded-2xl border border-neutral-200 text-xs text-neutral-600 leading-relaxed text-left">
-                ⚡ <strong>Smart Hiring Metric:</strong> Sourcing managers report a 4x drop in interview times and a 94% retention rate on candidates placed from our verified pool.
-              </div>
-            </div>
 
-          </div>
-        </section>
+            {/* ======================================= */}
+            {/* VIEW 5 — DIRECTORY PAGE                 */}
+            {/* ======================================= */}
+            {currentPage === 'directory' && (
+              <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+                <div className="max-w-7xl mx-auto space-y-12 text-left">
+                  
+                  {/* Page Title */}
+                  <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-4 border-b border-neutral-100 pb-8">
+                    <div className="space-y-4">
+                      <span className="text-[10px] uppercase font-mono font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md tracking-wider inline-block">Real-time Catalog</span>
+                      <h1 className="font-display font-medium text-4xl text-neutral-950 tracking-tight leading-none">
+                        Live Talent Directory
+                      </h1>
+                      <p className="text-neutral-500 text-sm max-w-2xl font-secondary">
+                        Search and filter our verified marketing and AI Automation experts. Open individual profiles to inspect audited credentials, score diagnostics, and client references logs.
+                      </p>
+                    </div>
 
-        {/* ======================================= */}
-        {/* SECTION 9 — TALENT SECTION              */}
-        {/* ======================================= */}
-        <section id="join-network-talent" className="py-20 px-4 sm:px-6 lg:px-8 bg-neutral-950 text-white relative">
-          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-            
-            {/* Visual Left Showcase */}
-            <div className="lg:col-span-5 bg-neutral-900 border border-neutral-800 p-6 sm:p-8 rounded-3xl space-y-6 text-left">
-              <span className="text-[10px] uppercase tracking-widest font-mono bg-[#10b981]/20 text-[#10b981] px-2.5 py-1 rounded">
-                Fellowship Sandbox Veto
-              </span>
-              
-              <div className="space-y-4">
-                <h4 className="font-display font-medium text-lg text-white">How Candidates Enter:</h4>
-                <div className="space-y-3 font-mono text-xs text-neutral-400">
-                  <div className="flex items-start gap-2.5">
-                    <span className="text-[#10b981] font-bold">01.</span>
-                    <p>Apply for specialized fellowship.</p>
+                    <div className="flex items-center gap-1.5 text-xs text-neutral-400 font-mono">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                      <span>Synced with 8 Active Cohorts</span>
+                    </div>
                   </div>
-                  <div className="flex items-start gap-2.5">
-                    <span className="text-[#10b981] font-bold">02.</span>
-                    <p>Initiate robust technical diagnostic audits.</p>
+
+                  {/* Render the full searchable, interactable components directory */}
+                  <div className="border border-neutral-200/60 p-4 rounded-3xl bg-neutral-50/30">
+                    <TalentDirectory />
                   </div>
-                  <div className="flex items-start gap-2.5">
-                    <span className="text-[#10b981] font-bold">03.</span>
-                    <p>Get processed through verification checks.</p>
-                  </div>
-                  <div className="flex items-start gap-2.5">
-                    <span className="text-[#10b981] font-bold">04.</span>
-                    <p>Fulfill supervised mock/live client tasks.</p>
-                  </div>
-                  <div className="flex items-start gap-2.5">
-                    <span className="text-[#10b981] font-bold">05.</span>
-                    <p>Dossier published on the live discovery directory.</p>
-                  </div>
+
                 </div>
-              </div>
-            </div>
+              </section>
+            )}
 
-            {/* Text Right Details */}
-            <div className="lg:col-span-7 space-y-8 text-left">
-              <div className="space-y-4">
-                <span className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-widest block">For Digital Professionals</span>
-                <h2 className="font-display font-medium text-3.5xl sm:text-4.5xl text-white tracking-tight leading-[1.1]">
-                  Turn Your Active Learning Into True Opportunity
-                </h2>
-                <p className="text-neutral-400 text-sm sm:text-base leading-relaxed">
-                  Stop applying to sterile resume portals. On Verifolio, your performance, exams diagnostic reports, and supervised milestones speak for you. Gain direct pathway to internship, references, and immediate hires.
-                </p>
-              </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">✓</div>
-                  <p className="text-sm font-semibold text-white">100% Free for approved candidates selected to fellowship tracks.</p>
+            {/* ======================================= */}
+            {/* VIEW 6 — PORTFOLIO / LEDGER ECOSYSTEM   */}
+            {/* ======================================= */}
+            {currentPage === 'portfolio' && (
+              <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+                <div className="max-w-4xl mx-auto space-y-16 text-left animate-fade-in font-secondary">
+                  
+                  {/* Page Title */}
+                  <div className="space-y-4">
+                    <span className="text-[10px] uppercase font-mono font-bold text-neutral-400 tracking-widest block font-bold">Verified Accomplishment Records</span>
+                    <h1 className="font-display font-bold text-4xl sm:text-5xl text-neutral-950 tracking-tight leading-none">
+                      Interactive Performance Portfolios
+                    </h1>
+                     <p className="text-sm sm:text-base text-neutral-500 max-w-2xl font-secondary leading-relaxed">
+                      Every cohort candidate builds an authentic, auditable portfolio on DSP Talent Hub. Each deliverable maps test outcomes, practical project details, and real supervised client outcomes.
+                    </p>
+                  </div>
+
+                  {/* 3 stages grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+                    <div className="border border-neutral-200/60 p-6 rounded-2xl bg-[#f8fafc] space-y-3">
+                      <span className="font-bold text-neutral-850 bg-neutral-100 text-neutral-900 border border-neutral-200 text-xs px-2 py-0.5 rounded font-mono">STEP 01</span>
+                      <h4 className="font-display font-bold text-neutral-900 text-base">Class Deliverables</h4>
+                      <p className="text-neutral-500 text-xs leading-relaxed font-secondary">
+                        All technical tasks resolved during technical benchmark exams are preserved with code correctness scores, test outcomes, and architectural reviews.
+                      </p>
+                    </div>
+
+                    <div className="border border-neutral-200/60 p-6 rounded-2xl bg-[#f8fafc] space-y-3">
+                      <span className="font-bold text-neutral-850 bg-neutral-100 text-neutral-900 border border-neutral-200 text-xs px-2 py-0.5 rounded font-mono">STEP 02</span>
+                      <h4 className="font-display font-bold text-neutral-900 text-base">Supervised Internships</h4>
+                      <p className="text-neutral-500 text-xs leading-relaxed font-secondary">
+                        Matched candidates track active KPIs (conversion lifts, PPC cost reduction, semantic search growth) during supervised commercial assignments.
+                      </p>
+                    </div>
+
+                    <div className="border border-neutral-200/60 p-6 rounded-2xl bg-[#f8fafc] space-y-3">
+                      <span className="font-bold text-neutral-850 bg-neutral-100 text-neutral-900 border border-neutral-200 text-xs px-2 py-0.5 rounded font-mono">STEP 03</span>
+                      <h4 className="font-display font-bold text-neutral-900 text-base">Verified Milestones</h4>
+                      <p className="text-neutral-500 text-xs leading-relaxed font-secondary">
+                        Acme enterprise managers and growth agency partners submit direct feedback reviews, generating authenticated 360 recommendation reports.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Automated Ledger Events list */}
+                  <div className="bg-neutral-950 border-2 border-neutral-900 rounded-3xl p-6 md:p-8 space-y-6">
+                    <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="font-mono text-xs uppercase text-neutral-400">DSP Real-Time Verification Feed</span>
+                      </div>
+                      <span className="text-[10px] font-mono text-neutral-600">Updated seconds ago</span>
+                    </div>
+
+                    <div className="space-y-4 font-mono text-xs leading-relaxed">
+                      <div className="p-3 bg-neutral-900 rounded-xl border border-neutral-800 flex items-start gap-3">
+                        <span className="text-emerald-500">[COHORT 08]</span>
+                        <div>
+                          <p className="text-white font-bold">Sarah Jenkins added custom Google Tag Manager audit</p>
+                          <p className="text-neutral-500">"Validated conversion tracking parameters on e-commerce cart" - scoring audit logs show 98% accuracy.</p>
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-neutral-900 rounded-xl border border-neutral-800 flex items-start gap-3">
+                        <span className="text-blue-400">[PLACEMENT]</span>
+                        <div>
+                          <p className="text-white font-bold">Acme Group approved PPC milestone report</p>
+                          <p className="text-neutral-500">Liam Vance configured automated budget allocation pipeline - overall lead generation cost dropped by -24%.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">✓</div>
-                  <p className="text-sm font-semibold text-white">Guaranteed mentor auditing feedback and score reports.</p>
+              </section>
+            )}
+
+
+            {/* ======================================= */}
+            {/* VIEW 7 — BADGES STANDARDS PAGE           */}
+            {/* ======================================= */}
+            {currentPage === 'badges' && (
+              <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+                <div className="max-w-4xl mx-auto space-y-16 text-left">
+                  
+                  {/* Page Title */}
+                  <div className="space-y-4 text-center max-w-2xl mx-auto">
+                    <span className="text-[10px] uppercase font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full tracking-wider inline-block">Evaluation Standards</span>
+                    <h1 className="font-display font-medium text-4xl text-neutral-950 tracking-tight leading-none">
+                      Trust Badges Standard Schema
+                    </h1>
+                    <p className="text-sm text-neutral-500 font-secondary leading-relaxed">
+                      Every badge in our ecosystem represents extensive practical assessment benchmarks. We provide transparent access to scores and logs to maintain complete clarity.
+                    </p>
+                  </div>
+
+                  {/* Interactive selector + detail cards */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch pt-6">
+                    
+                    {/* Badge selector list left */}
+                    <div className="lg:col-span-5 flex flex-col gap-3">
+                      {TRUST_BADGES.map((badge) => (
+                        <button
+                          key={badge.id}
+                          onClick={() => setSelectedBadgeId(badge.id)}
+                          className={`p-4 rounded-2xl border text-left flex items-center justify-between transition-all duration-300 cursor-pointer ${
+                            selectedBadgeId === badge.id 
+                              ? 'bg-white border-neutral-950 shadow-md ring-1 ring-neutral-950/5' 
+                              : 'bg-white border-neutral-200/50 hover:border-neutral-300 text-neutral-600'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center border font-bold ${badge.bgColor} ${badge.borderColor} ${badge.textColor}`}>
+                              <ShieldCheck className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <p className="font-bold text-xs text-neutral-950">{badge.name}</p>
+                              <p className="text-[10px] text-neutral-400 mt-0.5">{badge.tagline}</p>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-neutral-400" />
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Badge explainer panel right */}
+                    <div className="lg:col-span-1" />
+
+                    <div className="lg:col-span-6">
+                      <div className="bg-white border-2 border-neutral-900 rounded-3xl p-6 sm:p-8 space-y-6 shadow-sm">
+                        {TRUST_BADGES.map((badge) => {
+                          if (badge.id !== selectedBadgeId) return null;
+                          return (
+                            <div key={badge.id} className="space-y-6 text-left">
+                              <div className="space-y-3">
+                                <span className="text-[9px] uppercase font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-sm">VETTING STANDARD PACKET</span>
+                                <h3 className="font-display font-bold text-2xl text-neutral-950 flex items-center gap-2">
+                                  {badge.name}
+                                </h3>
+                                <p className="text-emerald-700 font-mono text-[10px] font-bold uppercase tracking-wider">{badge.tagline}</p>
+                              </div>
+
+                              <p className="text-xs text-neutral-600 leading-relaxed font-secondary">
+                                {badge.description}
+                              </p>
+
+                              <div className="border border-neutral-200 bg-neutral-50 px-4 py-4 rounded-xl space-y-2">
+                                <span className="text-[10px] font-mono uppercase text-neutral-400 font-bold block">Mandatory Auditing Checks:</span>
+                                
+                                <div className="space-y-2.5 text-xs text-neutral-700">
+                                  <p className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" /> Standard identity & KYC audit log</p>
+                                  <p className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" /> Anti-cheat secure browser & IP monitoring</p>
+                                  <p className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" /> Verified mentor supervisor reviews</p>
+                                  <p className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" /> Encrypted metric verification key</p>
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={() => navigateToPage('directory')}
+                                className="w-full bg-neutral-950 hover:bg-neutral-900 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 uppercase tracking-wider"
+                              >
+                                <span>Find {badge.name} candidates</span>
+                                <ArrowRight className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                  </div>
+
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">✓</div>
-                  <p className="text-sm font-semibold text-white">Continuous ledger records tracking your metric milestones.</p>
-                </div>
-              </div>
+              </section>
+            )}
 
-              <div className="pt-4">
-                <button
-                  onClick={() => setIsTalentModalOpen(true)}
-                  className="bg-white hover:bg-neutral-100 text-neutral-900 font-bold py-4 px-8 rounded-2xl text-sm transition duration-150 cursor-pointer flex items-center gap-2"
-                >
-                  <span>Apply to Fellowship Track</span>
-                  <ArrowRight className="w-4 h-4 text-emerald-500" />
-                </button>
-              </div>
-            </div>
+          </motion.div>
+        </AnimatePresence>
 
-          </div>
-        </section>
+        {/* GENERAL CALL TO ACTION SPLIT-BANNER */}
+        <section className="py-20 md:py-24 px-4 sm:px-6 lg:px-8 bg-neutral-950 text-white relative text-center overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:24px_24px] opacity-10 pointer-events-none" />
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        {/* ======================================= */}
-        {/* SECTION 10 — TRUST & STATS              */}
-        {/* ======================================= */}
-        <section className="py-16 px-4 sm:px-6 lg:px-8 bg-[#fafbfa] border-b border-neutral-100">
-          <div className="max-w-7xl mx-auto">
-            
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12 text-center max-w-4xl mx-auto">
-              
-              <div className="p-4 space-y-1.5 border-r border-neutral-200 last:border-0">
-                <p className="font-display font-bold text-3xl sm:text-4xl text-neutral-950">
-                  {stats.verifiedTalent.toLocaleString()}+
-                </p>
-                <div className="text-xs font-mono font-medium text-neutral-400 tracking-wider uppercase">Verified Talent</div>
-                <div className="text-[10px] text-emerald-600">Active Dossiers</div>
-              </div>
-
-              <div className="p-4 space-y-1.5 border-r border-neutral-200 last:border-0">
-                <p className="font-display font-bold text-3xl sm:text-4xl text-neutral-950">
-                  {stats.internshipsCompleted.toLocaleString()}+
-                </p>
-                <div className="text-xs font-mono font-medium text-neutral-400 tracking-wider uppercase">Internships Completed</div>
-                <div className="text-[10px] text-emerald-600">100% Placed</div>
-              </div>
-
-              <div className="p-4 space-y-1.5 border-r border-neutral-200 last:border-0">
-                <p className="font-display font-bold text-3xl sm:text-4xl text-neutral-950">
-                  {stats.employersHiring.toLocaleString()}+
-                </p>
-                <div className="text-xs font-mono font-medium text-neutral-400 tracking-wider uppercase">Employers Sourcing</div>
-                <div className="text-[10px] text-emerald-600">Active Partners</div>
-              </div>
-
-              <div className="p-4 space-y-1.5 last:border-0">
-                <p className="font-display font-bold text-3xl sm:text-4xl text-neutral-950">
-                  {stats.projectsDelivered.toLocaleString()}+
-                </p>
-                <div className="text-xs font-mono font-medium text-neutral-400 tracking-wider uppercase">Projects Delivered</div>
-                <div className="text-[10px] text-emerald-600">Real Metric Outcomes</div>
-              </div>
-
-            </div>
-
-          </div>
-        </section>
-
-        {/* ======================================= */}
-        {/* SECTION 11 — FINAL CTA                  */}
-        {/* ======================================= */}
-        <section className="py-20 md:py-28 px-4 sm:px-6 lg:px-8 bg-neutral-950 text-white relative text-center overflow-hidden">
-          {/* Subtle decoration elements */}
-          <div className="absolute inset-x-0 top-0 h-40 bg-[linear-gradient(to_bottom,transparent,rgba(16,185,129,0.03))]" />
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-brand-primary/5 rounded-full blur-3xl pointer-events-none" />
-
-          <div className="max-w-4xl mx-auto space-y-10 relative z-10">
-            
+          <div className="max-w-4xl mx-auto space-y-8 relative z-10">
             <div className="space-y-4">
-              <span className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-widest block">Verifolio Talent Network</span>
-              <h2 className="font-display font-semibold text-3.5xl sm:text-5xl md:text-5.5xl text-white tracking-tight leading-[1.1]">
-                The Future of Hiring Starts With Verification
+              <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase tracking-widest block bg-neutral-900 border border-neutral-800 px-3 py-1 rounded-full max-w-xs mx-auto text-center font-secondary">VERIFOLIO PLACEMENT NETWORK</span>
+              <h2 className="font-display font-medium text-3xl sm:text-4.5xl text-white tracking-tight leading-none pt-2">
+                Begin Sourcing Candidates Sourced on Evidence
               </h2>
-              <p className="text-neutral-400 text-sm sm:text-base max-w-xl mx-auto leading-relaxed">
-                Join a premium digital talent ecosystem designed around verified capability, trusted practical metrics, and zero placement guesswork.
+              <p className="text-neutral-400 text-xs sm:text-sm max-w-xl mx-auto leading-relaxed font-secondary">
+                Secure top-tier interns or direct hiring professionals graded on technical excellence and verified through actual, live deliverables.
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 max-w-sm mx-auto">
               <button
                 onClick={() => setIsHireModalOpen(true)}
-                className="w-full sm:w-auto text-center bg-[#10b981] hover:bg-emerald-500 text-neutral-950 font-bold px-8 py-4 rounded-2xl text-sm flex items-center justify-center gap-2 transition duration-200 cursor-pointer shadow-md"
+                className="w-full bg-emerald-500 hover:bg-emerald-600 text-neutral-950 font-bold px-6 py-3 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-md transition duration-200"
               >
                 <span>Find Talent</span>
-                <ChevronRight className="w-4 h-4 text-emerald-950" />
+                <ChevronRight className="w-3.5 h-3.5 text-neutral-950 stroke-[2.5]" />
               </button>
 
               <button
                 onClick={() => setIsTalentModalOpen(true)}
-                className="w-full sm:w-auto text-center bg-neutral-900 hover:bg-neutral-800 text-white font-bold px-8 py-4 rounded-2xl text-sm border border-neutral-800 flex items-center justify-center gap-2 transition duration-200 cursor-pointer shadow-xs"
+                className="w-full bg-neutral-900 hover:bg-neutral-800 text-white font-bold px-6 py-3 rounded-xl text-xs border border-neutral-800 flex items-center justify-center gap-1.5 cursor-pointer transition duration-200"
               >
-                <span>Join As Talent</span>
-                <ArrowUpRight className="w-4 h-4 text-neutral-400" />
+                <span>Apply as Candidate</span>
+                <ArrowUpRight className="w-3.5 h-3.5 text-neutral-400" />
               </button>
             </div>
-
           </div>
         </section>
 
@@ -1107,29 +1169,29 @@ export default function App() {
       {/* ======================================= */}
       {isHireModalOpen && (
         <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl border-2 border-neutral-900 max-w-lg w-full p-6 md:p-8 space-y-6 text-left relative shadow-2xl">
+          <div className="bg-white rounded-3xl border border-neutral-200 max-w-lg w-full p-6 md:p-8 space-y-6 text-left relative shadow-2xl font-secondary">
             <div className="flex items-start justify-between">
               <div>
-                <span className="text-[10px] uppercase font-mono font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md">Employer Sourcing</span>
-                <h3 className="font-display font-bold text-2xl text-neutral-900 mt-3">Start Sourcing Talent</h3>
-                <p className="text-xs text-neutral-500 mt-1">Tell us which verified discipline your team requires immediately.</p>
+                <span className="text-[10px] uppercase font-mono font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200/50">Employer Sourcing</span>
+                <h3 className="font-display font-medium text-2xl text-neutral-950 mt-4 leading-none">Start Sourcing Talent</h3>
+                <p className="text-xs text-neutral-400 mt-1.5">Specify which verified disciplines your team has immediate placement roles for.</p>
               </div>
               <button 
                 onClick={() => { setIsHireModalOpen(false); setHireSubmitted(false); }}
-                className="text-neutral-400 hover:text-neutral-800 p-1 font-bold text-lg"
+                className="text-neutral-400 hover:text-neutral-850 p-1.5 rounded-lg hover:bg-neutral-100 transition cursor-pointer font-bold text-sm"
               >
                 ✕
               </button>
             </div>
 
             {hireSubmitted ? (
-              <div className="p-8 text-center bg-emerald-50 rounded-2xl border border-emerald-100 space-y-4">
+              <div className="p-8 text-center bg-emerald-50/50 rounded-2xl border border-emerald-100 space-y-4">
                 <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto animate-bounce" />
-                <h4 className="font-bold text-neutral-900">Request Received Successfully!</h4>
-                <p className="text-xs text-neutral-600">Our Talent Intelligence Lead is compiling matching sandboxes logs and will schedule a demo with your team inside 2 hours.</p>
+                <h4 className="font-bold text-neutral-950">Placement Request Scheduled!</h4>
+                <p className="text-xs text-neutral-600">Our Talent Intelligence Coordinator will search matches within our certified candidate directory and email curated profiles within 2 hours.</p>
                 <button 
                   onClick={() => { setIsHireModalOpen(false); setHireSubmitted(false); }}
-                  className="bg-neutral-900 text-white font-medium py-2 px-4 rounded-xl text-xs"
+                  className="bg-neutral-950 hover:bg-neutral-900 text-white font-semibold py-2 px-4 rounded-xl text-xs cursor-pointer"
                 >
                   Close Window
                 </button>
@@ -1137,63 +1199,62 @@ export default function App() {
             ) : (
               <form 
                 onSubmit={(e) => { e.preventDefault(); setHireSubmitted(true); }}
-                className="space-y-4 text-sm"
+                className="space-y-4 text-xs"
               >
                 <div className="space-y-1">
-                  <label className="text-xs font-mono text-neutral-500 font-bold uppercase block">Your Full Name</label>
+                  <label className="text-[10px] font-mono text-neutral-400 font-bold uppercase block">Your Full Name</label>
                   <input 
                     type="text" 
                     required 
                     value={hireForm.name} 
                     onChange={(e) => setHireForm({ ...hireForm, name: e.target.value })}
                     placeholder="Enter your name" 
-                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary"
+                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/50 focus:bg-white text-xs text-neutral-800"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-mono text-neutral-500 font-bold uppercase block">Company / Agency Name</label>
+                  <label className="text-[10px] font-mono text-neutral-400 font-bold uppercase block">Company Name</label>
                   <input 
                     type="text" 
                     required 
                     value={hireForm.company}
                     onChange={(e) => setHireForm({ ...hireForm, company: e.target.value })}
-                    placeholder="e.g. Acme Agency" 
-                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary"
+                    placeholder="e.g. Acme digital agencies" 
+                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/50 focus:bg-white text-xs text-neutral-800"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-mono text-neutral-500 font-bold uppercase block">Requirement Specialization</label>
+                  <label className="text-[10px] font-mono text-neutral-400 font-bold uppercase block">Discipline Required</label>
                   <select 
                     value={hireForm.roleNeeded}
                     onChange={(e) => setHireForm({ ...hireForm, roleNeeded: e.target.value })}
-                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary bg-white"
+                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/55 text-xs text-neutral-800"
                   >
-                    <option value="AI Automation">AI Automation Operations Archive</option>
-                    <option value="SEO">Technical SEO Strategist</option>
-                    <option value="PPC">PPC Acquisition Expert</option>
+                    <option value="AI Automation">AI Automation Operations (Zapier, Python, Make)</option>
+                    <option value="SEO">Technical SEO (Keyword Maps, Clusters)</option>
+                    <option value="PPC">PPC Acquisition (Meta, Google, PPC Ad Sets)</option>
                     <option value="Growth Marketing">Growth Marketing Specialist</option>
-                    <option value="Social Media">Social Brand Builder</option>
                   </select>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-mono text-neutral-500 font-bold uppercase block">Core Role Description</label>
+                  <label className="text-[10px] font-mono text-neutral-400 font-bold uppercase block">Core Scope Summary</label>
                   <textarea 
                     value={hireForm.message}
                     onChange={(e) => setHireForm({ ...hireForm, message: e.target.value })}
                     rows={3} 
-                    placeholder="Describe budget, stipend or immediate permanent hires indicators..." 
-                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary"
+                    placeholder="Stipend parameters, timelines, tool prerequisites..." 
+                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/50 focus:bg-white text-xs text-neutral-800"
                   />
                 </div>
 
                 <button 
                   type="submit" 
-                  className="w-full bg-[#111311] hover:bg-neutral-800 text-white font-bold py-3 px-4 rounded-xl text-xs transition uppercase tracking-wider"
+                  className="w-full bg-neutral-950 hover:bg-neutral-900 text-white font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider cursor-pointer"
                 >
-                  Generate Shortlist Now
+                  Download Selected shortlists
                 </button>
               </form>
             )}
@@ -1206,29 +1267,29 @@ export default function App() {
       {/* ======================================= */}
       {isTalentModalOpen && (
         <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl border-2 border-neutral-900 max-w-lg w-full p-6 md:p-8 space-y-6 text-left relative shadow-2xl">
+          <div className="bg-white rounded-3xl border border-neutral-200 max-w-lg w-full p-6 md:p-8 space-y-6 text-left relative shadow-2xl font-secondary">
             <div className="flex items-start justify-between">
               <div>
-                <span className="text-[10px] uppercase font-mono font-bold text-[#10b981] bg-emerald-50 px-2.5 py-1 rounded-md">Talent Fellowship Entry</span>
-                <h3 className="font-display font-bold text-2xl text-neutral-900 mt-3">Apply to fellowship</h3>
-                <p className="text-xs text-neutral-500 mt-1">Get audited, verified, placed, and discovered by leading agency sponsors.</p>
+                <span className="text-[10px] uppercase font-mono font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200/50">Fellowship Candidate Entry</span>
+                <h3 className="font-display font-medium text-2xl text-neutral-950 mt-4 leading-none">Apply to Fellowship Track</h3>
+                <p className="text-xs text-neutral-400 mt-1.5">Submit screening criteria to receive active diagnostics reviews.</p>
               </div>
               <button 
                 onClick={() => { setIsTalentModalOpen(false); setTalentSubmitted(false); }}
-                className="text-neutral-400 hover:text-neutral-800 p-1 font-bold text-lg"
+                className="text-neutral-400 hover:text-neutral-850 p-1.5 rounded-lg hover:bg-neutral-100 transition cursor-pointer font-bold text-sm"
               >
                 ✕
               </button>
             </div>
 
             {talentSubmitted ? (
-              <div className="p-8 text-center bg-emerald-50 rounded-2xl border border-emerald-100 space-y-4">
+              <div className="p-8 text-center bg-emerald-50/50 rounded-2xl border border-emerald-100 space-y-4">
                 <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto animate-bounce" />
-                <h4 className="font-bold text-neutral-900">Fellowship Diagnostic Registered!</h4>
-                <p className="text-xs text-neutral-600">We have sent the initial diagnostic screening test link to your email setup. Complete it inside 48 hours to secure review.</p>
+                <h4 className="font-bold text-neutral-950">Diagnostic Request Pending!</h4>
+                <p className="text-xs text-neutral-600">Verification exams and background checks will be sent to your email destination within 15 minutes.</p>
                 <button 
                   onClick={() => { setIsTalentModalOpen(false); setTalentSubmitted(false); }}
-                  className="bg-neutral-900 text-white font-medium py-2 px-4 rounded-xl text-xs"
+                  className="bg-neutral-950 hover:bg-neutral-900 text-white font-semibold py-2 px-4 rounded-xl text-xs cursor-pointer"
                 >
                   Close Window
                 </button>
@@ -1236,64 +1297,64 @@ export default function App() {
             ) : (
               <form 
                 onSubmit={(e) => { e.preventDefault(); setTalentSubmitted(true); }}
-                className="space-y-4 text-sm"
+                className="space-y-4 text-xs"
               >
                 <div className="space-y-1">
-                  <label className="text-xs font-mono text-neutral-500 font-bold uppercase block">Your Full Name</label>
+                  <label className="text-[10px] font-mono text-neutral-400 font-bold uppercase block">Your Full Name</label>
                   <input 
                     type="text" 
                     required 
                     value={talentForm.name} 
                     onChange={(e) => setTalentForm({ ...talentForm, name: e.target.value })}
                     placeholder="Enter your name" 
-                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/50 focus:bg-white text-xs text-neutral-800"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-mono text-neutral-500 font-bold uppercase block">Email Address</label>
+                  <label className="text-[10px] font-mono text-neutral-400 font-bold uppercase block">Email Address</label>
                   <input 
                     type="email" 
                     required 
                     value={talentForm.email} 
                     onChange={(e) => setTalentForm({ ...talentForm, email: e.target.value })}
-                    placeholder="you@example.com" 
-                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                    placeholder="you@cohort-agency.com" 
+                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/50 focus:bg-white text-xs text-neutral-800"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-mono text-neutral-500 font-bold uppercase block">Target Fellowship Track</label>
+                  <label className="text-[10px] font-mono text-neutral-400 font-bold uppercase block">Placement Pathway Selected</label>
                   <select 
                     value={talentForm.track}
                     onChange={(e) => setTalentForm({ ...talentForm, track: e.target.value })}
-                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 bg-white focus:outline-none focus:ring-1"
+                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/50 text-xs text-neutral-800"
                   >
-                    <option value="Internship Track">Internship Track (Aspiring Star)</option>
-                    <option value="Professional Track">Professional Track (Certified Specialist)</option>
+                    <option value="Internship Track">Internship Track (Mentored Internship Placement)</option>
+                    <option value="Professional Track">Professional Track (Immediate Agency Roster Matching)</option>
                   </select>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-mono text-neutral-500 font-bold uppercase block">Core Skills / Tools You Are Acquainted With</label>
+                  <label className="text-[10px] font-mono text-neutral-400 font-bold uppercase block">Key Proficiencies Accustomed with</label>
                   <input 
                     type="text" 
                     value={talentForm.skills}
                     onChange={(e) => setTalentForm({ ...talentForm, skills: e.target.value })}
-                    placeholder="SEO, GA4, Make.com, Zapier, Python..." 
-                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1"
+                    placeholder="Zapier, Make, GA4, technical SEO audit tools, Keyword Map datasets, content clusters..." 
+                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/50 focus:bg-white text-xs text-neutral-800"
                   />
                 </div>
 
-                <div className="text-[11px] text-neutral-500 leading-relaxed bg-[#f3faf5] p-3 rounded-xl border border-[#d5f2e0]">
-                  📌 Our cohorts launch on a rolling 14-day window. Background checks and identification proofs (KYC) are requested upon screen pass indicator.
+                <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-150 inline-block font-secondary text-[11px] text-neutral-600 leading-relaxed">
+                  📢 <strong>Note:</strong> Enrollment diagnostic checks are strictly vetted on coding guidelines and anti-cheat checks. Complete with attention to criteria specifications.
                 </div>
 
                 <button 
                   type="submit" 
-                  className="w-full bg-[#111311] hover:bg-neutral-800 text-white font-bold py-3.5 px-4 rounded-xl text-xs transition uppercase tracking-wider"
+                  className="w-full bg-neutral-950 hover:bg-neutral-900 text-white font-bold py-3.5 px-4 rounded-xl text-xs uppercase tracking-wider cursor-pointer"
                 >
-                  Generate Screening Test
+                  Generate Vetting Diagnostic
                 </button>
               </form>
             )}
@@ -1302,7 +1363,7 @@ export default function App() {
       )}
 
       {/* Structured Footer */}
-      <Footer />
+      <Footer setCurrentPage={setCurrentPage} />
 
     </div>
   );

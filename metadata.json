@@ -1,6 +1,8 @@
 {
-  "name": "Verifolio",
-  "description": "Where Verified Talent Meets Opportunity - Premium talent verification, internship, and employment ecosystem.",
+  "name": "DSP Talent Hub",
+  "description": "Premium vetted talent ecosystem. Featuring The Gauntlet: a brutal 48-hour scenario-based assessment that filters for real-world execution.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
