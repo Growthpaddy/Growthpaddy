@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ShieldCheck, 
@@ -13,170 +13,66 @@ import {
   ExternalLink,
   ChevronRight,
   TrendingUp,
-  Clock
+  Clock,
+  Lock,
+  Unlock,
+  FileText,
+  Bookmark,
+  PlusCircle,
+  Eye,
+  Check
 } from 'lucide-react';
 import { TalentCandidate } from '../types';
+import { MOCK_TALENT } from '../data/mockTalent';
 
-const MOCK_TALENT: TalentCandidate[] = [
-  {
-    id: 'T1',
-    name: 'Sarah Jenkins',
-    avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150',
-    role: 'Growth Marketing Lead',
-    specialization: 'Growth Marketing',
-    verificationBadge: 'Verified Professional',
-    skills: ['Conversion Rate Optimization', 'A/B Testing', 'Google Analytics 4', 'User Acquisition', 'SQL'],
-    availability: 'Available Immediately',
-    portfolioScore: 98,
-    featuredProject: {
-      title: 'SaaS User Activation Redesign',
-      metrics: '+42% sign-up to trial activation rate'
-    },
-    experienceCount: 4,
-    bio: 'Completed a 6-month elite Growth training scheme. Led a client-facing growth trial boosting activation for two leading FinTech solutions.'
-  },
-  {
-    id: 'T2',
-    name: 'Marcus Chen',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150',
-    role: 'AI Automation Operations Architect',
-    specialization: 'AI Automation',
-    verificationBadge: 'Top Performer',
-    skills: ['Zapier Enterprise', 'Make.com', 'Gemini API Orchestration', 'n8n', 'Python Scripts'],
-    availability: 'Interviews Open',
-    portfolioScore: 99,
-    featuredProject: {
-      title: 'Customer Onboarding Auto-pilot',
-      metrics: 'Reduced client setup delay from 48h to 4m, saving 35 engineer hr/wk'
-    },
-    experienceCount: 3,
-    bio: 'Ranked in top 1% of the AI Automation cohort. Designed and deployed complex custom LLM ingestion loops for high-growth e-commerce agencies.'
-  },
-  {
-    id: 'T3',
-    name: 'Amara Okafor',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150',
-    role: 'SEO Strategist & Content Architect',
-    specialization: 'SEO',
-    verificationBadge: 'Verified Professional',
-    skills: ['Technical SEO Audit', 'Keyword Intelligence', 'Ahrefs Power-User', 'Programmatic SEO', 'Screaming Frog'],
-    availability: 'Available Immediately',
-    portfolioScore: 95,
-    featuredProject: {
-      title: 'Programmatic SEO Directory Build',
-      metrics: 'Grew organic traffic from 5k to 120k monthly visits in 90 days'
-    },
-    experienceCount: 5,
-    bio: 'Passionate Technical SEO specialist. Rebranded three enterprise websites and structured high-performance semantic clusters.'
-  },
-  {
-    id: 'T4',
-    name: 'Liam Vance',
-    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150',
-    role: 'Paid Acquisition & PPC Engineer',
-    specialization: 'PPC',
-    verificationBadge: 'Verified Intern',
-    skills: ['Google Paid Search', 'Meta Ads Manager', 'RoAS Strategy', 'Creative Testing', 'Retargeting Flow'],
-    availability: 'Available Immediately',
-    portfolioScore: 92,
-    featuredProject: {
-      title: 'B2B Lead Generation Re-modeling',
-      metrics: 'Decreased Cost-Per-Lead (CPL) by 31% while maintaining volume'
-    },
-    experienceCount: 2,
-    bio: 'Trained PPC operator with extensive hands-on budget experience during DSP Practical Labs. Fully Certified in Google Ads.'
-  },
-  {
-    id: 'T5',
-    name: 'Elena Rostova',
-    avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=150',
-    role: 'Social Media & Brand Builder',
-    specialization: 'Social Media',
-    verificationBadge: 'Internship Graduate',
-    skills: ['Short-form Video Edit', 'Brand Positioning', 'TikTok Analytics', 'Community Moderation', 'CapCut Pro'],
-    availability: 'Onboard in 1 Week',
-    portfolioScore: 94,
-    featuredProject: {
-      title: 'Viral Interactive Campaign Launch',
-      metrics: '2.4 Million total organic views, 40,000+ brand hashtag uses'
-    },
-    experienceCount: 3,
-    bio: 'Graduate of the premium Social Media Fellowship. Successfully completed a 12-week placements with a high-growth scale-up agency.'
-  },
-  {
-    id: 'T6',
-    name: 'David Kim',
-    avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=150',
-    role: 'Lifecycle & Email Marketer',
-    specialization: 'Email Marketing',
-    verificationBadge: 'Verified Professional',
-    skills: ['Klaviyo Flow Architecture', 'Customer Segmentation', 'Copywriting', 'Deliverability Audit', 'HTML Templates'],
-    availability: 'Interviews Open',
-    portfolioScore: 96,
-    featuredProject: {
-      title: 'Abandoned Cart Pipeline Optimize',
-      metrics: 'Recovered $142,000 in lost revenue in 60-day window'
-    },
-    experienceCount: 4,
-    bio: 'Certified CRM and lifecycle marketer. Exceptional copywriter focused on behavioral triggers and long-term retention lists.'
-  },
-  {
-    id: 'T7',
-    name: 'Sophia Patel',
-    avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150',
-    role: 'SEO & Growth Strategist',
-    specialization: 'SEO',
-    verificationBadge: 'Top Performer',
-    skills: ['Content Writing', 'On-Page SEO', 'Link Building', 'Semrush Analytics', 'Google Search Console'],
-    availability: 'Available Immediately',
-    portfolioScore: 97,
-    featuredProject: {
-      title: 'SaaS Blog Expansion',
-      metrics: 'Secured 45 top-3 Google keyword rankings inside 4 months'
-    },
-    experienceCount: 3,
-    bio: 'Expert at high-intent SEO copywriting. Hand-picked for the Top Performer cohort due to stellar technical competency test scores.'
-  },
-  {
-    id: 'T8',
-    name: 'Jordan Miller',
-    avatarUrl: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&q=80&w=150',
-    role: 'AI Workflows Developer',
-    specialization: 'AI Automation',
-    verificationBadge: 'Verified Professional',
-    skills: ['LangChain Integrations', 'OpenAI API Node Config', 'Database Setup', 'System Prompt Tune', 'Automated Scraping'],
-    availability: 'In Placement',
-    portfolioScore: 95,
-    featuredProject: {
-      title: 'Real Estate Deal-Scout AI Agent',
-      metrics: 'Automated 2,000 daily listings crawls, routing top 1% opportunities'
-    },
-    experienceCount: 3,
-    bio: 'Software engineer transitioning into specialized AI execution paths. Combines deep classical coding with agentic architectures.'
-  }
-];
+interface TalentDirectoryProps {
+  employerSlots?: number;
+  setEmployerSlots?: React.Dispatch<React.SetStateAction<number>>;
+  navigateToPricing?: () => void;
+}
 
 const SPECIALIZATIONS = [
   'All Profiles',
   'SEO',
-  'Social Media',
-  'Email Marketing',
+  'AI Automation',
   'Growth Marketing',
   'PPC',
-  'AI Automation'
+  'Social Media',
+  'Email Marketing'
 ] as const;
 
-export default function TalentDirectory() {
+export default function TalentDirectory({ 
+  employerSlots = 1, 
+  setEmployerSlots, 
+  navigateToPricing 
+}: TalentDirectoryProps) {
   const [selectedSpecialization, setSelectedSpecialization] = useState<string>('All Profiles');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedCandidate, setSelectedCandidate] = useState<TalentCandidate | null>(MOCK_TALENT[1]); // Preselect T2 for an aesthetic showcase
-  const [copiedText, setCopiedText] = useState<string | null>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<TalentCandidate | null>(MOCK_TALENT[0]);
+  const [unlockedCandidateIds, setUnlockedCandidateIds] = useState<string[]>([]);
+  const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
+  const [showBuyWarning, setShowBuyWarning] = useState(false);
+  
+  // Local Notes State (Keys map as: candidate-notes-[candidate.id])
+  const [candidateNotes, setCandidateNotes] = useState<string>('');
+
+  useEffect(() => {
+    if (selectedCandidate) {
+      const saved = localStorage.getItem(`candidate-notes-${selectedCandidate.id}`);
+      setCandidateNotes(saved || '');
+    }
+  }, [selectedCandidate]);
+
+  const saveCandidateNotes = (text: string) => {
+    setCandidateNotes(text);
+    if (selectedCandidate) {
+      localStorage.setItem(`candidate-notes-${selectedCandidate.id}`, text);
+    }
+  };
 
   // Filter candidates
   const filteredCandidates = MOCK_TALENT.filter(talent => {
-    // Check specialty filter
     const matchesSpecialty = selectedSpecialization === 'All Profiles' || talent.specialization === selectedSpecialization;
-    // Check search query (name, role, or skills)
     const matchesSearch = 
       talent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       talent.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -185,16 +81,25 @@ export default function TalentDirectory() {
     return matchesSpecialty && matchesSearch;
   });
 
-  const handleCopyLink = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedText("Copied URL to Clipboard!");
-    setTimeout(() => setCopiedText(null), 2000);
+  const handleUnlockCandidate = (id: string) => {
+    if (unlockedCandidateIds.includes(id)) return;
+
+    if (employerSlots >= 0.5) {
+      if (setEmployerSlots) {
+        setEmployerSlots(prev => Number((prev - 0.5).toFixed(2)));
+      }
+      setUnlockedCandidateIds(prev => [...prev, id]);
+      setFeedbackMsg("Candidate verified contact folder unlocked successfully!");
+      setTimeout(() => setFeedbackMsg(null), 3000);
+    } else {
+      setShowBuyWarning(true);
+    }
   };
 
   const getBadgeColors = (badge: TalentCandidate['verificationBadge']) => {
     switch (badge) {
       case 'Verified Professional':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        return 'bg-emerald-50 text-emerald-800 border-emerald-250';
       case 'Top Performer':
         return 'bg-amber-50 text-amber-800 border-amber-200';
       case 'Verified Intern':
@@ -202,56 +107,56 @@ export default function TalentDirectory() {
       case 'Internship Graduate':
         return 'bg-blue-50 text-blue-700 border-blue-200';
       default:
-        return 'bg-gray-50 text-gray-700 border-gray-200';
+        return 'bg-neutral-50 text-neutral-700 border-neutral-200';
     }
   };
 
   return (
-    <div id="live-talent-directory" className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-      {/* List Panel */}
-      <div className="lg:col-span-7 space-y-6">
+    <div id="live-talent-directory" className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      
+      {/* 1. Filter and list panel */}
+      <div className="lg:col-span-7 space-y-4">
         
-        {/* Search and Filters Header */}
-        <div className="bg-white p-5 rounded-2xl border border-neutral-200/80 shadow-xs space-y-4">
+        {/* Search, Filter Panel */}
+        <div className="bg-white p-5 rounded-none border-2 border-neutral-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] space-y-4 text-left">
           <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-            <h4 className="font-display font-semibold text-lg text-neutral-900 self-start sm:self-center flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-              Live Talent Pool
-              <span className="text-xs font-mono font-normal text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded-md">
-                {filteredCandidates.length} Available Now
+            <h4 className="font-display font-black text-sm uppercase text-neutral-950 flex items-center gap-2">
+              <span className="w-2.5 h-2.5 bg-emerald-500 animate-pulse"></span>
+              TALENT DIRECTORY
+              <span className="text-[10px] font-mono font-bold text-neutral-500 bg-neutral-100 px-2 py-0.5 border border-neutral-200">
+                {filteredCandidates.length} ACTIVE
               </span>
             </h4>
             
-            {/* Search Input */}
+            {/* Search inputs */}
             <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-600 w-4 h-4" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search skills, names, roles..."
-                className="w-full text-sm pl-9 pr-4 py-2 bg-neutral-50/50 border border-neutral-200 rounded-lg focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary placeholder:text-neutral-400 text-neutral-800"
+                className="w-full text-xs pl-9 pr-4 py-2.5 bg-neutral-50 border-2 border-neutral-950 rounded-none focus:outline-none focus:bg-white placeholder:text-neutral-500 font-bold uppercase"
               />
             </div>
           </div>
 
-          {/* Filtering Badges */}
-          <div className="flex flex-wrap gap-1.5 pt-2">
+          {/* Specialization filtering tags */}
+          <div className="flex flex-wrap gap-1">
             {SPECIALIZATIONS.map((spec) => (
               <button
                 key={spec}
                 onClick={() => {
                   setSelectedSpecialization(spec);
-                  // Auto focus first item on filter change
                   const matched = MOCK_TALENT.find(t => spec === 'All Profiles' || t.specialization === spec);
                   if (matched) {
                     setSelectedCandidate(matched);
                   }
                 }}
-                className={`py-1.5 px-3.5 rounded-full text-xs font-medium cursor-pointer transition-all duration-200 ${
+                className={`py-1 px-3 rounded-none text-[10px] font-black uppercase cursor-pointer border-2 transition-all ${
                   selectedSpecialization === spec
-                    ? 'bg-neutral-900 text-white shadow-xs'
-                    : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-600 border border-neutral-200/60'
+                    ? 'bg-neutral-950 text-white border-neutral-950'
+                    : 'bg-white hover:bg-neutral-50 text-neutral-700 border-neutral-200'
                 }`}
               >
                 {spec}
@@ -260,8 +165,8 @@ export default function TalentDirectory() {
           </div>
         </div>
 
-        {/* Directory Grid */}
-        <div className="space-y-3 max-h-[640px] overflow-y-auto pr-1">
+        {/* Directory Card rows scroll container */}
+        <div className="space-y-3 max-h-[700px] overflow-y-auto pr-1">
           <AnimatePresence mode="popLayout">
             {filteredCandidates.length > 0 ? (
               filteredCandidates.map((candidate) => {
@@ -269,89 +174,104 @@ export default function TalentDirectory() {
                 return (
                   <motion.div
                     key={candidate.id}
-                    layout
+                    layout="position"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
+                    exit={{ opacity: 0, scale: 0.96 }}
+                    transition={{ duration: 0.15 }}
                     onClick={() => setSelectedCandidate(candidate)}
-                    className={`p-5 rounded-2xl border-2 text-left cursor-pointer transition-all duration-300 ${
+                    className={`p-4 rounded-none border-2 text-left cursor-pointer transition-all ${
                       isActive
-                        ? 'bg-white border-brand-primary shadow-md ring-1 ring-brand-primary/25'
-                        : 'bg-white border-neutral-200/80 hover:border-neutral-300 shadow-xs hover:shadow-sm'
+                        ? 'bg-neutral-950 text-white border-neutral-950 shadow-[4px_4px_0px_0px_rgba(16,185,129,1)]'
+                        : 'bg-white border-neutral-300 hover:border-neutral-950 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-4">
-                      <div className="flex gap-4">
+                      <div className="flex gap-3">
                         <img 
                           src={candidate.avatarUrl} 
                           alt={candidate.name}
-                          className="w-12 h-12 rounded-full object-cover border border-neutral-100 shadow-2xs"
+                          className="w-11 h-11 rounded-none object-cover border-2 border-neutral-950 grayscale"
+                          referrerPolicy="no-referrer"
                         />
                         <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h5 className="font-semibold text-[#111311] group-hover:text-brand-primary text-base">
+                          <div className="flex flex-wrap items-center gap-1.5 animate-fadeIn">
+                            <h5 className={`font-display font-black text-sm uppercase ${isActive ? 'text-white' : 'text-neutral-955'}`}>
                               {candidate.name}
                             </h5>
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${getBadgeColors(candidate.verificationBadge)}`}>
-                              <ShieldCheck className="w-3 h-3 flex-shrink-0" />
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[8px] font-mono font-black uppercase border leading-none ${isActive ? 'bg-emerald-950 text-emerald-450 border-emerald-400' : 'bg-emerald-50 text-emerald-800 border-emerald-200'}`}>
+                              <ShieldCheck className="w-2.5 h-2.5 flex-shrink-0" />
                               {candidate.verificationBadge}
                             </span>
                           </div>
-                          <p className="text-sm font-medium text-neutral-500 mt-0.5">{candidate.role}</p>
+                          <p className={`text-[11px] font-black uppercase mt-1 ${isActive ? 'text-emerald-450' : 'text-emerald-800'}`}>{candidate.role}</p>
+                          <p className={`text-[9px] uppercase font-bold mt-0.5 flex items-center gap-1 ${isActive ? 'text-neutral-400' : 'text-neutral-500'}`}>
+                            <MapPin className="w-3 h-3" />
+                            <span>{candidate.location}</span>
+                          </p>
                         </div>
                       </div>
 
+                      {/* Score Badge */}
                       <div className="text-right hidden sm:block">
-                        <span className="text-xs font-mono text-neutral-400">DSP Assessment Score</span>
-                        <p className="text-lg font-bold font-display text-brand-dark flex items-center justify-end gap-1">
-                          <Award className="w-4 h-4 text-emerald-500" />
+                        <span className={`text-[8px] font-mono font-black uppercase tracking-wide block ${isActive ? 'text-neutral-400' : 'text-neutral-400'}`}>SCORE</span>
+                        <p className={`text-base font-black font-display flex items-center justify-end gap-0.5 mt-0.5 ${isActive ? 'text-white' : 'text-neutral-950'}`}>
+                          <Award className={`w-3.5 h-3.5 ${isActive ? 'text-emerald-450' : 'text-emerald-600'}`} />
                           {candidate.portfolioScore}
-                          <span className="text-xs text-neutral-400 font-normal">/100</span>
+                          <span className={`text-2xs font-normal ${isActive ? 'text-neutral-500' : 'text-neutral-400'}`}>/100</span>
                         </p>
                       </div>
                     </div>
 
+                    <p className={`text-xs mt-2.5 leading-relaxed line-clamp-1 ${isActive ? 'text-neutral-300' : 'text-neutral-600 font-medium'}`}>
+                      {candidate.bio}
+                    </p>
+
                     {/* Skill Badges */}
-                    <div className="flex flex-wrap gap-1.5 mt-4">
+                    <div className="flex flex-wrap gap-1 mt-2.5">
                       {candidate.skills.slice(0, 3).map((skill, idx) => (
                         <span 
                           key={idx} 
-                          className="text-[11px] font-mono font-medium text-neutral-700 bg-neutral-100 px-2 py-0.5 rounded-md"
+                          className={`text-[9px] font-mono uppercase font-bold px-2 py-0.5 border ${
+                            isActive 
+                              ? 'bg-neutral-900 border-neutral-700 text-neutral-300' 
+                              : 'bg-neutral-50 border-neutral-200 text-neutral-600'
+                          }`}
                         >
                           {skill}
                         </span>
                       ))}
                       {candidate.skills.length > 3 && (
-                        <span className="text-[10px] font-mono text-neutral-400 bg-neutral-50 px-2 py-1.5 rounded-md leading-none">
+                        <span className={`text-[9px] font-mono uppercase font-black px-1.5 py-0.5 border border-transparent ${isActive ? 'text-neutral-400' : 'text-neutral-500'}`}>
                           +{candidate.skills.length - 3} more
                         </span>
                       )}
                     </div>
 
                     {/* Footer Row */}
-                    <div className="flex items-center justify-between border-t border-neutral-100 mt-4 pt-4 text-xs">
-                      <div className="flex items-center gap-2 text-neutral-500">
-                        <Clock className="w-3.5 h-3.5 text-neutral-400" />
-                        <span className="font-medium text-neutral-600">{candidate.availability}</span>
+                    <div className={`flex items-center justify-between border-t border-dashed mt-3 pt-2.5 text-[10px] ${isActive ? 'border-neutral-800' : 'border-neutral-150'}`}>
+                      <div className="flex items-center gap-1.5">
+                        <Clock className={`w-3 h-3 ${isActive ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                        <span className={`font-black uppercase ${isActive ? 'text-neutral-300' : 'text-neutral-700'}`}>{candidate.availability}</span>
                       </div>
                       
-                      <div className="flex items-center gap-1.5 text-brand-primary font-semibold hover:text-brand-700 group">
-                        <span>View Verified Dossier</span>
-                        <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                      <div className={`flex items-center gap-1 font-black uppercase ${isActive ? 'text-emerald-400' : 'text-emerald-800'}`}>
+                        <span>VIEW GRID</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
                       </div>
                     </div>
                   </motion.div>
                 );
               })
             ) : (
-              <div className="bg-neutral-50 rounded-2xl border border-dashed border-neutral-300 p-12 text-center">
-                <p className="text-neutral-500 text-sm font-medium">No candidates fit your exact filter or search term.</p>
+              <div className="bg-white p-12 text-center rounded-none border-2 border-neutral-950">
+                <Search className="w-8 h-8 text-neutral-400 mx-auto mb-2" />
+                <p className="text-neutral-700 text-xs font-black uppercase">No candidates matched {selectedSpecialization}.</p>
                 <button 
                   onClick={() => { setSearchQuery(''); setSelectedSpecialization('All Profiles'); }}
-                  className="mt-3 text-xs text-brand-primary underline hover:text-brand-700 font-semibold cursor-pointer"
+                  className="mt-3 bg-neutral-950 hover:bg-neutral-900 text-white font-black py-2.5 px-4 rounded-none text-xs uppercase cursor-pointer"
                 >
-                  Clear all filters
+                  Reset
                 </button>
               </div>
             )}
@@ -359,158 +279,303 @@ export default function TalentDirectory() {
         </div>
       </div>
 
-      {/* Detail Panel (Mock SaaS Employer Dashboard Vetting Report) */}
-      <div className="lg:col-span-5 sticky top-8">
+      {/* 2. Candidate expanded detailed panel */}
+      <div className="lg:col-span-5 sticky top-24">
         <AnimatePresence mode="wait">
           {selectedCandidate ? (
             <motion.div
               key={selectedCandidate.id}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="bg-white border-2 border-neutral-900 rounded-3xl overflow-hidden shadow-lg p-6 md:p-8 space-y-6"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              className="bg-white border-2 border-neutral-950 rounded-none shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] flex flex-col min-h-[500px]"
             >
-              {/* Header Box */}
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="text-[10px] uppercase tracking-wider font-mono bg-emerald-100 text-emerald-800 font-bold px-2 py-1 rounded">
-                    Verified Candidate Dossier
-                  </span>
-                  <h3 className="font-display font-bold text-2xl text-neutral-900 mt-3">
-                    {selectedCandidate.name}
-                  </h3>
-                  <p className="text-emerald-600 font-semibold text-sm mt-0.5 flex items-center gap-1.5">
-                    <Briefcase className="w-3.5 h-3.5" />
-                    {selectedCandidate.role}
-                  </p>
-                </div>
-                <img 
-                  src={selectedCandidate.avatarUrl} 
-                  alt={selectedCandidate.name} 
-                  className="w-16 h-16 rounded-full object-cover border-2 border-neutral-900 shadow-md"
-                />
-              </div>
-
-              {/* Bio summary */}
-              <p className="text-sm leading-relaxed text-neutral-600 font-normal border-l-2 border-emerald-500 pl-4 py-1 italic">
-                "{selectedCandidate.bio}"
-              </p>
-
-              {/* Vetting Assessment Table */}
-              <div className="space-y-3 bg-neutral-50/80 p-4 rounded-2xl border border-neutral-200">
-                <h5 className="font-mono text-xs font-bold text-neutral-400 uppercase tracking-widest flex items-center justify-between">
-                  <span>Verified Credentials</span>
-                  <span className="text-brand-primary">100% Legit</span>
-                </h5>
-                
-                <div className="grid grid-cols-2 gap-4 pt-2">
-                  <div className="space-y-1">
-                    <span className="text-xs text-neutral-500">Structured Training</span>
-                    <p className="text-sm font-semibold text-neutral-800 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                      Completed (100%)
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-xs text-neutral-500">Technical Assessment</span>
-                    <p className="text-sm font-semibold text-neutral-800 flex items-center gap-1.5">
-                      <Activity className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                      Passed (Score: {selectedCandidate.portfolioScore}%)
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-xs text-neutral-500">Identity & Reference</span>
-                    <p className="text-sm font-semibold text-neutral-800 flex items-center gap-1.5">
-                      <ShieldCheck className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                      KYC Verified
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-xs text-neutral-500">Practical Projects</span>
-                    <p className="text-sm font-semibold text-neutral-800 flex items-center gap-1.5">
-                      <TrendingUp className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                      {selectedCandidate.experienceCount} Live Delivered
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Featured Project Showcase */}
-              <div className="space-y-3">
-                <h4 className="font-display font-semibold text-base text-neutral-900 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-500" />
-                  Featured Verified Deliverable
-                </h4>
-                <div className="bg-white border border-neutral-200 p-4 rounded-xl shadow-2xs space-y-2">
-                  <h5 className="font-semibold text-sm text-neutral-800 flex items-center justify-between">
-                    <span>{selectedCandidate.featuredProject.title}</span>
-                    <ExternalLink className="w-3.5 h-3.5 text-neutral-400" />
-                  </h5>
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-50 text-[11px] font-mono font-semibold text-emerald-800 border border-emerald-100">
-                    Impact: {selectedCandidate.featuredProject.metrics}
-                  </div>
-                  <p className="text-xs text-neutral-500">
-                    This business outcome was achieved during a structured internship facilitated and audited directly on the DSP Talent Hub platform.
-                  </p>
-                </div>
-              </div>
-
-              {/* All Candidate Competencies list */}
-              <div className="space-y-2">
-                <label className="text-xs font-mono font-bold text-neutral-400 uppercase tracking-widest block">
-                  Verified Skill Map
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedCandidate.skills.map((skill, index) => (
-                    <span
-                      key={index}
-                      className="text-xs font-medium text-neutral-800 bg-brand-50 border border-brand-200/55 px-2.5 py-1 rounded-lg"
-                    >
-                      {skill}
+              
+              {/* Profile Header Image / Name block */}
+              <div className="p-6 border-b-2 border-neutral-950 space-y-4 text-left relative bg-neutral-50">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-2">
+                    <span className="text-[9px] uppercase font-mono font-black bg-neutral-950 text-white px-2 py-0.5 rounded-none tracking-wider">
+                      AUDITED OPERATOR
                     </span>
-                  ))}
+                    <h3 className="font-display font-black text-2xl uppercase text-neutral-950 leading-tight pt-1">
+                      {selectedCandidate.name}
+                    </h3>
+                    <p className="text-emerald-800 font-black text-xs uppercase flex items-center gap-1.5">
+                      <Briefcase className="w-3.5 h-3.5" />
+                      {selectedCandidate.role}
+                    </p>
+                    <p className="text-[10px] text-neutral-500 font-mono font-bold uppercase">ID REF: {selectedCandidate.id}</p>
+                  </div>
+
+                  <img 
+                    src={selectedCandidate.avatarUrl} 
+                    alt={selectedCandidate.name} 
+                    className="w-16 h-16 rounded-none object-cover border-2 border-neutral-950 grayscale"
+                    referrerPolicy="no-referrer"
+                  />
                 </div>
+
+                <p className="text-xs text-neutral-600 font-medium uppercase tracking-wide leading-relaxed">
+                  {selectedCandidate.about}
+                </p>
               </div>
 
-              {/* Action Trigger Buttons for SaaS Employer Vibe */}
-              <div className="pt-4 space-y-3">
-                <button 
-                  onClick={() => handleCopyLink(`https://verifolio.com/talent/${selectedCandidate.id}`)}
-                  className="w-full bg-[#111311] hover:bg-neutral-800 text-white font-medium py-3 px-4 rounded-xl text-sm transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:shadow"
-                >
-                  <span>Request Candidate Interview</span>
-                  <ArrowRight className="w-4 h-4 text-emerald-400" />
-                </button>
+              {/* Scrollable contents: Projects, Certifications, Recommendations */}
+              <div className="flex-1 p-6 space-y-6 overflow-y-auto max-h-[460px] text-left">
                 
-                <div className="flex gap-2.5">
-                  <button 
-                    onClick={() => handleCopyLink(`https://verifolio.com/dossier/${selectedCandidate.id}`)}
-                    className="flex-1 text-center border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 font-medium py-2 rounded-lg text-xs transition duration-150 cursor-pointer"
-                  >
-                    Share Dossier Link
-                  </button>
-                  <a 
-                    href="#how-it-works"
-                    className="flex-1 text-center border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 font-medium py-2 rounded-lg text-xs flex items-center justify-center gap-1 transition duration-150"
-                  >
-                    <span>Vetting Standard</span>
-                  </a>
+                {/* 1. Verified Credentials Graph */}
+                <div className="space-y-3 bg-neutral-50 border-2 border-neutral-950 p-4 rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                  <span className="text-[9px] font-mono uppercase font-black text-neutral-500 tracking-wider block">SKILL VALIDATION AUDIT</span>
+                  
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-neutral-700 font-black uppercase text-[10px]">CORE COMPETENCE</span>
+                      <span className="font-mono font-black text-emerald-800">{selectedCandidate.portfolioScore}%</span>
+                    </div>
+                    <div className="w-full bg-neutral-200 h-2 rounded-none overflow-hidden border border-neutral-400">
+                      <div className="bg-emerald-600 h-full rounded-none" style={{ width: `${selectedCandidate.portfolioScore}%` }} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-neutral-700">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                      <span>KYC AUDITED</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-neutral-700">
+                      <Award className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                      <span>{selectedCandidate.experienceCount} METRIC REPORTS</span>
+                    </div>
+                  </div>
                 </div>
-                {copiedText && (
-                  <p className="text-xs text-center text-emerald-600 font-medium animate-pulse">
-                    {copiedText}
-                  </p>
+
+                {/* 2. Contact Credentials - Locked/Unlocked State */}
+                <div className="border-2 border-neutral-950 rounded-none p-4 space-y-3.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                  <div className="flex items-center justify-between border-b border-neutral-200 pb-2.5">
+                    <span className="text-[10px] font-mono uppercase font-black text-neutral-500">CONTACT CREDENTIALS</span>
+                    
+                    {unlockedCandidateIds.includes(selectedCandidate.id) ? (
+                      <span className="inline-flex items-center gap-1 text-[9px] bg-emerald-50 text-emerald-800 font-mono font-black px-2 py-0.5 rounded-none border border-emerald-300 uppercase">
+                        <Unlock className="w-3 h-3 text-emerald-600" />
+                        UNLOCKED
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[9px] bg-amber-50 text-amber-800 font-mono font-black px-2 py-0.5 rounded-none border border-amber-300 uppercase animate-pulse">
+                        <Lock className="w-3 h-3 text-amber-600" />
+                        LOCKED
+                      </span>
+                    )}
+                  </div>
+
+                  {unlockedCandidateIds.includes(selectedCandidate.id) ? (
+                    <div className="text-[11px] space-y-2 font-mono">
+                      <p className="flex justify-between border-b border-dashed border-neutral-250 pb-1.5">
+                        <span className="text-neutral-400 uppercase">EMAIL:</span>
+                        <span className="text-neutral-950 font-black select-all">{selectedCandidate.email}</span>
+                      </p>
+                      <p className="flex justify-between border-b border-dashed border-neutral-250 pb-1.5">
+                        <span className="text-neutral-400 uppercase">PHONE:</span>
+                        <span className="text-neutral-950 font-black select-all">{selectedCandidate.phone}</span>
+                      </p>
+                      <p className="flex justify-between pb-1">
+                        <span className="text-neutral-400 uppercase">VERIFIED LINK:</span>
+                        <span className="text-emerald-700 font-black underline select-all cursor-pointer">dsp.pro/{selectedCandidate.id.toLowerCase()}</span>
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="py-4 space-y-4">
+                      {/* High impact value loss indicator */}
+                      <div className="bg-neutral-50 border border-neutral-300 p-3.5 space-y-3 text-left">
+                        <span className="text-[9px] font-mono font-black text-rose-700 uppercase tracking-wider block">
+                          ⚠️ VALUE AT RISK OF BEING LOST:
+                        </span>
+                        
+                        <div className="space-y-2 text-[10.5px] font-bold text-neutral-700 uppercase tracking-wide">
+                          <p className="flex items-start gap-2">
+                            <span className="text-rose-600 font-mono text-xs leading-none">✕</span>
+                            <span><strong>Direct Hirability:</strong> Miss out on directly emailing & interviewing this operator. Middlemen recruiters charge 20% commission; here, hiring is completely direct.</span>
+                          </p>
+                          <p className="flex items-start gap-2">
+                            <span className="text-rose-600 font-mono text-xs leading-none">✕</span>
+                            <span><strong>Verified Metric Impact:</strong> Lose access to this professional's verified results: <span className="text-indigo-800 font-black">"{selectedCandidate.featuredProject?.metrics || 'Proven ROI'}"</span>.</span>
+                          </p>
+                          <p className="flex items-start gap-2">
+                            <span className="text-rose-600 font-mono text-xs leading-none">✕</span>
+                            <span><strong>Onboarding Asset Protection:</strong> Wasting an estimated 40+ hours filtering unverified resumes on standard job boards instead of instant contact.</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-center space-y-2.5">
+                        <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-wide">
+                          Use 0.5 sourcing slots to protect your hiring timeline.
+                        </p>
+                        <button
+                          onClick={() => handleUnlockCandidate(selectedCandidate.id)}
+                          className="w-full bg-neutral-950 hover:bg-neutral-900 border-2 border-neutral-950 text-white font-black py-3.5 rounded-none text-xs uppercase flex items-center justify-center gap-1.5 cursor-pointer shadow-[3px_3px_0px_0px_rgba(16,185,129,1)] hover:shadow-none transition-all duration-150"
+                        >
+                          <Unlock className="w-4 h-4 text-emerald-400" />
+                          <span>UNLOCK FULL DIRECT CONTACT DIRECTORY</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Verified Projects Output */}
+                <div className="space-y-3">
+                  <h4 className="font-display font-black text-sm text-neutral-900 uppercase tracking-wider">VERIFIED PROJECTS</h4>
+                  {selectedCandidate.projects && selectedCandidate.projects.length > 0 ? (
+                    <div className="space-y-3">
+                      {selectedCandidate.projects.map((proj, pIdx) => (
+                        <div key={pIdx} className="border-2 border-neutral-950 p-3.5 rounded-none space-y-2 bg-neutral-50/25">
+                          <div className="flex items-center justify-between gap-2">
+                            <h5 className="font-black text-neutral-950 uppercase text-xs">{proj.title}</h5>
+                            <span className="text-[10px] font-mono font-bold text-neutral-500">{proj.year}</span>
+                          </div>
+                          <p className="text-[11px] text-neutral-600 uppercase font-semibold tracking-wide leading-relaxed">{proj.description}</p>
+                          <div className="bg-emerald-50 text-emerald-900 border border-emerald-200 text-[10px] font-mono font-black px-2.5 py-1 rounded-none inline-block uppercase">
+                            METRIC IMPACT: {proj.metrics}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="border-2 border-neutral-950 p-4 rounded-none space-y-2 bg-neutral-50/25">
+                      <h5 className="font-black uppercase text-xs text-neutral-950">{selectedCandidate.featuredProject.title}</h5>
+                      <p className="text-[11px] text-neutral-500 uppercase font-semibold">Outcome completed in partner-guided placements.</p>
+                      <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-none">IMPACT: {selectedCandidate.featuredProject.metrics}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* 4. Case Studies */}
+                {selectedCandidate.caseStudies && selectedCandidate.caseStudies.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="font-display font-black text-sm text-neutral-900 uppercase tracking-wider">AUDITED CASE STUDIES</h4>
+                    <div className="space-y-3">
+                      {selectedCandidate.caseStudies.map((cs, cIdx) => (
+                        <div key={cIdx} className="border-2 border-neutral-950 p-4 rounded-none space-y-2 bg-white">
+                          <h5 className="font-black uppercase text-xs text-neutral-900">{cs.title}</h5>
+                          <p className="text-[11px] uppercase font-semibold text-neutral-600"><strong className="text-red-700 font-extrabold">PROBLEM:</strong> {cs.problem}</p>
+                          <p className="text-[11px] uppercase font-semibold text-neutral-600"><strong className="text-emerald-850 font-extrabold">SOLUTION:</strong> {cs.solution}</p>
+                          <p className="text-[10px] text-neutral-950 font-black bg-neutral-50 p-2.5 border border-neutral-250 font-mono">⭐ OUTCOME: {cs.results}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
+
+                {/* 5. Professional Certifications */}
+                {selectedCandidate.certifications && selectedCandidate.certifications.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="font-display font-black text-sm text-neutral-900 uppercase tracking-wider">CERTIFICATIONS</h4>
+                    <div className="flex flex-col gap-1.5 text-xs text-neutral-700">
+                      {selectedCandidate.certifications.map((cert, certIdx) => (
+                        <div key={certIdx} className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                          <span>{cert}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 6. Partner Recommendations */}
+                {selectedCandidate.recommendations && selectedCandidate.recommendations.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="font-display font-black text-sm text-neutral-900 uppercase tracking-wider">ECOSYSTEM RECS</h4>
+                    <div className="space-y-3">
+                      {selectedCandidate.recommendations.map((rec, rIdx) => (
+                        <div key={rIdx} className="border-2 border-neutral-950 bg-neutral-50 p-4 rounded-none text-left space-y-3">
+                          <p className="text-xs text-neutral-600 uppercase font-semibold italic">
+                            "{rec.text}"
+                          </p>
+                          <div className="flex items-center gap-2.5">
+                            <img src={rec.avatar} alt={rec.author} className="w-8 h-8 rounded-none object-cover border border-neutral-900" referrerPolicy="no-referrer" />
+                            <div className="leading-none">
+                              <p className="text-xs font-black uppercase text-neutral-950">{rec.author}</p>
+                              <p className="text-[9px] uppercase font-bold text-neutral-500 mt-0.5">{rec.role}, {rec.company}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 7. Internal Notepad Card (PERSISTED) */}
+                <div className="border-2 border-neutral-950 rounded-none p-4 bg-yellow-50 space-y-3 text-left">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-mono uppercase font-black text-neutral-600 flex items-center gap-1.5">
+                      <Bookmark className="w-3.5 h-3.5 text-amber-600" />
+                      <span>INTERNAL NOTEPAD</span>
+                    </label>
+                    <span className="text-[9px] text-neutral-450 font-mono uppercase font-black">PRIVATE LOG</span>
+                  </div>
+                  
+                  <textarea
+                    value={candidateNotes}
+                    onChange={(e) => saveCandidateNotes(e.target.value)}
+                    placeholder="Enter interview timelines, feedback notes, or target salary logs..."
+                    rows={3}
+                    className="w-full border-2 border-neutral-950 rounded-none p-2 bg-white text-xs text-neutral-800 placeholder:text-neutral-400 focus:outline-none placeholder:uppercase placeholder:font-bold font-bold uppercase"
+                  />
+                  <p className="text-[9px] font-mono text-neutral-400 uppercase font-bold">Auto-persisted to local browser cache.</p>
+                </div>
+
               </div>
+
+              {/* Feedback Notifications */}
+              {feedbackMsg && (
+                <div className="bg-emerald-600 text-white text-xs font-black uppercase py-2 px-4 text-center animate-pulse">
+                  {feedbackMsg}
+                </div>
+              )}
+
             </motion.div>
           ) : (
-            <div className="bg-neutral-50 rounded-3xl border-2 border-dashed border-neutral-200 p-12 text-center h-[500px] flex flex-col justify-center items-center">
-              <ShieldCheck className="w-12 h-12 text-neutral-300 mb-3" />
-              <p className="text-neutral-500 font-medium">Select any verified profile on the left to review their complete capability dossier.</p>
+            <div className="bg-white rounded-none border-2 border-dashed border-neutral-400 p-12 text-center min-h-[500px] flex flex-col justify-center items-center">
+              <ShieldCheck className="w-12 h-12 text-neutral-400 mb-3 animate-pulse" />
+              <p className="text-neutral-700 font-black uppercase text-xs">Select any verified specialist to begin auditing evidence sheets.</p>
             </div>
           )}
         </AnimatePresence>
       </div>
+
+      {/* 3. Access Slots modal when checkout warning trigger is set */}
+      {showBuyWarning && (
+        <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-none p-6 md:p-8 space-y-6 max-w-sm w-full text-center relative border-4 border-neutral-950 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+            <button 
+              onClick={() => setShowBuyWarning(false)}
+              className="absolute top-4 right-4 text-neutral-900 hover:text-red-600 font-extrabold cursor-pointer"
+            >
+              ✕
+            </button>
+            <Lock className="w-12 h-12 text-neutral-950 mx-auto" />
+            <h4 className="font-display font-black text-xl text-neutral-950 uppercase tracking-tight">SLOTS EXHAUSTED</h4>
+            <p className="text-xs text-neutral-600 font-bold uppercase tracking-wide">
+              Contact folders are locked. Slots are required to view direct phone lines, emails, and verified client sheets.
+            </p>
+            <div className="bg-neutral-50 border-2 border-dashed border-neutral-300 p-4 text-left text-[10px] text-neutral-600 uppercase font-bold tracking-wide">
+              💡 1 slot grants access to 2 full candidate folders.
+            </div>
+            
+            <button
+              onClick={() => {
+                setShowBuyWarning(false);
+                if (navigateToPricing) navigateToPricing();
+              }}
+              className="w-full bg-neutral-950 hover:bg-neutral-900 text-white font-black py-3 px-4 rounded-none text-xs uppercase tracking-widest cursor-pointer"
+            >
+              ACQUIRE SOURCE SLOTS
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -13,50 +13,38 @@ const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'f1',
     category: 'candidates',
-    question: 'How does the DSP Talent Hub assessment and validation process work?',
-    answer: 'Unlike generic multiple-choice quizzes, our vetting requires you to pass "The Gauntlet" — a brutal 48-hour scenario-based assessment that filters for real-world execution. Most applicants fail within the first two hours. We audit actual outputs — like configuring multi-stage data pipelines, coding automation scripts, or running target keyword analyses. This ensures only those who can actually perform the work gain the DSP Talent Hub credentials.'
+    question: 'How does the DSP Talent Hub assessment and verification process work?',
+    answer: 'Unlike generic multiple-choice resume filters, our skill verification program involves rigorous professional assessments. We evaluate actual outputs—such as configuring live marketing databases, executing search performance audits, or setting up automation triggers. Only candidates who demonstrate verified competence and cross our scoring thresholds earn the DSP Professional Verification badges.'
   },
   {
     id: 'f2',
     category: 'candidates',
-    question: 'Are there any hidden costs or fees for fellowship candidates?',
-    answer: 'Absolutely not. The core fellowship track, including comprehensive assessments, performance badging, and internship curation, is 100% free for approved candidates. This is fully funded by our hiring agency and enterprise partners who trust us to screen and identify top-tier talent.'
+    question: 'Are there any fees for candidates on the platform?',
+    answer: 'Creating a basic profile and taking initial skill assessments is completely free. To unlock the comprehensive Portfolio Builder, showcase verified project evidence, and gain high priority discovery by enterprise hiring managers, candidates pay a small, one-time onboarding fee for Professional Verification & Portfolio Access. This is not a course or examination fee—it is a premium access pass to showcase proven metrics.'
   },
   {
     id: 'f3',
     category: 'candidates',
     question: 'How long does the verification timeline take?',
-    answer: 'Our vetting and review process typically finishes within 5 to 7 business days from submission of your diagnostic. Once your skills are verified, your talent dossier is instantly compiled, badged, and surfaced to employers who match your specific skill profile.'
+    answer: 'Our professional grading and feedback loop typically concludes within 3 to 5 business days from your assessment submission. Once your skills are validated, your premium profile is marked as Hiring Ready and immediately becomes searchable by top growth corporations and agencies.'
   },
   {
     id: 'f4',
     category: 'employers',
-    question: 'How does DSP Talent Hub guarantee the authenticity of candidate skills?',
-    answer: 'Every verified profile is backed by a verified talent performance history. Employers can view deep diagnostic logs, examine actual outcomes from comprehensive performance-based tests, listen to brief communication recordings, and review validated historical project metrics. We eliminate credentials bluffing completely.'
+    question: 'How do you ensure candidate claims are trustworthy?',
+    answer: 'Every candidate profile features detailed Portfolio Evidence, direct project metrics, and validated Skill Scores. Rather than trusting self-reported claims, employers instantly review verified case studies and candidate insights. This ensures you find digital talent whose technical competence is fully audited.'
   },
   {
     id: 'f5',
     category: 'employers',
-    question: 'What models of engagement do you support for talent hiring?',
-    answer: 'DSP Talent Hub supports three main paths: 12-week supervised internship placements with pre-negotiated stipend structures, contractual and task-oriented freelancing, and direct-hire full-time listings. We act as structural support throughout, providing dynamic tools and replacement guarantees.'
+    question: 'How do we contact the candidates we like?',
+    answer: 'To protect candidated privacy, contact details remain locked while browsing. Employers browse freely and can unlock candidate contact profiles by purchasing Talent Access Slots. One Slot translates to complete Contact Access for two candidates. We provide bulk packages to simplify recruitment at any scale.'
   },
   {
     id: 'f6',
     category: 'employers',
-    question: 'Can we filter candidates by specific tool suites and tech stacks?',
-    answer: 'Yes! Our custom-attributed directory allows employers to search by validated software proficiencies. You can search for candidates with verified experience in specialized automation (Make, Zapier), marketing platforms (GA4, HubSpot, Semrush), development languages, or standard AI engineering APIs.'
-  },
-  {
-    id: 'f7',
-    category: 'candidates',
-    question: 'What happens if I fail or do not meet the minimum assessment score?',
-    answer: 'We believe persistent growth is key. If your candidate diagnostic doesn\'t meet our initial benchmark, you\'ll receive a detailed performance feedback log pointing out precise areas to strengthen. You will be eligible to re-submit or attempt a diagnostic review after a 14-day study period.'
-  },
-  {
-    id: 'f8',
-    category: 'employers',
-    question: 'What is the refund or replacement policy if a placement doesn\'t work out?',
-    answer: 'We provide a comprehensive 14-day satisfaction guarantee on every candidate placed from our verified pool. If the candidate\'s execution doesn\'t live up to their digital credentials, we will match you with an alternate pre-vetted candidate immediately at zero auxiliary cost.'
+    question: 'Can we filter candidates by specific tool suites and specializations?',
+    answer: 'Yes! Our custom-search directory lets you instantly filter digital professionals by key skills (technical SEO, Google Analytics, Klaviyo segmentation, Make.com triggers, Gemini API) and direct experience levels to quickly identify your ideal Talent Match.'
   }
 ];
 
@@ -74,54 +62,53 @@ export default function FAQSection() {
   });
 
   return (
-    <section id="faq" className="py-24 px-4 sm:px-6 lg:px-8 bg-white border-b border-neutral-100">
+    <section id="faq" className="py-24 px-4 sm:px-6 lg:px-8 bg-white border-b-4 border-neutral-950">
       <div className="max-w-4xl mx-auto space-y-16">
         
         {/* Header Block */}
-        <div className="text-center space-y-4">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 font-mono text-xs font-bold rounded-full border border-emerald-100 uppercase tracking-wider">
-            <HelpCircle className="w-3.5 h-3.5" />
-            <span>F.A.Q. Ecosystem</span>
-          </div>
-          <h2 className="font-display font-semibold text-3xl sm:text-4xl text-neutral-950 tracking-tight">
-            Frequently Asked Questions
+        <div className="text-left space-y-4 border-l-4 border-neutral-950 pl-6">
+          <span className="text-[11px] uppercase font-mono font-black text-emerald-700 tracking-widest block">
+            KNOWLEDGE BASE DIRECTORY
+          </span>
+          <h2 className="font-display font-black text-3xl sm:text-5xl text-neutral-950 uppercase tracking-tight">
+            SYSTEM F.A.Q.
           </h2>
-          <p className="text-sm sm:text-base text-neutral-500 max-w-xl mx-auto leading-relaxed">
-            Have queries about how our verification, internship placement, or enterprise hiring pipeline runs? Find answers below.
+          <p className="text-xs font-bold text-neutral-600 max-w-xl uppercase tracking-wider leading-relaxed">
+            Everything you need to know about Africa's premier verified hiring engine, vetting metrics, and access credits.
           </p>
         </div>
 
         {/* Tab Filters */}
-        <div className="flex justify-center p-1 bg-neutral-100 rounded-2xl max-w-md mx-auto relative z-10">
+        <div className="flex bg-neutral-200 border-2 border-neutral-950 rounded-none max-w-md mx-auto p-1 relative z-10">
           <button
             onClick={() => { setActiveTab('all'); setExpandedId(null); }}
-            className={`flex-1 py-2.5 px-4 text-xs font-medium rounded-xl transition duration-200 cursor-pointer flex items-center justify-center gap-1.5
+            className={`flex-1 py-2.5 px-4 text-[10.5px] uppercase font-black transition cursor-pointer flex items-center justify-center gap-1.5
               ${activeTab === 'all' 
-                ? 'bg-white text-neutral-950 shadow-xs border border-neutral-200/50' 
-                : 'text-neutral-500 hover:text-neutral-900 bg-transparent'}`}
+                ? 'bg-neutral-950 text-white' 
+                : 'text-neutral-700 hover:text-neutral-950 bg-transparent'}`}
           >
             <span>All Questions</span>
           </button>
           
           <button
             onClick={() => { setActiveTab('candidates'); setExpandedId(null); }}
-            className={`flex-1 py-2.5 px-4 text-xs font-medium rounded-xl transition duration-200 cursor-pointer flex items-center justify-center gap-1.5
+            className={`flex-1 py-2.5 px-4 text-[10.5px] uppercase font-black transition cursor-pointer flex items-center justify-center gap-1.5
               ${activeTab === 'candidates' 
-                ? 'bg-white text-neutral-950 shadow-xs border border-neutral-200/50' 
-                : 'text-neutral-500 hover:text-neutral-900 bg-transparent'}`}
+                ? 'bg-neutral-950 text-white' 
+                : 'text-neutral-700 hover:text-neutral-950 bg-transparent'}`}
           >
-            <Users className="w-3.5 h-3.5 text-emerald-600" />
-            <span>For Candidates</span>
+            <Users className="w-3.5 h-3.5" />
+            <span>For Talent</span>
           </button>
 
           <button
             onClick={() => { setActiveTab('employers'); setExpandedId(null); }}
-            className={`flex-1 py-2.5 px-4 text-xs font-medium rounded-xl transition duration-200 cursor-pointer flex items-center justify-center gap-1.5
+            className={`flex-1 py-2.5 px-4 text-[10.5px] uppercase font-black transition cursor-pointer flex items-center justify-center gap-1.5
               ${activeTab === 'employers' 
-                ? 'bg-white text-neutral-950 shadow-xs border border-neutral-200/50' 
-                : 'text-neutral-500 hover:text-neutral-900 bg-transparent'}`}
+                ? 'bg-neutral-950 text-white' 
+                : 'text-neutral-700 hover:text-neutral-950 bg-transparent'}`}
           >
-            <Briefcase className="w-3.5 h-3.5 text-emerald-600" />
+            <Briefcase className="w-3.5 h-3.5" />
             <span>For Employers</span>
           </button>
         </div>
@@ -138,31 +125,27 @@ export default function FAQSection() {
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -15 }}
-                  transition={{ duration: 0.25, delay: index * 0.05 }}
-                  className={`bg-[#f8fafc] border rounded-2xl transition-all duration-300 overflow-hidden
+                  transition={{ duration: 0.2, delay: index * 0.02 }}
+                  className={`bg-white border-2 border-neutral-950 rounded-none transition-all duration-150 overflow-hidden text-left
                     ${isExpanded 
-                      ? 'border-emerald-500/40 shadow-sm shadow-emerald-500/5 ring-1 ring-emerald-500/10' 
-                      : 'border-neutral-200/60 hover:border-neutral-300 hover:bg-[#f1f5f9]'}`}
+                      ? 'shadow-[4px_4px_0px_0px_rgba(16,185,129,1)]' 
+                      : 'shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:bg-neutral-50/50'}`}
                 >
                   <button
                     onClick={() => toggleExpand(item.id)}
                     className="w-full text-left py-5 px-6 sm:px-8 flex items-center justify-between gap-4 cursor-pointer focus:outline-none"
                   >
                     <div className="space-y-1">
-                      <span className={`text-[9px] uppercase font-mono font-bold tracking-wider px-2 py-0.5 rounded-sm
-                        ${item.category === 'candidates' 
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
-                          : 'bg-teal-50 text-teal-700 border border-teal-100'}`}
-                      >
-                        {item.category === 'candidates' ? 'Candidate Program' : 'Employer Sourcing'}
+                      <span className="text-[9px] uppercase font-mono font-black tracking-wider px-2 py-0.5 rounded-none bg-neutral-950 text-white border border-neutral-950">
+                        {item.category === 'candidates' ? 'Professional Talent' : 'Employer Sourcing'}
                       </span>
-                      <h3 className="font-display font-medium text-sm sm:text-base text-neutral-900 pt-1.5">
+                      <h3 className="font-display font-black text-sm sm:text-base text-neutral-950 pt-1.5 uppercase leading-tight">
                         {item.question}
                       </h3>
                     </div>
                     
-                    <div className={`p-1.5 rounded-full bg-white border border-neutral-200 text-neutral-400 transition-transform duration-300 flex-shrink-0
-                      ${isExpanded ? 'rotate-180 text-emerald-600 border-emerald-200' : ''}`}
+                    <div className={`p-1.5 rounded-none border-2 border-neutral-950 text-neutral-950 bg-white transition-transform duration-300 flex-shrink-0
+                      ${isExpanded ? 'rotate-180 bg-neutral-950 text-white' : ''}`}
                     >
                       <ChevronDown className="w-4 h-4" />
                     </div>
@@ -176,17 +159,17 @@ export default function FAQSection() {
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.2, ease: "easeInOut" }}
                       >
-                        <div className="pb-6 pt-1 px-6 sm:px-8 border-t border-dashed border-neutral-200 text-xs sm:text-sm text-neutral-600 leading-relaxed space-y-3">
+                        <div className="pb-6 pt-2 px-6 sm:px-8 border-t-2 border-dashed border-neutral-950 text-xs sm:text-sm text-neutral-700 font-bold uppercase tracking-wider leading-relaxed space-y-3 bg-neutral-50/30">
                           <p>{item.answer}</p>
                           {item.category === 'candidates' ? (
-                            <div className="flex items-center gap-1.5 text-xs text-emerald-700 font-medium">
+                            <div className="flex items-center gap-1.5 text-xs text-emerald-800 font-black">
                               <Sparkles className="w-3.5 h-3.5" />
-                              <span>Ready to test your actual competence? Choose the Internship Track or Fellowship above.</span>
+                              <span>ACTIVATE PORTFOLIO VERIFICATION TO EARN LIVE RANKING BADGES.</span>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-1.5 text-xs text-teal-700 font-medium">
+                            <div className="flex items-center gap-1.5 text-xs text-emerald-800 font-black">
                               <Sparkles className="w-3.5 h-3.5" />
-                              <span>Require diagnostic reports on candidates? Let\'s build a curated shortlist for you.</span>
+                              <span>UNLOCK VERIFIED DOSSIERS TO VIEW PRIMARY CREDENTILED ASSETS.</span>
                             </div>
                           )}
                         </div>
@@ -199,25 +182,24 @@ export default function FAQSection() {
           </AnimatePresence>
         </div>
 
-        {/* Live Support Help Box */}
-        <div className="bg-[#f0f9f4] border border-emerald-500/10 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-          <div className="space-y-1">
-            <h4 className="font-display font-bold text-[#0c2e17] text-sm sm:text-base flex items-center gap-2">
-              <MessageCircle className="w-4 h-4 text-emerald-600" />
-              <span>Still have questions about DSP Talent Hub?</span>
+        {/* Support Help Box */}
+        <div className="bg-yellow-50 border-4 border-neutral-950 p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] text-left">
+          <div className="space-y-1.5">
+            <h4 className="font-display font-black text-neutral-950 text-base uppercase tracking-tight flex items-center gap-2">
+              <MessageCircle className="w-4 h-4 text-emerald-850" />
+              <span>CUSTOM SPECIFICATION ROUTING</span>
             </h4>
-            <p className="text-xs text-[#2a5c39] leading-relaxed max-w-xl">
-              Our placement specialists and talent intelligence managers are ready to support your goals. We usually answer within 15 minutes during business hours.
+            <p className="text-xs text-neutral-600 font-bold uppercase tracking-wider leading-relaxed max-w-xl">
+              Do you have specialized technical requirements or need dedicated batch matching? Our partner coordinators can curate specialized talent queues matching exact metrics.
             </p>
           </div>
           <button
             onClick={() => {
-              const element = document.getElementById('navbar');
-              element?.scrollIntoView({ behavior: 'smooth' });
+              window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-            className="self-start sm:self-auto bg-[#10b981] hover:bg-emerald-500 text-white font-bold py-3 px-6 rounded-xl text-xs transition duration-150 cursor-pointer shadow-xs whitespace-nowrap"
+            className="self-start sm:self-auto bg-neutral-950 hover:bg-neutral-900 border-2 border-neutral-950 text-white font-black py-3 px-6 rounded-none text-xs uppercase tracking-widest transition duration-150 cursor-pointer whitespace-nowrap shadow-[3px_3px_0px_0px_rgba(16,185,129,1)]"
           >
-            Connect With Admission
+            CONNECT COORDINATORS
           </button>
         </div>
 

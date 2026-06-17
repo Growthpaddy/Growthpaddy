@@ -1,27 +1,26 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Menu, X, ArrowUpRight, Github, Mail, Globe, Sparkles, ArrowRight, Shield, Activity, Lock, Terminal } from 'lucide-react';
-import { motion } from 'motion/react';
+import { ShieldCheck, Menu, X, ArrowUpRight, Mail, Globe, Sparkles, Briefcase, Zap, Shield, Lock } from 'lucide-react';
 
 interface HeaderProps {
-  currentPage?: 'home' | 'problem' | 'how-it-works' | 'tracks' | 'directory' | 'portfolio' | 'badges';
-  setCurrentPage?: (page: 'home' | 'problem' | 'how-it-works' | 'tracks' | 'directory' | 'portfolio' | 'badges') => void;
+  currentPage?: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing';
+  setCurrentPage?: (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing') => void;
   openHireModal?: () => void;
   openTalentModal?: () => void;
+  employerSlots?: number;
 }
 
-export function Header({ currentPage = 'home', setCurrentPage, openHireModal, openTalentModal }: HeaderProps) {
+export function Header({ currentPage = 'home', setCurrentPage, openHireModal, openTalentModal, employerSlots = 1 }: HeaderProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navItems = [
-    { id: 'problem', label: 'The Problem' },
-    { id: 'how-it-works', label: 'How it Works' },
-    { id: 'tracks', label: 'Tracks' },
-    { id: 'directory', label: 'Talent Directory' },
-    { id: 'portfolio', label: 'Portfolio' },
-    { id: 'badges', label: 'Badges Standard' },
+    { id: 'directory', label: 'FIND TALENT' },
+    { id: 'employer', label: 'EMPLOYER WORKSPACE' },
+    { id: 'talent', label: 'TALENT SPACE' },
+    { id: 'assessment', label: 'PRACTICE ASSESSMENT' },
+    { id: 'pricing', label: 'PRICING' },
   ] as const;
 
-  const handleNavClick = (id: 'home' | 'problem' | 'how-it-works' | 'tracks' | 'directory' | 'portfolio' | 'badges') => {
+  const handleNavClick = (id: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing') => {
     if (setCurrentPage) {
       setCurrentPage(id);
     }
@@ -30,9 +29,9 @@ export function Header({ currentPage = 'home', setCurrentPage, openHireModal, op
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-white/75 backdrop-blur-xl border-b border-neutral-200/50 shadow-xs transition-all duration-300">
-      {/* Top micro progress line to make menu area uniquely different */}
-      <div className="h-[2px] w-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500" />
+    <header className="sticky top-0 z-50 w-full bg-white border-b-4 border-neutral-950 transition-all duration-300 animate-fadeIn">
+      {/* Visual Top Highlight Line */}
+      <div className="h-[6px] w-full bg-[#047857]" />
       
       <div className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3.5">
         
@@ -40,31 +39,33 @@ export function Header({ currentPage = 'home', setCurrentPage, openHireModal, op
         <button 
           onClick={() => handleNavClick('home')}
           className="flex items-center gap-2.5 group cursor-pointer border-0 bg-transparent p-0 text-left focus:outline-none"
+          id="nav-logo-btn"
         >
-          <div className="w-9 h-9 bg-neutral-950 group-hover:bg-emerald-500 rounded-xl flex items-center justify-center transition-colors duration-300 shadow-xs">
-            <ShieldCheck className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 bg-neutral-950 rounded-none flex items-center justify-center transition-all duration-300 border-2 border-neutral-950">
+            <ShieldCheck className="w-5.5 h-5.5 text-[#10b981]" />
           </div>
           <div className="flex flex-col text-left">
-            <span className="font-display font-bold text-lg uppercase tracking-wider text-neutral-950 group-hover:text-emerald-500 transition-colors duration-300">
-              DSP TALENT HUB
+            <span className="font-display font-black text-base leading-none uppercase tracking-tighter text-neutral-950">
+              DSP TALENT <span className="text-emerald-700">HUB</span>
             </span>
-            <span className="text-[9px] font-mono leading-none tracking-tight text-neutral-400 uppercase">
-              Verified Talent Hub
+            <span className="text-[9px] font-mono leading-none tracking-wider text-neutral-500 uppercase font-black mt-1">
+              VERIFIED HIRING NETWORK
             </span>
           </div>
         </button>
 
         {/* Desktop Navigation Links */}
-        <nav className="hidden md:flex items-center gap-1.5 p-1 bg-neutral-100/60 rounded-full border border-neutral-200/30">
+        <nav className="hidden lg:flex items-center gap-1.5 p-1 bg-neutral-105 border-2 border-neutral-950 rounded-none">
           <button
             onClick={() => handleNavClick('home')}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-all duration-200 cursor-pointer ${
+            className={`px-3 py-1.5 text-[10px] tracking-wider uppercase font-black rounded-none transition-all duration-150 cursor-pointer ${
               currentPage === 'home'
-                ? 'bg-neutral-900 text-white shadow-xs'
-                : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200/50'
+                ? 'bg-neutral-950 text-white'
+                : 'text-neutral-700 hover:text-neutral-950 hover:bg-neutral-200'
             }`}
+            id="nav-home-btn"
           >
-            Overview
+            OVERVIEW
           </button>
           {navItems.map((item) => {
             const isActive = currentPage === item.id;
@@ -72,11 +73,12 @@ export function Header({ currentPage = 'home', setCurrentPage, openHireModal, op
               <button
                 key={item.id}
                 onClick={() => handleNavClick(item.id)}
-                className={`px-3.5 py-1.5 text-xs font-semibold rounded-full transition-all duration-200 cursor-pointer ${
+                className={`px-3 py-1.5 text-[10px] tracking-wider uppercase font-black rounded-none transition-all duration-150 cursor-pointer ${
                   isActive
-                    ? 'bg-neutral-900 text-white shadow-xs'
-                    : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200/50'
+                    ? 'bg-neutral-950 text-white'
+                    : 'text-neutral-700 hover:text-neutral-950 hover:bg-neutral-200'
                 }`}
+                id={`nav-${item.id}-btn`}
               >
                 {item.label}
               </button>
@@ -85,33 +87,39 @@ export function Header({ currentPage = 'home', setCurrentPage, openHireModal, op
         </nav>
 
         {/* CTA Actions */}
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden lg:flex items-center gap-3">
+          {currentPage === 'directory' || currentPage === 'employer' ? (
+            <div className="bg-emerald-50 border-2 border-neutral-950 text-neutral-950 text-[10px] font-black font-mono py-1.5 px-3 rounded-none inline-block uppercase">
+              SLOTS: {employerSlots}
+            </div>
+          ) : null}
+
           <button 
-            onClick={() => {
-              if (openHireModal) openHireModal();
-              else handleNavClick('directory');
-            }} 
-            className="text-xs font-semibold text-neutral-700 hover:text-neutral-950 py-2 px-3.5 transition-colors cursor-pointer"
+            onClick={() => handleNavClick('directory')} 
+            className="text-[10px] font-black uppercase tracking-wider text-neutral-800 hover:text-emerald-800 py-2 px-3 transition-colors cursor-pointer"
+            id="nav-cta-find"
           >
-            Find Talent
+            SNOOP TALENT
           </button>
           
           <button 
             onClick={() => {
               if (openTalentModal) openTalentModal();
-              else handleNavClick('tracks');
+              else handleNavClick('talent');
             }} 
-            className="text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-neutral-950 py-2.5 px-4.5 rounded-xl flex items-center gap-1.5 transition duration-200 shadow-xs hover:shadow-md cursor-pointer"
+            className="text-xs font-black bg-neutral-950 hover:bg-neutral-900 border-2 border-neutral-950 text-white py-2.5 px-4 rounded-none flex items-center gap-1.5 transition duration-150 cursor-pointer uppercase tracking-widest shadow-[3px_3px_0px_0px_rgba(16,185,129,1)]"
+            id="nav-cta-apply"
           >
-            <span>Apply as Candidate</span>
-            <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5px]" />
+            <span>JOIN SYSTEM</span>
+            <ArrowUpRight className="w-3.5 h-3.5 stroke-[3px]" />
           </button>
         </div>
 
         {/* Mobile menu Toggle */}
         <button 
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="md:hidden text-neutral-700 hover:text-neutral-950 focus:outline-none p-1.5 rounded-lg hover:bg-neutral-100 transition"
+          className="lg:hidden text-neutral-950 hover:text-neutral-850 p-1.5 border-2 border-neutral-950"
+          id="nav-mobile-hamburger"
         >
           {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
@@ -119,14 +127,14 @@ export function Header({ currentPage = 'home', setCurrentPage, openHireModal, op
 
       {/* Mobile Menu Panel */}
       {isMobileMenuOpen && (
-        <div className="md:hidden absolute top-full left-0 w-full bg-white border-b border-neutral-200 shadow-lg px-5 py-5 space-y-3.5 flex flex-col text-left">
+        <div className="lg:hidden absolute top-full left-0 w-full bg-white border-b-4 border-neutral-950 p-5 space-y-3 flex flex-col text-left">
           <button 
             onClick={() => handleNavClick('home')}
-            className={`text-sm font-semibold py-2 px-3 rounded-lg text-left ${
-              currentPage === 'home' ? 'bg-neutral-100 text-neutral-950' : 'text-neutral-600 hover:bg-neutral-50'
+            className={`text-xs font-black uppercase py-2 px-3 rounded-none text-left tracking-widest ${
+              currentPage === 'home' ? 'bg-neutral-950 text-white' : 'text-neutral-700 hover:bg-neutral-100'
             }`}
           >
-            Overview Hub
+            OVERVIEW
           </button>
           {navItems.map((item) => {
             const isActive = currentPage === item.id;
@@ -134,8 +142,8 @@ export function Header({ currentPage = 'home', setCurrentPage, openHireModal, op
               <button 
                 key={item.id}
                 onClick={() => handleNavClick(item.id)}
-                className={`text-sm font-semibold py-2 px-3 rounded-lg text-left ${
-                  isActive ? 'bg-neutral-100 text-neutral-950' : 'text-neutral-600 hover:bg-neutral-50'
+                className={`text-xs font-black uppercase py-2 px-3 rounded-none text-left tracking-widest ${
+                  isActive ? 'bg-neutral-950 text-white' : 'text-neutral-700 hover:bg-neutral-100'
                 }`}
               >
                 {item.label}
@@ -143,26 +151,25 @@ export function Header({ currentPage = 'home', setCurrentPage, openHireModal, op
             );
           })}
 
-          <div className="pt-3 border-t border-neutral-100 flex flex-col sm:flex-row gap-2">
+          <div className="pt-3 border-t-2 border-neutral-950 flex flex-col gap-2">
             <button 
               onClick={() => {
                 setIsMobileMenuOpen(false);
-                if (openHireModal) openHireModal();
-                else handleNavClick('directory');
+                handleNavClick('directory');
               }}
-              className="w-full text-center py-2.5 rounded-xl border border-neutral-200 text-xs font-semibold text-neutral-800 hover:bg-neutral-50"
+              className="w-full text-center py-2.5 rounded-none border-2 border-neutral-950 text-xs font-black uppercase tracking-widest text-neutral-950 hover:bg-neutral-100"
             >
-              Get Hiring Shortlist
+              BROWSE DIGITAL OPERATORS
             </button>
             <button 
               onClick={() => {
                 setIsMobileMenuOpen(false);
                 if (openTalentModal) openTalentModal();
-                else handleNavClick('tracks');
+                else handleNavClick('talent');
               }}
-              className="w-full text-center py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-neutral-950 font-bold text-xs flex items-center justify-center gap-1.5"
+              className="w-full text-center py-2.5 rounded-none bg-neutral-950 text-white font-black text-xs flex items-center justify-center gap-1.5 uppercase tracking-widest"
             >
-              <span>Apply as Candidate</span>
+              <span>GET VERIFIED</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -173,13 +180,13 @@ export function Header({ currentPage = 'home', setCurrentPage, openHireModal, op
 }
 
 interface FooterProps {
-  setCurrentPage?: (page: 'home' | 'problem' | 'how-it-works' | 'tracks' | 'directory' | 'portfolio' | 'badges') => void;
+  setCurrentPage?: (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing') => void;
 }
 
 export function Footer({ setCurrentPage }: FooterProps) {
   const currentYear = new Date().getFullYear();
 
-  const handleLink = (e: React.MouseEvent, page: 'home' | 'problem' | 'how-it-works' | 'tracks' | 'directory' | 'portfolio' | 'badges') => {
+  const handleLink = (e: React.MouseEvent, page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing') => {
     if (setCurrentPage) {
       e.preventDefault();
       setCurrentPage(page);
@@ -188,79 +195,73 @@ export function Footer({ setCurrentPage }: FooterProps) {
   };
 
   return (
-    <footer className="bg-neutral-950 text-neutral-400 py-16 md:py-24 border-t border-neutral-900 px-4 sm:px-6 lg:px-8 font-secondary relative overflow-hidden select-none">
-      {/* Visual Ambient Shine */}
-      <div className="absolute top-0 left-1/4 -translate-y-1/2 w-96 h-96 bg-emerald-500/5 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute top-0 right-1/4 -translate-y-1/2 w-96 h-96 bg-teal-500/5 rounded-full blur-[120px] pointer-events-none" />
-
-      <div className="max-w-7xl mx-auto space-y-16 relative z-10">
+    <footer className="bg-neutral-950 text-neutral-400 py-16 border-t-4 border-neutral-950 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      
+      <div className="max-w-7xl mx-auto space-y-12 relative z-10">
         
-        {/* Modern Live Telemetry & Vetting Stat Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 p-4 md:p-6 rounded-2xl bg-neutral-900/40 border border-neutral-900/65 backdrop-blur-md">
-          <div className="space-y-1 text-left p-2 border-r border-neutral-900 last:border-r-0">
-            <span className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 flex items-center gap-1.5 font-bold">
-              <Activity className="w-3 h-3 text-emerald-500 animate-pulse" />
-              Evaluation System
+        {/* Core Sourcing Stat Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 p-6 rounded-none bg-neutral-905 border-2 border-neutral-800">
+          <div className="space-y-1 text-left p-2 border-r border-neutral-805 last:border-r-0">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-[#10b981] flex items-center gap-1.5 font-black">
+              <Zap className="w-3.5 h-3.5" />
+              SKILL VERIFICATION
             </span>
-            <p className="font-bold text-white text-sm">The Gauntlet Active</p>
-            <p className="text-[10px] text-neutral-500 font-mono font-medium">Continuous 48-Hour Scenarios</p>
+            <p className="font-extrabold uppercase text-white tracking-tight text-xs">Vetted Matrices</p>
+            <p className="text-[10px] uppercase font-bold text-neutral-500">Adaptive assessments, no fluff</p>
           </div>
-          <div className="space-y-1 text-left p-2 md:pl-6 border-r border-neutral-900 last:border-r-0">
-            <span className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 flex items-center gap-1.5 font-bold">
-              <Terminal className="w-3 h-3 text-red-500" />
-              Sieve Standard
+          <div className="space-y-1 text-left p-2 md:pl-6 border-r border-neutral-805 last:border-r-0">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-450 flex items-center gap-1.5 font-black">
+              <Briefcase className="w-3.5 h-3.5" />
+              SOURCING LATENCY
             </span>
-            <p className="font-bold text-white text-sm">4.8% Survival Rate</p>
-            <p className="text-[10px] text-neutral-500 font-mono font-medium">Most fail in the first 2h</p>
+            <p className="font-extrabold uppercase text-white tracking-tight text-xs">Zero Bottleneck</p>
+            <p className="text-[10px] uppercase font-bold text-neutral-500">Direct query profile unlocking</p>
           </div>
-          <div className="space-y-1 text-left p-2 md:pl-6 border-r border-neutral-900 last:border-r-0">
-            <span className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 flex items-center gap-1.5 font-bold">
-              <Shield className="w-3 h-3 text-teal-400" />
-              Output Verification
+          <div className="space-y-1 text-left p-2 md:pl-6 border-r border-neutral-805 last:border-r-0">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-[#10b981] flex items-center gap-1.5 font-black">
+              <Shield className="w-3.5 h-3.5" />
+              CONFIDENCE MATRIX
             </span>
-            <p className="font-bold text-white text-sm">100% Audited Roster</p>
-            <p className="text-[10px] text-neutral-500 font-mono font-medium">Zero resume padding tolerated</p>
+            <p className="font-extrabold uppercase text-white tracking-tight text-xs">Proof-Driven dossiers</p>
+            <p className="text-[10px] uppercase font-bold text-neutral-500">SaaS audit metric transparency</p>
           </div>
           <div className="space-y-1 text-left p-2 md:pl-6 last:border-r-0">
-            <span className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 flex items-center gap-1.5 font-bold">
-              <Lock className="w-3 h-3 text-indigo-400" />
-              Placement Security
+            <span className="text-[10px] font-mono uppercase tracking-widest text-[#10b981] flex items-center gap-1.5 font-black">
+              <Lock className="w-3.5 h-3.5" />
+              COMPLIANCE SAFE
             </span>
-            <p className="font-bold text-white text-sm">Guaranteed Replacement</p>
-            <p className="text-[10px] text-neutral-500 font-mono font-medium">12-Week supervised guardrails</p>
+            <p className="font-extrabold uppercase text-white tracking-tight text-xs">Anti-Crawl Guard</p>
+            <p className="text-[10px] uppercase font-bold text-neutral-500">Protected contact directories</p>
           </div>
         </div>
 
-        {/* Core Multi-Column Directory */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 md:gap-14 items-start">
+        {/* Multi-Column Directory */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-8 items-start pt-4">
           
           {/* Brand Column (Spans 4) */}
-          <div className="lg:col-span-4 space-y-5 text-left">
+          <div className="lg:col-span-4 space-y-4 text-left">
             <button 
               onClick={(e) => handleLink(e, 'home')}
-              className="inline-flex items-center gap-3 cursor-pointer bg-transparent border-0 p-0 text-left group"
+              className="inline-flex items-center gap-2.5 cursor-pointer bg-transparent border-0 p-0 text-left group"
             >
-              <div className="w-10 h-10 bg-white/5 group-hover:bg-emerald-500/10 border border-neutral-850 group-hover:border-emerald-500/30 rounded-xl flex items-center justify-center transition-all duration-300 shadow">
-                <ShieldCheck className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform duration-300" />
+              <div className="w-9 h-9 bg-neutral-900 border border-neutral-800 rounded-none flex items-center justify-center">
+                <ShieldCheck className="w-5.5 h-5.5 text-emerald-450" />
               </div>
               <div className="flex flex-col">
-                <span className="font-display font-black text-sm sm:text-base uppercase tracking-wider text-white group-hover:text-emerald-400 transition-colors duration-300">
+                <span className="font-display font-black text-sm uppercase tracking-wider text-white">
                   DSP TALENT HUB
                 </span>
-                <span className="text-[9px] font-mono text-neutral-500 group-hover:text-neutral-400 tracking-widest transition-colors duration-300 font-bold">THE GAUNTLET STANDBY</span>
+                <span className="text-[9px] font-mono font-black text-neutral-500 tracking-wider">AFRICA'S VETTED MATRIX</span>
               </div>
             </button>
-            <p className="text-xs text-neutral-500 max-w-sm leading-relaxed">
-              Discover verified, tested digital professionals for deep integrations, internships, and immediate high-leverage hires. Our 48-hour continuous audits provide ultimate deployment confidence.
+            <p className="text-[11px] uppercase tracking-wider font-bold text-neutral-500 max-w-sm leading-relaxed">
+              AFRICA'S PREMIER PLATFORM FOR DIGITAL OPERATORS. WE EXCLUDE TRADITIONAL RESUME METRICS. SOURCING RUNS PURELY ON ADAPTIVE ASSESSMENTS AND PROVEN SINE-WAVE VERIFICATION.
             </p>
-            <div className="flex items-center gap-3.5 pt-2">
-              <a href="mailto:support@dsptalenthub.com" className="w-8 h-8 rounded-lg bg-neutral-900 hover:bg-emerald-950 border border-neutral-800 hover:border-emerald-800 flex items-center justify-center text-neutral-400 hover:text-emerald-400 transition-all duration-300" title="Contact Email">
+            <div className="flex items-center gap-3 pt-1">
+              <a href="mailto:hiring@dsptalenthub.com" className="w-8 h-8 rounded-none bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 flex items-center justify-center text-neutral-400 hover:text-emerald-400 transition" title="Contact Us">
                 <Mail className="w-4 h-4" />
               </a>
-              <a href="#" className="w-8 h-8 rounded-lg bg-neutral-900 hover:bg-emerald-950 border border-neutral-800 hover:border-emerald-800 flex items-center justify-center text-neutral-400 hover:text-emerald-400 transition-all duration-300" title="GitHub System Codebase">
-                <Github className="w-4 h-4" />
-              </a>
-              <a href="#" className="w-8 h-8 rounded-lg bg-neutral-900 hover:bg-emerald-950 border border-neutral-800 hover:border-emerald-800 flex items-center justify-center text-neutral-400 hover:text-emerald-400 transition-all duration-300" title="Global Infrastructure Network">
+              <a href="#" className="w-8 h-8 rounded-none bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 flex items-center justify-center text-neutral-400 hover:text-[#10b981] transition" title="Global Network">
                 <Globe className="w-4 h-4" />
               </a>
             </div>
@@ -268,30 +269,21 @@ export function Footer({ setCurrentPage }: FooterProps) {
 
           {/* Platform Column (Spans 2) */}
           <div className="lg:col-span-2 text-left space-y-4">
-            <h5 className="font-mono text-[10px] text-white uppercase tracking-widest font-bold border-l-2 border-emerald-500 pl-2">Platform</h5>
-            <ul className="space-y-3 text-xs">
+            <h5 className="font-mono text-[10px] text-white uppercase tracking-wider font-extrabold border-l-2 border-emerald-500 pl-2">SYSTEM</h5>
+            <ul className="space-y-3 text-[11px] font-bold uppercase tracking-wider text-left">
               <li>
-                <button onClick={(e) => handleLink(e, 'how-it-works')} className="group flex items-center gap-1 text-left text-neutral-400 hover:text-white transition duration-300 transform hover:translate-x-1 cursor-pointer">
-                  <ArrowRight className="w-3 h-3 text-emerald-400 opacity-0 -ml-3 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300" />
-                  <span>The Gauntlet Vetting</span>
+                <button onClick={(e) => handleLink(e, 'directory')} className="text-neutral-500 hover:text-white transition cursor-pointer text-left">
+                  Find Talent
                 </button>
               </li>
               <li>
-                <button onClick={(e) => handleLink(e, 'directory')} className="group flex items-center gap-1 text-left text-neutral-400 hover:text-white transition duration-300 transform hover:translate-x-1 cursor-pointer">
-                  <ArrowRight className="w-3 h-3 text-emerald-400 opacity-0 -ml-3 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300" />
-                  <span>Talent Directory</span>
+                <button onClick={(e) => handleLink(e, 'employer')} className="text-neutral-500 hover:text-white transition cursor-pointer text-left">
+                  Employers
                 </button>
               </li>
               <li>
-                <button onClick={(e) => handleLink(e, 'badges')} className="group flex items-center gap-1 text-left text-neutral-400 hover:text-white transition duration-300 transform hover:translate-x-1 cursor-pointer">
-                  <ArrowRight className="w-3 h-3 text-emerald-400 opacity-0 -ml-3 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300" />
-                  <span>Vetting Standards</span>
-                </button>
-              </li>
-              <li>
-                <button onClick={(e) => handleLink(e, 'tracks')} className="group flex items-center gap-1 text-left text-neutral-400 hover:text-white transition duration-300 transform hover:translate-x-1 cursor-pointer">
-                  <ArrowRight className="w-3 h-3 text-emerald-400 opacity-0 -ml-3 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300" />
-                  <span>Evaluation Tracks</span>
+                <button onClick={(e) => handleLink(e, 'pricing')} className="text-neutral-500 hover:text-white transition cursor-pointer text-left">
+                  Rates Matrix
                 </button>
               </li>
             </ul>
@@ -299,106 +291,44 @@ export function Footer({ setCurrentPage }: FooterProps) {
 
           {/* Candidates Column (Spans 2) */}
           <div className="lg:col-span-2 text-left space-y-4">
-            <h5 className="font-mono text-[10px] text-white uppercase tracking-widest font-bold border-l-2 border-emerald-500 pl-2">Candidates</h5>
-            <ul className="space-y-3 text-xs">
+            <h5 className="font-mono text-[10px] text-white uppercase tracking-wider font-extrabold border-l-2 border-emerald-500 pl-2">TALENT</h5>
+            <ul className="space-y-2 text-[11px] font-bold uppercase tracking-wider text-left">
               <li>
-                <button onClick={(e) => handleLink(e, 'tracks')} className="group flex items-center gap-1 text-left text-emerald-400 hover:text-emerald-300 font-medium transition duration-300 transform hover:translate-x-1 cursor-pointer">
-                  <ArrowRight className="w-3 h-3 text-emerald-400 opacity-0 -ml-3 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300" />
-                  <span className="flex items-center gap-1">Apply for Placement <Sparkles className="w-2.5 h-2.5 animate-pulse" /></span>
+                <button onClick={(e) => handleLink(e, 'talent')} className="text-neutral-500 hover:text-white transition cursor-pointer text-left">
+                  Portfolio Builder
                 </button>
               </li>
               <li>
-                <button onClick={(e) => handleLink(e, 'portfolio')} className="group flex items-center gap-1 text-left text-neutral-400 hover:text-white transition duration-300 transform hover:translate-x-1 cursor-pointer">
-                  <ArrowRight className="w-3 h-3 text-emerald-400 opacity-0 -ml-3 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300" />
-                  <span>Living Portfolios</span>
+                <button onClick={(e) => handleLink(e, 'assessment')} className="text-emerald-400 hover:text-[#10b981] transition cursor-pointer text-left flex items-center gap-1">
+                  Assessments <Sparkles className="w-2.5 h-2.5 animate-pulse" />
                 </button>
               </li>
               <li>
-                <button onClick={(e) => handleLink(e, 'how-it-works')} className="group flex items-center gap-1 text-left text-neutral-400 hover:text-white transition duration-300 transform hover:translate-x-1 cursor-pointer">
-                  <ArrowRight className="w-3 h-3 text-emerald-400 opacity-0 -ml-3 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300" />
-                  <span>Survival Guides</span>
-                </button>
-              </li>
-              <li>
-                <button onClick={(e) => handleLink(e, 'portfolio')} className="group flex items-center gap-1 text-left text-neutral-400 hover:text-white transition duration-300 transform hover:translate-x-1 cursor-pointer">
-                  <ArrowRight className="w-3 h-3 text-emerald-400 opacity-0 -ml-3 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300" />
-                  <span>Alumni Ecosystem</span>
+                <button onClick={(e) => handleLink(e, 'pricing')} className="text-neutral-500 hover:text-white transition cursor-pointer text-left">
+                  Verification
                 </button>
               </li>
             </ul>
           </div>
 
-          {/* Hiring Teams (Spans 2) */}
+          {/* Legal Column (Spans 2) */}
           <div className="lg:col-span-2 text-left space-y-4">
-            <h5 className="font-mono text-[10px] text-white uppercase tracking-widest font-bold border-l-2 border-emerald-500 pl-2">Hiring Teams</h5>
-            <ul className="space-y-3 text-xs">
-              <li>
-                <button onClick={(e) => handleLink(e, 'tracks')} className="group flex items-center gap-1 text-left text-neutral-400 hover:text-white transition duration-300 transform hover:translate-x-1 cursor-pointer">
-                  <ArrowRight className="w-3 h-3 text-emerald-400 opacity-0 -ml-3 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300" />
-                  <span>Enterprise Scenarios</span>
-                </button>
-              </li>
-              <li>
-                <button onClick={(e) => handleLink(e, 'tracks')} className="group flex items-center gap-1 text-left text-neutral-400 hover:text-white transition duration-300 transform hover:translate-x-1 cursor-pointer">
-                  <ArrowRight className="w-3 h-3 text-emerald-400 opacity-0 -ml-3 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300" />
-                  <span>Matched Stipends</span>
-                </button>
-              </li>
-              <li>
-                <button onClick={(e) => handleLink(e, 'badges')} className="group flex items-center gap-1 text-left text-neutral-400 hover:text-white transition duration-300 transform hover:translate-x-1 cursor-pointer">
-                  <ArrowRight className="w-3 h-3 text-emerald-400 opacity-0 -ml-3 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300" />
-                  <span>KYC Identity Auditing</span>
-                </button>
-              </li>
-              <li>
-                <button onClick={(e) => handleLink(e, 'tracks')} className="group flex items-center gap-1 text-left text-neutral-400 hover:text-white transition duration-300 transform hover:translate-x-1 cursor-pointer">
-                  <ArrowRight className="w-3 h-3 text-emerald-400 opacity-0 -ml-3 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300" />
-                  <span>Success Rates</span>
-                </button>
-              </li>
-            </ul>
-          </div>
-
-          {/* Connect & Operations (Spans 2) */}
-          <div className="lg:col-span-2 text-left space-y-4">
-            <h5 className="font-mono text-[10px] text-white uppercase tracking-widest font-bold border-l-2 border-emerald-500 pl-2">Operations</h5>
-            <ul className="space-y-3 text-xs">
-              <li>
-                <a href="#" className="group flex items-center gap-1 text-left text-neutral-400 hover:text-white transition duration-300 transform hover:translate-x-1">
-                  <ArrowRight className="w-3 h-3 text-emerald-400 opacity-0 -ml-3 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300" />
-                  <span>Anti-Cheat Lab</span>
-                </a>
-              </li>
-              <li>
-                <a href="#" className="group flex items-center gap-1 text-left text-neutral-400 hover:text-white transition duration-300 transform hover:translate-x-1">
-                  <ArrowRight className="w-3 h-3 text-emerald-400 opacity-0 -ml-3 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300" />
-                  <span>Trust Operations</span>
-                </a>
-              </li>
-              <li>
-                <a href="#" className="group flex items-center gap-1 text-left text-neutral-400 hover:text-white transition duration-300 transform hover:translate-x-1">
-                  <ArrowRight className="w-3 h-3 text-emerald-400 opacity-0 -ml-3 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300" />
-                  <span>Privacy Framework</span>
-                </a>
-              </li>
-              <li>
-                <a href="#" className="group flex items-center gap-1 text-left text-neutral-400 hover:text-white transition duration-300 transform hover:translate-x-1">
-                  <ArrowRight className="w-3 h-3 text-emerald-400 opacity-0 -ml-3 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300" />
-                  <span>Legal Provisions</span>
-                </a>
-              </li>
+            <h5 className="font-mono text-[10px] text-white uppercase tracking-wider font-extrabold border-l-2 border-emerald-500 pl-2">INFO</h5>
+            <ul className="space-y-2 text-[11px] font-bold uppercase tracking-wider text-left text-left">
+              <li><a href="#" className="text-neutral-500 hover:text-white transition">Terms</a></li>
+              <li><a href="#" className="text-neutral-500 hover:text-white transition">Privacy</a></li>
+              <li><a href="#" className="text-neutral-500 hover:text-white transition">Disclosures</a></li>
             </ul>
           </div>
 
         </div>
 
-        {/* Bottom Rights, and Credits */}
-        <div className="border-t border-neutral-900 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-neutral-600">
-          <p>© {currentYear} DSP Talent Hub Vetting Ecosystem. All rights reserved.</p>
-          <div className="flex items-center gap-4 text-neutral-500 font-mono">
-            <span>Server Clock: Authenticated</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>All credentials verified as of {new Date().toLocaleDateString(undefined, {year: 'numeric', month: 'long'})}</span>
+        {/* Bottom Panel */}
+        <div className="border-t border-neutral-900 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-[10px] uppercase font-bold text-neutral-500">
+          <p>© {currentYear} DSP Talent Hub Sourcing Systems. Vetted professional operators network.</p>
+          <div className="flex items-center gap-4 text-neutral-600 font-mono">
+            <span className="w-1.5 h-1.5 rounded-none bg-emerald-500" />
+            <span>African Digital Operator Core</span>
           </div>
         </div>
 

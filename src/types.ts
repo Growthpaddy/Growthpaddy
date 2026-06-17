@@ -3,6 +3,29 @@ export interface Skill {
   level: 'Expert' | 'Advanced' | 'Intermediate';
 }
 
+export interface ProjectData {
+  title: string;
+  description: string;
+  metrics: string;
+  tools: string[];
+  year: string;
+}
+
+export interface CaseStudy {
+  title: string;
+  problem: string;
+  solution: string;
+  results: string;
+}
+
+export interface Recommendation {
+  author: string;
+  role: string;
+  company: string;
+  avatar: string;
+  text: string;
+}
+
 export interface TalentCandidate {
   id: string;
   name: string;
@@ -17,8 +40,16 @@ export interface TalentCandidate {
     title: string;
     metrics: string;
   };
-  experienceCount: number; // internships or projects done
+  experienceCount: number;
   bio: string;
+  location: string;
+  email: string;
+  phone: string;
+  about: string;
+  projects?: ProjectData[];
+  caseStudies?: CaseStudy[];
+  certifications?: string[];
+  recommendations?: Recommendation[];
 }
 
 export interface BadgeExplanation {
