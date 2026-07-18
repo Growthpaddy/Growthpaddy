@@ -37,6 +37,12 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
     successfulConnections: 92
   });
 
+  // Interactive Cost & Value Protection Calculator States
+  const [numHires, setNumHires] = useState(3);
+  const [relyOnCVs, setRelyOnCVs] = useState(true);
+  const [useAgencies, setUseAgencies] = useState(true);
+  const [riskBadHire, setRiskBadHire] = useState(true);
+
   useEffect(() => {
     // Alternate hero images every 5 seconds
     const imageInterval = setInterval(() => {
@@ -73,77 +79,120 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
     }
   ];
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08,
+        delayChildren: 0.15
+      }
+    }
+  };
+
+  const childVariants = {
+    hidden: { opacity: 0, y: 15 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        type: 'spring',
+        stiffness: 100,
+        damping: 15
+      }
+    }
+  };
+
   return (
     <div className="space-y-20 bg-[#fafbfc] pb-16">
       
-      {/* 1. HERO SECTION (Clear, Urgent Value Proposition) */}
-      <section className="relative pt-12 md:pt-20 pb-16 px-4 sm:px-6 lg:px-8 bg-white border-b border-neutral-900/10 overflow-hidden text-left animate-fadeIn">
+      {/* 1. HERO SECTION (Clear, Urgent Value Proposition with premium stagger animations) */}
+      <section className="relative pt-12 md:pt-20 pb-16 px-4 sm:px-6 lg:px-8 bg-white border-b border-neutral-900/10 overflow-hidden text-left">
         {/* Subtle grid backing */}
         <div className="absolute inset-0 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:24px_24px] opacity-10 pointer-events-none" />
 
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 items-center relative z-10">
+        <motion.div 
+          className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 items-center relative z-10"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
           
           {/* Left Column (Clarity and core pain-solving statement) */}
           <div className="lg:col-span-7 space-y-6">
             
-            <div className="inline-flex items-center gap-2 bg-neutral-950 px-3 py-1.5 rounded-none border-l-4 border-emerald-500">
+            <motion.div className="inline-flex items-center gap-2 bg-neutral-950 px-3 py-1.5 rounded-md border-l-4 border-emerald-500" variants={childVariants}>
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
               <span className="text-[10px] font-mono font-bold text-white uppercase tracking-wider">
                 VETTED AFRICAN DIGITAL OPERATORS
               </span>
-            </div>
+            </motion.div>
 
-            <h1 className="font-display font-black text-4xl sm:text-6xl text-neutral-950 uppercase tracking-tight leading-[1.05]">
+            <motion.h1 className="font-display font-black text-4xl sm:text-6xl text-neutral-950 uppercase tracking-tight leading-[1.05]" variants={childVariants}>
               HIRE ACTIVE PROOF, <br />
               <span className="text-emerald-700">NOT FABRICATED RESUMES.</span>
-            </h1>
+            </motion.h1>
 
-            <p className="text-sm sm:text-base text-neutral-700 font-bold max-w-xl uppercase tracking-wider leading-relaxed border-l-2 border-neutral-300 pl-4">
+            <motion.p className="text-sm sm:text-base text-neutral-700 font-bold max-w-xl uppercase tracking-wider leading-relaxed border-l-2 border-neutral-300 pl-4" variants={childVariants}>
               Stop filtering through bloated CVs. DSP Talent Hub provides instant access to pre-vetted digital specialists possessing verified skill scores, real projects, and audited case studies.
-            </p>
+            </motion.p>
 
             {/* Crucial Value indicators */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-2">
-              <div className="border-2 border-neutral-950 bg-neutral-50 p-3 text-left">
+            <motion.div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-2" variants={childVariants}>
+              <div className="border-2 border-neutral-950 bg-neutral-50 p-3 text-left rounded-lg">
                 <span className="text-xs font-mono font-black text-emerald-800 block">0% ASSIST FEES</span>
                 <p className="text-[10px] uppercase text-neutral-500 mt-1 font-bold">Hire directly. No bloated agency commissions.</p>
               </div>
-              <div className="border-2 border-neutral-950 bg-neutral-50 p-3 text-left">
+              <div className="border-2 border-neutral-950 bg-neutral-50 p-3 text-left rounded-lg">
                 <span className="text-xs font-mono font-black text-emerald-800 block">100% AUDITED</span>
                 <p className="text-[10px] uppercase text-neutral-500 mt-1 font-bold">Candidates pass scenario audits before being listed.</p>
               </div>
-              <div className="border-2 border-neutral-950 bg-neutral-50 p-3 text-left">
+              <div className="border-2 border-neutral-950 bg-neutral-50 p-3 text-left rounded-lg">
                 <span className="text-xs font-mono font-black text-emerald-800 block">IMMEDIATE START</span>
                 <p className="text-[10px] uppercase text-neutral-500 mt-1 font-bold">Fast-onboarding remote operators available now.</p>
               </div>
-            </div>
+            </motion.div>
 
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 pt-3">
-              <button
+            {/* Action Buttons Staggered */}
+            <motion.div className="flex flex-col sm:flex-row gap-3 pt-3" variants={childVariants}>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => navigateToPage('directory')}
-                className="bg-neutral-950 hover:bg-neutral-900 text-white font-black py-4 px-6 rounded-none text-xs uppercase tracking-widest border-2 border-neutral-950 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[3px_3px_0px_0px_rgba(16,185,129,1)]"
+                className="bg-neutral-950 hover:bg-neutral-900 text-white font-black py-4 px-6 rounded-xl text-xs uppercase tracking-widest border-2 border-neutral-950 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[3px_3px_0px_0px_rgba(16,185,129,1)]"
               >
                 <span>BROWSE VERIFIED TALENT</span>
                 <ArrowRight className="w-4 h-4 text-emerald-400" />
-              </button>
+              </motion.button>
 
-              <button
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => navigateToPage('talent')}
-                className="bg-white hover:bg-neutral-50 border-2 border-neutral-950 text-neutral-950 font-black py-4 px-6 rounded-none text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="bg-white hover:bg-neutral-50 border-2 border-neutral-950 text-neutral-950 font-black py-4 px-6 rounded-xl text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>GET VERIFIED AS TALENT</span>
                 <ArrowUpRight className="w-4 h-4 text-emerald-600" />
-              </button>
-            </div>
+              </motion.button>
+
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => navigateToPage('assessment')}
+                className="bg-emerald-50 hover:bg-emerald-100/80 border-2 border-emerald-950 text-emerald-950 font-black py-4 px-6 rounded-xl text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>PRACTICE SKILL QUIZ</span>
+                <Zap className="w-4 h-4 text-emerald-600 animate-pulse" />
+              </motion.button>
+            </motion.div>
 
           </div>
 
-          {/* Right Column (Minimal Clean Photo Frame) */}
-          <div className="lg:col-span-5 relative flex justify-center items-center">
+          {/* Right Column (Minimal Clean Photo Frame with staggered entry) */}
+          <motion.div className="lg:col-span-5 relative flex justify-center items-center" variants={childVariants}>
             
-            <div className="w-full max-w-sm bg-neutral-950 p-2 rounded-none border-4 border-neutral-950 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] relative overflow-hidden">
-              <div className="relative aspect-[4/5] overflow-hidden bg-neutral-100">
+            <div className="w-full max-w-sm bg-neutral-950 p-2 rounded-2xl border-4 border-neutral-950 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] relative overflow-hidden">
+              <div className="relative aspect-[4/5] overflow-hidden bg-neutral-100 rounded-xl">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={heroImageIndex}
@@ -176,103 +225,211 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
               <ShieldCheck className="w-3.5 h-3.5 text-neutral-950" />
               <span className="font-mono text-[9px] uppercase font-black tracking-wider text-white">SKILLS SECURED</span>
             </div>
-          </div>
+          </motion.div>
 
-        </div>
+        </motion.div>
       </section>
 
       {/* 2. THE VALUE & LOSS ASSESSMENT SECTION (What they lose vs what they gain) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         
-        <div className="bg-neutral-950 text-white rounded-none p-6 sm:p-10 border-4 border-neutral-950 shadow-[6px_6px_0px_0px_rgba(16,185,129,1)] text-left space-y-8">
+        {/* Main Outer container - now in crisp light theme with dark border */}
+        <div className="bg-white text-neutral-950 rounded-none p-6 sm:p-10 border-4 border-neutral-950 shadow-[6px_6px_0px_0px_rgba(16,185,129,1)] text-left space-y-8">
           
-          <div className="border-b border-neutral-800 pb-5">
-            <span className="text-[10px] uppercase font-mono text-emerald-400 font-extrabold tracking-widest block">COST / VALUE ASSESSMENT</span>
-            <h2 className="font-display font-black text-2xl sm:text-4xl text-white uppercase tracking-tight mt-1">
+          <div className="border-b border-neutral-200 pb-5">
+            <span className="text-[10px] uppercase font-mono text-emerald-700 font-extrabold tracking-widest block">COST / VALUE ASSESSMENT</span>
+            <h2 className="font-display font-black text-2xl sm:text-4xl text-neutral-950 uppercase tracking-tight mt-1">
               THE TRUE COST OF FAILING TO ADAPT YOUR HIRING
             </h2>
-            <p className="text-xs text-neutral-400 uppercase tracking-widest font-bold mt-1 max-w-2xl leading-relaxed">
+            <p className="text-xs text-neutral-500 uppercase tracking-widest font-bold mt-1 max-w-2xl leading-relaxed">
               Standard resume platforms lead to severe hiring waste. Transition to a proof-first network to shield your organization from bad placements.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
             
-            {/* The Losses Box (Traditional Recruiting) */}
-            <div className="bg-neutral-900 border-2 border-red-900 p-6 sm:p-8 rounded-none space-y-6">
-              <div className="flex items-center gap-2 text-rose-500">
-                <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-                <h3 className="font-display font-black text-base uppercase tracking-tight">VULNERABILITIES OF TYPICAL RECRUITMENT</h3>
-              </div>
-              <p className="text-xs text-neutral-300 font-bold uppercase tracking-wider">What your business is losing daily by using standard job boards:</p>
+            {/* Interactive Settings Card (Col width: 7) */}
+            <div className="lg:col-span-7 bg-neutral-50 border-2 border-neutral-955 p-6 sm:p-8 rounded-none space-y-6 flex flex-col justify-between">
               
-              <ul className="space-y-4 text-xs font-semibold uppercase tracking-wider text-neutral-400">
-                <li className="flex items-start gap-3">
-                  <span className="text-rose-500 font-bold font-mono text-xs mt-0.5">➔</span>
-                  <div>
-                    <strong className="text-white block font-black">40+ Hours Wasted Per Role:</strong> 
-                    Filtering through hundreds of generic CVs with exaggerated skills and no real evidence.
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-neutral-800">
+                  <AlertTriangle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                  <h3 className="font-display font-black text-xs uppercase tracking-tight">1. INTERACTIVE HIRING LOSS CALCULATOR</h3>
+                </div>
+                <p className="text-[11px] text-neutral-500 uppercase font-bold tracking-wide">
+                  Adjust parameters below to evaluate how much organizational resource is at risk with legacy workflows:
+                </p>
+              </div>
+
+              {/* Slider for roles */}
+              <div className="space-y-3 bg-white p-4 border border-neutral-300">
+                <div className="flex justify-between items-center text-xs font-black uppercase tracking-wider">
+                  <span className="text-neutral-700 font-bold">ROLES RECRUITED PER YEAR</span>
+                  <span className="text-emerald-700 font-mono text-sm bg-emerald-50 px-2 py-0.5 border border-emerald-300">
+                    {numHires} {numHires === 1 ? 'ACTIVE ROLE' : 'ACTIVE ROLES'}
+                  </span>
+                </div>
+                <input 
+                  type="range" 
+                  min="1" 
+                  max="15" 
+                  value={numHires}
+                  onChange={(e) => setNumHires(parseInt(e.target.value, 10))}
+                  className="w-full h-1.5 bg-neutral-200 rounded-none appearance-none cursor-pointer accent-emerald-600 focus:outline-none"
+                />
+                <div className="flex justify-between text-[9px] font-mono font-bold text-neutral-400">
+                  <span>1 ROLE</span>
+                  <span>5 ROLES</span>
+                  <span>10 ROLES</span>
+                  <span>15 ROLES</span>
+                </div>
+              </div>
+
+              {/* Checkbox configuration list */}
+              <div className="space-y-3.5">
+                
+                {/* Checkbox 1 */}
+                <label className="flex items-start gap-3 p-3 bg-white border border-neutral-200 cursor-pointer hover:bg-neutral-50/50 transition">
+                  <input 
+                    type="checkbox" 
+                    checked={useAgencies}
+                    onChange={(e) => setUseAgencies(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded-none border-2 border-neutral-950 text-emerald-600 cursor-pointer focus:ring-0"
+                  />
+                  <div className="text-xs">
+                    <strong className="text-neutral-900 block font-black uppercase tracking-wide">Use External Staffing Recruiters</strong>
+                    <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider block mt-0.5">
+                      Recruitment agencies charge up to 20% annual salary (avg. $9,500/role) as middleman retainer fees.
+                    </span>
                   </div>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-rose-500 font-bold font-mono text-xs mt-0.5">➔</span>
-                  <div>
-                    <strong className="text-white block font-black">$15,000 Average Loss per Bad Hire:</strong> 
-                    Onboarding individuals who look stellar on paper but struggle to set up basic tracking or automations.
+                </label>
+
+                {/* Checkbox 2 */}
+                <label className="flex items-start gap-3 p-3 bg-white border border-neutral-200 cursor-pointer hover:bg-neutral-50/50 transition">
+                  <input 
+                    type="checkbox" 
+                    checked={relyOnCVs}
+                    onChange={(e) => setRelyOnCVs(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded-none border-2 border-neutral-950 text-emerald-600 cursor-pointer focus:ring-0"
+                  />
+                  <div className="text-xs">
+                    <strong className="text-neutral-900 block font-black uppercase tracking-wide">Screening and Vetting Manual Resumes</strong>
+                    <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider block mt-0.5">
+                      Spent ~40 administrative verification hours per role reading generic PDFs with unproven claims.
+                    </span>
                   </div>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-rose-500 font-bold font-mono text-xs mt-0.5">➔</span>
-                  <div>
-                    <strong className="text-white block font-black">Missed Direct Access:</strong> 
-                    Middleman agencies take up to 20% of annual salaries, locking you out of direct, fast relationship structures.
+                </label>
+
+                {/* Checkbox 3 */}
+                <label className="flex items-start gap-3 p-3 bg-white border border-neutral-200 cursor-pointer hover:bg-neutral-50/50 transition">
+                  <input 
+                    type="checkbox" 
+                    checked={riskBadHire}
+                    onChange={(e) => setRiskBadHire(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded-none border-2 border-neutral-950 text-emerald-600 cursor-pointer focus:ring-0"
+                  />
+                  <div className="text-xs">
+                    <strong className="text-neutral-900 block font-black uppercase tracking-wide">Annual Bad Placement Risk</strong>
+                    <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider block mt-0.5">
+                      Onboarding candidates who underperform on actual digital systems. Average organizational loss is ~$15,000.
+                    </span>
                   </div>
-                </li>
-              </ul>
+                </label>
+
+              </div>
+
             </div>
 
-            {/* The Gains Box (DSP Talent Hub Solution) */}
-            <div className="bg-neutral-900 border-2 border-emerald-950 p-6 sm:p-8 rounded-none space-y-6">
-              <div className="flex items-center gap-2 text-emerald-400">
-                <Scale className="w-5 h-5 flex-shrink-0" />
-                <h3 className="font-display font-black text-base uppercase tracking-tight">THE DSP EVIDENCE PROTECTION ADVANTAGE</h3>
+            {/* Calculations and protection output (Col width: 5) */}
+            <div className="lg:col-span-5 bg-emerald-50 border-2 border-emerald-950 p-6 sm:p-8 rounded-none space-y-6 flex flex-col justify-between">
+              
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-emerald-950">
+                  <Scale className="w-4 h-4 text-emerald-700 flex-shrink-0" />
+                  <h3 className="font-display font-black text-xs uppercase tracking-tight">2. RESOURCE AUDIT SUMMARY</h3>
+                </div>
+                <p className="text-[10px] font-bold text-neutral-600 uppercase tracking-widest leading-relaxed">
+                  Real-time cost projection comparing traditional recruiting procedures to our proof-backed system:
+                </p>
               </div>
-              <p className="text-xs text-neutral-300 font-bold uppercase tracking-wider">What your business gains instantly by using our platform:</p>
 
-              <ul className="space-y-4 text-xs font-semibold uppercase tracking-wider text-neutral-400">
-                <li className="flex items-start gap-3">
-                  <span className="text-emerald-400 font-bold font-mono text-xs mt-0.5">➔</span>
-                  <div>
-                    <strong className="text-white block font-black">Vetted Competence Scores:</strong> 
-                    Candidates take rigorous workflow assessments on tools like Zapier, Make, GA4 prior to directory listing.
+              {/* Dynamic live costs */}
+              <div className="space-y-4">
+                
+                {/* Traditional Pileup cost box */}
+                <div className="bg-white/80 p-3 border border-neutral-300">
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-[10px] font-mono text-neutral-500 uppercase font-black">TRADITIONAL PLACEMENT OVERHEAD:</span>
+                    <span className="text-sm font-black font-mono text-neutral-900">
+                      ${((relyOnCVs ? (numHires * 40 * 50) : 0) + (useAgencies ? (numHires * 9500) : 0) + (riskBadHire ? 15000 : 0)).toLocaleString()}
+                    </span>
                   </div>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-emerald-400 font-bold font-mono text-xs mt-0.5">➔</span>
-                  <div>
-                    <strong className="text-white block font-black">Audited Evidence Case Files:</strong> 
-                    Every candidate features verified, objective metrics directly, representing high-intent problem solvers.
+                  {/* Small progress meter indicator for risk */}
+                  <div className="w-full bg-neutral-200 h-1 mt-1.5 rounded-none overflow-hidden">
+                    <div 
+                      className="bg-neutral-800 h-full transition-all duration-350"
+                      style={{ 
+                        width: `${Math.min(100, (((relyOnCVs ? (numHires * 40 * 50) : 0) + (useAgencies ? (numHires * 9500) : 0) + (riskBadHire ? 15000 : 0)) / 172000) * 100)}%` 
+                      }}
+                    />
                   </div>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-emerald-400 font-bold font-mono text-xs mt-0.5">➔</span>
-                  <div>
-                    <strong className="text-white block font-black">Direct Commission-Free Hires:</strong> 
-                    Utilize transparent pay-as-you-go slots to acquire full direct lines and coordinate immediately. Saves up to $10,000+ per hire.
+                  <p className="text-[9px] text-neutral-400 font-mono uppercase tracking-widest mt-1 font-semibold">
+                    Includes {relyOnCVs ? `${numHires * 40} screening hours` : '0 screening hours'} and {useAgencies ? `$${(numHires * 9500).toLocaleString()} markups` : '$0 markups'}
+                  </p>
+                </div>
+
+                {/* DSP Equivalent cost box */}
+                <div className="bg-emerald-100 p-3 border border-emerald-300">
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-[10px] font-mono text-emerald-800 uppercase font-black">DSP METHOD EQUIVALENT:</span>
+                    <span className="text-sm font-black font-mono text-emerald-950">
+                      ${((numHires * 80) + (numHires * 3 * 50)).toLocaleString()}
+                    </span>
                   </div>
-                </li>
-              </ul>
+                  {/* Clean progress meter indicator for DSP efficiency */}
+                  <div className="w-full bg-emerald-200 h-1 mt-1.5 rounded-none overflow-hidden">
+                    <div 
+                      className="bg-emerald-600 h-full transition-all duration-350"
+                      style={{ 
+                        width: `${Math.min(100, ((((numHires * 80) + (numHires * 3 * 50)) / 172000) * 100))}%` 
+                      }}
+                    />
+                  </div>
+                  <p className="text-[9px] text-emerald-700 font-mono uppercase tracking-widest mt-1 font-semibold">
+                    Pure-Direct sourcing slots + fast-tracked evidence checks
+                  </p>
+                </div>
+
+              </div>
+
+              {/* Resource protection banner with dynamic net savings */}
+              <div className="bg-neutral-950 text-white p-4 text-center border-2 border-neutral-950">
+                <span className="text-[8px] font-mono uppercase text-emerald-400 font-black tracking-widest block">
+                  ESTIMATED NET VALUE PROTECTED
+                </span>
+                <p className="text-2xl sm:text-3xl font-black font-display font-mono text-white mt-1">
+                  ${Math.max(
+                    0,
+                    ((relyOnCVs ? (numHires * 40 * 50) : 0) + (useAgencies ? (numHires * 9500) : 0) + (riskBadHire ? 15000 : 0)) -
+                    ((numHires * 80) + (numHires * 3 * 50))
+                  ).toLocaleString()}
+                </p>
+                <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-wider leading-snug mt-1">
+                  By shielding your administrative timeline and bypass recruiting markups.
+                </p>
+              </div>
+
             </div>
 
           </div>
 
-          <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-neutral-800">
-            <p className="text-[10px] text-neutral-400 uppercase tracking-wider font-bold">
+          <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-neutral-200">
+            <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold">
               ⚡ READY TO SHIELD YOUR VALUE? ACCESS OUR NETWORK IN A FEW CLICK STEPS.
             </p>
             <button
               onClick={() => navigateToPage('directory')}
-              className="bg-emerald-400 hover:bg-emerald-500 text-neutral-950 text-xs font-black py-2.5 px-5 rounded-none uppercase tracking-widest transition cursor-pointer"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black py-2.5 px-5 rounded-none uppercase tracking-widest transition cursor-pointer shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none"
             >
               Audited Directory Catalog
             </button>
@@ -300,7 +457,7 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
           {/* Employers Column */}
-          <div className="bg-white border-2 border-neutral-950 p-6 sm:p-8 rounded-none text-left flex flex-col justify-between shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+          <div className="bg-white border-2 border-neutral-950 p-6 sm:p-8 rounded-2xl text-left flex flex-col justify-between shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <Briefcase className="w-5 h-5 text-emerald-700" />
@@ -328,14 +485,14 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
 
             <button
               onClick={() => navigateToPage('directory')}
-              className="mt-6 w-full text-center py-3 bg-neutral-950 hover:bg-neutral-900 font-black text-white text-xs uppercase tracking-wider rounded-none"
+              className="mt-6 w-full text-center py-3 bg-neutral-950 hover:bg-neutral-900 font-black text-white text-xs uppercase tracking-wider rounded-xl"
             >
               BROWSE SIFTING CONSOLE
             </button>
           </div>
 
           {/* Creators / Talent Column */}
-          <div className="bg-white border-2 border-neutral-950 p-6 sm:p-8 rounded-none text-left flex flex-col justify-between shadow-[4px_4px_0px_0px_rgba(4,120,87,1)]">
+          <div className="bg-white border-2 border-neutral-950 p-6 sm:p-8 rounded-2xl text-left flex flex-col justify-between shadow-[4px_4px_0px_0px_rgba(4,120,87,1)]">
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <UserCheck className="w-5 h-5 text-emerald-700" />
@@ -363,7 +520,7 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
 
             <button
               onClick={() => navigateToPage('talent')}
-              className="mt-6 w-full text-center py-3 bg-emerald-700 hover:bg-emerald-850 font-black text-white text-xs uppercase tracking-wider rounded-none"
+              className="mt-6 w-full text-center py-3 bg-emerald-700 hover:bg-emerald-850 font-black text-white text-xs uppercase tracking-wider rounded-xl"
             >
               BUILD PROOF PORTFOLIO
             </button>

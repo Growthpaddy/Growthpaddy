@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ArrowRight, 
@@ -25,14 +25,110 @@ import EmployerWorkspace from './components/EmployerWorkspace';
 import TalentDashboard from './components/TalentDashboard';
 import PracticeAssessment from './components/PracticeAssessment';
 import PricingPlans from './components/PricingPlans';
+import ConversationalOnboarding from './components/ConversationalOnboarding';
+import ConfettiSuccess from './components/ConfettiSuccess';
 
 export default function App() {
   // Navigation State
   const [currentPage, setCurrentPage] = useState<'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing'>('home');
 
+  // Confetti Success States
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [confettiMessage, setConfettiMessage] = useState('SUCCESSFULLY REGISTERED!');
+
   // Shared Global States
   const [employerSlots, setEmployerSlots] = useState<number>(1);
   const [isTalentPaid, setIsTalentPaid] = useState<boolean>(false);
+  
+  // Sign In State
+  const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
+  const [signInEmail, setSignInEmail] = useState('');
+  const [signInPassword, setSignInPassword] = useState('');
+  const [signInError, setSignInError] = useState('');
+
+  // Seed default demo accounts in localStorage if not already present
+  useEffect(() => {
+    const existing = localStorage.getItem('dsp_registered_users');
+    if (!existing) {
+      const demoUsers = [
+        {
+          email: 'recruiter@dsp.com',
+          password: 'password123',
+          userName: 'Marcus Sterling',
+          userType: 'recruiter',
+          onboarding: {
+            userType: 'recruiter',
+            userName: 'Marcus Sterling',
+            orgName: 'Sterling Growth Capital',
+            orgSize: '11-50',
+            industry: 'SaaS / B2B',
+            neededRole: 'AI Automation Operations Architect'
+          }
+        },
+        {
+          email: 'talent@dsp.com',
+          password: 'password123',
+          userName: 'Alex Rivers',
+          userType: 'talent',
+          onboarding: {
+            userType: 'talent',
+            userName: 'Alex Rivers',
+            careerGoal: 'Full-Time Remote',
+            specialty: 'AI Automation',
+            experienceLevel: 'Professional',
+            email: 'talent@dsp.com'
+          }
+        }
+      ];
+      localStorage.setItem('dsp_registered_users', JSON.stringify(demoUsers));
+    }
+  }, []);
+
+  const handleSignInSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSignInError('');
+
+    if (!signInEmail.trim() || !signInPassword.trim()) {
+      setSignInError('Please provide both email and password.');
+      return;
+    }
+
+    const rawUsers = localStorage.getItem('dsp_registered_users');
+    const users = rawUsers ? JSON.parse(rawUsers) : [];
+
+    const found = users.find(
+      (u: any) => u.email.toLowerCase() === signInEmail.toLowerCase().trim() && u.password === signInPassword
+    );
+
+    if (found) {
+      setOnboardingData(found.onboarding);
+      setIsSignInModalOpen(false);
+      setSignInEmail('');
+      setSignInPassword('');
+      // Navigate to correct dashboard based on user type
+      if (found.userType === 'recruiter') {
+        setCurrentPage('directory');
+      } else if (found.userType === 'talent') {
+        setCurrentPage('talent');
+      } else {
+        setCurrentPage('home');
+      }
+    } else {
+      setSignInError('Invalid credentials. If you entered a password during onboarding, use that email/password. Or use recruiter@dsp.com / password123 to instantly login!');
+    }
+  };
+  const [onboardingData, setOnboardingData] = useState<{
+    userType: 'talent' | 'recruiter' | null;
+    userName: string;
+    careerGoal?: 'Internship' | 'Freelance' | 'Full-Time Remote';
+    specialty?: string;
+    experienceLevel?: 'Fresher' | 'Professional';
+    email?: string;
+    orgName?: string;
+    orgSize?: string;
+    industry?: string;
+    neededRole?: string;
+  } | null>(null);
 
   // Modals Core Settings
   const [isHireModalOpen, setIsHireModalOpen] = useState(false);
@@ -58,6 +154,17 @@ export default function App() {
         openHireModal={() => setIsHireModalOpen(true)}
         openTalentModal={() => setIsTalentModalOpen(true)}
         employerSlots={employerSlots}
+        isLoggedIn={onboardingData !== null}
+        userName={onboardingData?.userName || ''}
+        userType={onboardingData?.userType || null}
+        onSignInClick={() => {
+          setSignInError('');
+          setIsSignInModalOpen(true);
+        }}
+        onSignOutClick={() => {
+          setOnboardingData(null);
+          setCurrentPage('home');
+        }}
       />
 
       {/* PRIMARY VIEWS CONTAINER */}
@@ -73,11 +180,58 @@ export default function App() {
             
             {/* View 1: Home/Overview Landing Page */}
             {currentPage === 'home' && (
-              <HomeOverview 
-                navigateToPage={navigateToPage} 
-                openHireModal={() => setIsHireModalOpen(true)} 
-                openTalentModal={() => setIsTalentModalOpen(true)} 
-              />
+              onboardingData === null ? (
+                <div className="w-full bg-neutral-50 min-h-[75vh]">
+                  <ConversationalOnboarding 
+                    onComplete={(data) => {
+                      setOnboardingData(data);
+                      // Trigger confetti success state
+                      setConfettiMessage(data.userType === 'recruiter' ? 'RECRUITER PORTAL DEPLOYED!' : 'TALENT PROFILE ACTIVATED!');
+                      setShowConfetti(true);
+                      // Save to registered users list in local storage so they can sign in with it later!
+                      if (data.email && data.password) {
+                        const existing = localStorage.getItem('dsp_registered_users');
+                        const users = existing ? JSON.parse(existing) : [];
+                        // Prevent duplicate entries of the same email
+                        const filtered = users.filter((u: any) => u.email.toLowerCase() !== data.email?.toLowerCase());
+                        filtered.push({
+                          email: data.email,
+                          password: data.password,
+                          userName: data.userName,
+                          userType: data.userType,
+                          onboarding: data
+                        });
+                        localStorage.setItem('dsp_registered_users', JSON.stringify(filtered));
+                      }
+                      if (data.userType === 'recruiter') {
+                        setCurrentPage('directory'); // Go straight to directory to see filtered matches!
+                      } else if (data.userType === 'talent') {
+                        setCurrentPage('talent'); // Go straight to Phase-Stepped Talent Dashboard!
+                      }
+                    }}
+                  />
+                </div>
+              ) : (
+                <div>
+                  <div className="bg-emerald-600 text-white p-3 text-center text-xs font-black uppercase tracking-wider flex flex-col sm:flex-row items-center justify-between px-6 sm:px-12 gap-2 border-b-2 border-neutral-950">
+                    <span>⚡ ACTIVE WORKSPACE: ADDRESSING YOU AS {onboardingData.userName.toUpperCase()} ({onboardingData.userType === 'talent' ? 'VETTED TALENT PIPELINE' : onboardingData.userType === 'recruiter' ? 'RECRUITER PORTAL' : 'GUEST EXPLORER'})</span>
+                    <button 
+                      onClick={() => {
+                        setOnboardingData(null);
+                        setCurrentPage('home');
+                      }}
+                      className="bg-white hover:bg-neutral-100 text-neutral-950 font-black py-1 px-3 border border-neutral-950 rounded-none text-[9px] cursor-pointer uppercase tracking-widest transition duration-150"
+                    >
+                      RESET SESSION / RE-ENTER PIPELINE
+                    </button>
+                  </div>
+                  <HomeOverview 
+                    navigateToPage={navigateToPage} 
+                    openHireModal={() => setIsHireModalOpen(true)} 
+                    openTalentModal={() => setIsTalentModalOpen(true)} 
+                  />
+                </div>
+              )
             )}
 
             {/* View 2: Find Talent (Directory Page) */}
@@ -99,6 +253,7 @@ export default function App() {
                   employerSlots={employerSlots} 
                   setEmployerSlots={setEmployerSlots} 
                   navigateToPricing={() => navigateToPage('pricing')} 
+                  onboardingData={onboardingData || undefined}
                 />
               </section>
             )}
@@ -118,6 +273,7 @@ export default function App() {
                 isTalentPaid={isTalentPaid} 
                 setIsTalentPaid={setIsTalentPaid} 
                 navigateToPage={navigateToPage} 
+                onboardingData={onboardingData || { userName: 'Candidate Specialist', experienceLevel: 'Professional' }}
               />
             )}
 
@@ -212,7 +368,12 @@ export default function App() {
               </div>
             ) : (
               <form 
-                onSubmit={(e) => { e.preventDefault(); setHireSubmitted(true); }}
+                onSubmit={(e) => { 
+                  e.preventDefault(); 
+                  setHireSubmitted(true); 
+                  setConfettiMessage('PLACEMENT PROPOSAL SUBMITTED!');
+                  setShowConfetti(true);
+                }}
                 className="space-y-4 text-xs font-sans"
               >
                 <div className="space-y-1">
@@ -310,7 +471,12 @@ export default function App() {
               </div>
             ) : (
               <form 
-                onSubmit={(e) => { e.preventDefault(); setTalentSubmitted(true); }}
+                onSubmit={(e) => { 
+                  e.preventDefault(); 
+                  setTalentSubmitted(true); 
+                  setConfettiMessage('TALENT VERIFICATION INITIATED!');
+                  setShowConfetti(true);
+                }}
                 className="space-y-4 text-xs font-sans"
               >
                 <div className="space-y-1">
@@ -372,8 +538,108 @@ export default function App() {
         </div>
       )}
 
+      {/* SIGN IN MODAL */}
+      {isSignInModalOpen && (
+        <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white border-4 border-neutral-950 max-w-md w-full p-6 sm:p-8 space-y-6 text-left relative shadow-[8px_8px_0px_0px_rgba(16,185,129,1)]">
+            
+            <div className="flex items-start justify-between border-b-2 border-dashed border-neutral-200 pb-4">
+              <div>
+                <span className="text-[9px] uppercase font-mono font-black text-emerald-700 bg-emerald-50 border border-emerald-150 px-2 py-0.5">
+                  AUTHENTICATION ENGINE
+                </span>
+                <h3 className="font-display font-black text-xl text-neutral-950 uppercase tracking-tight mt-2 leading-none">
+                  Sign In to Workspace
+                </h3>
+                <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mt-1.5">
+                  Access your vetting pipelines or sourcing dashboards instantly.
+                </p>
+              </div>
+              <button 
+                onClick={() => { setIsSignInModalOpen(false); setSignInEmail(''); setSignInPassword(''); setSignInError(''); }}
+                className="text-neutral-400 hover:text-neutral-950 p-1.5 transition cursor-pointer font-black text-lg border-2 border-transparent hover:border-neutral-950"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSignInSubmit} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[9px] font-mono text-neutral-400 font-extrabold uppercase block tracking-wider">EMAIL ADDRESS</label>
+                <input 
+                  type="email" 
+                  required 
+                  value={signInEmail}
+                  onChange={(e) => setSignInEmail(e.target.value)}
+                  placeholder="you@domain.com" 
+                  className="w-full border-2 border-neutral-300 rounded-none px-4 py-3 focus:outline-none focus:border-emerald-600 bg-neutral-50 focus:bg-white text-xs font-bold text-neutral-900 tracking-wide"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-mono text-neutral-400 font-extrabold uppercase block tracking-wider">PASSWORD</label>
+                <input 
+                  type="password" 
+                  required 
+                  value={signInPassword}
+                  onChange={(e) => setSignInPassword(e.target.value)}
+                  placeholder="••••••••" 
+                  className="w-full border-2 border-neutral-300 rounded-none px-4 py-3 focus:outline-none focus:border-emerald-600 bg-neutral-50 focus:bg-white text-xs font-bold text-neutral-900 tracking-wide"
+                />
+              </div>
+
+              {signInError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 text-[10.5px] font-bold text-rose-700 uppercase tracking-wider leading-relaxed">
+                  ⚠️ {signInError}
+                </div>
+              )}
+
+              <button 
+                type="submit" 
+                className="w-full bg-neutral-950 hover:bg-neutral-900 text-white font-black py-3 px-4 rounded-none text-xs uppercase tracking-widest transition cursor-pointer flex items-center justify-center gap-1.5 border-2 border-neutral-950 shadow-[4px_4px_0px_0px_rgba(16,185,129,1)] hover:shadow-none"
+              >
+                <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                <span>SIGN IN NOW</span>
+              </button>
+            </form>
+
+            <div className="bg-neutral-50 p-4 border border-neutral-200 text-[10px] font-mono text-neutral-600 space-y-1.5 uppercase leading-relaxed font-semibold">
+              <span className="font-extrabold text-emerald-700 block">💡 INSTANT DEMO TESTING:</span>
+              <div className="space-y-0.5">
+                <div>• Hiring Partner: <strong className="text-neutral-900">recruiter@dsp.com</strong> / <strong className="text-neutral-900">password123</strong></div>
+                <div>• Specialist: <strong className="text-neutral-900">talent@dsp.com</strong> / <strong className="text-neutral-900">password123</strong></div>
+              </div>
+            </div>
+
+            <div className="text-center pt-2 border-t border-dashed border-neutral-200">
+              <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">
+                New to the platform?{' '}
+              </span>
+              <button
+                onClick={() => {
+                  setIsSignInModalOpen(false);
+                  setOnboardingData(null);
+                  setCurrentPage('home');
+                }}
+                className="text-[10px] uppercase font-black text-emerald-600 hover:text-emerald-800 hover:underline tracking-wider cursor-pointer"
+              >
+                Start Onboarding to Register
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
       {/* GLOBAL FOOTER */}
       <Footer setCurrentPage={setCurrentPage} />
+
+      {/* CONFETTI SUCCESS TRIGGER */}
+      <ConfettiSuccess 
+        isActive={showConfetti} 
+        onComplete={() => setShowConfetti(false)} 
+        message={confettiMessage} 
+      />
 
     </div>
   );

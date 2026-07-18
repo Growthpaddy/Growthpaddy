@@ -29,6 +29,13 @@ interface TalentDirectoryProps {
   employerSlots?: number;
   setEmployerSlots?: React.Dispatch<React.SetStateAction<number>>;
   navigateToPricing?: () => void;
+  onboardingData?: {
+    userType?: 'talent' | 'recruiter' | null;
+    userName?: string;
+    neededRole?: string;
+    industry?: string;
+    orgName?: string;
+  };
 }
 
 const SPECIALIZATIONS = [
@@ -44,7 +51,8 @@ const SPECIALIZATIONS = [
 export default function TalentDirectory({ 
   employerSlots = 1, 
   setEmployerSlots, 
-  navigateToPricing 
+  navigateToPricing,
+  onboardingData
 }: TalentDirectoryProps) {
   const [selectedSpecialization, setSelectedSpecialization] = useState<string>('All Profiles');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -55,6 +63,29 @@ export default function TalentDirectory({
   
   // Local Notes State (Keys map as: candidate-notes-[candidate.id])
   const [candidateNotes, setCandidateNotes] = useState<string>('');
+
+  // Prefilter based on onboardingData recruiter choice
+  useEffect(() => {
+    if (onboardingData?.userType === 'recruiter' && onboardingData?.neededRole) {
+      const roleMap: Record<string, string> = {
+        'AI Automation Operations Architect': 'AI Automation',
+        'SEO Strategist & Content Architect': 'SEO',
+        'Growth Marketing Lead': 'Growth Marketing',
+        'Paid Acquisition & PPC Engineer': 'PPC',
+        'Lifecycle & Email Marketer': 'Email Marketing',
+        'Social Media & Brand Builder': 'Social Media'
+      };
+      const matchedSpecialization = roleMap[onboardingData.neededRole];
+      if (matchedSpecialization) {
+        setSelectedSpecialization(matchedSpecialization);
+        // Also auto-select the first candidate in that category
+        const matchedCandidate = MOCK_TALENT.find(t => t.specialization === matchedSpecialization);
+        if (matchedCandidate) {
+          setSelectedCandidate(matchedCandidate);
+        }
+      }
+    }
+  }, [onboardingData]);
 
   useEffect(() => {
     if (selectedCandidate) {
@@ -171,6 +202,29 @@ export default function TalentDirectory({
             {filteredCandidates.length > 0 ? (
               filteredCandidates.map((candidate) => {
                 const isActive = selectedCandidate?.id === candidate.id;
+                
+                // Smart mapping for recruiters
+                const roleMap: Record<string, string> = {
+                  'AI Automation Operations Architect': 'AI Automation',
+                  'SEO Strategist & Content Architect': 'SEO',
+                  'Growth Marketing Lead': 'Growth Marketing',
+                  'Paid Acquisition & PPC Engineer': 'PPC',
+                  'Lifecycle & Email Marketer': 'Email Marketing',
+                  'Social Media & Brand Builder': 'Social Media'
+                };
+                const expectedSpecialization = onboardingData?.neededRole ? roleMap[onboardingData.neededRole] : null;
+                const isPerfectMatch = onboardingData?.userType === 'recruiter' && 
+                                       expectedSpecialization && 
+                                       candidate.specialization === expectedSpecialization;
+
+                const borderClass = isPerfectMatch 
+                  ? (isActive 
+                      ? 'border-emerald-500 bg-neutral-950 text-white shadow-[6px_6px_0px_0px_rgba(16,185,129,1)]' 
+                      : 'border-emerald-500 bg-emerald-50/10 hover:bg-emerald-50/20 shadow-[4px_4px_0px_0px_rgba(16,185,129,0.35)]')
+                  : (isActive 
+                      ? 'bg-neutral-950 text-white border-neutral-950 shadow-[4px_4px_0px_0px_rgba(16,185,129,1)]' 
+                      : 'bg-white border-neutral-300 hover:border-neutral-950 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]');
+
                 return (
                   <motion.div
                     key={candidate.id}
@@ -180,11 +234,7 @@ export default function TalentDirectory({
                     exit={{ opacity: 0, scale: 0.96 }}
                     transition={{ duration: 0.15 }}
                     onClick={() => setSelectedCandidate(candidate)}
-                    className={`p-4 rounded-none border-2 text-left cursor-pointer transition-all ${
-                      isActive
-                        ? 'bg-neutral-950 text-white border-neutral-950 shadow-[4px_4px_0px_0px_rgba(16,185,129,1)]'
-                        : 'bg-white border-neutral-300 hover:border-neutral-950 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
-                    }`}
+                    className={`p-4 rounded-none border-2 text-left cursor-pointer transition-all ${borderClass}`}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex gap-3">
@@ -199,6 +249,13 @@ export default function TalentDirectory({
                             <h5 className={`font-display font-black text-sm uppercase ${isActive ? 'text-white' : 'text-neutral-955'}`}>
                               {candidate.name}
                             </h5>
+                            
+                            {isPerfectMatch && (
+                              <span className="inline-flex items-center gap-1 bg-emerald-600 text-white font-mono text-[8px] font-black px-1.5 py-0.5 uppercase tracking-wide rounded-none">
+                                ⚡ PERFECT MATCH
+                              </span>
+                            )}
+
                             <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[8px] font-mono font-black uppercase border leading-none ${isActive ? 'bg-emerald-950 text-emerald-450 border-emerald-400' : 'bg-emerald-50 text-emerald-800 border-emerald-200'}`}>
                               <ShieldCheck className="w-2.5 h-2.5 flex-shrink-0" />
                               {candidate.verificationBadge}

@@ -7,25 +7,31 @@ interface HeaderProps {
   openHireModal?: () => void;
   openTalentModal?: () => void;
   employerSlots?: number;
+  onSignInClick?: () => void;
+  onSignOutClick?: () => void;
+  isLoggedIn?: boolean;
+  userName?: string;
+  userType?: 'talent' | 'recruiter' | null;
 }
 
-export function Header({ currentPage = 'home', setCurrentPage, openHireModal, openTalentModal, employerSlots = 1 }: HeaderProps) {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  const navItems = [
-    { id: 'directory', label: 'FIND TALENT' },
-    { id: 'employer', label: 'EMPLOYER WORKSPACE' },
-    { id: 'talent', label: 'TALENT SPACE' },
-    { id: 'assessment', label: 'PRACTICE ASSESSMENT' },
-    { id: 'pricing', label: 'PRICING' },
-  ] as const;
+export function Header({ 
+  currentPage = 'home', 
+  setCurrentPage, 
+  openHireModal, 
+  openTalentModal, 
+  employerSlots = 1,
+  onSignInClick,
+  onSignOutClick,
+  isLoggedIn = false,
+  userName = '',
+  userType = null
+}: HeaderProps) {
 
   const handleNavClick = (id: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing') => {
     if (setCurrentPage) {
       setCurrentPage(id);
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    setIsMobileMenuOpen(false);
   };
 
   return (
@@ -41,7 +47,7 @@ export function Header({ currentPage = 'home', setCurrentPage, openHireModal, op
           className="flex items-center gap-2.5 group cursor-pointer border-0 bg-transparent p-0 text-left focus:outline-none"
           id="nav-logo-btn"
         >
-          <div className="w-10 h-10 bg-neutral-950 rounded-none flex items-center justify-center transition-all duration-300 border-2 border-neutral-950">
+          <div className="w-10 h-10 bg-neutral-950 rounded-none flex items-center justify-center transition-all duration-300 border-2 border-neutral-950 group-hover:border-emerald-500">
             <ShieldCheck className="w-5.5 h-5.5 text-[#10b981]" />
           </div>
           <div className="flex flex-col text-left">
@@ -54,127 +60,37 @@ export function Header({ currentPage = 'home', setCurrentPage, openHireModal, op
           </div>
         </button>
 
-        {/* Desktop Navigation Links */}
-        <nav className="hidden lg:flex items-center gap-1.5 p-1 bg-neutral-105 border-2 border-neutral-950 rounded-none">
-          <button
-            onClick={() => handleNavClick('home')}
-            className={`px-3 py-1.5 text-[10px] tracking-wider uppercase font-black rounded-none transition-all duration-150 cursor-pointer ${
-              currentPage === 'home'
-                ? 'bg-neutral-950 text-white'
-                : 'text-neutral-700 hover:text-neutral-950 hover:bg-neutral-200'
-            }`}
-            id="nav-home-btn"
-          >
-            OVERVIEW
-          </button>
-          {navItems.map((item) => {
-            const isActive = currentPage === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleNavClick(item.id)}
-                className={`px-3 py-1.5 text-[10px] tracking-wider uppercase font-black rounded-none transition-all duration-150 cursor-pointer ${
-                  isActive
-                    ? 'bg-neutral-950 text-white'
-                    : 'text-neutral-700 hover:text-neutral-950 hover:bg-neutral-200'
-                }`}
-                id={`nav-${item.id}-btn`}
-              >
-                {item.label}
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* CTA Actions */}
-        <div className="hidden lg:flex items-center gap-3">
-          {currentPage === 'directory' || currentPage === 'employer' ? (
-            <div className="bg-emerald-50 border-2 border-neutral-950 text-neutral-950 text-[10px] font-black font-mono py-1.5 px-3 rounded-none inline-block uppercase">
-              SLOTS: {employerSlots}
-            </div>
-          ) : null}
-
-          <button 
-            onClick={() => handleNavClick('directory')} 
-            className="text-[10px] font-black uppercase tracking-wider text-neutral-800 hover:text-emerald-800 py-2 px-3 transition-colors cursor-pointer"
-            id="nav-cta-find"
-          >
-            SNOOP TALENT
-          </button>
-          
-          <button 
-            onClick={() => {
-              if (openTalentModal) openTalentModal();
-              else handleNavClick('talent');
-            }} 
-            className="text-xs font-black bg-neutral-950 hover:bg-neutral-900 border-2 border-neutral-950 text-white py-2.5 px-4 rounded-none flex items-center gap-1.5 transition duration-150 cursor-pointer uppercase tracking-widest shadow-[3px_3px_0px_0px_rgba(16,185,129,1)]"
-            id="nav-cta-apply"
-          >
-            <span>JOIN SYSTEM</span>
-            <ArrowUpRight className="w-3.5 h-3.5 stroke-[3px]" />
-          </button>
-        </div>
-
-        {/* Mobile menu Toggle */}
-        <button 
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="lg:hidden text-neutral-950 hover:text-neutral-850 p-1.5 border-2 border-neutral-950"
-          id="nav-mobile-hamburger"
-        >
-          {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
-      </div>
-
-      {/* Mobile Menu Panel */}
-      {isMobileMenuOpen && (
-        <div className="lg:hidden absolute top-full left-0 w-full bg-white border-b-4 border-neutral-950 p-5 space-y-3 flex flex-col text-left">
-          <button 
-            onClick={() => handleNavClick('home')}
-            className={`text-xs font-black uppercase py-2 px-3 rounded-none text-left tracking-widest ${
-              currentPage === 'home' ? 'bg-neutral-950 text-white' : 'text-neutral-700 hover:bg-neutral-100'
-            }`}
-          >
-            OVERVIEW
-          </button>
-          {navItems.map((item) => {
-            const isActive = currentPage === item.id;
-            return (
+        {/* Header Actions / Sign In Container */}
+        <div className="flex items-center gap-3">
+          {isLoggedIn ? (
+            <div className="flex items-center gap-3">
+              {/* Active Workspace Status indicator */}
+              <div className="hidden sm:flex items-center gap-2 bg-neutral-100 border border-neutral-300 py-1 px-3 rounded-none text-[10px] font-black uppercase font-mono text-neutral-700">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>
+                  {userType === 'recruiter' ? 'RECRUITER:' : userType === 'talent' ? 'TALENT:' : 'EXPLORER:'} {userName.toUpperCase()}
+                </span>
+              </div>
               <button 
-                key={item.id}
-                onClick={() => handleNavClick(item.id)}
-                className={`text-xs font-black uppercase py-2 px-3 rounded-none text-left tracking-widest ${
-                  isActive ? 'bg-neutral-950 text-white' : 'text-neutral-700 hover:bg-neutral-100'
-                }`}
+                onClick={onSignOutClick}
+                className="text-[10px] font-black uppercase tracking-wider text-neutral-700 hover:text-rose-600 border-2 border-neutral-300 hover:border-rose-600 py-1.5 px-3 transition-colors cursor-pointer rounded-none bg-white font-mono"
+                id="header-signout-btn"
               >
-                {item.label}
+                SIGN OUT
               </button>
-            );
-          })}
-
-          <div className="pt-3 border-t-2 border-neutral-950 flex flex-col gap-2">
+            </div>
+          ) : (
             <button 
-              onClick={() => {
-                setIsMobileMenuOpen(false);
-                handleNavClick('directory');
-              }}
-              className="w-full text-center py-2.5 rounded-none border-2 border-neutral-950 text-xs font-black uppercase tracking-widest text-neutral-950 hover:bg-neutral-100"
+              onClick={onSignInClick}
+              className="text-xs font-black bg-neutral-950 hover:bg-neutral-900 border-2 border-neutral-950 text-white py-2 px-4 rounded-none flex items-center gap-1.5 transition duration-150 cursor-pointer uppercase tracking-widest shadow-[3px_3px_0px_0px_rgba(16,185,129,1)] hover:shadow-none"
+              id="header-signin-btn"
             >
-              BROWSE DIGITAL OPERATORS
+              <Lock className="w-3.5 h-3.5 text-emerald-400 stroke-[3px]" />
+              <span>SIGN IN</span>
             </button>
-            <button 
-              onClick={() => {
-                setIsMobileMenuOpen(false);
-                if (openTalentModal) openTalentModal();
-                else handleNavClick('talent');
-              }}
-              className="w-full text-center py-2.5 rounded-none bg-neutral-950 text-white font-black text-xs flex items-center justify-center gap-1.5 uppercase tracking-widest"
-            >
-              <span>GET VERIFIED</span>
-              <ArrowUpRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </header>
   );
 }

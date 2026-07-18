@@ -182,26 +182,7 @@ export default function FAQSection() {
           </AnimatePresence>
         </div>
 
-        {/* Support Help Box */}
-        <div className="bg-yellow-50 border-4 border-neutral-950 p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] text-left">
-          <div className="space-y-1.5">
-            <h4 className="font-display font-black text-neutral-950 text-base uppercase tracking-tight flex items-center gap-2">
-              <MessageCircle className="w-4 h-4 text-emerald-850" />
-              <span>CUSTOM SPECIFICATION ROUTING</span>
-            </h4>
-            <p className="text-xs text-neutral-600 font-bold uppercase tracking-wider leading-relaxed max-w-xl">
-              Do you have specialized technical requirements or need dedicated batch matching? Our partner coordinators can curate specialized talent queues matching exact metrics.
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            className="self-start sm:self-auto bg-neutral-950 hover:bg-neutral-900 border-2 border-neutral-950 text-white font-black py-3 px-6 rounded-none text-xs uppercase tracking-widest transition duration-150 cursor-pointer whitespace-nowrap shadow-[3px_3px_0px_0px_rgba(16,185,129,1)]"
-          >
-            CONNECT COORDINATORS
-          </button>
-        </div>
+
 
       </div>
     </section>
