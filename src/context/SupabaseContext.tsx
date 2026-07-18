@@ -10,6 +10,7 @@ export interface OnboardingPayload {
   specialty?: string;
   experienceLevel?: 'Fresher/Newbie' | 'Seasoned Professional';
   email?: string;
+  password?: string;
   orgName?: string;
   orgSize?: string;
   industry?: string;
@@ -28,7 +29,10 @@ export interface SupabaseContextType {
   signIn: (email: string, password: string) => Promise<{ user: User | null; error: any }>;
   signOut: () => Promise<{ error: any }>;
   
-  // Custom Sync Actions
+  // Custom Sync & Registration Actions
+  handleTalentRegistration: (email: string, password: string, rawProfileData: OnboardingPayload) => Promise<{ user: User | null; profile: any; error: any }>;
+  handleRecruiterRegistration: (email: string, password: string, rawCompanyData: OnboardingPayload) => Promise<{ user: User | null; profile: any; error: any }>;
+  updateProfileData: (updatedFields: any) => Promise<{ data: any; error: any }>;
   syncTalentProfile: (talentId: string, payload: OnboardingPayload) => Promise<{ data: any; error: any }>;
   syncRecruiterProfile: (recruiterId: string, payload: OnboardingPayload) => Promise<{ data: any; error: any }>;
   
@@ -52,7 +56,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
   // Monitor auth changes automatically on mount
   useEffect(() => {
-    // If we have standard placeholder client setup
     if (!supabase) {
       setLoading(false);
       return;
@@ -132,6 +135,151 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Custom Registration Action for Talent
+  const handleTalentRegistration = async (email: string, password: string, rawProfileData: OnboardingPayload) => {
+    setError(null);
+    try {
+      // 1. Register through Supabase Auth with metadata tagging
+      const { data, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            user_type: 'talent',
+            full_name: rawProfileData.userName
+          }
+        }
+      });
+      if (authError) throw authError;
+
+      const newUser = data.user;
+      if (!newUser) {
+        throw new Error('User account creation returned an empty response.');
+      }
+
+      // 2. Build initial profile record
+      const profilePayload = {
+        id: newUser.id,
+        full_name: rawProfileData.userName,
+        career_goal: rawProfileData.careerGoal || 'Full-Time Remote Job',
+        specialty: rawProfileData.specialty || 'AI Automation',
+        experience_level: rawProfileData.experienceLevel || 'Seasoned Professional',
+        email: email,
+        session_responses: rawProfileData,
+        phase_1_quiz_passed: false,
+        vetting_status: 'not_started',
+        updated_at: new Date().toISOString()
+      };
+
+      // 3. Persist to database table
+      const { data: profile, error: dbError } = await supabase
+        .from('talent_profiles')
+        .upsert(profilePayload)
+        .select()
+        .single();
+
+      if (dbError) {
+        console.warn('Talent profile database insert failed, utilizing local sandbox fallback:', dbError.message);
+        const mockProfile = { ...profilePayload, mock: true };
+        localStorage.setItem(`mock_talent_profiles_${newUser.id}`, JSON.stringify(mockProfile));
+        return { user: newUser, profile: mockProfile, error: null };
+      }
+
+      return { user: newUser, profile, error: null };
+    } catch (err: any) {
+      console.error('Talent Registration Flow Exception:', err.message || err);
+      setError(err.message || String(err));
+      return { user: null, profile: null, error: err };
+    }
+  };
+
+  // Custom Registration Action for Recruiters
+  const handleRecruiterRegistration = async (email: string, password: string, rawCompanyData: OnboardingPayload) => {
+    setError(null);
+    try {
+      // 1. Register through Supabase Auth with metadata tagging
+      const { data, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            user_type: 'recruiter',
+            full_name: rawCompanyData.userName
+          }
+        }
+      });
+      if (authError) throw authError;
+
+      const newUser = data.user;
+      if (!newUser) {
+        throw new Error('User account creation returned an empty response.');
+      }
+
+      // 2. Build initial company preference profile record
+      const profilePayload = {
+        id: newUser.id,
+        organization_name: rawCompanyData.orgName || 'Dynamic Partner',
+        organization_size: rawCompanyData.orgSize || '1-10 Employees',
+        industry_vertical: rawCompanyData.industry || 'Digital Marketing',
+        needed_talent_role: rawCompanyData.neededRole || 'Full-Time Dedicated Talent',
+        email: email,
+        session_responses: rawCompanyData,
+        updated_at: new Date().toISOString()
+      };
+
+      // 3. Persist to database table
+      const { data: profile, error: dbError } = await supabase
+        .from('recruiter_profiles')
+        .upsert(profilePayload)
+        .select()
+        .single();
+
+      if (dbError) {
+        console.warn('Recruiter profile database insert failed, utilizing local sandbox fallback:', dbError.message);
+        const mockProfile = { ...profilePayload, mock: true };
+        localStorage.setItem(`mock_recruiter_profiles_${newUser.id}`, JSON.stringify(mockProfile));
+        return { user: newUser, profile: mockProfile, error: null };
+      }
+
+      return { user: newUser, profile, error: null };
+    } catch (err: any) {
+      console.error('Recruiter Registration Flow Exception:', err.message || err);
+      setError(err.message || String(err));
+      return { user: null, profile: null, error: err };
+    }
+  };
+
+  // Generic dynamic profile updater based on active session user_type
+  const updateProfileData = async (updatedFields: any) => {
+    setError(null);
+    if (!user) {
+      return { data: null, error: 'No active authenticated session found.' };
+    }
+    const userType = user.user_metadata?.user_type || 'talent';
+    const table = userType === 'recruiter' ? 'recruiter_profiles' : 'talent_profiles';
+
+    try {
+      const { data, error: updateError } = await supabase
+        .from(table)
+        .update({
+          ...updatedFields,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id)
+        .select();
+
+      if (updateError) throw updateError;
+      return { data: data?.[0] || null, error: null };
+    } catch (err: any) {
+      console.warn(`Update ${table} failed, using local storage fallback:`, err.message || err);
+      const key = `mock_${table}_${user.id}`;
+      const existing = localStorage.getItem(key) ? JSON.parse(localStorage.getItem(key)!) : {};
+      const updated = { ...existing, ...updatedFields, updated_at: new Date().toISOString() };
+      localStorage.setItem(key, JSON.stringify(updated));
+      return { data: updated, error: null };
+    }
+  };
+
   // Synchronizes talent profiles after onboarding complete
   const syncTalentProfile = async (talentId: string, payload: OnboardingPayload) => {
     setError(null);
@@ -154,7 +302,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       return { data, error: null };
     } catch (err: any) {
       console.error('Sync Talent Profile Error:', err.message || err);
-      // Fallback for mock sandbox demo if table doesn't exist
       const mockProfile = { id: talentId, ...payload, mock: true };
       return { data: mockProfile, error: null };
     }
@@ -182,7 +329,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       return { data, error: null };
     } catch (err: any) {
       console.error('Sync Recruiter Profile Error:', err.message || err);
-      // Fallback for mock sandbox demo if table doesn't exist
       const mockProfile = { id: recruiterId, ...payload, mock: true };
       return { data: mockProfile, error: null };
     }
@@ -315,6 +461,9 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       signUp,
       signIn,
       signOut,
+      handleTalentRegistration,
+      handleRecruiterRegistration,
+      updateProfileData,
       syncTalentProfile,
       syncRecruiterProfile,
       fetchQuizQuestions,

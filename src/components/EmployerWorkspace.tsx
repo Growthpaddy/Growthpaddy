@@ -6,9 +6,15 @@ import {
   Clock, 
   Bookmark, 
   ExternalLink, 
-  ChevronRight
+  ChevronRight,
+  Settings,
+  Building,
+  Save,
+  CheckCircle2
 } from 'lucide-react';
 import { MOCK_TALENT } from '../data/mockTalent';
+import { useSupabase } from '../context/SupabaseContext';
+import { supabase } from '../lib/supabaseClient';
 
 interface EmployerWorkspaceProps {
   employerSlots?: number;
@@ -22,8 +28,11 @@ export default function EmployerWorkspace({
   navigateToPage 
 }: EmployerWorkspaceProps) {
   
+  const { user, updateProfileData } = useSupabase();
+
+  // Basic Sourcing & Workspace States
   const [unlockedProfiles, setUnlockedProfiles] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'unlocked' | 'interviews' | 'notes'>('unlocked');
+  const [activeTab, setActiveTab] = useState<'unlocked' | 'interviews' | 'notes' | 'settings'>('unlocked');
   const [newInterview, setNewInterview] = useState({ candidateName: '', date: '', time: '', notes: '' });
   const [interviews, setInterviews] = useState<any[]>([
     { id: '1', name: 'Sarah Jenkins', role: 'Growth Marketing Lead', date: 'July 8th, 2026', time: '10:00 AM (UTC)', status: 'Confirmed' },
@@ -31,9 +40,73 @@ export default function EmployerWorkspace({
   ]);
   const [allNotes, setAllNotes] = useState<{ id: string; name: string; text: string }[]>([]);
 
+  // Recruiter Corporate Preferences
+  const [orgName, setOrgName] = useState('Dynamic Partner');
+  const [orgSize, setOrgSize] = useState('1-10 Employees');
+  const [industry, setIndustry] = useState('Digital Marketing');
+  const [neededRole, setNeededRole] = useState('Full-Time Dedicated Talent');
+  
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsSuccess, setSettingsSuccess] = useState(false);
+
+  // Load recruiter preferences on mount from Supabase
+  useEffect(() => {
+    const fetchRecruiterProfile = async () => {
+      if (!user) return;
+      try {
+        const { data, error } = await supabase
+          .from('recruiter_profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (data) {
+          if (data.organization_name) setOrgName(data.organization_name);
+          if (data.organization_size) setOrgSize(data.organization_size);
+          if (data.industry_vertical) setIndustry(data.industry_vertical);
+          if (data.needed_talent_role) setNeededRole(data.needed_talent_role);
+        } else {
+          // Check local sandbox cache fallback
+          const local = localStorage.getItem(`mock_recruiter_profiles_${user.id}`);
+          if (local) {
+            const parsed = JSON.parse(local);
+            if (parsed.organization_name) setOrgName(parsed.organization_name);
+            if (parsed.organization_size) setOrgSize(parsed.organization_size);
+            if (parsed.industry_vertical) setIndustry(parsed.industry_vertical);
+            if (parsed.needed_talent_role) setNeededRole(parsed.needed_talent_role);
+          }
+        }
+      } catch (err) {
+        console.warn('Recruiter DB profile lookup failed. Continuing in local sandbox mode.', err);
+      }
+    };
+    fetchRecruiterProfile();
+  }, [user]);
+
+  // Handle saving corporate settings
+  const handleSavePreferences = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingSettings(true);
+    setSettingsSuccess(false);
+
+    const payload = {
+      organization_name: orgName,
+      organization_size: orgSize,
+      industry_vertical: industry,
+      needed_talent_role: neededRole,
+    };
+
+    const { error } = await updateProfileData(payload);
+    setSavingSettings(false);
+
+    if (!error) {
+      setSettingsSuccess(true);
+      setTimeout(() => setSettingsSuccess(false), 3000);
+    }
+  };
+
   // Reload notes & unlocked data from localStorage
   useEffect(() => {
-    // Collect all candidate notes from localStorage
     const savedNotesList: { id: string; name: string; text: string }[] = [];
     MOCK_TALENT.forEach(candidate => {
       const text = localStorage.getItem(`candidate-notes-${candidate.id}`);
@@ -43,7 +116,6 @@ export default function EmployerWorkspace({
     });
     setAllNotes(savedNotesList);
 
-    // Collect unlocked candidates - for demo, if none unlocked, we mock Sarah Jenkins
     const unlocked = MOCK_TALENT.filter((c, idx) => idx === 0 || idx === 1);
     setUnlockedProfiles(unlocked);
   }, [activeTab]);
@@ -80,10 +152,10 @@ export default function EmployerWorkspace({
             RECRUITING CORE CONSOLE
           </span>
           <h1 className="font-display font-black text-3xl sm:text-4xl text-neutral-950 uppercase tracking-tight">
-            EMPLOYER WORKSPACE
+            {orgName}'s Workspace
           </h1>
           <p className="text-xs font-bold text-neutral-600 uppercase tracking-wider leading-relaxed">
-            Manage unlocked dossiers, candidate pipelines, interview schedules, and sync local notes inside a secure environment.
+            Manage corporate preferences, view unlocked dossiers, pipeline candidates, schedule interviews, and private sourcing notes.
           </p>
         </div>
 
@@ -91,12 +163,12 @@ export default function EmployerWorkspace({
         <div className="bg-neutral-950 text-white p-5 rounded-none border-2 border-neutral-950 text-left min-w-[280px] flex-shrink-0 space-y-4">
           <div className="flex items-center justify-between gap-4">
             <div className="space-y-1">
-              <span className="text-[9px] font-mono text-emerald-400 uppercase tracking-widest block font-black">ACCESS BALANCE</span>
+              <span className="text-[9px] font-mono text-[#00A86B] uppercase tracking-widest block font-black">ACCESS BALANCE</span>
               <p className="text-3xl font-display font-black text-white leading-none">
                 {employerSlots} <span className="text-xs text-neutral-400 font-bold uppercase tracking-wider font-mono">SLOTS</span>
               </p>
             </div>
-            <div className="w-10 h-10 bg-[#047857] rounded-none flex items-center justify-center border-2 border-neutral-950">
+            <div className="w-10 h-10 bg-[#00A86B] rounded-none flex items-center justify-center border-2 border-neutral-950">
               <Unlock className="w-5 h-5 text-white" />
             </div>
           </div>
@@ -141,10 +213,21 @@ export default function EmployerWorkspace({
             className={`flex-1 lg:flex-initial py-3.5 px-4 text-xs font-black rounded-none text-left transition duration-150 cursor-pointer flex items-center gap-2.5 whitespace-nowrap uppercase tracking-widest border-2 border-neutral-950
               ${activeTab === 'notes' 
                 ? 'bg-neutral-950 text-white shadow-[3px_3px_0px_0px_rgba(16,185,129,1)]' 
-                : 'bg-white hover:bg-neutral-55 text-neutral-700'}`}
+                : 'bg-white hover:bg-neutral-50 text-neutral-700'}`}
           >
             <Bookmark className="w-4 h-4 flex-shrink-0" />
             <span>Notes ({allNotes.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`flex-1 lg:flex-initial py-3.5 px-4 text-xs font-black rounded-none text-left transition duration-150 cursor-pointer flex items-center gap-2.5 whitespace-nowrap uppercase tracking-widest border-2 border-neutral-950
+              ${activeTab === 'settings' 
+                ? 'bg-neutral-950 text-white shadow-[3px_3px_0px_0px_rgba(16,185,129,1)]' 
+                : 'bg-white hover:bg-neutral-50 text-neutral-700'}`}
+          >
+            <Settings className="w-4 h-4 flex-shrink-0" />
+            <span>Settings</span>
           </button>
         </div>
 
@@ -156,6 +239,7 @@ export default function EmployerWorkspace({
             {/* View Tab 1: Unlocked profiles */}
             {activeTab === 'unlocked' && (
               <motion.div
+                key="unlocked-tab"
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -5 }}
@@ -219,6 +303,7 @@ export default function EmployerWorkspace({
             {/* View Tab 2: Scheduled Interviews */}
             {activeTab === 'interviews' && (
               <motion.div
+                key="interviews-tab"
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -5 }}
@@ -305,6 +390,7 @@ export default function EmployerWorkspace({
             {/* View Tab 3: Candidate Notes List */}
             {activeTab === 'notes' && (
               <motion.div
+                key="notes-tab"
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -5 }}
@@ -352,6 +438,108 @@ export default function EmployerWorkspace({
                     </button>
                   </div>
                 )}
+              </motion.div>
+            )}
+
+            {/* View Tab 4: Company Preferences Settings */}
+            {activeTab === 'settings' && (
+              <motion.div
+                key="settings-tab"
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                className="space-y-6"
+              >
+                <div className="border-b-2 border-neutral-950 pb-4">
+                  <h3 className="font-display font-black text-lg text-neutral-950 uppercase tracking-tight flex items-center gap-2">
+                    <Building className="w-5 h-5 text-[#00A86B]" />
+                    <span>Company Preferences & Settings</span>
+                  </h3>
+                  <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mt-1">
+                    Manage corporate branding parameters, hiring specialties, and preferred candidate pathways saved directly to Supabase.
+                  </p>
+                </div>
+
+                <form onSubmit={handleSavePreferences} className="space-y-5 max-w-2xl bg-neutral-50 border-2 border-neutral-950 p-6 rounded-none">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-mono font-black text-neutral-500 uppercase tracking-wider block">ORGANIZATION DISPLAY NAME</label>
+                      <input
+                        type="text"
+                        required
+                        value={orgName}
+                        onChange={(e) => setOrgName(e.target.value)}
+                        className="w-full border-2 border-neutral-950 py-2 px-3 text-xs font-bold text-neutral-900 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-mono font-black text-neutral-500 uppercase tracking-wider block">ORGANIZATION SIZE</label>
+                      <select
+                        value={orgSize}
+                        onChange={(e) => setOrgSize(e.target.value)}
+                        className="w-full border-2 border-neutral-950 bg-white py-2 px-3 text-xs font-bold text-neutral-900 focus:outline-none"
+                      >
+                        <option value="1-10 Employees">1-10 Employees (Seed/Startup)</option>
+                        <option value="11-50 Employees">11-50 Employees (Mid-Scale)</option>
+                        <option value="51-200 Employees">51-200 Employees (Growing Org)</option>
+                        <option value="200+ Employees">200+ Employees (Enterprise)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-mono font-black text-neutral-500 uppercase tracking-wider block">INDUSTRY VERTICAL</label>
+                      <select
+                        value={industry}
+                        onChange={(e) => setIndustry(e.target.value)}
+                        className="w-full border-2 border-neutral-950 bg-white py-2 px-3 text-xs font-bold text-neutral-900 focus:outline-none"
+                      >
+                        <option value="Digital Marketing">Digital Growth Marketing</option>
+                        <option value="E-Commerce Operations">E-Commerce Operations</option>
+                        <option value="AI Automation Consulting">AI Automation Consulting</option>
+                        <option value="SaaS / Software Product">SaaS Product / Tech</option>
+                        <option value="Creative Agency">Creative & Media Agency</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-mono font-black text-neutral-500 uppercase tracking-wider block">NEEDED TALENT ROLE</label>
+                      <select
+                        value={neededRole}
+                        onChange={(e) => setNeededRole(e.target.value)}
+                        className="w-full border-2 border-neutral-950 bg-white py-2 px-3 text-xs font-bold text-neutral-900 focus:outline-none"
+                      >
+                        <option value="Interns">Remote Interns Pathways</option>
+                        <option value="Project Freelancers">Project Freelancers (Contracts)</option>
+                        <option value="Full-Time Dedicated Talent">Full-Time Dedicated Talent</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {settingsSuccess && (
+                    <div className="p-2 bg-emerald-50 border-2 border-emerald-900 text-emerald-800 text-[10px] font-mono font-black uppercase text-center animate-fadeIn flex items-center justify-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>CLOUDS PREFERENCES COORDINATED & SAVED IN SUPABASE</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={savingSettings}
+                    className="w-full bg-[#00A86B] hover:bg-emerald-700 text-white font-black py-3 rounded-none text-xs uppercase tracking-widest transition-all shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none flex items-center justify-center gap-1.5 border-2 border-neutral-950"
+                  >
+                    {savingSettings ? (
+                      <span>SAVING CLOUD DOSSIER CONSOLE...</span>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 text-white" />
+                        <span>SAVE COMPANY PREFERENCES</span>
+                      </>
+                    )}
+                  </button>
+                </form>
               </motion.div>
             )}
 

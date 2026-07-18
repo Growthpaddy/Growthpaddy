@@ -27,8 +27,17 @@ import PracticeAssessment from './components/PracticeAssessment';
 import PricingPlans from './components/PricingPlans';
 import ConversationalOnboarding from './components/ConversationalOnboarding';
 import ConfettiSuccess from './components/ConfettiSuccess';
+import { useSupabase } from './context/SupabaseContext';
+import { supabase } from './lib/supabaseClient';
 
 export default function App() {
+  const { 
+    user, 
+    signIn, 
+    handleTalentRegistration, 
+    handleRecruiterRegistration 
+  } = useSupabase();
+
   // Navigation State
   const [currentPage, setCurrentPage] = useState<'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing'>('home');
 
@@ -45,6 +54,29 @@ export default function App() {
   const [signInEmail, setSignInEmail] = useState('');
   const [signInPassword, setSignInPassword] = useState('');
   const [signInError, setSignInError] = useState('');
+
+  // Modals Core Settings
+  const [isHireModalOpen, setIsHireModalOpen] = useState(false);
+  const [hireForm, setHireForm] = useState({ name: '', company: '', roleNeeded: 'AI Automation', message: '' });
+  const [hireSubmitted, setHireSubmitted] = useState(false);
+
+  const [isTalentModalOpen, setIsTalentModalOpen] = useState(false);
+  const [talentForm, setTalentForm] = useState({ name: '', email: '', track: 'Internship Track', skills: '' });
+  const [talentSubmitted, setTalentSubmitted] = useState(false);
+
+  // Active Onboarded User State
+  const [onboardingData, setOnboardingData] = useState<{
+    userType: 'talent' | 'recruiter' | null;
+    userName: string;
+    careerGoal?: 'Internship' | 'Freelance Gigs' | 'Full-Time Remote Job';
+    specialty?: string;
+    experienceLevel?: 'Fresher/Newbie' | 'Seasoned Professional';
+    email?: string;
+    orgName?: string;
+    orgSize?: string;
+    industry?: string;
+    neededRole?: 'Interns' | 'Project Freelancers' | 'Full-Time Dedicated Talent';
+  } | null>(null);
 
   // Seed default demo accounts in localStorage if not already present
   useEffect(() => {
@@ -73,9 +105,9 @@ export default function App() {
           onboarding: {
             userType: 'talent',
             userName: 'Alex Rivers',
-            careerGoal: 'Full-Time Remote',
+            careerGoal: 'Full-Time Remote Job',
             specialty: 'AI Automation',
-            experienceLevel: 'Professional',
+            experienceLevel: 'Seasoned Professional',
             email: 'talent@dsp.com'
           }
         }
@@ -84,20 +116,88 @@ export default function App() {
     }
   }, []);
 
-  const handleSignInSubmit = (e: React.FormEvent) => {
+  // Monitor Supabase session automatically and load profile details
+  useEffect(() => {
+    const syncSessionUser = async () => {
+      if (!user) return;
+      
+      const userType = user.user_metadata?.user_type || 'talent';
+      try {
+        const table = userType === 'recruiter' ? 'recruiter_profiles' : 'talent_profiles';
+        const { data, error } = await supabase
+          .from(table)
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (data) {
+          if (userType === 'recruiter') {
+            setOnboardingData({
+              userType: 'recruiter',
+              userName: data.organization_name || user.user_metadata?.full_name || 'Recruiter Client',
+              orgName: data.organization_name,
+              orgSize: data.organization_size,
+              industry: data.industry_vertical,
+              neededRole: data.needed_talent_role,
+              email: user.email
+            });
+          } else {
+            setOnboardingData({
+              userType: 'talent',
+              userName: data.full_name || user.user_metadata?.full_name || 'Talent Specialist',
+              careerGoal: data.career_goal,
+              specialty: data.specialty,
+              experienceLevel: data.experience_level,
+              email: user.email
+            });
+            if (data.vetting_status === 'fee_paid' || data.vetting_status === 'completed') {
+              setIsTalentPaid(true);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load session parameters from database on refresh, utilizing localStorage coordinates.', err);
+      }
+    };
+    syncSessionUser();
+  }, [user]);
+
+  // Handle Login Authentication with robust fallback
+  const handleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSignInError('');
 
-    if (!signInEmail.trim() || !signInPassword.trim()) {
+    const email = signInEmail.trim();
+    const password = signInPassword.trim();
+
+    if (!email || !password) {
       setSignInError('Please provide both email and password.');
       return;
     }
 
+    // 1. Attempt Supabase Auth login
+    const { user: authedUser, error: authErr } = await signIn(email, password);
+    
+    if (authedUser && !authErr) {
+      setIsSignInModalOpen(false);
+      setSignInEmail('');
+      setSignInPassword('');
+      
+      const userType = authedUser.user_metadata?.user_type || 'talent';
+      if (userType === 'recruiter') {
+        setCurrentPage('directory');
+      } else {
+        setCurrentPage('talent');
+      }
+      return;
+    }
+
+    // 2. Fall back to local storage registered users simulation
     const rawUsers = localStorage.getItem('dsp_registered_users');
     const users = rawUsers ? JSON.parse(rawUsers) : [];
 
     const found = users.find(
-      (u: any) => u.email.toLowerCase() === signInEmail.toLowerCase().trim() && u.password === signInPassword
+      (u: any) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
     );
 
     if (found) {
@@ -105,7 +205,7 @@ export default function App() {
       setIsSignInModalOpen(false);
       setSignInEmail('');
       setSignInPassword('');
-      // Navigate to correct dashboard based on user type
+      
       if (found.userType === 'recruiter') {
         setCurrentPage('directory');
       } else if (found.userType === 'talent') {
@@ -114,30 +214,9 @@ export default function App() {
         setCurrentPage('home');
       }
     } else {
-      setSignInError('Invalid credentials. If you entered a password during onboarding, use that email/password. Or use recruiter@dsp.com / password123 to instantly login!');
+      setSignInError(authErr?.message || 'Invalid credentials. If you are a new registrant, complete onboarding. Or use recruiter@dsp.com / password123 to login instantly!');
     }
   };
-  const [onboardingData, setOnboardingData] = useState<{
-    userType: 'talent' | 'recruiter' | null;
-    userName: string;
-    careerGoal?: 'Internship' | 'Freelance' | 'Full-Time Remote';
-    specialty?: string;
-    experienceLevel?: 'Fresher' | 'Professional';
-    email?: string;
-    orgName?: string;
-    orgSize?: string;
-    industry?: string;
-    neededRole?: string;
-  } | null>(null);
-
-  // Modals Core Settings
-  const [isHireModalOpen, setIsHireModalOpen] = useState(false);
-  const [hireForm, setHireForm] = useState({ name: '', company: '', roleNeeded: 'AI Automation', message: '' });
-  const [hireSubmitted, setHireSubmitted] = useState(false);
-
-  const [isTalentModalOpen, setIsTalentModalOpen] = useState(false);
-  const [talentForm, setTalentForm] = useState({ name: '', email: '', track: 'Internship Track', skills: '' });
-  const [talentSubmitted, setTalentSubmitted] = useState(false);
 
   const navigateToPage = (pageName: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing') => {
     setCurrentPage(pageName);
@@ -183,16 +262,24 @@ export default function App() {
               onboardingData === null ? (
                 <div className="w-full bg-neutral-50 min-h-[75vh]">
                   <ConversationalOnboarding 
-                    onComplete={(data) => {
-                      setOnboardingData(data);
+                    onComplete={async (data) => {
+                      setOnboardingData(data as any);
+                      
                       // Trigger confetti success state
                       setConfettiMessage(data.userType === 'recruiter' ? 'RECRUITER PORTAL DEPLOYED!' : 'TALENT PROFILE ACTIVATED!');
                       setShowConfetti(true);
-                      // Save to registered users list in local storage so they can sign in with it later!
+
+                      // Save user profile securely to Supabase using custom actions
                       if (data.email && data.password) {
+                        if (data.userType === 'recruiter') {
+                          await handleRecruiterRegistration(data.email, data.password, data as any);
+                        } else if (data.userType === 'talent') {
+                          await handleTalentRegistration(data.email, data.password, data as any);
+                        }
+
+                        // Write secondary LocalStorage fallback
                         const existing = localStorage.getItem('dsp_registered_users');
                         const users = existing ? JSON.parse(existing) : [];
-                        // Prevent duplicate entries of the same email
                         const filtered = users.filter((u: any) => u.email.toLowerCase() !== data.email?.toLowerCase());
                         filtered.push({
                           email: data.email,
@@ -203,17 +290,18 @@ export default function App() {
                         });
                         localStorage.setItem('dsp_registered_users', JSON.stringify(filtered));
                       }
+
                       if (data.userType === 'recruiter') {
-                        setCurrentPage('directory'); // Go straight to directory to see filtered matches!
+                        setCurrentPage('directory'); // Go straight to directory
                       } else if (data.userType === 'talent') {
-                        setCurrentPage('talent'); // Go straight to Phase-Stepped Talent Dashboard!
+                        setCurrentPage('talent'); // Go straight to Talent dashboard
                       }
                     }}
                   />
                 </div>
               ) : (
                 <div>
-                  <div className="bg-emerald-600 text-white p-3 text-center text-xs font-black uppercase tracking-wider flex flex-col sm:flex-row items-center justify-between px-6 sm:px-12 gap-2 border-b-2 border-neutral-950">
+                  <div className="bg-[#00A86B] text-white p-3 text-center text-xs font-black uppercase tracking-wider flex flex-col sm:flex-row items-center justify-between px-6 sm:px-12 gap-2 border-b-2 border-neutral-950">
                     <span>⚡ ACTIVE WORKSPACE: ADDRESSING YOU AS {onboardingData.userName.toUpperCase()} ({onboardingData.userType === 'talent' ? 'VETTED TALENT PIPELINE' : onboardingData.userType === 'recruiter' ? 'RECRUITER PORTAL' : 'GUEST EXPLORER'})</span>
                     <button 
                       onClick={() => {
@@ -238,198 +326,155 @@ export default function App() {
             {currentPage === 'directory' && (
               <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-12">
                 <div className="text-left border-b border-neutral-100 pb-6 space-y-3">
-                  <span className="text-[10px] font-mono font-bold bg-emerald-50 border border-emerald-150 text-emerald-800 px-3 py-1 rounded-full uppercase tracking-wider inline-block">
-                    Audited Candidates Directory
-                  </span>
-                  <h1 className="font-display font-medium text-3xl sm:text-4.5xl text-neutral-900 tracking-tight leading-none pt-1">
-                    Find Digitally Verified Professionals
-                  </h1>
-                  <p className="text-xs sm:text-sm text-neutral-400 max-w-2xl font-secondary leading-relaxed">
-                    Instantly browse and unlock specialized candidates with certified skill metrics. Zero empty claims tolerated—every profile is backed by actual audited projects.
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[10px] uppercase font-mono font-black text-emerald-800 bg-emerald-50 px-2.5 py-0.5 border border-emerald-950 inline-block">
+                      VERIFIED DIRECTORY
+                    </span>
+                    <span className="text-[10px] uppercase font-mono font-black text-neutral-500 bg-neutral-100 border border-neutral-300 px-2.5 py-0.5 inline-block">
+                      ACTIVE OPERATORS
+                    </span>
+                  </div>
+                  <h2 className="font-display font-black text-3xl sm:text-4xl text-neutral-950 uppercase tracking-tight leading-none">
+                    BROWSE DIGITAL OPERATORS & GROWTH SPECIALISTS
+                  </h2>
+                  <p className="text-xs text-neutral-500 font-bold uppercase tracking-wider">
+                    Sourced candidates must clear Phase 1-3 screening protocols before catalog inclusion. Unlock actual candidate files below.
                   </p>
                 </div>
-
+                
                 <TalentDirectory 
                   employerSlots={employerSlots} 
-                  setEmployerSlots={setEmployerSlots} 
-                  navigateToPricing={() => navigateToPage('pricing')} 
-                  onboardingData={onboardingData || undefined}
+                  setEmployerSlots={setEmployerSlots}
+                  navigateToPricing={() => navigateToPage('pricing')}
+                  onboardingData={onboardingData as any}
                 />
               </section>
             )}
 
-            {/* View 3: Employer Workspace (Sourcing Dashboard) */}
+            {/* View 3: Recruiter Workspace Dashboard */}
             {currentPage === 'employer' && (
-              <EmployerWorkspace 
-                employerSlots={employerSlots} 
-                setEmployerSlots={setEmployerSlots} 
-                navigateToPage={navigateToPage} 
-              />
+              <section className="max-w-7xl mx-auto space-y-6">
+                <EmployerWorkspace 
+                  employerSlots={employerSlots}
+                  setEmployerSlots={setEmployerSlots}
+                  navigateToPage={navigateToPage}
+                />
+              </section>
             )}
 
-            {/* View 4: Talent Workspace (Portfolio checklist / upgrade pass) */}
+            {/* View 4: Talent Vetting Hub Dashboard */}
             {currentPage === 'talent' && (
-              <TalentDashboard 
-                isTalentPaid={isTalentPaid} 
-                setIsTalentPaid={setIsTalentPaid} 
-                navigateToPage={navigateToPage} 
-                onboardingData={onboardingData || { userName: 'Candidate Specialist', experienceLevel: 'Professional' }}
-              />
+              <section className="max-w-7xl mx-auto space-y-6">
+                <TalentDashboard 
+                  isTalentPaid={isTalentPaid}
+                  setIsTalentPaid={setIsTalentPaid}
+                  navigateToPage={navigateToPage}
+                  onboardingData={onboardingData as any}
+                />
+              </section>
             )}
 
-            {/* View 5: Practice Assessment */}
+            {/* View 5: Practice Assessment (Self evaluation sandbox) */}
             {currentPage === 'assessment' && (
-              <PracticeAssessment />
+              <section className="max-w-4xl mx-auto py-12 px-4">
+                <PracticeAssessment navigateToPage={navigateToPage} />
+              </section>
             )}
 
-            {/* View 6: Pricing Plans */}
+            {/* View 6: Pricing Plans & Slots Licensing */}
             {currentPage === 'pricing' && (
-              <PricingPlans 
-                setEmployerSlots={setEmployerSlots} 
-                navigateToPage={navigateToPage} 
-              />
+              <section className="max-w-7xl mx-auto py-16 px-4">
+                <PricingPlans 
+                  setEmployerSlots={setEmployerSlots}
+                  navigateToPage={navigateToPage}
+                />
+              </section>
             )}
 
           </motion.div>
         </AnimatePresence>
       </main>
 
-      {/* GLOBAL SUPPORT & FAQ (Displayed above footer to reinforce trust metrics) */}
-      <FAQSection />
-
-      {/* GENERAL CALL TO ACTION SLIT-BANNER (Included once on App root to keep UI dynamic) */}
-      <section className="py-16 md:py-20 px-4 sm:px-6 lg:px-8 bg-[#092013] text-white relative text-center overflow-hidden">
-        {/* Fine grid design highlights */}
-        <div className="absolute inset-0 bg-[#092013] bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:24px_24px] opacity-10 pointer-events-none" />
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-emerald-550/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="max-w-4xl mx-auto space-y-6 relative z-10 text-center">
-          <div className="space-y-4">
-            <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase tracking-widest block bg-white/5 border border-white/10 px-3 py-1 rounded-full max-w-xs mx-auto text-center font-secondary">Verified Sourcing Pipeline</span>
-            <h2 className="font-display font-medium text-3xl sm:text-4xl text-white tracking-tight leading-tight pt-1">
-              Connect Sourced on Authentic Evidence
-            </h2>
-            <p className="text-neutral-400 text-xs sm:text-sm max-w-xl mx-auto leading-relaxed font-secondary">
-              Acquire top-performing digital talent graded through scenario assessments and verified by actual live project parameters.
-            </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 max-w-sm mx-auto pt-2">
-            <button
-              onClick={() => navigateToPage('directory')}
-              className="w-full bg-[#10b981] hover:bg-emerald-500 text-neutral-950 font-bold px-6 py-3.5 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-md transition duration-205"
-            >
-              <span>Snoop Verified Talent</span>
-              <ChevronRight className="w-3.5 h-3.5 text-neutral-950 stroke-[2.5]" />
-            </button>
-
-            <button
-              onClick={() => navigateToPage('talent')}
-              className="w-full bg-white/5 hover:bg-white/10 text-white font-bold px-6 py-3.5 rounded-xl text-xs border border-white/10 flex items-center justify-center gap-1.5 cursor-pointer transition duration-205"
-            >
-              <span>Build Proof Portfolio</span>
-              <ArrowUpRight className="w-3.5 h-3.5 text-neutral-400" />
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* ======================================= */}
-      {/* DIALOG MODE: MODAL FOR EMPLOYERS        */}
-      {/* ======================================= */}
+      {/* FOOTER MODAL - HIRE GENERAL FORM */}
       {isHireModalOpen && (
-        <div className="fixed inset-0 bg-neutral-950/75 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl border border-neutral-200 max-w-lg w-full p-6 md:p-8 space-y-6 text-left relative shadow-2xl font-secondary">
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="text-[10px] uppercase font-mono font-bold text-emerald-850 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-100">Consultant Routing</span>
-                <h3 className="font-display font-semibold text-2xl text-neutral-950 mt-4 leading-none">Custom Placement Proposal</h3>
-                <p className="text-xs text-neutral-450 mt-1.5">Brief our sourcing coordinators on your target metrics and tools prerequisites.</p>
-              </div>
-              <button 
-                onClick={() => { setIsHireModalOpen(false); setHireSubmitted(false); }}
-                className="text-neutral-450 hover:text-neutral-800 p-1.5 rounded-lg hover:bg-neutral-100 transition cursor-pointer font-bold text-sm"
-              >
-                ✕
-              </button>
+        <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border-4 border-neutral-950 max-w-md w-full p-6 sm:p-8 space-y-6 text-left relative shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+            <button 
+              onClick={() => { setIsHireModalOpen(false); setHireSubmitted(false); }}
+              className="absolute top-4 right-4 text-neutral-400 hover:text-neutral-950 font-mono font-black"
+            >
+              ✕
+            </button>
+            <div className="border-b border-neutral-100 pb-3">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-805 bg-emerald-50 px-2 py-0.5">PLATFORM MATCHMAKING</span>
+              <h3 className="font-display font-black text-xl text-neutral-950 uppercase tracking-tight mt-1">Acquire Managed Growth Talent</h3>
             </div>
-
             {hireSubmitted ? (
-              <div className="p-8 text-center bg-emerald-50/50 rounded-2xl border border-emerald-100 space-y-4">
-                <CheckCircle2 className="w-12 h-12 text-[#10b981] mx-auto animate-bounce" />
-                <h4 className="font-bold text-neutral-950">Proposal Scheduled!</h4>
-                <p className="text-xs text-neutral-600">A Talent Advisor will inspect our active registries and email custom matched candidate models within 2 business hours.</p>
-                <button 
-                  onClick={() => { setIsHireModalOpen(false); setHireSubmitted(false); }}
-                  className="bg-neutral-950 hover:bg-neutral-900 text-white font-semibold py-2 px-4 rounded-xl text-xs cursor-pointer"
-                >
-                  Close Window
-                </button>
+              <div className="text-center py-6 space-y-4">
+                <CheckCircle2 className="w-12 h-12 text-[#00A86B] mx-auto" />
+                <h4 className="font-display font-black text-sm uppercase tracking-wider text-neutral-900">ACQUISITION BRIEF FILED</h4>
+                <p className="text-xs text-neutral-500 uppercase font-semibold">Your corporate preferences have been recorded. Our partner matchmaking coordinators will review and route a matched talent pipeline within 2 hours.</p>
               </div>
             ) : (
               <form 
-                onSubmit={(e) => { 
-                  e.preventDefault(); 
-                  setHireSubmitted(true); 
-                  setConfettiMessage('PLACEMENT PROPOSAL SUBMITTED!');
-                  setShowConfetti(true);
-                }}
+                onSubmit={(e) => { e.preventDefault(); setHireSubmitted(true); }}
                 className="space-y-4 text-xs font-sans"
               >
-                <div className="space-y-1">
-                  <label className="text-[9px] font-mono text-neutral-400 font-bold uppercase block">Contact Full Name</label>
-                  <input 
-                    type="text" 
-                    required 
-                    value={hireForm.name} 
-                    onChange={(e) => setHireForm({ ...hireForm, name: e.target.value })}
-                    placeholder="Enter your name" 
-                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/50 focus:bg-white text-xs text-neutral-800"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-mono text-neutral-400 font-bold uppercase block">Your Name</label>
+                    <input 
+                      type="text" 
+                      required 
+                      value={hireForm.name} 
+                      onChange={(e) => setHireForm({ ...hireForm, name: e.target.value })}
+                      placeholder="e.g. Sterling" 
+                      className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/50 focus:bg-white text-xs text-neutral-800"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-mono text-neutral-400 font-bold uppercase block">Company Name</label>
+                    <input 
+                      type="text" 
+                      required 
+                      value={hireForm.company} 
+                      onChange={(e) => setHireForm({ ...hireForm, company: e.target.value })}
+                      placeholder="e.g. Acme Corp" 
+                      className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/50 focus:bg-white text-xs text-neutral-800"
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[9px] font-mono text-neutral-400 font-bold uppercase block">Company Name</label>
-                  <input 
-                    type="text" 
-                    required 
-                    value={hireForm.company}
-                    onChange={(e) => setHireForm({ ...hireForm, company: e.target.value })}
-                    placeholder="e.g. Acme Tech Agencies" 
-                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/50 focus:bg-white text-xs text-neutral-800"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[9px] font-mono text-neutral-400 font-bold uppercase block">Core Specialization Needed</label>
+                  <label className="text-[9px] font-mono text-neutral-400 font-bold uppercase block">Specialization Required</label>
                   <select 
                     value={hireForm.roleNeeded}
                     onChange={(e) => setHireForm({ ...hireForm, roleNeeded: e.target.value })}
-                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/55 text-xs text-neutral-805"
+                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/50 text-xs text-neutral-800"
                   >
-                    <option value="AI Automation">AI Automation Operations (Zapier, Python, Make, n8n)</option>
-                    <option value="Technical SEO">Technical SEO & Programmatic clustering</option>
-                    <option value="Paid Acquisition">PPC Acquisition Advertising (Google Ads, Meta Ads)</option>
-                    <option value="Growth Marketing">Growth Marketing Specialist</option>
+                    <option value="AI Automation">AI Automation operations</option>
+                    <option value="SEO">SEO (Organic/Programmatic)</option>
+                    <option value="Growth Marketing">Paid Media & CRO Growth Marketing</option>
                   </select>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[9px] font-mono text-neutral-400 font-bold uppercase block">Scope Details / Notes</label>
+                  <label className="text-[9px] font-mono text-neutral-400 font-bold uppercase block">Brief Campaign Details / Requirements</label>
                   <textarea 
-                    value={hireForm.message}
-                    onChange={(e) => setHireForm({ ...hireForm, message: e.target.value })}
                     rows={3} 
-                    placeholder="Budget, key tool preferences, startup parameters..." 
+                    required 
+                    value={hireForm.message} 
+                    onChange={(e) => setHireForm({ ...hireForm, message: e.target.value })}
+                    placeholder="Describe the campaign parameters, budget constraints, or toolsets integrations required..." 
                     className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/50 focus:bg-white text-xs text-neutral-800"
                   />
                 </div>
 
                 <button 
                   type="submit" 
-                  className="w-full bg-[#0d1c11] hover:bg-neutral-900 text-white font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider cursor-pointer"
+                  className="w-full bg-[#0a1b10] hover:bg-neutral-900 text-white font-bold py-3.5 px-4 rounded-xl text-xs uppercase cursor-pointer"
                 >
-                  Send Placement Brief
+                  File Campaign Brief
                 </button>
               </form>
             )}
@@ -437,46 +482,29 @@ export default function App() {
         </div>
       )}
 
-      {/* ======================================= */}
-      {/* DIALOG MODE: MODAL FOR TALENT COHORT    */}
-      {/* ======================================= */}
+      {/* FOOTER MODAL - REGISTER GENERAL FORM */}
       {isTalentModalOpen && (
-        <div className="fixed inset-0 bg-neutral-950/75 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl border border-neutral-200 max-w-lg w-full p-6 md:p-8 space-y-6 text-left relative shadow-2xl font-secondary">
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="text-[10px] uppercase font-mono font-bold text-emerald-850 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-100">Vetting Registration</span>
-                <h3 className="font-display font-medium text-2xl text-neutral-950 mt-4 leading-none">Join Verified Directory</h3>
-                <p className="text-xs text-neutral-400 mt-1.5">Attempt scenario-based assessments and create proof of competence.</p>
-              </div>
-              <button 
-                onClick={() => { setIsTalentModalOpen(false); setTalentSubmitted(false); }}
-                className="text-neutral-400 hover:text-neutral-805 p-1.5 rounded-lg hover:bg-neutral-100 transition cursor-pointer font-bold text-sm"
-              >
-                ✕
-              </button>
+        <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border-4 border-neutral-950 max-w-md w-full p-6 sm:p-8 space-y-6 text-left relative shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+            <button 
+              onClick={() => { setIsTalentModalOpen(false); setTalentSubmitted(false); }}
+              className="absolute top-4 right-4 text-neutral-400 hover:text-neutral-950 font-mono font-black"
+            >
+              ✕
+            </button>
+            <div className="border-b border-neutral-100 pb-3">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-805 bg-emerald-50 px-2 py-0.5">ACCREDITATION MATCHMAKING</span>
+              <h3 className="font-display font-black text-xl text-neutral-950 uppercase tracking-tight mt-1">Initiate Vetting Protocol</h3>
             </div>
-
             {talentSubmitted ? (
-              <div className="p-8 text-center bg-emerald-50/50 rounded-2xl border border-emerald-100 space-y-4">
-                <CheckCircle2 className="w-12 h-12 text-[#10b981] mx-auto animate-bounce" />
-                <h4 className="font-bold text-neutral-950">Registration Pending!</h4>
-                <p className="text-xs text-neutral-600">Verification parameters and practice credentials files have been compiled for your email.</p>
-                <button 
-                  onClick={() => { setIsTalentModalOpen(false); setTalentSubmitted(false); }}
-                  className="bg-neutral-950 hover:bg-neutral-900 text-white font-semibold py-2 px-4 rounded-xl text-xs cursor-pointer"
-                >
-                  Close Window
-                </button>
+              <div className="text-center py-6 space-y-4">
+                <CheckCircle2 className="w-12 h-12 text-[#00A86B] mx-auto" />
+                <h4 className="font-display font-black text-sm uppercase tracking-wider text-neutral-900">PROTOCOLS INITIATED</h4>
+                <p className="text-xs text-neutral-500 uppercase font-semibold">Your verification record has been staged. A vetting link has been dispatched to your email coordinates to activate Phase 1 diagnostic.</p>
               </div>
             ) : (
               <form 
-                onSubmit={(e) => { 
-                  e.preventDefault(); 
-                  setTalentSubmitted(true); 
-                  setConfettiMessage('TALENT VERIFICATION INITIATED!');
-                  setShowConfetti(true);
-                }}
+                onSubmit={(e) => { e.preventDefault(); setTalentSubmitted(true); }}
                 className="space-y-4 text-xs font-sans"
               >
                 <div className="space-y-1">
@@ -621,7 +649,7 @@ export default function App() {
                   setOnboardingData(null);
                   setCurrentPage('home');
                 }}
-                className="text-[10px] uppercase font-black text-emerald-600 hover:text-emerald-800 hover:underline tracking-wider cursor-pointer"
+                className="text-[10px] uppercase font-black text-[#00A86B] hover:text-emerald-800 hover:underline tracking-wider cursor-pointer"
               >
                 Start Onboarding to Register
               </button>
