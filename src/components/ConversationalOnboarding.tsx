@@ -20,6 +20,7 @@ import {
 export interface OnboardingData {
   userType: 'talent' | 'recruiter' | null;
   userName: string;
+  full_name?: string; // Mapped alias for database compatibility
   // Talent path fields
   careerGoal?: 'Internship' | 'Freelance Gigs' | 'Full-Time Remote Job';
   specialty?: string;
@@ -112,8 +113,14 @@ export default function ConversationalOnboarding({ onComplete }: ConversationalO
       return;
     }
 
-    // All validated, complete onboarding
-    onComplete(data);
+    // MAP VARIABLE ALIASES HERE TO MATCH SUPABASE DATABASE EXPECTATIONS
+    const optimizedPayload = {
+      ...data,
+      full_name: data.userName // Duplicates to full_name so the Database Trigger catches it smoothly
+    };
+
+    // All validated, complete onboarding with aligned database fields
+    onComplete(optimizedPayload);
   };
 
   // Step 0 - Split role choice
@@ -252,7 +259,8 @@ export default function ConversationalOnboarding({ onComplete }: ConversationalO
             <button 
               onClick={() => onComplete({
                 userType: null,
-                userName: 'Guest Operator'
+                userName: 'Guest Operator',
+                full_name: 'Guest Operator'
               })}
               className="inline-flex items-center gap-1.5 text-xs font-black uppercase text-neutral-500 hover:text-neutral-950 hover:underline tracking-wider cursor-pointer bg-transparent border-0"
             >
