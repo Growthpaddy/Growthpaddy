@@ -50,7 +50,7 @@ export default function App() {
   } = useSecureLogin();
 
   // Role toggle for sign-in gateway
-  const [signInRole, setSignInRole] = useState<'talent' | 'recruiter'>('talent');
+  const [signInRole, setSignInRole] = useState<'talent' | 'recruiter' | 'admin'>('talent');
 
   // Navigation State
   const [currentPage, setCurrentPage] = useState<'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin'>('home');
@@ -134,7 +134,7 @@ export default function App() {
 
   // Active Onboarded User State
   const [onboardingData, setOnboardingData] = useState<{
-    userType: 'talent' | 'recruiter' | null;
+    userType: 'talent' | 'recruiter' | 'admin' | null;
     userName: string;
     careerGoal?: 'Internship' | 'Freelance Gigs' | 'Full-Time Remote Job';
     specialty?: string;
@@ -189,7 +189,16 @@ export default function App() {
     const syncSessionUser = async () => {
       if (!user) return;
       
-      const userType = user.user_metadata?.user_type || 'talent';
+      const userType = user.user_metadata?.role || user.user_metadata?.user_type || 'talent';
+      if (userType === 'admin') {
+        setOnboardingData({
+          userType: 'admin',
+          userName: user.user_metadata?.full_name || 'System Staff',
+          email: user.email
+        });
+        return;
+      }
+
       try {
         const table = userType === 'recruiter' ? 'recruiter_profiles' : 'talent_profiles';
         const { data, error } = await supabase
@@ -251,7 +260,9 @@ export default function App() {
         setIsSignInModalOpen(false);
         setSignInEmail('');
         setSignInPassword('');
-        if (signInRole === 'recruiter') {
+        if (signInRole === 'admin') {
+          setCurrentPage('admin');
+        } else if (signInRole === 'recruiter') {
           setCurrentPage('employer');
         } else {
           setCurrentPage('talent');
@@ -649,10 +660,10 @@ export default function App() {
               </button>
             </div>
 
-            {/* Dual-Track Tabs: Talent Gateway & Recruiter Portal */}
+            {/* Multi-Track Tabs: Talent, Recruiter & Admin */}
             <div className="space-y-2">
               <span className="text-[9px] font-mono text-neutral-400 font-extrabold uppercase block tracking-wider">SELECT GATEWAY TRACK</span>
-              <div className="grid grid-cols-2 border-2 border-neutral-950">
+              <div className="grid grid-cols-3 border-2 border-neutral-950">
                 <button
                   type="button"
                   disabled={isSecureLoggingIn}
@@ -663,13 +674,13 @@ export default function App() {
                     setSecureLoginError(null);
                     setSignInError('');
                   }}
-                  className={`py-3.5 px-2 font-display font-black text-[11px] uppercase tracking-wider transition-all cursor-pointer text-center ${
+                  className={`py-3.5 px-1 font-display font-black text-[9px] sm:text-[10px] uppercase tracking-wider transition-all cursor-pointer text-center ${
                     signInRole === 'talent'
                       ? 'bg-neutral-950 text-white border-t-4 border-t-[#00A86B]'
                       : 'bg-neutral-50 text-neutral-500 hover:bg-neutral-100 border-t-4 border-t-transparent'
                   } disabled:opacity-50`}
                 >
-                  Talent Gateway
+                  Talent
                 </button>
                 <button
                   type="button"
@@ -681,13 +692,31 @@ export default function App() {
                     setSecureLoginError(null);
                     setSignInError('');
                   }}
-                  className={`py-3.5 px-2 font-display font-black text-[11px] uppercase tracking-wider transition-all cursor-pointer text-center border-l-2 border-neutral-950 ${
+                  className={`py-3.5 px-1 font-display font-black text-[9px] sm:text-[10px] uppercase tracking-wider transition-all cursor-pointer text-center border-l-2 border-neutral-950 ${
                     signInRole === 'recruiter'
                       ? 'bg-neutral-950 text-white border-t-4 border-t-[#00A86B]'
                       : 'bg-neutral-50 text-neutral-500 hover:bg-neutral-100 border-t-4 border-t-transparent'
                   } disabled:opacity-50`}
                 >
-                  Recruiter Portal
+                  Recruiter
+                </button>
+                <button
+                  type="button"
+                  disabled={isSecureLoggingIn}
+                  onClick={() => {
+                    setSignInRole('admin');
+                    setSignInEmail('');
+                    setSignInPassword('');
+                    setSecureLoginError(null);
+                    setSignInError('');
+                  }}
+                  className={`py-3.5 px-1 font-display font-black text-[9px] sm:text-[10px] uppercase tracking-wider transition-all cursor-pointer text-center border-l-2 border-neutral-950 ${
+                    signInRole === 'admin'
+                      ? 'bg-neutral-950 text-white border-t-4 border-t-[#00A86B]'
+                      : 'bg-neutral-50 text-neutral-500 hover:bg-neutral-100 border-t-4 border-t-transparent'
+                  } disabled:opacity-50`}
+                >
+                  Admin
                 </button>
               </div>
             </div>

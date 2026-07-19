@@ -8,7 +8,7 @@ export interface UseSecureLoginReturn {
   handleSecureLogin: (
     email: string,
     password: string,
-    selectedRole: 'talent' | 'recruiter'
+    selectedRole: 'talent' | 'recruiter' | 'admin'
   ) => Promise<{ success: boolean; user: any; onboarding: any }>;
 }
 
@@ -19,7 +19,7 @@ export function useSecureLogin(): UseSecureLoginReturn {
   const handleSecureLogin = async (
     email: string,
     password: string,
-    selectedRole: 'talent' | 'recruiter'
+    selectedRole: 'talent' | 'recruiter' | 'admin'
   ): Promise<{ success: boolean; user: any; onboarding: any }> => {
     setLoading(true);
     setError(null);
@@ -48,9 +48,31 @@ export function useSecureLogin(): UseSecureLoginReturn {
         // Fallback to local storage registered users simulation for development/sandbox mode
         const rawUsers = localStorage.getItem('dsp_registered_users');
         const users = rawUsers ? JSON.parse(rawUsers) : [];
-        const found = users.find(
+        let found = users.find(
           (u: any) => u.email.toLowerCase() === cleanedEmail.toLowerCase() && u.password === cleanedPassword
         );
+
+        // If not found in standard users, check simulated admins db
+        if (!found) {
+          const rawAdmins = localStorage.getItem('dsp_simulated_admins_db');
+          const admins = rawAdmins ? JSON.parse(rawAdmins) : [];
+          const adminFound = admins.find(
+            (a: any) => a.email.toLowerCase() === cleanedEmail.toLowerCase() && a.password === cleanedPassword
+          );
+          if (adminFound) {
+            found = {
+              email: adminFound.email,
+              password: adminFound.password,
+              userName: adminFound.fullName,
+              userType: 'admin',
+              onboarding: {
+                userType: 'admin',
+                userName: adminFound.fullName,
+                email: adminFound.email
+              }
+            };
+          }
+        }
 
         if (found) {
           isMockUser = true;
@@ -59,6 +81,7 @@ export function useSecureLogin(): UseSecureLoginReturn {
             email: found.email,
             user_metadata: {
               user_type: found.userType,
+              role: found.userType,
               full_name: found.userName,
             },
           };
@@ -85,11 +108,19 @@ export function useSecureLogin(): UseSecureLoginReturn {
       if (selectedRole === 'talent') {
         if (isMockUser) {
           if (activeUser.user_metadata?.user_type !== 'talent') {
-            setError('Access Denied: This account is registered as a Recruiter. Please switch tabs to login.');
+            setError('Access Denied: This account is registered as a Recruiter/Admin. Please switch tabs to login.');
             setLoading(false);
             return { success: false, user: null, onboarding: null };
           }
         } else {
+          // Check user_metadata first to see if they are actually a Recruiter or Admin
+          if (activeUser.user_metadata?.user_type === 'recruiter' || activeUser.user_metadata?.role === 'recruiter' || activeUser.user_metadata?.role === 'admin' || activeUser.user_metadata?.user_type === 'admin') {
+            await supabase.auth.signOut();
+            setError('Access Denied: This account is registered with a different role. Please switch tabs to login.');
+            setLoading(false);
+            return { success: false, user: null, onboarding: null };
+          }
+
           // Query Supabase talent_profiles
           const { data: talent, error: talentError } = await supabase
             .from('talent_profiles')
@@ -98,30 +129,60 @@ export function useSecureLogin(): UseSecureLoginReturn {
             .maybeSingle();
 
           if (talentError || !talent) {
-            // Sign out user immediately from Supabase to prevent unauthorized session
-            await supabase.auth.signOut();
-            setError('Access Denied: This account is registered as a Recruiter. Please switch tabs to login.');
-            setLoading(false);
-            return { success: false, user: null, onboarding: null };
-          }
+            // Check localStorage sandbox fallback for profile sync
+            const localProfileStr = localStorage.getItem(`mock_talent_profiles_${userId}`);
+            let localProfile = null;
+            if (localProfileStr) {
+              try {
+                localProfile = JSON.parse(localProfileStr);
+              } catch (e) {
+                console.error('Error parsing local talent profile:', e);
+              }
+            }
 
-          mockOnboarding = {
-            userType: 'talent',
-            userName: talent.full_name || activeUser.user_metadata?.full_name || 'Talent Specialist',
-            careerGoal: talent.career_goal,
-            specialty: talent.specialty,
-            experienceLevel: talent.experience_level,
-            email: activeUser.email,
-          };
+            if (localProfile) {
+              mockOnboarding = {
+                userType: 'talent',
+                userName: localProfile.full_name || activeUser.user_metadata?.full_name || 'Talent Specialist',
+                careerGoal: localProfile.career_goal,
+                specialty: localProfile.specialty,
+                experienceLevel: localProfile.experience_level,
+                email: activeUser.email,
+              };
+            } else {
+              // Sign out user immediately from Supabase to prevent unauthorized session
+              await supabase.auth.signOut();
+              setError('Access Denied: Profile not found. Please switch tabs to login.');
+              setLoading(false);
+              return { success: false, user: null, onboarding: null };
+            }
+          } else {
+            mockOnboarding = {
+              userType: 'talent',
+              userName: talent.full_name || activeUser.user_metadata?.full_name || 'Talent Specialist',
+              careerGoal: talent.career_goal,
+              specialty: talent.specialty,
+              experienceLevel: talent.experience_level,
+              email: activeUser.email,
+            };
+          }
         }
       } else if (selectedRole === 'recruiter') {
         if (isMockUser) {
           if (activeUser.user_metadata?.user_type !== 'recruiter') {
-            setError('Access Denied: This account is registered as a Talent. Please switch tabs to login.');
+            setError('Access Denied: This account is registered with a different role. Please switch tabs to login.');
             setLoading(false);
             return { success: false, user: null, onboarding: null };
           }
         } else {
+          // Check user_metadata first to see if they are actually a Talent or Admin
+          if (activeUser.user_metadata?.user_type === 'talent' || activeUser.user_metadata?.role === 'talent' || activeUser.user_metadata?.role === 'admin' || activeUser.user_metadata?.user_type === 'admin') {
+            await supabase.auth.signOut();
+            setError('Access Denied: This account is registered with a different role. Please switch tabs to login.');
+            setLoading(false);
+            return { success: false, user: null, onboarding: null };
+          }
+
           // Query Supabase recruiter_profiles
           const { data: recruiter, error: recruiterError } = await supabase
             .from('recruiter_profiles')
@@ -130,20 +191,65 @@ export function useSecureLogin(): UseSecureLoginReturn {
             .maybeSingle();
 
           if (recruiterError || !recruiter) {
-            // Sign out user immediately from Supabase to prevent unauthorized session
+            // Check localStorage sandbox fallback for profile sync
+            const localProfileStr = localStorage.getItem(`mock_recruiter_profiles_${userId}`);
+            let localProfile = null;
+            if (localProfileStr) {
+              try {
+                localProfile = JSON.parse(localProfileStr);
+              } catch (e) {
+                console.error('Error parsing local recruiter profile:', e);
+              }
+            }
+
+            if (localProfile) {
+              mockOnboarding = {
+                userType: 'recruiter',
+                userName: localProfile.organization_name || activeUser.user_metadata?.full_name || 'Recruiter Client',
+                orgName: localProfile.organization_name,
+                orgSize: localProfile.organization_size,
+                industry: localProfile.industry_vertical,
+                neededRole: localProfile.needed_talent_role,
+                email: activeUser.email,
+              };
+            } else {
+              // Sign out user immediately from Supabase to prevent unauthorized session
+              await supabase.auth.signOut();
+              setError('Access Denied: Profile not found. Please switch tabs to login.');
+              setLoading(false);
+              return { success: false, user: null, onboarding: null };
+            }
+          } else {
+            mockOnboarding = {
+              userType: 'recruiter',
+              userName: recruiter.organization_name || activeUser.user_metadata?.full_name || 'Recruiter Client',
+              orgName: recruiter.organization_name,
+              orgSize: recruiter.organization_size,
+              industry: recruiter.industry_vertical,
+              neededRole: recruiter.needed_talent_role,
+              email: activeUser.email,
+            };
+          }
+        }
+      } else if (selectedRole === 'admin') {
+        if (isMockUser) {
+          if (activeUser.user_metadata?.user_type !== 'admin' && activeUser.user_metadata?.role !== 'admin') {
+            setError('Access Denied: This account is not registered as an Administrator.');
+            setLoading(false);
+            return { success: false, user: null, onboarding: null };
+          }
+        } else {
+          // Check user_metadata first to see if they are actually an Admin
+          if (activeUser.user_metadata?.role !== 'admin' && activeUser.user_metadata?.user_type !== 'admin') {
             await supabase.auth.signOut();
-            setError('Access Denied: This account is registered as a Talent. Please switch tabs to login.');
+            setError('Access Denied: This account is not registered as an Administrator.');
             setLoading(false);
             return { success: false, user: null, onboarding: null };
           }
 
           mockOnboarding = {
-            userType: 'recruiter',
-            userName: recruiter.organization_name || activeUser.user_metadata?.full_name || 'Recruiter Client',
-            orgName: recruiter.organization_name,
-            orgSize: recruiter.organization_size,
-            industry: recruiter.industry_vertical,
-            neededRole: recruiter.needed_talent_role,
+            userType: 'admin',
+            userName: activeUser.user_metadata?.full_name || 'System Staff',
             email: activeUser.email,
           };
         }

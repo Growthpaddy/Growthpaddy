@@ -90,10 +90,19 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string, options: any = {}) => {
     setError(null);
     try {
+      const finalData = {
+        ...(options.data || {}),
+        user_type: options.data?.user_type || options.data?.role || 'talent',
+        role: options.data?.role || options.data?.user_type || 'talent',
+      };
+
       const { data, error: authError } = await supabase.auth.signUp({
         email,
         password,
-        options
+        options: {
+          ...options,
+          data: finalData
+        }
       });
       if (authError) throw authError;
       return { user: data.user, error: null };
@@ -145,18 +154,27 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         password,
         options: {
           data: {
+            role: 'talent', // <-- Tells the database trigger to route to talent_profiles
             user_type: 'talent',
-            full_name: rawProfileData.userName
+            full_name: rawProfileData.userName,
+            name: rawProfileData.userName,
+            career_goal: rawProfileData.careerGoal || 'Full-Time Remote Job',
+            goal: rawProfileData.careerGoal || 'Full-Time Remote Job',
+            experience_level: rawProfileData.experienceLevel || 'Seasoned Professional',
+            level: rawProfileData.experienceLevel || 'Seasoned Professional',
+            skills: rawProfileData.specialty ? [rawProfileData.specialty] : [],
+            session_responses: rawProfileData,
+            logs: rawProfileData
           }
         }
       });
       if (authError) throw authError;
-
+ 
       const newUser = data.user;
       if (!newUser) {
         throw new Error('User account creation returned an empty response.');
       }
-
+ 
       // 2. Build initial profile record
       const profilePayload = {
         id: newUser.id,
@@ -170,21 +188,21 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         vetting_status: 'not_started',
         updated_at: new Date().toISOString()
       };
-
+ 
       // 3. Persist to database table
       const { data: profile, error: dbError } = await supabase
         .from('talent_profiles')
         .upsert(profilePayload)
         .select()
         .single();
-
+ 
       if (dbError) {
         console.warn('Talent profile database insert failed, utilizing local sandbox fallback:', dbError.message);
         const mockProfile = { ...profilePayload, mock: true };
         localStorage.setItem(`mock_talent_profiles_${newUser.id}`, JSON.stringify(mockProfile));
         return { user: newUser, profile: mockProfile, error: null };
       }
-
+ 
       return { user: newUser, profile, error: null };
     } catch (err: any) {
       console.error('Talent Registration Flow Exception:', err.message || err);
@@ -192,7 +210,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       return { user: null, profile: null, error: err };
     }
   };
-
+ 
   // Custom Registration Action for Recruiters
   const handleRecruiterRegistration = async (email: string, password: string, rawCompanyData: OnboardingPayload) => {
     setError(null);
@@ -203,18 +221,30 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         password,
         options: {
           data: {
+            role: 'recruiter', // <-- Tells the database trigger to route to recruiter_profiles
             user_type: 'recruiter',
-            full_name: rawCompanyData.userName
+            full_name: rawCompanyData.userName,
+            name: rawCompanyData.userName,
+            organization_name: rawCompanyData.orgName || 'Dynamic Partner',
+            org_name: rawCompanyData.orgName || 'Dynamic Partner',
+            organization_size: rawCompanyData.orgSize || '1-10 Employees',
+            org_size: rawCompanyData.orgSize || '1-10 Employees',
+            industry_vertical: rawCompanyData.industry || 'Digital Marketing',
+            industry: rawCompanyData.industry || 'Digital Marketing',
+            needed_role: rawCompanyData.neededRole || 'Full-Time Dedicated Talent',
+            needed_talent_role: rawCompanyData.neededRole || 'Full-Time Dedicated Talent',
+            session_responses: rawCompanyData,
+            logs: rawCompanyData
           }
         }
       });
       if (authError) throw authError;
-
+ 
       const newUser = data.user;
       if (!newUser) {
         throw new Error('User account creation returned an empty response.');
       }
-
+ 
       // 2. Build initial company preference profile record
       const profilePayload = {
         id: newUser.id,
@@ -226,21 +256,21 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         session_responses: rawCompanyData,
         updated_at: new Date().toISOString()
       };
-
+ 
       // 3. Persist to database table
       const { data: profile, error: dbError } = await supabase
         .from('recruiter_profiles')
         .upsert(profilePayload)
         .select()
         .single();
-
+ 
       if (dbError) {
         console.warn('Recruiter profile database insert failed, utilizing local sandbox fallback:', dbError.message);
         const mockProfile = { ...profilePayload, mock: true };
         localStorage.setItem(`mock_recruiter_profiles_${newUser.id}`, JSON.stringify(mockProfile));
         return { user: newUser, profile: mockProfile, error: null };
       }
-
+ 
       return { user: newUser, profile, error: null };
     } catch (err: any) {
       console.error('Recruiter Registration Flow Exception:', err.message || err);
