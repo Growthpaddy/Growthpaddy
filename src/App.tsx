@@ -656,32 +656,10 @@ export default function App() {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={async () => {
+                  onClick={() => {
                     setSignInEmail('talent@dsp.com');
-                    setSignInPassword('password123');
-                    // We let state apply and submit immediately using simulated submission parameters
+                    setSignInPassword('');
                     setSignInError('');
-                    const { user: authedUser, error: authErr } = await signIn('talent@dsp.com', 'password123');
-                    if (authedUser && !authErr) {
-                      setIsSignInModalOpen(false);
-                      setSignInEmail('');
-                      setSignInPassword('');
-                      setCurrentPage('talent');
-                      return;
-                    }
-                    // Fallback to local storage registered users simulation
-                    const rawUsers = localStorage.getItem('dsp_registered_users');
-                    const users = rawUsers ? JSON.parse(rawUsers) : [];
-                    const found = users.find((u: any) => u.email.toLowerCase() === 'talent@dsp.com' && u.password === 'password123');
-                    if (found) {
-                      setOnboardingData(found.onboarding);
-                      setIsSignInModalOpen(false);
-                      setSignInEmail('');
-                      setSignInPassword('');
-                      setCurrentPage('talent');
-                    } else {
-                      setSignInError('Demonstration talent node was not initialized in this session.');
-                    }
                   }}
                   className="bg-[#00A86B] hover:bg-emerald-800 text-white font-black py-3 px-4 rounded-none text-[11px] uppercase tracking-wider transition cursor-pointer border-2 border-neutral-950 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none text-center"
                 >
@@ -689,30 +667,10 @@ export default function App() {
                 </button>
                 <button
                   type="button"
-                  onClick={async () => {
+                  onClick={() => {
                     setSignInEmail('recruiter@dsp.com');
-                    setSignInPassword('password123');
+                    setSignInPassword('');
                     setSignInError('');
-                    const { user: authedUser, error: authErr } = await signIn('recruiter@dsp.com', 'password123');
-                    if (authedUser && !authErr) {
-                      setIsSignInModalOpen(false);
-                      setSignInEmail('');
-                      setSignInPassword('');
-                      setCurrentPage('employer');
-                      return;
-                    }
-                    const rawUsers = localStorage.getItem('dsp_registered_users');
-                    const users = rawUsers ? JSON.parse(rawUsers) : [];
-                    const found = users.find((u: any) => u.email.toLowerCase() === 'recruiter@dsp.com' && u.password === 'password123');
-                    if (found) {
-                      setOnboardingData(found.onboarding);
-                      setIsSignInModalOpen(false);
-                      setSignInEmail('');
-                      setSignInPassword('');
-                      setCurrentPage('employer');
-                    } else {
-                      setSignInError('Demonstration recruiter node was not initialized in this session.');
-                    }
                   }}
                   className="bg-[#00A86B] hover:bg-emerald-800 text-white font-black py-3 px-4 rounded-none text-[11px] uppercase tracking-wider transition cursor-pointer border-2 border-neutral-950 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none text-center"
                 >
