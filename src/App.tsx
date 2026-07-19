@@ -42,6 +42,59 @@ export default function App() {
   // Navigation State
   const [currentPage, setCurrentPage] = useState<'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin'>('home');
 
+  // Helper to map currentPage to pathname
+  const pageToPath = (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin') => {
+    switch (page) {
+      case 'home': return '/';
+      case 'directory': return '/directory';
+      case 'employer': return '/recruiter-profile';
+      case 'talent': return '/talent-profile';
+      case 'assessment': return '/assessment';
+      case 'pricing': return '/pricing';
+      case 'admin': return '/admin-profile';
+      default: return '/';
+    }
+  };
+
+  // Helper to map pathname to currentPage
+  const pathToPage = (path: string): 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' => {
+    const cleaned = path.replace(/\/$/, '').toLowerCase();
+    if (cleaned === '/directory') return 'directory';
+    if (cleaned === '/recruiter-profile') return 'employer';
+    if (cleaned === '/talent-profile') return 'talent';
+    if (cleaned === '/assessment') return 'assessment';
+    if (cleaned === '/pricing') return 'pricing';
+    if (cleaned === '/admin-profile') return 'admin';
+    return 'home';
+  };
+
+  // 1. Initial Load and popstate (back/forward) listener
+  useEffect(() => {
+    const initialPage = pathToPage(window.location.pathname);
+    if (initialPage !== currentPage) {
+      setCurrentPage(initialPage);
+    }
+
+    const handlePopState = () => {
+      const targetPage = pathToPage(window.location.pathname);
+      setCurrentPage(targetPage);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
+  // 2. Synchronize URL pathname on state change
+  useEffect(() => {
+    const currentPath = window.location.pathname;
+    const targetPath = pageToPath(currentPage);
+    if (currentPath !== targetPath) {
+      window.history.pushState(null, '', targetPath);
+    }
+  }, [currentPage]);
+
   // Confetti Success States
   const [showConfetti, setShowConfetti] = useState(false);
   const [confettiMessage, setConfettiMessage] = useState('SUCCESSFULLY REGISTERED!');
@@ -186,7 +239,7 @@ export default function App() {
       
       const userType = authedUser.user_metadata?.user_type || 'talent';
       if (userType === 'recruiter') {
-        setCurrentPage('directory');
+        setCurrentPage('employer');
       } else {
         setCurrentPage('talent');
       }
@@ -208,7 +261,7 @@ export default function App() {
       setSignInPassword('');
       
       if (found.userType === 'recruiter') {
-        setCurrentPage('directory');
+        setCurrentPage('employer');
       } else if (found.userType === 'talent') {
         setCurrentPage('talent');
       } else {
@@ -645,7 +698,7 @@ export default function App() {
                       setIsSignInModalOpen(false);
                       setSignInEmail('');
                       setSignInPassword('');
-                      setCurrentPage('directory');
+                      setCurrentPage('employer');
                       return;
                     }
                     const rawUsers = localStorage.getItem('dsp_registered_users');
@@ -656,7 +709,7 @@ export default function App() {
                       setIsSignInModalOpen(false);
                       setSignInEmail('');
                       setSignInPassword('');
-                      setCurrentPage('directory');
+                      setCurrentPage('employer');
                     } else {
                       setSignInError('Demonstration recruiter node was not initialized in this session.');
                     }
