@@ -85,7 +85,7 @@ export function useSecureLogin(): UseSecureLoginReturn {
       if (selectedRole === 'talent') {
         if (isMockUser) {
           if (activeUser.user_metadata?.user_type !== 'talent') {
-            setError('Account type mismatch. This account is not registered as a Talent.');
+            setError('Access Denied: This account is registered as a Recruiter. Please switch tabs to login.');
             setLoading(false);
             return { success: false, user: null, onboarding: null };
           }
@@ -100,7 +100,7 @@ export function useSecureLogin(): UseSecureLoginReturn {
           if (talentError || !talent) {
             // Sign out user immediately from Supabase to prevent unauthorized session
             await supabase.auth.signOut();
-            setError('Account type mismatch. This account is not registered as a Talent.');
+            setError('Access Denied: This account is registered as a Recruiter. Please switch tabs to login.');
             setLoading(false);
             return { success: false, user: null, onboarding: null };
           }
@@ -117,7 +117,7 @@ export function useSecureLogin(): UseSecureLoginReturn {
       } else if (selectedRole === 'recruiter') {
         if (isMockUser) {
           if (activeUser.user_metadata?.user_type !== 'recruiter') {
-            setError('Account type mismatch. This account is not registered as a Recruiter.');
+            setError('Access Denied: This account is registered as a Talent. Please switch tabs to login.');
             setLoading(false);
             return { success: false, user: null, onboarding: null };
           }
@@ -132,7 +132,7 @@ export function useSecureLogin(): UseSecureLoginReturn {
           if (recruiterError || !recruiter) {
             // Sign out user immediately from Supabase to prevent unauthorized session
             await supabase.auth.signOut();
-            setError('Account type mismatch. This account is not registered as a Recruiter.');
+            setError('Access Denied: This account is registered as a Talent. Please switch tabs to login.');
             setLoading(false);
             return { success: false, user: null, onboarding: null };
           }

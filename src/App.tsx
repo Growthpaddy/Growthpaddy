@@ -639,45 +639,45 @@ export default function App() {
               </button>
             </div>
 
-            {/* Explicit Role Selector Toggle */}
+            {/* Dual-Track Tabs: Talent Gateway & Recruiter Portal */}
             <div className="space-y-2">
-              <span className="text-[9px] font-mono text-neutral-400 font-extrabold uppercase block tracking-wider">GATEWAY SECTOR CONTROLLER</span>
-              <div className="grid grid-cols-2 gap-2">
+              <span className="text-[9px] font-mono text-neutral-400 font-extrabold uppercase block tracking-wider">SELECT GATEWAY TRACK</span>
+              <div className="grid grid-cols-2 border-2 border-neutral-950">
                 <button
                   type="button"
                   disabled={isSecureLoggingIn}
                   onClick={() => {
                     setSignInRole('talent');
-                    setSignInEmail('talent@dsp.com');
+                    setSignInEmail('');
                     setSignInPassword('');
                     setSecureLoginError(null);
                     setSignInError('');
                   }}
-                  className={`py-3 px-4 font-black text-[11px] uppercase tracking-wider transition cursor-pointer border-2 border-neutral-950 text-center ${
+                  className={`py-3.5 px-2 font-display font-black text-[11px] uppercase tracking-wider transition-all cursor-pointer text-center ${
                     signInRole === 'talent'
-                      ? 'bg-[#00A86B] text-white shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]'
-                      : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
+                      ? 'bg-neutral-950 text-white border-t-4 border-t-[#00A86B]'
+                      : 'bg-neutral-50 text-neutral-500 hover:bg-neutral-100 border-t-4 border-t-transparent'
                   } disabled:opacity-50`}
                 >
-                  Log in as a Talent
+                  Talent Gateway
                 </button>
                 <button
                   type="button"
                   disabled={isSecureLoggingIn}
                   onClick={() => {
                     setSignInRole('recruiter');
-                    setSignInEmail('recruiter@dsp.com');
+                    setSignInEmail('');
                     setSignInPassword('');
                     setSecureLoginError(null);
                     setSignInError('');
                   }}
-                  className={`py-3 px-4 font-black text-[11px] uppercase tracking-wider transition cursor-pointer border-2 border-neutral-950 text-center ${
+                  className={`py-3.5 px-2 font-display font-black text-[11px] uppercase tracking-wider transition-all cursor-pointer text-center border-l-2 border-neutral-950 ${
                     signInRole === 'recruiter'
-                      ? 'bg-[#00A86B] text-white shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]'
-                      : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
+                      ? 'bg-neutral-950 text-white border-t-4 border-t-[#00A86B]'
+                      : 'bg-neutral-50 text-neutral-500 hover:bg-neutral-100 border-t-4 border-t-transparent'
                   } disabled:opacity-50`}
                 >
-                  Log in as a Recruiter
+                  Recruiter Portal
                 </button>
               </div>
             </div>
