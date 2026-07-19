@@ -29,6 +29,7 @@ import ConversationalOnboarding from './components/ConversationalOnboarding';
 import ConfettiSuccess from './components/ConfettiSuccess';
 import { useSupabase } from './context/SupabaseContext';
 import { supabase } from './lib/supabaseClient';
+import AdminOperations from './components/AdminOperations';
 
 export default function App() {
   const { 
@@ -39,7 +40,7 @@ export default function App() {
   } = useSupabase();
 
   // Navigation State
-  const [currentPage, setCurrentPage] = useState<'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing'>('home');
+  const [currentPage, setCurrentPage] = useState<'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin'>('home');
 
   // Confetti Success States
   const [showConfetti, setShowConfetti] = useState(false);
@@ -218,7 +219,7 @@ export default function App() {
     }
   };
 
-  const navigateToPage = (pageName: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing') => {
+  const navigateToPage = (pageName: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin') => {
     setCurrentPage(pageName);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -389,6 +390,11 @@ export default function App() {
                   navigateToPage={navigateToPage}
                 />
               </section>
+            )}
+
+            {/* View 7: Staff/Admin Operations Command Center */}
+            {currentPage === 'admin' && (
+              <AdminOperations onBackToMain={() => navigateToPage('home')} />
             )}
 
           </motion.div>
@@ -591,6 +597,83 @@ export default function App() {
               </button>
             </div>
 
+            {/* Quick-Access Sign In Presets */}
+            <div className="space-y-2">
+              <span className="text-[9px] font-mono text-neutral-400 font-extrabold uppercase block tracking-wider">QUICK AUTHENTICATION BY ROLE</span>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setSignInEmail('talent@dsp.com');
+                    setSignInPassword('password123');
+                    // We let state apply and submit immediately using simulated submission parameters
+                    setSignInError('');
+                    const { user: authedUser, error: authErr } = await signIn('talent@dsp.com', 'password123');
+                    if (authedUser && !authErr) {
+                      setIsSignInModalOpen(false);
+                      setSignInEmail('');
+                      setSignInPassword('');
+                      setCurrentPage('talent');
+                      return;
+                    }
+                    // Fallback to local storage registered users simulation
+                    const rawUsers = localStorage.getItem('dsp_registered_users');
+                    const users = rawUsers ? JSON.parse(rawUsers) : [];
+                    const found = users.find((u: any) => u.email.toLowerCase() === 'talent@dsp.com' && u.password === 'password123');
+                    if (found) {
+                      setOnboardingData(found.onboarding);
+                      setIsSignInModalOpen(false);
+                      setSignInEmail('');
+                      setSignInPassword('');
+                      setCurrentPage('talent');
+                    } else {
+                      setSignInError('Demonstration talent node was not initialized in this session.');
+                    }
+                  }}
+                  className="bg-[#00A86B] hover:bg-emerald-800 text-white font-black py-3 px-4 rounded-none text-[11px] uppercase tracking-wider transition cursor-pointer border-2 border-neutral-950 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none text-center"
+                >
+                  Signin As Talent
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setSignInEmail('recruiter@dsp.com');
+                    setSignInPassword('password123');
+                    setSignInError('');
+                    const { user: authedUser, error: authErr } = await signIn('recruiter@dsp.com', 'password123');
+                    if (authedUser && !authErr) {
+                      setIsSignInModalOpen(false);
+                      setSignInEmail('');
+                      setSignInPassword('');
+                      setCurrentPage('directory');
+                      return;
+                    }
+                    const rawUsers = localStorage.getItem('dsp_registered_users');
+                    const users = rawUsers ? JSON.parse(rawUsers) : [];
+                    const found = users.find((u: any) => u.email.toLowerCase() === 'recruiter@dsp.com' && u.password === 'password123');
+                    if (found) {
+                      setOnboardingData(found.onboarding);
+                      setIsSignInModalOpen(false);
+                      setSignInEmail('');
+                      setSignInPassword('');
+                      setCurrentPage('directory');
+                    } else {
+                      setSignInError('Demonstration recruiter node was not initialized in this session.');
+                    }
+                  }}
+                  className="bg-[#00A86B] hover:bg-emerald-800 text-white font-black py-3 px-4 rounded-none text-[11px] uppercase tracking-wider transition cursor-pointer border-2 border-neutral-950 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none text-center"
+                >
+                  As A Recruiter
+                </button>
+              </div>
+            </div>
+
+            <div className="relative flex py-1 items-center">
+              <div className="flex-grow border-t border-neutral-200"></div>
+              <span className="flex-shrink mx-3 text-[9px] font-mono text-neutral-400 font-extrabold uppercase">OR MANUAL ENTRY</span>
+              <div className="flex-grow border-t border-neutral-200"></div>
+            </div>
+
             <form onSubmit={handleSignInSubmit} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-[9px] font-mono text-neutral-400 font-extrabold uppercase block tracking-wider">EMAIL ADDRESS</label>
@@ -630,14 +713,6 @@ export default function App() {
                 <span>SIGN IN NOW</span>
               </button>
             </form>
-
-            <div className="bg-neutral-50 p-4 border border-neutral-200 text-[10px] font-mono text-neutral-600 space-y-1.5 uppercase leading-relaxed font-semibold">
-              <span className="font-extrabold text-emerald-700 block">💡 INSTANT DEMO TESTING:</span>
-              <div className="space-y-0.5">
-                <div>• Hiring Partner: <strong className="text-neutral-900">recruiter@dsp.com</strong> / <strong className="text-neutral-900">password123</strong></div>
-                <div>• Specialist: <strong className="text-neutral-900">talent@dsp.com</strong> / <strong className="text-neutral-900">password123</strong></div>
-              </div>
-            </div>
 
             <div className="text-center pt-2 border-t border-dashed border-neutral-200">
               <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">

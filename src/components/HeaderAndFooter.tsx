@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { ShieldCheck, Menu, X, ArrowUpRight, Mail, Globe, Sparkles, Briefcase, Zap, Shield, Lock } from 'lucide-react';
 
 interface HeaderProps {
-  currentPage?: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing';
-  setCurrentPage?: (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing') => void;
+  currentPage?: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin';
+  setCurrentPage?: (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin') => void;
   openHireModal?: () => void;
   openTalentModal?: () => void;
   employerSlots?: number;
@@ -27,7 +27,7 @@ export function Header({
   userType = null
 }: HeaderProps) {
 
-  const handleNavClick = (id: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing') => {
+  const handleNavClick = (id: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin') => {
     if (setCurrentPage) {
       setCurrentPage(id);
     }
@@ -96,13 +96,13 @@ export function Header({
 }
 
 interface FooterProps {
-  setCurrentPage?: (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing') => void;
+  setCurrentPage?: (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin') => void;
 }
 
 export function Footer({ setCurrentPage }: FooterProps) {
   const currentYear = new Date().getFullYear();
 
-  const handleLink = (e: React.MouseEvent, page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing') => {
+  const handleLink = (e: React.MouseEvent, page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin') => {
     if (setCurrentPage) {
       e.preventDefault();
       setCurrentPage(page);
@@ -243,6 +243,19 @@ export function Footer({ setCurrentPage }: FooterProps) {
         <div className="border-t border-neutral-900 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-[10px] uppercase font-bold text-neutral-500">
           <p>© {currentYear} DSP Talent Hub Sourcing Systems. Vetted professional operators network.</p>
           <div className="flex items-center gap-4 text-neutral-600 font-mono">
+            <button 
+              onClick={(e) => {
+                if (setCurrentPage) {
+                  e.preventDefault();
+                  setCurrentPage('admin');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              }}
+              className="text-neutral-750 hover:text-neutral-400 hover:underline transition bg-transparent border-0 p-0 cursor-pointer font-bold text-[9px] tracking-wider uppercase"
+              id="staff-access-trigger-btn"
+            >
+              Staff Access
+            </button>
             <span className="w-1.5 h-1.5 rounded-none bg-emerald-500" />
             <span>African Digital Operator Core</span>
           </div>
