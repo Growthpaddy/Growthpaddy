@@ -30,6 +30,7 @@ import ConfettiSuccess from './components/ConfettiSuccess';
 import { useSupabase } from './context/SupabaseContext';
 import { supabase } from './lib/supabaseClient';
 import AdminOperations from './components/AdminOperations';
+import { useSecureLogin } from './hooks/useSecureLogin';
 
 export default function App() {
   const { 
@@ -38,6 +39,16 @@ export default function App() {
     handleTalentRegistration, 
     handleRecruiterRegistration 
   } = useSupabase();
+
+  const {
+    loading: isSecureLoggingIn,
+    error: secureLoginError,
+    setError: setSecureLoginError,
+    handleSecureLogin
+  } = useSecureLogin();
+
+  // Role toggle for sign-in gateway
+  const [signInRole, setSignInRole] = useState<'talent' | 'recruiter'>('talent');
 
   // Navigation State
   const [currentPage, setCurrentPage] = useState<'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin'>('home');
@@ -229,46 +240,17 @@ export default function App() {
       return;
     }
 
-    // 1. Attempt Supabase Auth login
-    const { user: authedUser, error: authErr } = await signIn(email, password);
-    
-    if (authedUser && !authErr) {
+    const result = await handleSecureLogin(email, password, signInRole);
+    if (result.success) {
+      setOnboardingData(result.onboarding);
       setIsSignInModalOpen(false);
       setSignInEmail('');
       setSignInPassword('');
-      
-      const userType = authedUser.user_metadata?.user_type || 'talent';
-      if (userType === 'recruiter') {
+      if (signInRole === 'recruiter') {
         setCurrentPage('employer');
       } else {
         setCurrentPage('talent');
       }
-      return;
-    }
-
-    // 2. Fall back to local storage registered users simulation
-    const rawUsers = localStorage.getItem('dsp_registered_users');
-    const users = rawUsers ? JSON.parse(rawUsers) : [];
-
-    const found = users.find(
-      (u: any) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-    );
-
-    if (found) {
-      setOnboardingData(found.onboarding);
-      setIsSignInModalOpen(false);
-      setSignInEmail('');
-      setSignInPassword('');
-      
-      if (found.userType === 'recruiter') {
-        setCurrentPage('employer');
-      } else if (found.userType === 'talent') {
-        setCurrentPage('talent');
-      } else {
-        setCurrentPage('home');
-      }
-    } else {
-      setSignInError(authErr?.message || 'Invalid credentials. If you are a new registrant, complete onboarding. Or use recruiter@dsp.com / password123 to login instantly!');
     }
   };
 
@@ -628,60 +610,81 @@ export default function App() {
       {/* SIGN IN MODAL */}
       {isSignInModalOpen && (
         <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white border-4 border-neutral-950 max-w-md w-full p-6 sm:p-8 space-y-6 text-left relative shadow-[8px_8px_0px_0px_rgba(16,185,129,1)]">
+          <div className="bg-white border-4 border-neutral-950 max-w-md w-full p-6 sm:p-8 space-y-6 text-left relative shadow-[8px_8px_0px_0px_rgba(0,168,107,1)]">
             
             <div className="flex items-start justify-between border-b-2 border-dashed border-neutral-200 pb-4">
               <div>
                 <span className="text-[9px] uppercase font-mono font-black text-emerald-700 bg-emerald-50 border border-emerald-150 px-2 py-0.5">
-                  AUTHENTICATION ENGINE
+                  SECURE ENTRY GATEWAY
                 </span>
                 <h3 className="font-display font-black text-xl text-neutral-950 uppercase tracking-tight mt-2 leading-none">
                   Sign In to Workspace
                 </h3>
                 <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mt-1.5">
-                  Access your vetting pipelines or sourcing dashboards instantly.
+                  Enter your verified credentials to access your dashboard.
                 </p>
               </div>
               <button 
-                onClick={() => { setIsSignInModalOpen(false); setSignInEmail(''); setSignInPassword(''); setSignInError(''); }}
-                className="text-neutral-400 hover:text-neutral-950 p-1.5 transition cursor-pointer font-black text-lg border-2 border-transparent hover:border-neutral-950"
+                onClick={() => { 
+                  setIsSignInModalOpen(false); 
+                  setSignInEmail(''); 
+                  setSignInPassword(''); 
+                  setSignInError(''); 
+                  setSecureLoginError(null); 
+                }}
+                disabled={isSecureLoggingIn}
+                className="text-neutral-400 hover:text-neutral-950 p-1.5 transition cursor-pointer font-black text-lg border-2 border-transparent hover:border-neutral-950 disabled:opacity-50"
               >
                 ✕
               </button>
             </div>
 
-            {/* Quick-Access Sign In Presets */}
+            {/* Explicit Role Selector Toggle */}
             <div className="space-y-2">
-              <span className="text-[9px] font-mono text-neutral-400 font-extrabold uppercase block tracking-wider">QUICK AUTHENTICATION BY ROLE</span>
-              <div className="grid grid-cols-2 gap-3">
+              <span className="text-[9px] font-mono text-neutral-400 font-extrabold uppercase block tracking-wider">GATEWAY SECTOR CONTROLLER</span>
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
+                  disabled={isSecureLoggingIn}
                   onClick={() => {
+                    setSignInRole('talent');
                     setSignInEmail('talent@dsp.com');
                     setSignInPassword('');
+                    setSecureLoginError(null);
                     setSignInError('');
                   }}
-                  className="bg-[#00A86B] hover:bg-emerald-800 text-white font-black py-3 px-4 rounded-none text-[11px] uppercase tracking-wider transition cursor-pointer border-2 border-neutral-950 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none text-center"
+                  className={`py-3 px-4 font-black text-[11px] uppercase tracking-wider transition cursor-pointer border-2 border-neutral-950 text-center ${
+                    signInRole === 'talent'
+                      ? 'bg-[#00A86B] text-white shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]'
+                      : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
+                  } disabled:opacity-50`}
                 >
-                  Signin As Talent
+                  Log in as a Talent
                 </button>
                 <button
                   type="button"
+                  disabled={isSecureLoggingIn}
                   onClick={() => {
+                    setSignInRole('recruiter');
                     setSignInEmail('recruiter@dsp.com');
                     setSignInPassword('');
+                    setSecureLoginError(null);
                     setSignInError('');
                   }}
-                  className="bg-[#00A86B] hover:bg-emerald-800 text-white font-black py-3 px-4 rounded-none text-[11px] uppercase tracking-wider transition cursor-pointer border-2 border-neutral-950 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none text-center"
+                  className={`py-3 px-4 font-black text-[11px] uppercase tracking-wider transition cursor-pointer border-2 border-neutral-950 text-center ${
+                    signInRole === 'recruiter'
+                      ? 'bg-[#00A86B] text-white shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]'
+                      : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
+                  } disabled:opacity-50`}
                 >
-                  As A Recruiter
+                  Log in as a Recruiter
                 </button>
               </div>
             </div>
 
             <div className="relative flex py-1 items-center">
               <div className="flex-grow border-t border-neutral-200"></div>
-              <span className="flex-shrink mx-3 text-[9px] font-mono text-neutral-400 font-extrabold uppercase">OR MANUAL ENTRY</span>
+              <span className="flex-shrink mx-3 text-[9px] font-mono text-neutral-400 font-extrabold uppercase">GATEWAY AUTHS</span>
               <div className="flex-grow border-t border-neutral-200"></div>
             </div>
 
@@ -691,10 +694,11 @@ export default function App() {
                 <input 
                   type="email" 
                   required 
+                  disabled={isSecureLoggingIn}
                   value={signInEmail}
                   onChange={(e) => setSignInEmail(e.target.value)}
                   placeholder="you@domain.com" 
-                  className="w-full border-2 border-neutral-300 rounded-none px-4 py-3 focus:outline-none focus:border-emerald-600 bg-neutral-50 focus:bg-white text-xs font-bold text-neutral-900 tracking-wide"
+                  className="w-full border-2 border-neutral-300 rounded-none px-4 py-3 focus:outline-none focus:border-emerald-600 bg-neutral-50 focus:bg-white text-xs font-bold text-neutral-900 tracking-wide disabled:opacity-50"
                 />
               </div>
 
@@ -703,25 +707,47 @@ export default function App() {
                 <input 
                   type="password" 
                   required 
+                  disabled={isSecureLoggingIn}
                   value={signInPassword}
                   onChange={(e) => setSignInPassword(e.target.value)}
                   placeholder="••••••••" 
-                  className="w-full border-2 border-neutral-300 rounded-none px-4 py-3 focus:outline-none focus:border-emerald-600 bg-neutral-50 focus:bg-white text-xs font-bold text-neutral-900 tracking-wide"
+                  className="w-full border-2 border-neutral-300 rounded-none px-4 py-3 focus:outline-none focus:border-emerald-600 bg-neutral-50 focus:bg-white text-xs font-bold text-neutral-900 tracking-wide disabled:opacity-50"
                 />
               </div>
 
-              {signInError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 text-[10.5px] font-bold text-rose-700 uppercase tracking-wider leading-relaxed">
-                  ⚠️ {signInError}
+              {/* Dynamic Slate/Red Error Panel */}
+              {(secureLoginError || signInError) && (
+                <div className="p-3.5 bg-neutral-900 border-l-4 border-rose-500 text-neutral-100 text-xs font-semibold rounded-none space-y-1 animate-shake">
+                  <div className="text-rose-400 font-mono text-[9px] uppercase tracking-wider font-extrabold flex items-center gap-1">
+                    ⚠️ ACCESS DENIED / GATEWAY EXCLUSION
+                  </div>
+                  <div className="leading-relaxed font-sans text-[11px]">
+                    {secureLoginError || signInError}
+                  </div>
                 </div>
               )}
 
               <button 
                 type="submit" 
-                className="w-full bg-neutral-950 hover:bg-neutral-900 text-white font-black py-3 px-4 rounded-none text-xs uppercase tracking-widest transition cursor-pointer flex items-center justify-center gap-1.5 border-2 border-neutral-950 shadow-[4px_4px_0px_0px_rgba(16,185,129,1)] hover:shadow-none"
+                disabled={isSecureLoggingIn}
+                className={`w-full bg-neutral-950 hover:bg-neutral-900 text-white font-black py-3 px-4 rounded-none text-xs uppercase tracking-widest transition cursor-pointer flex items-center justify-center gap-1.5 border-2 border-neutral-950 shadow-[4px_4px_0px_0px_rgba(0,168,107,1)] hover:shadow-none ${
+                  isSecureLoggingIn ? 'opacity-70 cursor-not-allowed' : ''
+                }`}
               >
-                <Lock className="w-3.5 h-3.5 text-emerald-400" />
-                <span>SIGN IN NOW</span>
+                {isSecureLoggingIn ? (
+                  <>
+                    <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>VERIFYING PROFILE SECTOR...</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-3.5 h-3.5 text-[#00A86B]" />
+                    <span>SECURE ACCESS LOG IN</span>
+                  </>
+                )}
               </button>
             </form>
 
@@ -735,7 +761,8 @@ export default function App() {
                   setOnboardingData(null);
                   setCurrentPage('home');
                 }}
-                className="text-[10px] uppercase font-black text-[#00A86B] hover:text-emerald-800 hover:underline tracking-wider cursor-pointer"
+                disabled={isSecureLoggingIn}
+                className="text-[10px] uppercase font-black text-[#00A86B] hover:text-emerald-800 hover:underline tracking-wider cursor-pointer disabled:opacity-50"
               >
                 Start Onboarding to Register
               </button>
