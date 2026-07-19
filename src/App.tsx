@@ -14,7 +14,9 @@ import {
   HelpCircle,
   Sparkles,
   Users,
-  ChevronRight
+  ChevronRight,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 import { Header, Footer } from './components/HeaderAndFooter';
@@ -119,6 +121,7 @@ export default function App() {
   const [signInEmail, setSignInEmail] = useState('');
   const [signInPassword, setSignInPassword] = useState('');
   const [signInError, setSignInError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   // Modals Core Settings
   const [isHireModalOpen, setIsHireModalOpen] = useState(false);
@@ -231,6 +234,7 @@ export default function App() {
   const handleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSignInError('');
+    setSecureLoginError(null);
 
     const email = signInEmail.trim();
     const password = signInPassword.trim();
@@ -240,17 +244,22 @@ export default function App() {
       return;
     }
 
-    const result = await handleSecureLogin(email, password, signInRole);
-    if (result.success) {
-      setOnboardingData(result.onboarding);
-      setIsSignInModalOpen(false);
-      setSignInEmail('');
-      setSignInPassword('');
-      if (signInRole === 'recruiter') {
-        setCurrentPage('employer');
-      } else {
-        setCurrentPage('talent');
+    try {
+      const result = await handleSecureLogin(email, password, signInRole);
+      if (result.success) {
+        setOnboardingData(result.onboarding);
+        setIsSignInModalOpen(false);
+        setSignInEmail('');
+        setSignInPassword('');
+        if (signInRole === 'recruiter') {
+          setCurrentPage('employer');
+        } else {
+          setCurrentPage('talent');
+        }
       }
+    } catch (err: any) {
+      console.error('Sign-in submission error:', err);
+      setSignInError(err?.message || 'An unexpected error occurred during role-verification.');
     }
   };
 
@@ -631,6 +640,7 @@ export default function App() {
                   setSignInPassword(''); 
                   setSignInError(''); 
                   setSecureLoginError(null); 
+                  setShowPassword(false);
                 }}
                 disabled={isSecureLoggingIn}
                 className="text-neutral-400 hover:text-neutral-950 p-1.5 transition cursor-pointer font-black text-lg border-2 border-transparent hover:border-neutral-950 disabled:opacity-50"
@@ -704,15 +714,31 @@ export default function App() {
 
               <div className="space-y-1">
                 <label className="text-[9px] font-mono text-neutral-400 font-extrabold uppercase block tracking-wider">PASSWORD</label>
-                <input 
-                  type="password" 
-                  required 
-                  disabled={isSecureLoggingIn}
-                  value={signInPassword}
-                  onChange={(e) => setSignInPassword(e.target.value)}
-                  placeholder="••••••••" 
-                  className="w-full border-2 border-neutral-300 rounded-none px-4 py-3 focus:outline-none focus:border-emerald-600 bg-neutral-50 focus:bg-white text-xs font-bold text-neutral-900 tracking-wide disabled:opacity-50"
-                />
+                <div className="relative">
+                  <input 
+                    type={showPassword ? "text" : "password"} 
+                    required 
+                    disabled={isSecureLoggingIn}
+                    value={signInPassword}
+                    onChange={(e) => setSignInPassword(e.target.value)}
+                    placeholder="••••••••" 
+                    className="w-full border-2 border-neutral-300 rounded-none pl-4 pr-11 py-3 focus:outline-none focus:border-emerald-600 bg-neutral-50 focus:bg-white text-xs font-bold text-neutral-900 tracking-wide disabled:opacity-50"
+                  />
+                  <button
+                    id="toggle-password-visibility-btn"
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={isSecureLoggingIn}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-neutral-400 hover:text-neutral-700 transition-all rounded-none border border-transparent hover:border-neutral-200 bg-transparent disabled:opacity-50 focus:outline-none cursor-pointer"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Dynamic Slate/Red Error Panel */}
