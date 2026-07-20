@@ -94,6 +94,8 @@ export function useSecureLogin(): UseSecureLoginReturn {
         }
       } else {
         activeUser = authData.user;
+        console.log('DEBUG [handleSecureLogin]: Login Auth User ID:', activeUser?.id);
+        console.log('DEBUG [handleSecureLogin]: Login Auth User Type Metadata:', activeUser?.user_metadata?.user_type || activeUser?.user_metadata?.role);
       }
 
       if (!activeUser) {
@@ -122,11 +124,72 @@ export function useSecureLogin(): UseSecureLoginReturn {
           }
 
           // Query Supabase talent_profiles
-          const { data: talent, error: talentError } = await supabase
+          let { data: talent, error: talentError } = await supabase
             .from('talent_profiles')
-            .select('id, full_name, career_goal, specialty, experience_level, vetting_status')
+            .select('*')
             .eq('id', userId)
             .maybeSingle();
+
+          if (talentError) {
+            console.error('Database Verification Error on talent_profiles:', talentError.message || talentError);
+          }
+
+          if (!talent) {
+            console.error(`DEBUG [handleSecureLogin]: Profile query returned null for table: talent_profiles. User ID: ${userId}. Initiating auto-healing...`);
+            
+            // Try to find rawProfileData in local storage first
+            const localProfileStr = localStorage.getItem(`mock_talent_profiles_${userId}`);
+            let localProfilePayload: any = null;
+            if (localProfileStr) {
+              try {
+                localProfilePayload = JSON.parse(localProfileStr);
+              } catch (e) {
+                console.error('Error parsing local talent profile during auto-healing:', e);
+              }
+            }
+
+            const mapExperienceLevel = (level?: string | null): 'fresher' | 'professional' => {
+              if (!level) return 'professional';
+              const clean = level.toLowerCase();
+              if (clean === 'fresher/newbie' || clean === 'fresher') return 'fresher';
+              return 'professional';
+            };
+
+            const meta = activeUser.user_metadata || {};
+            const userName = meta.full_name || meta.name || 'Onboarded Candidate';
+            const careerGoal = meta.career_goal || meta.goal || 'Full-Time Remote Job';
+            const specialty = meta.specialty || (meta.skills && meta.skills[0]) || 'AI Automation';
+            const rawExperienceLevel = meta.experience_level || meta.level || 'Seasoned Professional';
+            const experienceLevel = mapExperienceLevel(rawExperienceLevel);
+            const session_responses = meta.session_responses || localProfilePayload?.session_responses || {};
+
+            const healedPayload = {
+              id: userId,
+              full_name: userName,
+              career_goal: careerGoal,
+              specialty: specialty,
+              experience_level: experienceLevel,
+              email: activeUser.email,
+              session_responses: session_responses,
+              phase_1_quiz_passed: localProfilePayload?.phase_1_quiz_passed || false,
+              vetting_status: localProfilePayload?.vetting_status || 'not_started',
+              updated_at: new Date().toISOString()
+            };
+
+            console.log('DEBUG [handleSecureLogin]: Attempting to insert healed Talent Profile into Supabase database...', healedPayload);
+            const { data: healedData, error: healedError } = await supabase
+              .from('talent_profiles')
+              .upsert(healedPayload)
+              .select('*')
+              .maybeSingle();
+
+            if (healedError) {
+              console.error('DEBUG [handleSecureLogin]: Profile healing database insert failed:', healedError.message);
+            } else if (healedData) {
+              console.log('DEBUG [handleSecureLogin]: Profile healing database insert succeeded!', healedData);
+              talent = healedData;
+            }
+          }
 
           if (talentError || !talent) {
             // Check localStorage sandbox fallback for profile sync
@@ -140,29 +203,43 @@ export function useSecureLogin(): UseSecureLoginReturn {
               }
             }
 
+            const mapExperienceLevelBack = (val?: string | null): 'Fresher/Newbie' | 'Seasoned Professional' => {
+              if (!val) return 'Seasoned Professional';
+              const clean = val.toLowerCase();
+              if (clean === 'fresher' || clean === 'fresher/newbie') return 'Fresher/Newbie';
+              return 'Seasoned Professional';
+            };
+
             if (localProfile) {
               mockOnboarding = {
                 userType: 'talent',
                 userName: localProfile.full_name || activeUser.user_metadata?.full_name || 'Talent Specialist',
                 careerGoal: localProfile.career_goal,
                 specialty: localProfile.specialty,
-                experienceLevel: localProfile.experience_level,
+                experienceLevel: mapExperienceLevelBack(localProfile.experience_level),
                 email: activeUser.email,
               };
             } else {
               // Sign out user immediately from Supabase to prevent unauthorized session
               await supabase.auth.signOut();
-              setError('Access Denied: Profile not found. Please switch tabs to login.');
+              setError('Access Denied: Profile not found in talent_profiles table. Please switch tabs to login.');
               setLoading(false);
               return { success: false, user: null, onboarding: null };
             }
           } else {
+            const mapExperienceLevelBack = (val?: string | null): 'Fresher/Newbie' | 'Seasoned Professional' => {
+              if (!val) return 'Seasoned Professional';
+              const clean = val.toLowerCase();
+              if (clean === 'fresher' || clean === 'fresher/newbie') return 'Fresher/Newbie';
+              return 'Seasoned Professional';
+            };
+
             mockOnboarding = {
               userType: 'talent',
               userName: talent.full_name || activeUser.user_metadata?.full_name || 'Talent Specialist',
               careerGoal: talent.career_goal,
               specialty: talent.specialty,
-              experienceLevel: talent.experience_level,
+              experienceLevel: mapExperienceLevelBack(talent.experience_level),
               email: activeUser.email,
             };
           }
@@ -184,11 +261,62 @@ export function useSecureLogin(): UseSecureLoginReturn {
           }
 
           // Query Supabase recruiter_profiles
-          const { data: recruiter, error: recruiterError } = await supabase
+          let { data: recruiter, error: recruiterError } = await supabase
             .from('recruiter_profiles')
-            .select('id, organization_name, organization_size, industry_vertical, needed_talent_role')
+            .select('*')
             .eq('id', userId)
             .maybeSingle();
+
+          if (recruiterError) {
+            console.error('Database Verification Error on recruiter_profiles:', recruiterError.message || recruiterError);
+          }
+
+          if (!recruiter) {
+            console.error(`DEBUG [handleSecureLogin]: Profile query returned null for table: recruiter_profiles. User ID: ${userId}. Initiating auto-healing...`);
+
+            // Try to find rawCompanyData in local storage first
+            const localProfileStr = localStorage.getItem(`mock_recruiter_profiles_${userId}`);
+            let localProfilePayload: any = null;
+            if (localProfileStr) {
+              try {
+                localProfilePayload = JSON.parse(localProfileStr);
+              } catch (e) {
+                console.error('Error parsing local recruiter profile during auto-healing:', e);
+              }
+            }
+
+            const meta = activeUser.user_metadata || {};
+            const organizationName = meta.organization_name || meta.org_name || 'Dynamic Partner';
+            const organizationSize = meta.organization_size || meta.org_size || '1-10 Employees';
+            const industryVertical = meta.industry_vertical || meta.industry || 'Digital Marketing';
+            const neededTalentRole = meta.needed_talent_role || meta.needed_role || 'Full-Time Dedicated Talent';
+            const session_responses = meta.session_responses || localProfilePayload?.session_responses || {};
+
+            const healedPayload = {
+              id: userId,
+              organization_name: organizationName,
+              organization_size: organizationSize,
+              industry_vertical: industryVertical,
+              needed_talent_role: neededTalentRole,
+              email: activeUser.email,
+              session_responses: session_responses,
+              updated_at: new Date().toISOString()
+            };
+
+            console.log('DEBUG [handleSecureLogin]: Attempting to insert healed Recruiter Profile into Supabase database...', healedPayload);
+            const { data: healedData, error: healedError } = await supabase
+              .from('recruiter_profiles')
+              .upsert(healedPayload)
+              .select('*')
+              .maybeSingle();
+
+            if (healedError) {
+              console.error('DEBUG [handleSecureLogin]: Profile healing database insert failed:', healedError.message);
+            } else if (healedData) {
+              console.log('DEBUG [handleSecureLogin]: Profile healing database insert succeeded!', healedData);
+              recruiter = healedData;
+            }
+          }
 
           if (recruiterError || !recruiter) {
             // Check localStorage sandbox fallback for profile sync
@@ -215,7 +343,7 @@ export function useSecureLogin(): UseSecureLoginReturn {
             } else {
               // Sign out user immediately from Supabase to prevent unauthorized session
               await supabase.auth.signOut();
-              setError('Access Denied: Profile not found. Please switch tabs to login.');
+              setError('Access Denied: Profile not found in recruiter_profiles table. Please switch tabs to login.');
               setLoading(false);
               return { success: false, user: null, onboarding: null };
             }

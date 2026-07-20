@@ -1,11 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabaseClient';
+import { OnboardingData } from '../components/ConversationalOnboarding';
 
 // Core Type Definitions for the context
 export interface OnboardingPayload {
   userType: 'talent' | 'recruiter' | null;
   userName: string;
+  full_name?: string;
   careerGoal?: 'Internship' | 'Freelance Gigs' | 'Full-Time Remote Job';
   specialty?: string;
   experienceLevel?: 'Fresher/Newbie' | 'Seasoned Professional';
@@ -32,6 +34,7 @@ export interface SupabaseContextType {
   // Custom Sync & Registration Actions
   handleTalentRegistration: (email: string, password: string, rawProfileData: OnboardingPayload) => Promise<{ user: User | null; profile: any; error: any }>;
   handleRecruiterRegistration: (email: string, password: string, rawCompanyData: OnboardingPayload) => Promise<{ user: User | null; profile: any; error: any }>;
+  handleOnboardingSubmit: (payload: OnboardingData) => Promise<{ user: User | null; error: any }>;
   updateProfileData: (updatedFields: any) => Promise<{ data: any; error: any }>;
   syncTalentProfile: (talentId: string, payload: OnboardingPayload) => Promise<{ data: any; error: any }>;
   syncRecruiterProfile: (recruiterId: string, payload: OnboardingPayload) => Promise<{ data: any; error: any }>;
@@ -144,6 +147,14 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Helper to map human-readable experience level to Postgres database enum experience_level_type
+  const mapExperienceLevel = (level?: string | null): 'fresher' | 'professional' => {
+    if (!level) return 'professional';
+    const clean = level.toLowerCase();
+    if (clean === 'fresher/newbie' || clean === 'fresher') return 'fresher';
+    return 'professional';
+  };
+
   // Custom Registration Action for Talent
   const handleTalentRegistration = async (email: string, password: string, rawProfileData: OnboardingPayload) => {
     setError(null);
@@ -156,12 +167,12 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
           data: {
             role: 'talent', // <-- Tells the database trigger to route to talent_profiles
             user_type: 'talent',
-            full_name: rawProfileData.userName,
+            full_name: rawProfileData.full_name || rawProfileData.userName,
             name: rawProfileData.userName,
             career_goal: rawProfileData.careerGoal || 'Full-Time Remote Job',
             goal: rawProfileData.careerGoal || 'Full-Time Remote Job',
-            experience_level: rawProfileData.experienceLevel || 'Seasoned Professional',
-            level: rawProfileData.experienceLevel || 'Seasoned Professional',
+            experience_level: mapExperienceLevel(rawProfileData.experienceLevel),
+            level: mapExperienceLevel(rawProfileData.experienceLevel),
             skills: rawProfileData.specialty ? [rawProfileData.specialty] : [],
             session_responses: rawProfileData,
             logs: rawProfileData
@@ -181,7 +192,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         full_name: rawProfileData.userName,
         career_goal: rawProfileData.careerGoal || 'Full-Time Remote Job',
         specialty: rawProfileData.specialty || 'AI Automation',
-        experience_level: rawProfileData.experienceLevel || 'Seasoned Professional',
+        experience_level: mapExperienceLevel(rawProfileData.experienceLevel),
         email: email,
         session_responses: rawProfileData,
         phase_1_quiz_passed: false,
@@ -196,10 +207,12 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         .select()
         .single();
  
+      // ALWAYS sync a local storage copy to guarantee robust subsequent login checks
+      localStorage.setItem(`mock_talent_profiles_${newUser.id}`, JSON.stringify(profilePayload));
+
       if (dbError) {
         console.warn('Talent profile database insert failed, utilizing local sandbox fallback:', dbError.message);
         const mockProfile = { ...profilePayload, mock: true };
-        localStorage.setItem(`mock_talent_profiles_${newUser.id}`, JSON.stringify(mockProfile));
         return { user: newUser, profile: mockProfile, error: null };
       }
  
@@ -223,8 +236,9 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
           data: {
             role: 'recruiter', // <-- Tells the database trigger to route to recruiter_profiles
             user_type: 'recruiter',
-            full_name: rawCompanyData.userName,
+            full_name: rawCompanyData.full_name || rawCompanyData.userName,
             name: rawCompanyData.userName,
+            company_name: rawCompanyData.orgName,
             organization_name: rawCompanyData.orgName || 'Dynamic Partner',
             org_name: rawCompanyData.orgName || 'Dynamic Partner',
             organization_size: rawCompanyData.orgSize || '1-10 Employees',
@@ -264,10 +278,12 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         .select()
         .single();
  
+      // ALWAYS sync a local storage copy to guarantee robust subsequent login checks
+      localStorage.setItem(`mock_recruiter_profiles_${newUser.id}`, JSON.stringify(profilePayload));
+
       if (dbError) {
         console.warn('Recruiter profile database insert failed, utilizing local sandbox fallback:', dbError.message);
         const mockProfile = { ...profilePayload, mock: true };
-        localStorage.setItem(`mock_recruiter_profiles_${newUser.id}`, JSON.stringify(mockProfile));
         return { user: newUser, profile: mockProfile, error: null };
       }
  
@@ -276,6 +292,117 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       console.error('Recruiter Registration Flow Exception:', err.message || err);
       setError(err.message || String(err));
       return { user: null, profile: null, error: err };
+    }
+  };
+
+  // Unified submit handler from ConversationalOnboarding
+  const handleOnboardingSubmit = async (payload: OnboardingData) => {
+    setError(null);
+    const email = payload.email;
+    const password = payload.password;
+    const userType = payload.userType;
+
+    if (!email || !password) {
+      const err = new Error('Email and password are required for registration.');
+      console.error(err);
+      setError(err.message);
+      return { user: null, error: err };
+    }
+
+    try {
+      // 1. Construct role-specific metadata adhering to critical trigger keys
+      const metadata: any = {
+        role: userType,
+        user_type: userType,
+        
+        // Talent fields
+        full_name: payload.userName || (payload as any).full_name,
+        career_goal: payload.careerGoal || (userType === 'talent' ? 'Full-Time Remote Job' : undefined),
+        specialty: payload.specialty || (userType === 'talent' ? 'AI Automation' : undefined),
+        experienceLevel: mapExperienceLevel(payload.experienceLevel),
+        experience_level: mapExperienceLevel(payload.experienceLevel),
+
+        // Recruiter fields
+        company_name: payload.orgName || (userType === 'recruiter' ? 'Dynamic Partner' : undefined),
+        company_size: payload.orgSize || (userType === 'recruiter' ? '1-10 Employees' : undefined),
+        industry: payload.industry || (userType === 'recruiter' ? 'Digital Marketing' : undefined),
+        neededRole: payload.neededRole || (userType === 'recruiter' ? 'Full-Time Dedicated Talent' : undefined),
+
+        // Raw backup
+        session_responses: payload
+      };
+
+      // 2. Register through Supabase Auth
+      const { data, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: metadata
+        }
+      });
+
+      if (authError) {
+        throw authError;
+      }
+
+      const newUser = data.user;
+      if (!newUser) {
+        throw new Error('User registration returned empty user data.');
+      }
+
+      // 3. Build and upsert the database profiles directly to ensure immediate availability
+      if (userType === 'talent') {
+        const profilePayload = {
+          id: newUser.id,
+          full_name: payload.userName,
+          career_goal: payload.careerGoal || 'Full-Time Remote Job',
+          specialty: payload.specialty || 'AI Automation',
+          experience_level: mapExperienceLevel(payload.experienceLevel),
+          email: email,
+          session_responses: payload,
+          phase_1_quiz_passed: false,
+          vetting_status: 'not_started',
+          updated_at: new Date().toISOString()
+        };
+
+        const { error: dbError } = await supabase
+          .from('talent_profiles')
+          .upsert(profilePayload);
+
+        localStorage.setItem(`mock_talent_profiles_${newUser.id}`, JSON.stringify(profilePayload));
+        if (dbError) {
+          console.warn('Talent profile database sync failed, fallback loaded:', dbError.message);
+        }
+      } else if (userType === 'recruiter') {
+        const profilePayload = {
+          id: newUser.id,
+          organization_name: payload.orgName || 'Dynamic Partner',
+          organization_size: payload.orgSize || '1-10 Employees',
+          industry_vertical: payload.industry || 'Digital Marketing',
+          needed_talent_role: payload.neededRole || 'Full-Time Dedicated Talent',
+          email: email,
+          session_responses: payload,
+          updated_at: new Date().toISOString()
+        };
+
+        const { error: dbError } = await supabase
+          .from('recruiter_profiles')
+          .upsert(profilePayload);
+
+        localStorage.setItem(`mock_recruiter_profiles_${newUser.id}`, JSON.stringify(profilePayload));
+        if (dbError) {
+          console.warn('Recruiter profile database sync failed, fallback loaded:', dbError.message);
+        }
+      }
+
+      // 4. Delay 500ms to let Auth triggers fully run
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      return { user: newUser, error: null };
+    } catch (err: any) {
+      console.error('handleOnboardingSubmit exception:', err.message || err);
+      setError(err.message || String(err));
+      return { user: null, error: err };
     }
   };
 
@@ -289,10 +416,15 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const table = userType === 'recruiter' ? 'recruiter_profiles' : 'talent_profiles';
 
     try {
+      const mappedFields = { ...updatedFields };
+      if (mappedFields.experience_level) {
+        mappedFields.experience_level = mapExperienceLevel(mappedFields.experience_level);
+      }
+
       const { data, error: updateError } = await supabase
         .from(table)
         .update({
-          ...updatedFields,
+          ...mappedFields,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id)
@@ -321,7 +453,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
           full_name: payload.userName,
           career_goal: payload.careerGoal,
           specialty: payload.specialty,
-          experience_level: payload.experienceLevel,
+          experience_level: mapExperienceLevel(payload.experienceLevel),
           email: payload.email,
           updated_at: new Date().toISOString(),
         })
@@ -493,6 +625,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       signOut,
       handleTalentRegistration,
       handleRecruiterRegistration,
+      handleOnboardingSubmit,
       updateProfileData,
       syncTalentProfile,
       syncRecruiterProfile,

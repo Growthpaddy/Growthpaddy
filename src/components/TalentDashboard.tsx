@@ -171,7 +171,10 @@ export default function TalentDashboard({
         if (data) {
           if (data.full_name) setUserName(data.full_name);
           if (data.specialty) setSpecialty(data.specialty);
-          if (data.experience_level) setExperienceTier(data.experience_level as any);
+          if (data.experience_level) {
+            const mapped = data.experience_level === 'fresher' || data.experience_level === 'Fresher/Newbie' ? 'Fresher/Newbie' : 'Seasoned Professional';
+            setExperienceTier(mapped);
+          }
           if (data.career_goal) setCareerGoal(data.career_goal);
           
           if (data.phase_1_quiz_passed) {

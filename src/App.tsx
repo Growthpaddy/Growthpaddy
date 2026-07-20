@@ -39,7 +39,8 @@ export default function App() {
     user, 
     signIn, 
     handleTalentRegistration, 
-    handleRecruiterRegistration 
+    handleRecruiterRegistration,
+    handleOnboardingSubmit
   } = useSupabase();
 
   const {
@@ -189,7 +190,23 @@ export default function App() {
     const syncSessionUser = async () => {
       if (!user) return;
       
-      const userType = user.user_metadata?.role || user.user_metadata?.user_type || 'talent';
+      let userType = user.user_metadata?.role || user.user_metadata?.user_type || 'talent';
+      
+      try {
+        // 1. Fetch user role from user_roles table
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role_type')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (roleData?.role_type) {
+          userType = roleData.role_type;
+        }
+      } catch (roleErr) {
+        console.warn('Could not load role from user_roles table, utilizing metadata fallback:', roleErr);
+      }
+
       if (userType === 'admin') {
         setOnboardingData({
           userType: 'admin',
@@ -224,7 +241,7 @@ export default function App() {
               userName: data.full_name || user.user_metadata?.full_name || 'Talent Specialist',
               careerGoal: data.career_goal,
               specialty: data.specialty,
-              experienceLevel: data.experience_level,
+              experienceLevel: data.experience_level === 'fresher' || data.experience_level === 'Fresher/Newbie' ? 'Fresher/Newbie' : 'Seasoned Professional',
               email: user.email
             });
             if (data.vetting_status === 'fee_paid' || data.vetting_status === 'completed') {
@@ -325,26 +342,9 @@ export default function App() {
                       setConfettiMessage(data.userType === 'recruiter' ? 'RECRUITER PORTAL DEPLOYED!' : 'TALENT PROFILE ACTIVATED!');
                       setShowConfetti(true);
 
-                      // Save user profile securely to Supabase using custom actions
+                      // Save user profile securely to Supabase using the unified onboarding submit handler
                       if (data.email && data.password) {
-                        if (data.userType === 'recruiter') {
-                          await handleRecruiterRegistration(data.email, data.password, data as any);
-                        } else if (data.userType === 'talent') {
-                          await handleTalentRegistration(data.email, data.password, data as any);
-                        }
-
-                        // Write secondary LocalStorage fallback
-                        const existing = localStorage.getItem('dsp_registered_users');
-                        const users = existing ? JSON.parse(existing) : [];
-                        const filtered = users.filter((u: any) => u.email.toLowerCase() !== data.email?.toLowerCase());
-                        filtered.push({
-                          email: data.email,
-                          password: data.password,
-                          userName: data.userName,
-                          userType: data.userType,
-                          onboarding: data
-                        });
-                        localStorage.setItem('dsp_registered_users', JSON.stringify(filtered));
+                        await handleOnboardingSubmit(data);
                       }
 
                       if (data.userType === 'recruiter') {
