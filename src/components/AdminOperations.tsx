@@ -176,6 +176,142 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
   const [newSlotLink, setNewSlotLink] = useState('');
   const [slotStatusMsg, setSlotStatusMsg] = useState<string | null>(null);
 
+  // Quiz Audits states
+  const [activeTab, setActiveTab] = useState<'registry' | 'audits' | 'recruiters' | 'slots'>('registry');
+  const [quizAttemptsLog, setQuizAttemptsLog] = useState<any[]>([]);
+  const [loadingAttempts, setLoadingAttempts] = useState<boolean>(false);
+  const [selectedAuditAttempt, setSelectedAuditAttempt] = useState<any | null>(null);
+
+  const fetchQuizAttempts = async () => {
+    setLoadingAttempts(true);
+    try {
+      const { data, error } = await supabase
+        .from('talent_quiz_attempts')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error && data) {
+        setQuizAttemptsLog(data);
+      } else {
+        const cached = localStorage.getItem('mock_quiz_attempts');
+        if (cached) {
+          setQuizAttemptsLog(JSON.parse(cached));
+        } else {
+          const defaultAttempts = [
+            {
+              id: 'att-1',
+              full_name: 'Damilola Shofoluwe',
+              specialty: 'AI Automation',
+              experience_level: 'Seasoned Professional',
+              score: 90,
+              passed: true,
+              ai_feedback: 'Candidate displayed deep technical understanding of make.com scenarios, webhook error handling, and structured JSON outputs.',
+              question_breakdown: [
+                { question: 'Scenario: Make.com scenario loop recovery...', selectedAnswer: 'Implement an Error handler route with resume', correctAnswer: 'Implement an Error handler route with resume', wasCorrect: true },
+                { question: 'Scenario: Handling high-volume API payloads...', selectedAnswer: 'Scale with webhook queues', correctAnswer: 'Scale with webhook queues', wasCorrect: true },
+                { question: 'Scenario: Designing prompts for dynamic fields...', selectedAnswer: 'Provide few-shot formatted exemplars', correctAnswer: 'Provide few-shot formatted exemplars', wasCorrect: true }
+              ],
+              created_at: new Date(Date.now() - 3600000).toISOString()
+            },
+            {
+              id: 'att-2',
+              full_name: 'Kofi Mensah',
+              specialty: 'SEO Specialization',
+              experience_level: 'Fresher/Newbie',
+              score: 66,
+              passed: false,
+              ai_feedback: 'Candidate struggled with canonical tag rules and search crawler index configurations. Recommended remedial study on core search ranking signals.',
+              question_breakdown: [
+                { question: 'Scenario: Fixing crawl budget congestion...', selectedAnswer: 'Add random pages to sitemap', correctAnswer: 'Configure robots.txt disallows for low-value parameters', wasCorrect: false },
+                { question: 'Scenario: Correcting self-referencing canonical structures...', selectedAnswer: 'Point all canonicals to the homepage', correctAnswer: 'Ensure canonical points to the primary URL variation', wasCorrect: false },
+                { question: 'Scenario: Designing meta tags for rich indexation...', selectedAnswer: 'Configure meta title with proper keyword density', correctAnswer: 'Configure meta title with proper keyword density', wasCorrect: true }
+              ],
+              created_at: new Date(Date.now() - 7200000).toISOString()
+            }
+          ];
+          setQuizAttemptsLog(defaultAttempts);
+          localStorage.setItem('mock_quiz_attempts', JSON.stringify(defaultAttempts));
+        }
+      }
+    } catch (err) {
+      console.warn('Fetch quiz attempts error:', err);
+    } finally {
+      setLoadingAttempts(false);
+    }
+  };
+
+  const handleForcePassAttempt = async (attempt: any) => {
+    try {
+      await supabase
+        .from('talent_quiz_attempts')
+        .update({ passed: true, score: 75, ai_feedback: attempt.ai_feedback + " (FORCE PASSED BY OPERATOR)" })
+        .eq('id', attempt.id);
+
+      const userId = attempt.user_id;
+      if (userId) {
+        await supabase
+          .from('talent_profiles')
+          .update({
+            phase_1_quiz_passed: true,
+            vetting_status: 'passed_quiz'
+          })
+          .eq('id', userId);
+        
+        const mockKey = `mock_talent_profiles_${userId}`;
+        const existing = JSON.parse(localStorage.getItem(mockKey) || '{}');
+        localStorage.setItem(mockKey, JSON.stringify({
+          ...existing,
+          phase_1_quiz_passed: true,
+          vetting_status: 'passed_quiz'
+        }));
+      }
+
+      setTalentVettingList(prev => prev.map(t => {
+        if (t.fullName === attempt.full_name || (userId && t.id === userId)) {
+          return {
+            ...t,
+            phase1Score: 75,
+            vetting_status: 'passed_quiz',
+            phase_1_quiz_passed: true
+          };
+        }
+        return t;
+      }));
+
+      setQuizAttemptsLog(prev => prev.map(a => {
+        if (a.id === attempt.id) {
+          return {
+            ...a,
+            passed: true,
+            score: 75,
+            ai_feedback: a.ai_feedback + " (FORCE PASSED BY OPERATOR)"
+          };
+        }
+        return a;
+      }));
+
+      const cached = localStorage.getItem('mock_quiz_attempts');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        const updated = parsed.map((a: any) => {
+          if (a.id === attempt.id) {
+            return {
+              ...a,
+              passed: true,
+              score: 75,
+              ai_feedback: a.ai_feedback + " (FORCE PASSED BY OPERATOR)"
+            };
+          }
+          return a;
+        });
+        localStorage.setItem('mock_quiz_attempts', JSON.stringify(updated));
+      }
+
+      alert(`Successfully forced pass status for ${attempt.full_name}. Their core diagnostic block is now unlocked!`);
+    } catch (err) {
+      console.warn('Force pass failed:', err);
+    }
+  };
+
   const fetchAdminSlots = async () => {
     try {
       const { data, error } = await supabase
@@ -341,6 +477,12 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
       }
     }
   }, [user]);
+
+  useEffect(() => {
+    if (activeTab === 'audits') {
+      fetchQuizAttempts();
+    }
+  }, [activeTab]);
 
   // Handle Admin registration logic
   const handleAdminSignUpSubmit = async (e: React.FormEvent) => {
@@ -828,8 +970,40 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
 
           </div>
 
-          {/* =================== 2a. THE TALENT OPTIMIZATION REGISTRY TABLE =================== */}
-          <div className="bg-white border-4 border-neutral-950 p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+          {/* Operations Navigation Tab Selector */}
+          <div className="flex border-b-4 border-neutral-950 gap-2 mb-6 mt-4 overflow-x-auto">
+            {[
+              { id: 'registry', label: 'Talent Registry', count: talentVettingList.length },
+              { id: 'audits', label: 'Gemini Quiz Audits' },
+              { id: 'recruiters', label: 'Recruiter Placements', count: recruiters.length },
+              { id: 'slots', label: 'Vetting Slots Manager', count: slotsList.length }
+            ].map((tb) => {
+              const isActive = activeTab === tb.id;
+              return (
+                <button
+                  key={tb.id}
+                  onClick={() => setActiveTab(tb.id as any)}
+                  className={`px-4 py-3 text-[11px] font-display font-black uppercase tracking-wider border-2 border-b-0 cursor-pointer transition-all duration-150 shrink-0
+                    ${isActive 
+                      ? 'bg-white border-neutral-950 text-neutral-950 shadow-[0px_4px_0px_white] -mb-[4px] z-10' 
+                      : 'bg-neutral-100 border-neutral-200 text-neutral-500 hover:bg-neutral-50 hover:text-neutral-700'}`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    {tb.label}
+                    {tb.count !== undefined && (
+                      <span className="bg-neutral-950 text-white text-[8px] font-mono px-1.5 py-0.5 rounded-none font-black">
+                        {tb.count}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {activeTab === 'registry' && (
+            /* =================== 2a. THE TALENT OPTIMIZATION REGISTRY TABLE =================== */
+            <div className="bg-white border-4 border-neutral-950 p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
             <div className="flex flex-col md:flex-row md:items-center justify-between border-b-2 border-neutral-200 pb-4 mb-6 gap-4">
               <div className="text-left space-y-1">
                 <div className="flex items-center gap-2">
@@ -999,9 +1173,124 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
             </div>
 
           </div>
+          )}
 
-          {/* =================== 2b. THE RECRUITER PLACEMENT MONITORING TABLE =================== */}
-          <div className="bg-white border-4 border-neutral-950 p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] text-left">
+          {activeTab === 'audits' && (
+            /* =================== DYNAMIC AI QUIZ AUDITS MATRIX =================== */
+            <div className="bg-white border-4 border-neutral-950 p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] text-left space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between border-b-2 border-neutral-200 pb-4 mb-6 gap-4">
+                <div className="text-left space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-mono font-black text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5">
+                      AUDIT CONTEXT
+                    </span>
+                    <span className="text-[9px] font-mono font-black text-neutral-500 bg-neutral-100 border border-neutral-200 px-2 py-0.5">
+                      GEMINI GENERATIVE VERIFIED LOGS
+                    </span>
+                  </div>
+                  <h3 className="font-display font-black text-xl text-neutral-950 uppercase tracking-tight">
+                    Candidate Quiz Audits
+                  </h3>
+                  <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold">
+                    Audit and inspect Gemini-graded quiz attempts, read dynamic cognitive feedback logs, see answers breakdown, or force pass override.
+                  </p>
+                </div>
+                
+                <button 
+                  onClick={fetchQuizAttempts}
+                  disabled={loadingAttempts}
+                  className="bg-neutral-950 hover:bg-neutral-900 text-white font-mono text-[10px] px-3.5 py-2 uppercase tracking-wider flex items-center gap-1.5 font-black border-2 border-neutral-950"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingAttempts ? 'animate-spin text-emerald-400' : ''}`} />
+                  <span>REFRESH AUDIT STREAM</span>
+                </button>
+              </div>
+
+              {loadingAttempts ? (
+                <div className="py-20 text-center space-y-3 font-mono">
+                  <RefreshCw className="w-8 h-8 text-emerald-600 mx-auto animate-spin" />
+                  <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">LOADING REAL-TIME GEMINI COGNITION LOGS...</p>
+                </div>
+              ) : quizAttemptsLog.length === 0 ? (
+                <div className="p-12 text-center border-2 border-dashed border-neutral-300 text-neutral-400 uppercase font-mono text-xs">
+                  No core diagnostic quiz attempts found in the live ledger.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs tracking-tight border-collapse min-w-[800px]">
+                    <thead>
+                      <tr className="bg-neutral-950 text-white uppercase font-mono text-[9px] font-black tracking-widest border-2 border-neutral-950">
+                        <th className="py-3 px-4">Candidate Full Name</th>
+                        <th className="py-3 px-4">Specialty Core</th>
+                        <th className="py-3 px-4">Experience Tier</th>
+                        <th className="py-3 px-4 text-center">Diagnostic Score</th>
+                        <th className="py-3 px-4 text-center">System Status</th>
+                        <th className="py-3 px-4 text-right">Attempt Timestamp</th>
+                        <th className="py-3 px-4 text-right">Action Logs</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y-2 divide-neutral-150">
+                      {quizAttemptsLog.map((attempt) => (
+                        <tr key={attempt.id} className="hover:bg-neutral-50 transition duration-100">
+                          <td className="py-4 px-4 font-black text-neutral-950 uppercase flex items-center gap-2">
+                            <User className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                            <span>{attempt.full_name}</span>
+                          </td>
+                          <td className="py-4 px-4 uppercase text-neutral-500 font-bold">
+                            {attempt.specialty}
+                          </td>
+                          <td className="py-4 px-4 font-mono font-bold text-neutral-700 uppercase text-[10px]">
+                            {attempt.experience_level}
+                          </td>
+                          <td className="py-4 px-4 text-center font-mono font-black text-sm">
+                            <span className={attempt.passed ? 'text-emerald-700' : 'text-rose-700'}>
+                              {attempt.score}%
+                            </span>
+                          </td>
+                          <td className="py-4 px-4 text-center">
+                            <span className={`font-mono text-[8.5px] font-black uppercase px-2 py-0.5 rounded-none border block w-max mx-auto
+                              ${attempt.passed 
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300' 
+                                : 'bg-rose-50 text-rose-700 border-rose-300'}`}
+                            >
+                              {attempt.passed ? 'PASSED' : 'FAILED'}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4 text-right font-mono text-neutral-450 font-bold">
+                            {new Date(attempt.created_at).toLocaleString()}
+                          </td>
+                          <td className="py-4 px-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => setSelectedAuditAttempt(attempt)}
+                                className="bg-neutral-950 hover:bg-neutral-900 text-white font-mono text-[10px] font-black px-2.5 py-1.5 uppercase tracking-wide cursor-pointer flex items-center gap-1 shrink-0 border border-neutral-950"
+                              >
+                                <Eye className="w-3 h-3 text-emerald-400" />
+                                <span>INSPECT FEEDBACK</span>
+                              </button>
+                              {!attempt.passed && (
+                                <button
+                                  onClick={() => handleForcePassAttempt(attempt)}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-[10px] font-black px-2.5 py-1.5 uppercase tracking-wide cursor-pointer flex items-center gap-1 shrink-0 border border-emerald-600"
+                                >
+                                  <Sparkles className="w-3 h-3 text-white" />
+                                  <span>FORCE PASS</span>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'recruiters' && (
+            /* =================== 2b. THE RECRUITER PLACEMENT MONITORING TABLE =================== */
+            <div className="bg-white border-4 border-neutral-950 p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] text-left">
             <div className="border-b-2 border-neutral-200 pb-4 mb-6">
               <span className="text-[9px] font-mono font-black text-emerald-805 bg-emerald-50 border border-emerald-150 px-2 py-0.5">
                 PIPELINE CONTROLS
@@ -1075,9 +1364,11 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
             </div>
 
           </div>
+          )}
 
-          {/* =================== 2c. PANEL INTERVIEW SLOT MANAGER UI =================== */}
-          <div className="bg-white border-4 border-neutral-950 p-6 shadow-[8px_8px_0px_0px_rgba(0,168,107,1)] text-left space-y-6">
+          {activeTab === 'slots' && (
+            /* =================== 2c. PANEL INTERVIEW SLOT MANAGER UI =================== */
+            <div className="bg-white border-4 border-neutral-950 p-6 shadow-[8px_8px_0px_0px_rgba(0,168,107,1)] text-left space-y-6">
             <div className="border-b-2 border-neutral-200 pb-4">
               <span className="text-[9px] font-mono font-black text-emerald-800 bg-emerald-50 border border-emerald-150 px-2 py-0.5">
                 VETTING INFRASTRUCTURE
@@ -1253,6 +1544,7 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
             </div>
 
           </div>
+          )}
 
         </div>
       )}
@@ -1362,6 +1654,115 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
             >
               Close Responses Log
             </button>
+
+          </div>
+        </div>
+      )}
+
+      {/* =================== COGNITIVE AI QUIZ AUDIT DETAIL MODAL =================== */}
+      {selectedAuditAttempt && (
+        <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white border-4 border-neutral-950 max-w-3xl w-full p-6 sm:p-8 space-y-5 text-left relative shadow-[10px_10px_0px_0px_rgba(245,158,11,1)] max-h-[90vh] overflow-y-auto">
+            
+            <button 
+              onClick={() => setSelectedAuditAttempt(null)}
+              className="absolute top-4 right-4 text-neutral-400 hover:text-neutral-950 font-mono font-black border-2 border-neutral-950 px-2 py-0.5 text-xs transition uppercase"
+            >
+              ✕ CLOSE
+            </button>
+
+            <div className="border-b-2 border-neutral-200 pb-3 text-left">
+              <span className="text-[9px] font-mono font-black text-amber-800 bg-amber-50 border border-amber-150 px-2 py-0.5 uppercase tracking-widest">
+                GEMINI AI COGNITION AUDIT LOG
+              </span>
+              <h3 className="font-display font-black text-2xl text-neutral-950 uppercase tracking-tight mt-1 flex items-center gap-3">
+                <span>{selectedAuditAttempt.full_name}</span>
+                <span className={`text-xs font-mono font-black px-2 py-0.5 border uppercase
+                  ${selectedAuditAttempt.passed 
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-200' 
+                    : 'bg-rose-100 text-rose-800 border-rose-200'}`}
+                >
+                  SCORE: {selectedAuditAttempt.score}%
+                </span>
+              </h3>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[10px] text-neutral-500 uppercase font-mono font-black">
+                <span>Specialty: <strong className="text-neutral-800">{selectedAuditAttempt.specialty}</strong></span>
+                <span>•</span>
+                <span>Experience: <strong className="text-neutral-800">{selectedAuditAttempt.experience_level}</strong></span>
+                <span>•</span>
+                <span>Recorded: <strong className="text-neutral-800">{new Date(selectedAuditAttempt.created_at).toLocaleString()}</strong></span>
+              </div>
+            </div>
+
+            {/* Questions and Answers Ledger */}
+            <div className="space-y-4">
+              <h4 className="text-[10px] font-mono font-black text-neutral-400 uppercase tracking-widest">
+                Dynamic Diagnostic Scenario Ledger
+              </h4>
+              <div className="space-y-3">
+                {selectedAuditAttempt.questions && selectedAuditAttempt.questions.map((q, idx) => {
+                  const candidateAnswer = selectedAuditAttempt.answers[q.id || (idx + 1)] || "NO ANSWER SUBMITTED";
+                  return (
+                    <div key={idx} className="p-4 bg-neutral-50 border border-neutral-200 space-y-2.5 text-xs">
+                      <div className="flex items-start gap-2">
+                        <span className="font-mono text-[10px] font-black text-neutral-500 bg-neutral-200 px-1.5 py-0.5 uppercase shrink-0">
+                          Q{idx + 1}
+                        </span>
+                        <div>
+                          <p className="font-mono text-[10px] text-neutral-500 uppercase font-bold tracking-wide leading-relaxed">
+                            {q.scenario}
+                          </p>
+                          <p className="font-extrabold text-neutral-950 uppercase tracking-wide mt-1">
+                            {q.question}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="pl-6 space-y-1.5">
+                        <p className="text-[9px] font-mono font-black text-neutral-400 uppercase">
+                          Candidate Selection:
+                        </p>
+                        <div className="border border-neutral-300 bg-white p-2.5 text-neutral-800 font-bold uppercase tracking-wide border-l-4 border-l-neutral-950">
+                          {candidateAnswer}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* AI Grading Evaluation Feedback */}
+            <div className="space-y-2 bg-neutral-900 border-2 border-neutral-950 p-4 text-left">
+              <div className="flex justify-between items-center text-[9px] font-mono font-black text-emerald-400 uppercase tracking-wider">
+                <span>GEMINI GRADING EVALUATION:</span>
+                <span>COGNITIVE SUMMARY FEEDBACK</span>
+              </div>
+              <div className="text-xs text-neutral-200 font-mono leading-relaxed whitespace-pre-wrap max-h-[150px] overflow-y-auto mt-2 select-all p-1">
+                {selectedAuditAttempt.ai_evaluation || "No dynamic system evaluation feedback generated for this attempt."}
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              {!selectedAuditAttempt.passed && (
+                <button 
+                  onClick={() => {
+                    handleForcePassAttempt(selectedAuditAttempt);
+                    setSelectedAuditAttempt(null);
+                  }}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3.5 px-6 rounded-none text-xs uppercase tracking-widest transition cursor-pointer text-center flex items-center justify-center gap-2 border-2 border-emerald-600"
+                >
+                  <Sparkles className="w-4 h-4 text-white" />
+                  <span>FORCE PASS OVERRIDE</span>
+                </button>
+              )}
+              <button 
+                onClick={() => setSelectedAuditAttempt(null)}
+                className="flex-1 bg-neutral-950 hover:bg-neutral-900 text-white font-black py-3.5 px-6 rounded-none text-xs uppercase tracking-widest transition cursor-pointer text-center border-2 border-neutral-950"
+              >
+                Close Audit Inspection
+              </button>
+            </div>
 
           </div>
         </div>

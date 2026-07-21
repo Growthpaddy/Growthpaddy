@@ -23,7 +23,8 @@ import {
   MapPin,
   Save,
   User,
-  Lock
+  Lock,
+  Loader2
 } from 'lucide-react';
 import { useSupabase } from '../context/SupabaseContext';
 import { supabase } from '../lib/supabaseClient';
@@ -135,7 +136,7 @@ export default function TalentDashboard({
   onboardingData 
 }: TalentDashboardProps) {
   
-  const { user, updateProfileData, triggerGradeQuiz } = useSupabase();
+  const { user, updateProfileData, triggerGradeQuiz, generateGeminiQuiz, gradeGeminiQuiz } = useSupabase();
 
   // Active editable form/profile values with automatic DB sync
   const [userName, setUserName] = useState(onboardingData?.userName || 'Candidate Specialist');
@@ -159,6 +160,9 @@ export default function TalentDashboard({
   const [dossierSubmitted, setDossierSubmitted] = useState(false);
   const [phase2InterviewPassed, setPhase2InterviewPassed] = useState(false);
   const [showFirstFailModal, setShowFirstFailModal] = useState(false);
+  const [dynamicQuestions, setDynamicQuestions] = useState<any[] | null>(null);
+  const [loadingQuiz, setLoadingQuiz] = useState(false);
+  const [quizFeedback, setQuizFeedback] = useState<string>('');
 
   // Phase 1 Retries, lockouts, and live slots
   const [quizAttempts, setQuizAttempts] = useState(0);
@@ -336,7 +340,9 @@ export default function TalentDashboard({
   };
 
   // Phase 1 Quiz State
-  const activeQuestions = experienceTier === 'Seasoned Professional' ? PROFESSIONAL_QUESTIONS : FRESHER_QUESTIONS;
+  const activeQuestions = dynamicQuestions && dynamicQuestions.length > 0 
+    ? dynamicQuestions 
+    : (experienceTier === 'Seasoned Professional' ? PROFESSIONAL_QUESTIONS : FRESHER_QUESTIONS);
   const [currentQIdx, setCurrentQIdx] = useState(0);
   const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
   const [showQExplanation, setShowQExplanation] = useState(false);
@@ -360,12 +366,26 @@ export default function TalentDashboard({
     return () => clearInterval(interval);
   }, [quizActive, quizTimer, quizFinished]);
 
-  const handleStartQuiz = () => {
-    setQuizActive(true);
-    setQuizTimer(60);
-    setCurrentQIdx(0);
-    setQuizAnswers({});
-    setShowQExplanation(false);
+  const handleStartQuiz = async () => {
+    setLoadingQuiz(true);
+    setQuizFinished(false);
+    try {
+      const { questions, error } = await generateGeminiQuiz(specialty, experienceTier);
+      if (error) {
+        console.warn("Could not generate Gemini quiz. Utilizing preset questions...", error);
+      } else if (questions && questions.length > 0) {
+        setDynamicQuestions(questions);
+      }
+    } catch (err) {
+      console.warn("Exception generating quiz:", err);
+    } finally {
+      setLoadingQuiz(false);
+      setQuizActive(true);
+      setQuizTimer(60);
+      setCurrentQIdx(0);
+      setQuizAnswers({});
+      setShowQExplanation(false);
+    }
   };
 
   const handleSelectQuizAnswer = (optionIdx: number) => {
@@ -385,91 +405,133 @@ export default function TalentDashboard({
 
   const handleFinishQuiz = async () => {
     setQuizActive(false);
-    setQuizFinished(true);
+    setLoadingQuiz(true);
     
-    // Compute Score
-    let correct = 0;
-    activeQuestions.forEach((q, idx) => {
-      if (quizAnswers[idx] === q.correctIdx) correct++;
-    });
-    const finalScore = Math.round((correct / activeQuestions.length) * 100);
-    setQuizScore(finalScore);
+    try {
+      const result = await gradeGeminiQuiz(
+        specialty,
+        experienceTier,
+        activeQuestions,
+        quizAnswers,
+        user?.id,
+        userName
+      );
 
-    const nextAttempts = quizAttempts + 1;
-    setQuizAttempts(nextAttempts);
+      setLoadingQuiz(false);
+      setQuizFinished(true);
 
-    // Save score and passing state to Supabase / Mock Layer
-    if (finalScore >= 75) {
-      const answersFormatted = activeQuestions.map((q, idx) => ({
-        question_id: q.id,
-        selected_option_id: String(quizAnswers[idx])
-      }));
-      
-      // Trigger either edge function or mock update
-      if (user) {
-        await triggerGradeQuiz(user.id, answersFormatted);
-        await updateProfileData({
-          phase_1_quiz_passed: true,
-          quiz_attempts_count: nextAttempts,
-          vetting_status: 'passed_quiz'
-        });
-      }
-      
-      // Cache locally
-      const mockKey = `mock_talent_profiles_${user?.id || 'guest'}`;
-      const existing = JSON.parse(localStorage.getItem(mockKey) || '{}');
-      localStorage.setItem(mockKey, JSON.stringify({
-        ...existing,
-        phase_1_quiz_passed: true,
-        quiz_attempts_count: nextAttempts,
-        vetting_status: 'passed_quiz'
-      }));
-    } else {
-      // Failed attempt
-      if (nextAttempts >= 2) {
-        // Locked for 5 days
-        const lockDuration = 5 * 24 * 60 * 60 * 1000; // 5 days in ms
-        const lockedUntil = new Date(Date.now() + lockDuration).toISOString();
-        setQuizLockedUntil(lockedUntil);
+      if (result && !result.error) {
+        const finalScore = result.score;
+        const finalPassed = result.passed;
+        const feedback = result.feedback;
 
-        if (user) {
+        setQuizScore(finalScore);
+        setQuizFeedback(feedback);
+
+        const nextAttempts = quizAttempts + 1;
+        setQuizAttempts(nextAttempts);
+
+        if (finalPassed) {
           await updateProfileData({
-            phase_1_quiz_passed: false,
+            phase_1_quiz_passed: true,
             quiz_attempts_count: nextAttempts,
-            quiz_locked_until: lockedUntil,
-            vetting_status: 'quiz_locked'
+            vetting_status: 'passed_quiz'
           });
+
+          // Cache locally
+          const mockKey = `mock_talent_profiles_${user?.id || 'guest'}`;
+          const existing = JSON.parse(localStorage.getItem(mockKey) || '{}');
+          localStorage.setItem(mockKey, JSON.stringify({
+            ...existing,
+            phase_1_quiz_passed: true,
+            quiz_attempts_count: nextAttempts,
+            vetting_status: 'passed_quiz'
+          }));
+        } else {
+          // Failed attempt
+          if (nextAttempts >= 2) {
+            const lockDuration = 5 * 24 * 60 * 60 * 1000; // 5 days in ms
+            const lockedUntil = new Date(Date.now() + lockDuration).toISOString();
+            setQuizLockedUntil(lockedUntil);
+
+            await updateProfileData({
+              phase_1_quiz_passed: false,
+              quiz_attempts_count: nextAttempts,
+              quiz_locked_until: lockedUntil,
+              vetting_status: 'quiz_locked'
+            });
+
+            // Cache locally
+            const mockKey = `mock_talent_profiles_${user?.id || 'guest'}`;
+            const existing = JSON.parse(localStorage.getItem(mockKey) || '{}');
+            localStorage.setItem(mockKey, JSON.stringify({
+              ...existing,
+              phase_1_quiz_passed: false,
+              quiz_attempts_count: nextAttempts,
+              quiz_locked_until: lockedUntil,
+              vetting_status: 'quiz_locked'
+            }));
+          } else {
+            // First Failure
+            setShowFirstFailModal(true);
+            await updateProfileData({
+              quiz_attempts_count: nextAttempts,
+              vetting_status: 'failed_first_attempt'
+            });
+
+            // Cache locally
+            const mockKey = `mock_talent_profiles_${user?.id || 'guest'}`;
+            const existing = JSON.parse(localStorage.getItem(mockKey) || '{}');
+            localStorage.setItem(mockKey, JSON.stringify({
+              ...existing,
+              quiz_attempts_count: nextAttempts,
+              vetting_status: 'failed_first_attempt'
+            }));
+          }
         }
-        
-        // Cache locally
-        const mockKey = `mock_talent_profiles_${user?.id || 'guest'}`;
-        const existing = JSON.parse(localStorage.getItem(mockKey) || '{}');
-        localStorage.setItem(mockKey, JSON.stringify({
-          ...existing,
-          phase_1_quiz_passed: false,
-          quiz_attempts_count: nextAttempts,
-          quiz_locked_until: lockedUntil,
-          vetting_status: 'quiz_locked'
-        }));
       } else {
-        // First Failure
-        setShowFirstFailModal(true);
-        if (user) {
+        // Local programmatic fallback
+        let correct = 0;
+        activeQuestions.forEach((q, idx) => {
+          if (quizAnswers[idx] === q.correctIdx) correct++;
+        });
+        const finalScore = Math.round((correct / activeQuestions.length) * 100);
+        setQuizScore(finalScore);
+        setQuizFeedback(finalScore >= 75 
+          ? "Excellent achievement! You cleared the DSP Phase 1 Gateway." 
+          : "You didn't pass the assessment on this attempt.");
+
+        const nextAttempts = quizAttempts + 1;
+        setQuizAttempts(nextAttempts);
+
+        if (finalScore >= 75) {
           await updateProfileData({
+            phase_1_quiz_passed: true,
             quiz_attempts_count: nextAttempts,
-            vetting_status: 'failed_first_attempt'
+            vetting_status: 'passed_quiz'
           });
+        } else {
+          if (nextAttempts >= 2) {
+            const lockedUntil = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
+            setQuizLockedUntil(lockedUntil);
+            await updateProfileData({
+              phase_1_quiz_passed: false,
+              quiz_attempts_count: nextAttempts,
+              quiz_locked_until: lockedUntil,
+              vetting_status: 'quiz_locked'
+            });
+          } else {
+            setShowFirstFailModal(true);
+            await updateProfileData({
+              quiz_attempts_count: nextAttempts,
+              vetting_status: 'failed_first_attempt'
+            });
+          }
         }
-        
-        // Cache locally
-        const mockKey = `mock_talent_profiles_${user?.id || 'guest'}`;
-        const existing = JSON.parse(localStorage.getItem(mockKey) || '{}');
-        localStorage.setItem(mockKey, JSON.stringify({
-          ...existing,
-          quiz_attempts_count: nextAttempts,
-          vetting_status: 'failed_first_attempt'
-        }));
       }
+    } catch (err) {
+      console.error("Grading failed:", err);
+      setLoadingQuiz(false);
     }
   };
 
@@ -757,15 +819,15 @@ export default function TalentDashboard({
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                       <a
-                        href="https://growthpaddy.com/academy-fast-track"
+                        href="https://learnwithdsp.com/shop"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="bg-slate-900 hover:bg-slate-800 text-white font-black py-3 px-4 rounded-none text-xs uppercase tracking-wider text-center flex items-center justify-center border-2 border-slate-900 hover:scale-[1.01] transition-transform duration-100"
                       >
-                        Option A: Self-Study Fast Track
+                        Option A: DSP Courses
                       </a>
                       <a
-                        href="https://wa.me/2349015187763?text=Hi%20GrowthPaddy,%20I%20failed%20my%20vetting%20quiz%20and%20need%20expert%20coaching"
+                        href="https://wa.me/2347056571093?text=Hello%2C%20I%20failed%20the%20GrowthPaddy%20quiz%20and%20need%20expert%20coaching%20to%20pass%20my%20next%20attempt."
                         target="_blank"
                         rel="noopener noreferrer"
                         className="bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 px-4 rounded-none text-xs uppercase tracking-wider text-center flex items-center justify-center border-2 border-emerald-600 hover:scale-[1.01] transition-transform duration-100"
@@ -776,7 +838,17 @@ export default function TalentDashboard({
                   </div>
                 )}
 
-                {!quizActive && !quizFinished && !isQuizCurrentlyLocked() && (
+                {loadingQuiz && (
+                  <div className="p-12 border border-dashed border-slate-300 bg-slate-50 text-center space-y-4 max-w-lg mx-auto">
+                    <Loader2 className="w-12 h-12 text-[#00A86B] mx-auto animate-spin" />
+                    <h4 className="font-black text-xs text-slate-800 uppercase tracking-widest">CO-ORDINATING SYSTEM COGNITION...</h4>
+                    <p className="text-[11px] text-slate-500 leading-relaxed uppercase font-semibold">
+                      Please hold as our dynamic AI engine formats hyper-relevant, scenario-based evaluation models tailored to your specialization profile.
+                    </p>
+                  </div>
+                )}
+
+                {!loadingQuiz && !quizActive && !quizFinished && !isQuizCurrentlyLocked() && (
                   <div className="p-8 border border-dashed border-slate-300 bg-slate-50 text-center space-y-4 max-w-lg mx-auto">
                     <Award className="w-12 h-12 text-[#00A86B] mx-auto" />
                     <h4 className="font-black text-xs text-slate-800 uppercase tracking-wider">Are you ready to initiate?</h4>
@@ -866,7 +938,7 @@ export default function TalentDashboard({
                   </div>
                 )}
 
-                {quizFinished && !isQuizCurrentlyLocked() && (
+                {!loadingQuiz && quizFinished && !isQuizCurrentlyLocked() && (
                   <div className="p-8 text-center bg-slate-50 border border-slate-200 max-w-md mx-auto space-y-4">
                     <CheckCircle2 className="w-12 h-12 text-[#00A86B] mx-auto" />
                     <h4 className="font-black text-xs uppercase tracking-widest text-slate-900">DIAGNOSTIC COMPLETED</h4>
@@ -878,6 +950,13 @@ export default function TalentDashboard({
                         ? `Congratulations! You cleared the DSP Phase 1 Gateway! Your profile status is verified as COMPREHENSIVE EXPERT.`
                         : `Your score was ${quizScore}%. The minimum entry parameter is 75%. Please brush up on core metrics and retry.`}
                     </p>
+
+                    {quizFeedback && (
+                      <div className="bg-[#00A86B]/5 border-2 border-[#00A86B]/20 p-4 text-xs font-semibold text-slate-850 uppercase tracking-wide rounded-none text-left leading-relaxed">
+                        <span className="font-mono text-[9px] font-black text-[#00A86B] block mb-1">★ GEMINI EXPERT EVALUATION FEEDBACK:</span>
+                        {quizFeedback}
+                      </div>
+                    )}
 
                     {quizScore !== null && quizScore < 75 && quizAttempts === 1 && (
                       <div className="p-3 bg-amber-50 border-2 border-amber-300 text-amber-900 text-[10px] font-mono font-black uppercase tracking-wider leading-relaxed text-left">
@@ -1509,6 +1588,43 @@ export default function TalentDashboard({
         </div>
 
       </div>
+
+      {/* First Failure Supportive Modal */}
+      <AnimatePresence>
+        {showFirstFailModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white border-4 border-neutral-950 p-6 sm:p-8 max-w-md w-full relative shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] text-left"
+            >
+              <div className="text-center space-y-4">
+                <div className="w-14 h-14 bg-amber-50 text-amber-500 border-2 border-neutral-950 flex items-center justify-center mx-auto rounded-none">
+                  <Sparkles className="w-7 h-7 stroke-[2.5]" />
+                </div>
+                <h3 className="font-display font-black text-xl uppercase tracking-tighter text-neutral-950 leading-none">
+                  KEEP MOVING FORWARD!
+                </h3>
+                <p className="text-[10px] font-mono text-amber-800 uppercase tracking-widest font-black bg-amber-50 py-1 px-2 border border-amber-200 block text-center">
+                  ★ ADVISORY FROM THE PANEL ★
+                </p>
+                <p className="text-xs font-semibold text-slate-700 uppercase leading-relaxed text-center">
+                  Take a deep breath and stay calm if you're feeling nervous! You have 1 remaining attempt.
+                </p>
+                <div className="pt-2">
+                  <button
+                    onClick={() => setShowFirstFailModal(false)}
+                    className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-3 px-6 rounded-none text-xs uppercase tracking-widest transition shadow-[3px_3px_0px_0px_rgba(16,185,129,1)] cursor-pointer"
+                  >
+                    PREPARE & RETRY DIAGNOSTIC
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

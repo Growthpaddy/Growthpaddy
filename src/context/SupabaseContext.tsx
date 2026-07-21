@@ -47,6 +47,17 @@ export interface SupabaseContextType {
     talentId: string, 
     answers: { question_id: string; selected_option_id: string }[]
   ) => Promise<{ data: any; error: any }>;
+
+  // Dynamic Gemini Quiz Handlers
+  generateGeminiQuiz: (specialty: string, experienceLevel: string) => Promise<{ questions?: any[]; error?: string }>;
+  gradeGeminiQuiz: (
+    specialty: string, 
+    experienceLevel: string, 
+    questions: any[], 
+    answers: Record<number, number>, 
+    talentId?: string,
+    talentName?: string
+  ) => Promise<{ score: number; passed: boolean; feedback: string; breakdown: any[]; error?: string }>;
 }
 
 const SupabaseContext = createContext<SupabaseContextType | undefined>(undefined);
@@ -613,6 +624,82 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const generateGeminiQuiz = async (specialty: string, experienceLevel: string) => {
+    try {
+      const res = await fetch("/api/gemini/quiz", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ specialty, experienceLevel })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to generate questions");
+      }
+      return { questions: data.questions, error: null };
+    } catch (err: any) {
+      console.error("generateGeminiQuiz error:", err);
+      return { error: err.message || "Network error generating quiz" };
+    }
+  };
+
+  const gradeGeminiQuiz = async (
+    specialty: string,
+    experienceLevel: string,
+    questions: any[],
+    answers: Record<number, number>,
+    talentId?: string,
+    talentName?: string
+  ) => {
+    try {
+      const res = await fetch("/api/gemini/grade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ specialty, experienceLevel, questions, answers })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to grade quiz");
+      }
+
+      if (talentId) {
+        const attemptPayload = {
+          talent_id: talentId,
+          talent_name: talentName || "Anonymous Candidate",
+          specialty,
+          score: data.score,
+          passed: data.passed,
+          questions: questions,
+          answers: answers,
+          feedback: data.feedback,
+          created_at: new Date().toISOString()
+        };
+
+        try {
+          const { error: insertError } = await supabase
+            .from("talent_quiz_attempts")
+            .insert([attemptPayload]);
+          if (insertError) {
+            console.warn("Supabase talent_quiz_attempts write failed:", insertError);
+          }
+        } catch (dbErr) {
+          console.warn("Could not write to talent_quiz_attempts table, local copy saved.", dbErr);
+        }
+
+        const cachedAttempts = JSON.parse(localStorage.getItem("dsp_talent_quiz_attempts") || "[]");
+        cachedAttempts.push({
+          id: "att-" + Math.random().toString(36).substr(2, 9),
+          ...attemptPayload
+        });
+        localStorage.setItem("dsp_talent_quiz_attempts", JSON.stringify(cachedAttempts));
+      }
+
+      return data;
+    } catch (err: any) {
+      console.error("gradeGeminiQuiz error:", err);
+      return { error: err.message || "Network error grading quiz" };
+    }
+  };
+
   return (
     <SupabaseContext.Provider value={{
       user,
@@ -630,7 +717,9 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       syncTalentProfile,
       syncRecruiterProfile,
       fetchQuizQuestions,
-      triggerGradeQuiz
+      triggerGradeQuiz,
+      generateGeminiQuiz,
+      gradeGeminiQuiz
     }}>
       {children}
     </SupabaseContext.Provider>
