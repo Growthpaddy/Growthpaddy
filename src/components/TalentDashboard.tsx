@@ -22,7 +22,8 @@ import {
   Sparkles,
   MapPin,
   Save,
-  User
+  User,
+  Lock
 } from 'lucide-react';
 import { useSupabase } from '../context/SupabaseContext';
 import { supabase } from '../lib/supabaseClient';
@@ -156,6 +157,8 @@ export default function TalentDashboard({
   const [interviewBooked, setInterviewBooked] = useState(false);
   const [bookedSlot, setBookedSlot] = useState<{date: string, time: string} | null>(null);
   const [dossierSubmitted, setDossierSubmitted] = useState(false);
+  const [phase2InterviewPassed, setPhase2InterviewPassed] = useState(false);
+  const [showFirstFailModal, setShowFirstFailModal] = useState(false);
 
   // Phase 1 Retries, lockouts, and live slots
   const [quizAttempts, setQuizAttempts] = useState(0);
@@ -286,13 +289,19 @@ export default function TalentDashboard({
             setQuizFinished(true);
             setQuizScore(100);
             setInterviewBooked(true);
+            setPhase2InterviewPassed(true);
             if (setIsTalentPaid) setIsTalentPaid(true);
+          }
+
+          if (val.phase_2_interview_passed) {
+            setPhase2InterviewPassed(true);
           }
 
           if (val.vetting_status === 'completed') {
             setQuizFinished(true);
             setQuizScore(100);
             setInterviewBooked(true);
+            setPhase2InterviewPassed(true);
             if (setIsTalentPaid) setIsTalentPaid(true);
             setDossierSubmitted(true);
           }
@@ -444,6 +453,7 @@ export default function TalentDashboard({
         }));
       } else {
         // First Failure
+        setShowFirstFailModal(true);
         if (user) {
           await updateProfileData({
             quiz_attempts_count: nextAttempts,
@@ -589,10 +599,15 @@ export default function TalentDashboard({
     }, 1200);
   };
 
+  const isPhase1Passed = quizFinished && quizScore !== null && quizScore >= 75;
+
   // Vetting indicators summary
   const getPhaseStatusBadge = (phaseNum: 1 | 2 | 3 | 4) => {
     if (phaseNum === 1) return quizFinished ? 'Passed' : 'Incomplete';
-    if (phaseNum === 2) return interviewBooked ? 'Scheduled' : 'Incomplete';
+    if (phaseNum === 2) {
+      if (phase2InterviewPassed) return 'Passed';
+      return interviewBooked ? 'Scheduled' : 'Incomplete';
+    }
     if (phaseNum === 3) return isTalentPaid ? 'Verified' : 'Incomplete';
     if (phaseNum === 4) return dossierSubmitted ? 'Submitted' : 'Active';
     return 'Incomplete';
@@ -638,12 +653,12 @@ export default function TalentDashboard({
           <div className="flex items-center justify-between">
             <span className="text-[9px] font-mono text-slate-400 uppercase font-black tracking-widest">VERIFIED COMPLIANCE STATUS</span>
             <span className="text-xs font-mono font-bold text-emerald-400">
-              {isTalentPaid && quizFinished && interviewBooked ? '100% HIRED READY' : 'IN VETTING PIPELINE'}
+              {isTalentPaid && quizFinished && phase2InterviewPassed && dossierSubmitted ? '100% HIRED READY' : 'IN VETTING PIPELINE'}
             </span>
           </div>
           <div className="grid grid-cols-4 gap-1.5 pt-1.5">
             <div className={`h-1.5 rounded-none ${quizFinished ? 'bg-[#00A86B]' : 'bg-slate-700'}`} />
-            <div className={`h-1.5 rounded-none ${interviewBooked ? 'bg-[#00A86B]' : 'bg-slate-700'}`} />
+            <div className={`h-1.5 rounded-none ${phase2InterviewPassed ? 'bg-[#00A86B]' : 'bg-slate-700'}`} />
             <div className={`h-1.5 rounded-none ${isTalentPaid ? 'bg-[#00A86B]' : 'bg-slate-700'}`} />
             <div className={`h-1.5 rounded-none ${dossierSubmitted ? 'bg-[#00A86B]' : 'bg-slate-700'}`} />
           </div>
@@ -656,10 +671,10 @@ export default function TalentDashboard({
       {/* 4-PHASE PROGRESS STEPPER WIZARD */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-left">
         {[
-          { num: 1, title: 'Phase 1: Scenario Quiz', subtitle: 'Adaptive Assessment', state: getPhaseStatusBadge(1) },
-          { num: 2, title: 'Phase 2: Panel Interview', subtitle: 'Schedule Boarding', state: getPhaseStatusBadge(2) },
-          { num: 3, title: 'Phase 3: Review Fee', subtitle: 'Platform Accreditation', state: getPhaseStatusBadge(3) },
-          { num: 4, title: 'Phase 4: Dossier Builder', subtitle: 'Project Evidence', state: getPhaseStatusBadge(4) }
+          { num: 1, title: 'Phase 1: Scenario Quiz', subtitle: 'Adaptive Assessment', state: getPhaseStatusBadge(1), isLocked: false },
+          { num: 2, title: 'Phase 2: Panel Interview', subtitle: 'Schedule Boarding', state: getPhaseStatusBadge(2), isLocked: !isPhase1Passed },
+          { num: 3, title: 'Phase 3: Review Fee', subtitle: 'Platform Accreditation', state: getPhaseStatusBadge(3), isLocked: !phase2InterviewPassed },
+          { num: 4, title: 'Phase 4: Dossier Builder', subtitle: 'Project Evidence', state: getPhaseStatusBadge(4), isLocked: !isTalentPaid }
         ].map((ph) => {
           const isSelected = activePhase === ph.num;
           return (
@@ -669,16 +684,22 @@ export default function TalentDashboard({
               className={`p-4 border-2 text-left transition-all relative focus:outline-none cursor-pointer flex flex-col justify-between h-28 rounded-none
                 ${isSelected 
                   ? 'border-[#00A86B] bg-emerald-50/10 shadow-sm' 
-                  : 'border-slate-200 bg-white hover:bg-slate-50/50'}`}
+                  : 'border-slate-200 bg-white hover:bg-slate-50/50'}
+                ${ph.isLocked ? 'opacity-85' : ''}`}
             >
               <div>
-                <span className={`text-[8.5px] font-mono font-black uppercase tracking-widest px-2 py-0.5 rounded-none border block w-max
-                  ${ph.state === 'Passed' || ph.state === 'Scheduled' || ph.state === 'Verified' || ph.state === 'Submitted'
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300' 
-                    : 'bg-slate-50 text-slate-500 border-slate-200'}`}
-                >
-                  {ph.state}
-                </span>
+                <div className="flex items-center justify-between gap-1.5">
+                  <span className={`text-[8.5px] font-mono font-black uppercase tracking-widest px-2 py-0.5 rounded-none border block w-max
+                    ${ph.state === 'Passed' || ph.state === 'Scheduled' || ph.state === 'Verified' || ph.state === 'Submitted'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-300' 
+                      : 'bg-slate-50 text-slate-500 border-slate-200'}`}
+                  >
+                    {ph.state}
+                  </span>
+                  {ph.isLocked && (
+                    <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  )}
+                </div>
                 <h4 className="font-display font-black text-xs text-slate-800 uppercase tracking-tight mt-2">{ph.title}</h4>
               </div>
               <p className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold">{ph.subtitle}</p>
@@ -896,29 +917,88 @@ export default function TalentDashboard({
                 exit={{ opacity: 0 }}
                 className="space-y-6"
               >
-                <div className="border-b border-slate-100 pb-5 text-left">
-                  <span className="text-[9.5px] font-mono font-black text-emerald-700 uppercase bg-emerald-50 px-2 py-0.5 border border-emerald-200">
-                    CALENDLY SCHEDULING INTEGRATION
-                  </span>
-                  <h3 className="font-display font-black text-lg text-slate-900 uppercase mt-1">
-                    Phase 2: Panel Vetting Video Session
-                  </h3>
-                  <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mt-1">
-                    Pick a calendar day and confirm a timezone-adjusted slot for your 2-to-3 person panel competence review.
-                  </p>
-                </div>
+                {!isPhase1Passed ? (
+                  <div className="py-16 px-4 text-center space-y-6 max-w-md mx-auto flex flex-col items-center justify-center">
+                    <div className="w-16 h-16 bg-slate-100 border-2 border-slate-300 flex items-center justify-center rounded-none text-slate-400 opacity-50">
+                      <Lock className="w-8 h-8 stroke-[2.5]" />
+                    </div>
+                    <h4 className="font-display font-black text-xs uppercase tracking-widest text-slate-900">PHASE LOCKED</h4>
+                    <p className="text-xs uppercase font-extrabold text-slate-500 leading-relaxed">
+                      Complete Phase 1 with a 75%+ score to unlock Panel Scheduling.
+                    </p>
+                    <button
+                      onClick={() => setActivePhase(1)}
+                      className="bg-slate-900 hover:bg-slate-800 text-white font-black py-2.5 px-6 rounded-none text-[10px] uppercase tracking-wider transition cursor-pointer"
+                    >
+                      Return to Phase 1 Diagnostic
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="border-b border-slate-100 pb-5 text-left">
+                      <span className="text-[9.5px] font-mono font-black text-emerald-700 uppercase bg-emerald-50 px-2 py-0.5 border border-emerald-200">
+                        CALENDLY SCHEDULING INTEGRATION
+                      </span>
+                      <h3 className="font-display font-black text-lg text-slate-900 uppercase mt-1">
+                        Phase 2: Panel Vetting Video Session
+                      </h3>
+                      <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mt-1">
+                        Pick a calendar day and confirm a timezone-adjusted slot for your 2-to-3 person panel competence review.
+                      </p>
+                    </div>
 
                 {interviewBooked && bookedSlot ? (
                   <div className="p-8 text-center bg-emerald-50/20 border border-emerald-300 max-w-md mx-auto space-y-4">
                     <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
-                    <h4 className="font-black text-xs uppercase tracking-wider text-slate-900">PANEL REVIEW BOOKED</h4>
+                    <h4 className="font-black text-xs uppercase tracking-wider text-slate-900">
+                      {phase2InterviewPassed ? 'PANEL REVIEW PASSED' : 'PANEL REVIEW BOOKED'}
+                    </h4>
                     <p className="text-xs text-slate-600 uppercase tracking-wider leading-relaxed text-left bg-white p-4 border-2 border-emerald-200">
                       📅 Date: <strong className="text-slate-900 uppercase">{new Date(bookedSlot.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</strong> <br />
                       ⏱️ Time: <strong className="text-slate-900 uppercase">{bookedSlot.time} (UTC/GMT)</strong>
                     </p>
-                    <p className="text-[10px] text-slate-400 font-mono uppercase tracking-widest block pt-2">
-                      ZOOM credentials and calendar invites have been routed to your profile coordinates.
-                    </p>
+                    
+                    {phase2InterviewPassed ? (
+                      <div className="p-3 bg-emerald-100 border border-emerald-300 text-emerald-950 text-[10px] font-bold uppercase text-left rounded-none">
+                        ✓ ACCREDITATION COMPLETE: Your interview records have been processed and approved by the panel. Verification is unlocked.
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <p className="text-[10px] text-slate-400 font-mono uppercase tracking-widest block pt-2">
+                          ZOOM credentials and calendar invites have been routed to your profile coordinates.
+                        </p>
+                        
+                        <div className="p-4 bg-slate-950 text-white space-y-2 text-left rounded-none border border-emerald-500">
+                          <span className="text-[9px] font-mono font-black text-emerald-400 uppercase tracking-widest block">DEVELOPER PREVIEW MATRIX</span>
+                          <p className="text-[10px] text-slate-300 font-semibold uppercase leading-normal">
+                            In production, growthpaddy staff will grade your video call. For demo/review testing, bypass the manual staff evaluation by clicking below:
+                          </p>
+                          <button
+                            onClick={async () => {
+                              setPhase2InterviewPassed(true);
+                              if (user) {
+                                await updateProfileData({
+                                  phase_2_interview_passed: true,
+                                  vetting_status: 'interview_passed'
+                                });
+                                // Cache locally
+                                const mockKey = `mock_talent_profiles_${user.id}`;
+                                const existing = JSON.parse(localStorage.getItem(mockKey) || '{}');
+                                localStorage.setItem(mockKey, JSON.stringify({
+                                  ...existing,
+                                  phase_2_interview_passed: true,
+                                  vetting_status: 'interview_passed'
+                                }));
+                              }
+                            }}
+                            className="w-full bg-[#00A86B] hover:bg-emerald-600 text-white font-black py-2.5 rounded-none text-[10px] uppercase tracking-widest transition cursor-pointer"
+                          >
+                            Bypass & Pass Interview (Demo Mode)
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     <button
                       onClick={() => setActivePhase(3)}
                       className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-3.5 rounded-none text-xs uppercase tracking-widest cursor-pointer shadow-[2px_2px_0px_0px_rgba(16,185,129,1)]"
@@ -976,7 +1056,9 @@ export default function TalentDashboard({
                     </div>
                   </div>
                 )}
-              </motion.div>
+              </>
+            )}
+          </motion.div>
             )}
 
             {/* ======================================================== */}
@@ -990,17 +1072,35 @@ export default function TalentDashboard({
                 exit={{ opacity: 0 }}
                 className="space-y-6"
               >
-                <div className="border-b border-slate-100 pb-5 text-left">
-                  <span className="text-[9.5px] font-mono font-black text-emerald-700 uppercase bg-emerald-50 px-2 py-0.5 border border-emerald-200">
-                    PLATFORM ACCREDITATION SAFE-GUARD
-                  </span>
-                  <h3 className="font-display font-black text-lg text-slate-900 uppercase mt-1">
-                    Phase 3: Vetting Verification Pass
-                  </h3>
-                  <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mt-1">
-                    Secure your verified placement status. This refundable onboarding pass filters high-intent candidates from spammers.
-                  </p>
-                </div>
+                {!phase2InterviewPassed ? (
+                  <div className="py-16 px-4 text-center space-y-6 max-w-md mx-auto flex flex-col items-center justify-center">
+                    <div className="w-16 h-16 bg-slate-100 border-2 border-slate-300 flex items-center justify-center rounded-none text-slate-400 opacity-50">
+                      <Lock className="w-8 h-8 stroke-[2.5]" />
+                    </div>
+                    <h4 className="font-display font-black text-xs uppercase tracking-widest text-slate-900">PHASE LOCKED</h4>
+                    <p className="text-xs uppercase font-extrabold text-slate-500 leading-relaxed">
+                      Complete your Phase 2 Panel Vetting Interview to unlock Verification Access.
+                    </p>
+                    <button
+                      onClick={() => setActivePhase(2)}
+                      className="bg-slate-900 hover:bg-slate-800 text-white font-black py-2.5 px-6 rounded-none text-[10px] uppercase tracking-wider transition cursor-pointer"
+                    >
+                      Return to Phase 2 Interview Board
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="border-b border-slate-100 pb-5 text-left">
+                      <span className="text-[9.5px] font-mono font-black text-emerald-700 uppercase bg-emerald-50 px-2 py-0.5 border border-emerald-200">
+                        PLATFORM ACCREDITATION SAFE-GUARD
+                      </span>
+                      <h3 className="font-display font-black text-lg text-slate-900 uppercase mt-1">
+                        Phase 3: Vetting Verification Pass
+                      </h3>
+                      <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mt-1">
+                        Secure your verified placement status. This refundable onboarding pass filters high-intent candidates from spammers.
+                      </p>
+                    </div>
 
                 {isTalentPaid ? (
                   <div className="p-8 text-center bg-emerald-50/20 border border-emerald-300 max-w-md mx-auto space-y-4">
@@ -1020,36 +1120,31 @@ export default function TalentDashboard({
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                     
                     {/* Left Column - cost breakdown */}
-                    <div className="lg:col-span-6 bg-slate-50 border border-slate-200 p-5 space-y-4">
-                      <span className="text-[9px] font-mono font-black text-emerald-700 uppercase tracking-widest block">COST STRUCTURE TRANSPARENCY</span>
+                    <div className="lg:col-span-6 bg-amber-50/40 border-2 border-amber-500/30 p-6 text-left space-y-4">
+                      <span className="text-[9px] font-mono font-black text-amber-900 uppercase tracking-widest bg-amber-100 px-2.5 py-0.5 border border-amber-300 inline-block">
+                        WHY THE ₦35,000 VETTING VERIFICATION PASS?
+                      </span>
                       
-                      <div className="space-y-3 font-semibold uppercase tracking-wider text-xs text-left">
+                      <div className="space-y-4 text-xs font-semibold uppercase text-slate-700 leading-relaxed">
+                        <p>
+                          The ₦35,000 verification pass serves as a powerful filter, signaling high intent and serious commitment to prospective employers. By locking down a verified slot, we filter out casual spammers, ensuring our vetted talent pool remains exclusive and high-quality.
+                        </p>
                         
-                        <div className="flex justify-between border-b border-slate-200 pb-2">
-                          <span className="text-slate-500">Accreditation Pass Fee</span>
-                          <span className="text-slate-900 font-mono font-black">₦35,000</span>
+                        <div className="bg-white border-l-4 border-emerald-500 p-4 font-mono font-bold text-[10.5px] text-slate-800 space-y-2">
+                          <span className="text-[#00A86B] font-black block">🌟 100% REFUNDABLE GUARANTEE</span>
+                          <p className="normal-case leading-normal font-sans font-medium text-slate-600 text-[11px] mt-1">
+                            The fee is fully refundable immediately upon securing your first role through GrowthPaddy, or if you do not land an engagement within 90 days. It is entirely risk-free.
+                          </p>
                         </div>
                         
-                        <div className="flex justify-between border-b border-slate-200 pb-2">
-                          <span className="text-slate-500">Security & Anti-Cheat Validation</span>
-                          <span className="text-emerald-700 font-mono font-black">INCLUDED</span>
+                        <div className="pt-2 space-y-2">
+                          <span className="text-[9.5px] font-mono font-black text-slate-900 block">YOUR PASS UNLOCKS:</span>
+                          <ul className="space-y-1.5 text-[10.5px] text-slate-600 font-mono">
+                            <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> "VERIFIED PROFESSIONAL" PROFILE BADGE</li>
+                            <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> DIRECT ACCESS TO PREMIUM REMOTE EMPLOYER MATCHING</li>
+                            <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> COMPLIMENTARY ADMISSION TO THE ACADEMY EXPERT RETRAINING HUB</li>
+                          </ul>
                         </div>
-
-                        <div className="flex justify-between border-b border-slate-200 pb-2">
-                          <span className="text-slate-500">Dossier Serialization</span>
-                          <span className="text-emerald-700 font-mono font-black">INCLUDED</span>
-                        </div>
-
-                        <div className="flex justify-between pt-2">
-                          <span className="text-slate-800 font-black">TOTAL ONE-TIME</span>
-                          <span className="text-slate-950 font-mono text-lg font-black">₦35,000</span>
-                        </div>
-
-                      </div>
-
-                      <div className="bg-amber-50/50 border border-amber-300 p-3 text-[10px] uppercase font-bold text-amber-900 leading-normal text-left">
-                        <span className="block font-mono font-black text-[9px] tracking-wider">⚠️ VERIFICATION NOTE:</span>
-                        Unverified profiles are locked in automated queues with lower discovery parameters. Clear verification to start matching with premium corporate contracts.
                       </div>
                     </div>
 
@@ -1119,9 +1214,10 @@ export default function TalentDashboard({
                         </button>
                       </form>
                     </div>
-
                   </div>
                 )}
+              </>
+            )}
               </motion.div>
             )}
 
