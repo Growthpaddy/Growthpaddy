@@ -157,6 +157,86 @@ export default function TalentDashboard({
   const [bookedSlot, setBookedSlot] = useState<{date: string, time: string} | null>(null);
   const [dossierSubmitted, setDossierSubmitted] = useState(false);
 
+  // Phase 1 Retries, lockouts, and live slots
+  const [quizAttempts, setQuizAttempts] = useState(0);
+  const [quizLockedUntil, setQuizLockedUntil] = useState<string | null>(null);
+  const [countdownString, setCountdownString] = useState('');
+  const [dbSlots, setDbSlots] = useState<any[]>([]);
+  const [selectedSlotId, setSelectedSlotId] = useState<string>('');
+
+  // Fetch dynamic available slots
+  const loadAvailableSlots = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('admin_available_slots')
+        .select('*')
+        .eq('is_booked', false)
+        .order('date', { ascending: true });
+      if (!error && data && data.length > 0) {
+        setDbSlots(data);
+      } else {
+        // Load fallback mock slots
+        const cached = localStorage.getItem('dsp_available_slots');
+        if (cached) {
+          const parsed = JSON.parse(cached).filter((s: any) => !s.is_booked);
+          setDbSlots(parsed);
+        } else {
+          const defaultSlots = [
+            { id: 'slot-1', date: '2026-07-22', time_slot: '11:30 AM', is_booked: false, meeting_link: 'https://zoom.us/j/1234567890' },
+            { id: 'slot-2', date: '2026-07-23', time_slot: '02:00 PM', is_booked: false, meeting_link: 'https://zoom.us/j/1234567891' },
+            { id: 'slot-3', date: '2026-07-24', time_slot: '09:00 AM', is_booked: false, meeting_link: 'https://zoom.us/j/1234567892' }
+          ];
+          setDbSlots(defaultSlots);
+          localStorage.setItem('dsp_available_slots', JSON.stringify(defaultSlots));
+        }
+      }
+    } catch (err) {
+      console.warn('Available slots query exception, using mock fallback', err);
+    }
+  };
+
+  useEffect(() => {
+    loadAvailableSlots();
+  }, []);
+
+  // Countdown timer loop for quiz lockout
+  useEffect(() => {
+    if (!quizLockedUntil) return;
+    const updateCountdown = () => {
+      const now = Date.now();
+      const target = new Date(quizLockedUntil).getTime();
+      const diff = target - now;
+      if (diff <= 0) {
+        setCountdownString('');
+        setQuizAttempts(0);
+        setQuizLockedUntil(null);
+        // Save to DB / Local state
+        if (user) {
+          updateProfileData({
+            quiz_attempts_count: 0,
+            quiz_locked_until: null,
+            vetting_status: 'not_started'
+          });
+        }
+        return;
+      }
+      const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+      const hours = Math.floor((diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+      const minutes = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
+      const seconds = Math.floor((diff % (60 * 1000)) / 1000);
+      setCountdownString(`${days}d ${hours}h ${minutes}m ${seconds}s`);
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [quizLockedUntil, user]);
+
+  const isQuizCurrentlyLocked = () => {
+    if (!quizLockedUntil) return false;
+    return new Date(quizLockedUntil) > new Date();
+  };
+
   // Load and sync real user profile from Supabase on mount
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -168,34 +248,51 @@ export default function TalentDashboard({
           .eq('id', user.id)
           .maybeSingle();
 
-        if (data) {
-          if (data.full_name) setUserName(data.full_name);
-          if (data.specialty) setSpecialty(data.specialty);
-          if (data.experience_level) {
-            const mapped = data.experience_level === 'fresher' || data.experience_level === 'Fresher/Newbie' ? 'Fresher/Newbie' : 'Seasoned Professional';
+        // Load unified profile parameters
+        let val = data;
+        if (!val) {
+          const cached = localStorage.getItem(`mock_talent_profiles_${user.id}`);
+          if (cached) {
+            val = JSON.parse(cached);
+          }
+        }
+
+        if (val) {
+          if (val.full_name) setUserName(val.full_name);
+          if (val.specialty) setSpecialty(val.specialty);
+          if (val.experience_level) {
+            const mapped = val.experience_level === 'fresher' || val.experience_level === 'Fresher/Newbie' ? 'Fresher/Newbie' : 'Seasoned Professional';
             setExperienceTier(mapped);
           }
-          if (data.career_goal) setCareerGoal(data.career_goal);
+          if (val.career_goal) setCareerGoal(val.career_goal);
+          if (val.quiz_attempts_count !== undefined) setQuizAttempts(val.quiz_attempts_count);
+          if (val.quiz_locked_until) setQuizLockedUntil(val.quiz_locked_until);
           
-          if (data.phase_1_quiz_passed) {
+          if (val.phase_1_quiz_passed) {
             setQuizFinished(true);
             setQuizScore(100);
           }
 
-          if (data.vetting_status === 'interview_scheduled') {
+          if (val.phase_2_interview_scheduled || val.vetting_status === 'interview_scheduled') {
             setInterviewBooked(true);
-            setBookedSlot({ date: 'July 22, 2026', time: '11:30 AM' });
-          } else if (data.vetting_status === 'fee_paid') {
+            if (val.booked_slot_date && val.booked_slot_time_slot) {
+              setBookedSlot({ date: val.booked_slot_date, time: val.booked_slot_time_slot });
+            } else {
+              setBookedSlot({ date: 'July 22, 2026', time: '11:30 AM' });
+            }
+          }
+
+          if (val.phase_3_fee_paid || val.vetting_status === 'fee_paid') {
             setQuizFinished(true);
             setQuizScore(100);
             setInterviewBooked(true);
-            setBookedSlot({ date: 'July 22, 2026', time: '11:30 AM' });
             if (setIsTalentPaid) setIsTalentPaid(true);
-          } else if (data.vetting_status === 'completed') {
+          }
+
+          if (val.vetting_status === 'completed') {
             setQuizFinished(true);
             setQuizScore(100);
             setInterviewBooked(true);
-            setBookedSlot({ date: 'July 22, 2026', time: '11:30 AM' });
             if (setIsTalentPaid) setIsTalentPaid(true);
             setDossierSubmitted(true);
           }
@@ -289,6 +386,9 @@ export default function TalentDashboard({
     const finalScore = Math.round((correct / activeQuestions.length) * 100);
     setQuizScore(finalScore);
 
+    const nextAttempts = quizAttempts + 1;
+    setQuizAttempts(nextAttempts);
+
     // Save score and passing state to Supabase / Mock Layer
     if (finalScore >= 75) {
       const answersFormatted = activeQuestions.map((q, idx) => ({
@@ -301,37 +401,133 @@ export default function TalentDashboard({
         await triggerGradeQuiz(user.id, answersFormatted);
         await updateProfileData({
           phase_1_quiz_passed: true,
+          quiz_attempts_count: nextAttempts,
           vetting_status: 'passed_quiz'
         });
+      }
+      
+      // Cache locally
+      const mockKey = `mock_talent_profiles_${user?.id || 'guest'}`;
+      const existing = JSON.parse(localStorage.getItem(mockKey) || '{}');
+      localStorage.setItem(mockKey, JSON.stringify({
+        ...existing,
+        phase_1_quiz_passed: true,
+        quiz_attempts_count: nextAttempts,
+        vetting_status: 'passed_quiz'
+      }));
+    } else {
+      // Failed attempt
+      if (nextAttempts >= 2) {
+        // Locked for 5 days
+        const lockDuration = 5 * 24 * 60 * 60 * 1000; // 5 days in ms
+        const lockedUntil = new Date(Date.now() + lockDuration).toISOString();
+        setQuizLockedUntil(lockedUntil);
+
+        if (user) {
+          await updateProfileData({
+            phase_1_quiz_passed: false,
+            quiz_attempts_count: nextAttempts,
+            quiz_locked_until: lockedUntil,
+            vetting_status: 'quiz_locked'
+          });
+        }
+        
+        // Cache locally
+        const mockKey = `mock_talent_profiles_${user?.id || 'guest'}`;
+        const existing = JSON.parse(localStorage.getItem(mockKey) || '{}');
+        localStorage.setItem(mockKey, JSON.stringify({
+          ...existing,
+          phase_1_quiz_passed: false,
+          quiz_attempts_count: nextAttempts,
+          quiz_locked_until: lockedUntil,
+          vetting_status: 'quiz_locked'
+        }));
+      } else {
+        // First Failure
+        if (user) {
+          await updateProfileData({
+            quiz_attempts_count: nextAttempts,
+            vetting_status: 'failed_first_attempt'
+          });
+        }
+        
+        // Cache locally
+        const mockKey = `mock_talent_profiles_${user?.id || 'guest'}`;
+        const existing = JSON.parse(localStorage.getItem(mockKey) || '{}');
+        localStorage.setItem(mockKey, JSON.stringify({
+          ...existing,
+          quiz_attempts_count: nextAttempts,
+          vetting_status: 'failed_first_attempt'
+        }));
       }
     }
   };
 
   // Phase 2: Booking slots data
-  const calendarDays = [
-    { dayName: 'Mon', dateNum: '20', fullDate: 'July 20, 2026' },
-    { dayName: 'Tue', dateNum: '21', fullDate: 'July 21, 2026' },
-    { dayName: 'Wed', dateNum: '22', fullDate: 'July 22, 2026' },
-    { dayName: 'Thu', dateNum: '23', fullDate: 'July 23, 2026' },
-    { dayName: 'Fri', dateNum: '24', fullDate: 'July 24, 2026' }
-  ];
-  const timeSlots = ['09:00 AM', '11:30 AM', '02:00 PM', '04:30 PM'];
-  const [selectedDayIdx, setSelectedDayIdx] = useState(0);
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState('');
-
   const handleBookInterview = async () => {
-    if (!selectedTimeSlot) return;
+    if (!selectedSlotId) return;
+    const slot = dbSlots.find(s => s.id === selectedSlotId);
+    if (!slot) return;
+
+    // Update slot is_booked = true in DB
+    try {
+      const { error } = await supabase
+        .from('admin_available_slots')
+        .update({ 
+          is_booked: true,
+          booked_by_name: userName,
+          booked_by_email: user?.email || 'unspecified'
+        })
+        .eq('id', slot.id);
+
+      // Also update locally cached slots
+      const cached = localStorage.getItem('dsp_available_slots');
+      if (cached) {
+        const parsed = JSON.parse(cached).map((s: any) => {
+          if (s.id === slot.id) {
+            return { 
+              ...s, 
+              is_booked: true, 
+              booked_by_name: userName, 
+              booked_by_email: user?.email || 'unspecified' 
+            };
+          }
+          return s;
+        });
+        localStorage.setItem('dsp_available_slots', JSON.stringify(parsed));
+      }
+    } catch (err) {
+      console.warn('DB update of slots failed, utilizing mock fallback', err);
+    }
+
     setBookedSlot({
-      date: calendarDays[selectedDayIdx].fullDate,
-      time: selectedTimeSlot
+      date: slot.date,
+      time: slot.time_slot
     });
     setInterviewBooked(true);
 
     if (user) {
       await updateProfileData({
+        phase_2_interview_scheduled: true,
+        booked_slot_id: slot.id,
+        booked_slot_date: slot.date,
+        booked_slot_time_slot: slot.time_slot,
         vetting_status: 'interview_scheduled'
       });
+      
+      // Cache locally
+      const mockKey = `mock_talent_profiles_${user.id}`;
+      const existing = JSON.parse(localStorage.getItem(mockKey) || '{}');
+      localStorage.setItem(mockKey, JSON.stringify({
+        ...existing,
+        phase_2_interview_scheduled: true,
+        booked_slot_id: slot.id,
+        booked_slot_date: slot.date,
+        booked_slot_time_slot: slot.time_slot,
+        vetting_status: 'interview_scheduled'
+      }));
     }
+    loadAvailableSlots(); // reload slots
   };
 
   // Phase 3: Stripe simulation payment form
@@ -350,8 +546,18 @@ export default function TalentDashboard({
       
       if (user) {
         await updateProfileData({
+          phase_3_fee_paid: true,
           vetting_status: 'fee_paid'
         });
+
+        // Cache locally
+        const mockKey = `mock_talent_profiles_${user.id}`;
+        const existing = JSON.parse(localStorage.getItem(mockKey) || '{}');
+        localStorage.setItem(mockKey, JSON.stringify({
+          ...existing,
+          phase_3_fee_paid: true,
+          vetting_status: 'fee_paid'
+        }));
       }
       setActivePhase(4); // Auto progress to build portfolio
     }, 1800);
@@ -512,13 +718,57 @@ export default function TalentDashboard({
                   </p>
                 </div>
 
-                {!quizActive && !quizFinished && (
+                {isQuizCurrentlyLocked() && (
+                  <div className="p-8 text-center bg-rose-50/30 border-2 border-rose-600 max-w-lg mx-auto space-y-5">
+                    <AlertTriangle className="w-12 h-12 text-rose-600 mx-auto" />
+                    <h4 className="font-black text-xs uppercase tracking-widest text-neutral-900">DIAGNOSTIC PIPELINE TEMPORARILY LOCKED</h4>
+                    <p className="text-xs uppercase font-extrabold text-rose-800 leading-relaxed">
+                      To protect pipeline integrity, candidates are limited to two sequential attempts. Your access will be automatically restored after the duration below.
+                    </p>
+                    
+                    <div className="bg-slate-950 text-rose-500 font-mono text-2xl py-3 px-6 font-black tracking-widest inline-block border-2 border-rose-600 shadow-[4px_4px_0px_0px_rgba(225,29,72,1)]">
+                      {countdownString || '0d 0h 0m 0s'}
+                    </div>
+
+                    <p className="text-[10.5px] text-slate-500 uppercase tracking-wider font-bold leading-relaxed pt-2">
+                      While you wait, leverage our high-impact preparation and fast-track coaching streams:
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                      <a
+                        href="https://growthpaddy.com/academy-fast-track"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-slate-900 hover:bg-slate-800 text-white font-black py-3 px-4 rounded-none text-xs uppercase tracking-wider text-center flex items-center justify-center border-2 border-slate-900 hover:scale-[1.01] transition-transform duration-100"
+                      >
+                        Option A: Self-Study Fast Track
+                      </a>
+                      <a
+                        href="https://wa.me/2349015187763?text=Hi%20GrowthPaddy,%20I%20failed%20my%20vetting%20quiz%20and%20need%20expert%20coaching"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 px-4 rounded-none text-xs uppercase tracking-wider text-center flex items-center justify-center border-2 border-emerald-600 hover:scale-[1.01] transition-transform duration-100"
+                      >
+                        Option B: WhatsApp Coaching
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {!quizActive && !quizFinished && !isQuizCurrentlyLocked() && (
                   <div className="p-8 border border-dashed border-slate-300 bg-slate-50 text-center space-y-4 max-w-lg mx-auto">
                     <Award className="w-12 h-12 text-[#00A86B] mx-auto" />
                     <h4 className="font-black text-xs text-slate-800 uppercase tracking-wider">Are you ready to initiate?</h4>
                     <p className="text-xs text-slate-500 leading-relaxed uppercase font-semibold">
                       This diagnostic contains 3 challenging structural logic inquiries covering {specialty} paradigms. Once activated, the timer counts down immediately.
                     </p>
+                    
+                    {quizAttempts === 1 && (
+                      <div className="p-3 bg-amber-50 border-2 border-amber-300 text-amber-900 text-[10px] font-mono font-black uppercase tracking-wider leading-relaxed text-left">
+                        ⚠️ Take a deep breath and stay calm if you're feeling nervous! You have 1 remaining attempt.
+                      </div>
+                    )}
+
                     <button
                       onClick={handleStartQuiz}
                       className="bg-slate-900 hover:bg-slate-800 text-white font-black py-3 px-6 rounded-none text-xs uppercase tracking-widest cursor-pointer shadow-[3px_3px_0px_0px_rgba(16,185,129,1)] transition-all duration-150"
@@ -528,7 +778,7 @@ export default function TalentDashboard({
                   </div>
                 )}
 
-                {quizActive && !quizFinished && (
+                {quizActive && !quizFinished && !isQuizCurrentlyLocked() && (
                   <div className="space-y-6 max-w-2xl">
                     <div className="flex justify-between items-center text-xs font-mono bg-slate-950 text-white py-2 px-4">
                       <span>QUESTION {currentQIdx + 1} OF {activeQuestions.length}</span>
@@ -595,7 +845,7 @@ export default function TalentDashboard({
                   </div>
                 )}
 
-                {quizFinished && (
+                {quizFinished && !isQuizCurrentlyLocked() && (
                   <div className="p-8 text-center bg-slate-50 border border-slate-200 max-w-md mx-auto space-y-4">
                     <CheckCircle2 className="w-12 h-12 text-[#00A86B] mx-auto" />
                     <h4 className="font-black text-xs uppercase tracking-widest text-slate-900">DIAGNOSTIC COMPLETED</h4>
@@ -607,6 +857,12 @@ export default function TalentDashboard({
                         ? `Congratulations! You cleared the DSP Phase 1 Gateway! Your profile status is verified as COMPREHENSIVE EXPERT.`
                         : `Your score was ${quizScore}%. The minimum entry parameter is 75%. Please brush up on core metrics and retry.`}
                     </p>
+
+                    {quizScore !== null && quizScore < 75 && quizAttempts === 1 && (
+                      <div className="p-3 bg-amber-50 border-2 border-amber-300 text-amber-900 text-[10px] font-mono font-black uppercase tracking-wider leading-relaxed text-left">
+                        ⚠️ Take a deep breath and stay calm if you're feeling nervous! You have 1 remaining attempt.
+                      </div>
+                    )}
                     
                     {quizScore !== null && quizScore >= 75 ? (
                       <button
@@ -656,9 +912,9 @@ export default function TalentDashboard({
                   <div className="p-8 text-center bg-emerald-50/20 border border-emerald-300 max-w-md mx-auto space-y-4">
                     <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
                     <h4 className="font-black text-xs uppercase tracking-wider text-slate-900">PANEL REVIEW BOOKED</h4>
-                    <p className="text-xs text-slate-600 uppercase tracking-wider leading-relaxed">
-                      Date: <strong className="text-slate-900">{bookedSlot.date}</strong> <br />
-                      Time: <strong className="text-slate-900">{bookedSlot.time} (UTC/GMT)</strong>
+                    <p className="text-xs text-slate-600 uppercase tracking-wider leading-relaxed text-left bg-white p-4 border-2 border-emerald-200">
+                      📅 Date: <strong className="text-slate-900 uppercase">{new Date(bookedSlot.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</strong> <br />
+                      ⏱️ Time: <strong className="text-slate-900 uppercase">{bookedSlot.time} (UTC/GMT)</strong>
                     </p>
                     <p className="text-[10px] text-slate-400 font-mono uppercase tracking-widest block pt-2">
                       ZOOM credentials and calendar invites have been routed to your profile coordinates.
@@ -671,76 +927,60 @@ export default function TalentDashboard({
                     </button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+                  <div className="space-y-4 text-left">
+                    <h4 className="text-[10px] uppercase font-mono font-black text-slate-700">SELECT AN AVAILABLE TIME SLOT</h4>
                     
-                    {/* Left calendar widget (Width: 7) */}
-                    <div className="md:col-span-7 bg-slate-50 border border-slate-200 p-5 space-y-4">
-                      <h4 className="text-[10px] uppercase font-mono font-black text-slate-700">1. SELECT AVAILABLE DATE</h4>
-                      
-                      <div className="grid grid-cols-5 gap-2">
-                        {calendarDays.map((day, idx) => {
-                          const isSelected = selectedDayIdx === idx;
+                    {dbSlots.length === 0 ? (
+                      <div className="p-8 bg-slate-50 border-2 border-dashed border-slate-200 text-center text-xs text-slate-500 font-semibold uppercase tracking-wider">
+                        ⚠️ No panel interview slots are available at this moment. Please contact support or check back soon.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                        {dbSlots.map((slot) => {
+                          const isSel = selectedSlotId === slot.id;
                           return (
                             <button
-                              key={idx}
-                              onClick={() => setSelectedDayIdx(idx)}
-                              className={`p-2.5 border text-center transition cursor-pointer focus:outline-none rounded-none
-                                ${isSelected 
-                                  ? 'bg-slate-900 text-white border-slate-900 font-black' 
-                                  : 'bg-white text-slate-800 hover:bg-slate-100 border-slate-200'}`}
+                              key={slot.id}
+                              type="button"
+                              onClick={() => setSelectedSlotId(slot.id)}
+                              className={`p-4 border text-left transition cursor-pointer focus:outline-none rounded-none flex flex-col justify-between h-24
+                                ${isSel 
+                                  ? 'bg-emerald-50/10 border-emerald-500 text-emerald-950 font-bold shadow-sm' 
+                                  : 'bg-white text-slate-800 hover:bg-slate-50 border-slate-200'}`}
                             >
-                              <span className="text-[8px] font-bold block uppercase font-mono tracking-widest opacity-80">{day.dayName}</span>
-                              <span className="text-base font-mono font-black block mt-1">{day.dateNum}</span>
+                              <div className="flex items-center gap-1.5">
+                                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                <span className="text-[10px] font-mono font-black text-slate-600 uppercase tracking-widest">
+                                  {new Date(slot.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-2">
+                                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                <span className="text-sm font-mono font-black text-neutral-900">{slot.time_slot}</span>
+                              </div>
+                              <span className="text-[8.5px] font-mono text-slate-400 font-black tracking-widest block text-right">UTC ZONE</span>
                             </button>
                           );
                         })}
                       </div>
+                    )}
 
-                      <p className="text-[10px] text-slate-500 uppercase tracking-wider leading-relaxed bg-white p-3 border border-slate-200">
-                        ℹ️ Slots represent live panel groups consisting of senior marketing partners in E-Commerce and Digital Operations.
-                      </p>
-                    </div>
-
-                    {/* Right calendar widget (Width: 5) */}
-                    <div className="md:col-span-5 bg-slate-50 border border-slate-200 p-5 space-y-4 flex flex-col justify-between min-h-[220px]">
-                      <div>
-                        <h4 className="text-[10px] uppercase font-mono font-black text-slate-700">2. CHOOSE TIMESLOT (UTC)</h4>
-                        
-                        <div className="grid grid-cols-2 gap-2 mt-3">
-                          {timeSlots.map((slot) => {
-                            const isSel = selectedTimeSlot === slot;
-                            return (
-                              <button
-                                key={slot}
-                                onClick={() => setSelectedTimeSlot(slot)}
-                                className={`p-2 border text-center text-[10px] font-mono font-bold transition cursor-pointer focus:outline-none rounded-none
-                                  ${isSel 
-                                    ? 'bg-emerald-600 text-white border-emerald-600 font-black' 
-                                    : 'bg-white text-slate-800 hover:bg-slate-100 border-slate-200'}`}
-                              >
-                                {slot}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
+                    <div className="pt-4 flex justify-end">
                       <button
                         onClick={handleBookInterview}
-                        disabled={!selectedTimeSlot}
-                        className="w-full bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-800 text-white font-black py-3 rounded-none text-xs uppercase tracking-widest cursor-pointer shadow-[2px_2px_0px_0px_rgba(16,185,129,1)] transition-all mt-4"
+                        disabled={!selectedSlotId}
+                        className="bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-800 text-white font-black py-3.5 px-6 rounded-none text-xs uppercase tracking-widest cursor-pointer shadow-[3px_3px_0px_0px_rgba(16,185,129,1)] transition-all"
                       >
                         BOOK PANEL SESSION
                       </button>
                     </div>
-
                   </div>
                 )}
               </motion.div>
             )}
 
             {/* ======================================================== */}
-            {/* PHASE 3:平台 ACCREDITATION PASS                           */}
+            {/* PHASE 3: PLATFORM ACCREDITATION PASS                      */}
             {/* ======================================================== */}
             {activePhase === 3 && (
               <motion.div
@@ -766,8 +1006,8 @@ export default function TalentDashboard({
                   <div className="p-8 text-center bg-emerald-50/20 border border-emerald-300 max-w-md mx-auto space-y-4">
                     <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
                     <h4 className="font-black text-xs uppercase tracking-wider text-slate-900">VERIFICATION ACCREDITED</h4>
-                    <p className="text-xs text-slate-600 uppercase tracking-wider leading-relaxed">
-                      Your $45 onboarding pass is authorized securely. Your certified project profile features the "VERIFIED PROFESSIONAL" badge permanently.
+                    <p className="text-xs text-slate-600 uppercase tracking-wider leading-relaxed text-left bg-white p-4 border-2 border-emerald-200">
+                      Your onboarding pass is authorized securely. Your certified project profile features the "VERIFIED PROFESSIONAL" badge permanently.
                     </p>
                     <button
                       onClick={() => setActivePhase(4)}
@@ -783,11 +1023,11 @@ export default function TalentDashboard({
                     <div className="lg:col-span-6 bg-slate-50 border border-slate-200 p-5 space-y-4">
                       <span className="text-[9px] font-mono font-black text-emerald-700 uppercase tracking-widest block">COST STRUCTURE TRANSPARENCY</span>
                       
-                      <div className="space-y-3 font-semibold uppercase tracking-wider text-xs">
+                      <div className="space-y-3 font-semibold uppercase tracking-wider text-xs text-left">
                         
                         <div className="flex justify-between border-b border-slate-200 pb-2">
                           <span className="text-slate-500">Accreditation Pass Fee</span>
-                          <span className="text-slate-900 font-mono font-black">$45.00</span>
+                          <span className="text-slate-900 font-mono font-black">₦35,000</span>
                         </div>
                         
                         <div className="flex justify-between border-b border-slate-200 pb-2">
@@ -802,12 +1042,12 @@ export default function TalentDashboard({
 
                         <div className="flex justify-between pt-2">
                           <span className="text-slate-800 font-black">TOTAL ONE-TIME</span>
-                          <span className="text-slate-950 font-mono text-lg font-black">$45.00</span>
+                          <span className="text-slate-950 font-mono text-lg font-black">₦35,000</span>
                         </div>
 
                       </div>
 
-                      <div className="bg-amber-50/50 border border-amber-300 p-3 text-[10px] uppercase font-bold text-amber-900 leading-normal">
+                      <div className="bg-amber-50/50 border border-amber-300 p-3 text-[10px] uppercase font-bold text-amber-900 leading-normal text-left">
                         <span className="block font-mono font-black text-[9px] tracking-wider">⚠️ VERIFICATION NOTE:</span>
                         Unverified profiles are locked in automated queues with lower discovery parameters. Clear verification to start matching with premium corporate contracts.
                       </div>
@@ -875,7 +1115,7 @@ export default function TalentDashboard({
                           disabled={payingState}
                           className="w-full bg-[#033c2a] hover:bg-[#002b1c] text-white font-black py-3 rounded-none text-xs uppercase tracking-widest cursor-pointer shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all duration-150"
                         >
-                          {payingState ? 'Processing Security Ledger...' : 'AUTHORIZE ACCREDITATION PASS ($45)'}
+                          {payingState ? 'Processing Security Ledger...' : 'AUTHORIZE ACCREDITATION PASS (₦35,000)'}
                         </button>
                       </form>
                     </div>

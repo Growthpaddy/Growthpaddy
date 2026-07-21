@@ -169,6 +169,135 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
   const [auditViewType, setAuditViewType] = useState<'structured' | 'jsonb'>('jsonb');
   const [revenueTotal, setRevenueTotal] = useState<number>(24800);
 
+  // Available slots management states
+  const [slotsList, setSlotsList] = useState<any[]>([]);
+  const [newSlotDate, setNewSlotDate] = useState('');
+  const [newSlotTime, setNewSlotTime] = useState('');
+  const [newSlotLink, setNewSlotLink] = useState('');
+  const [slotStatusMsg, setSlotStatusMsg] = useState<string | null>(null);
+
+  const fetchAdminSlots = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('admin_available_slots')
+        .select('*')
+        .order('date', { ascending: true });
+      if (!error && data) {
+        setSlotsList(data);
+      } else {
+        const cached = localStorage.getItem('dsp_available_slots');
+        if (cached) {
+          setSlotsList(JSON.parse(cached));
+        } else {
+          const defaultSlots = [
+            { id: 'slot-1', date: '2026-07-22', time_slot: '11:30 AM', is_booked: false, meeting_link: 'https://zoom.us/j/1234567890' },
+            { id: 'slot-2', date: '2026-07-23', time_slot: '02:00 PM', is_booked: false, meeting_link: 'https://zoom.us/j/1234567891' },
+            { id: 'slot-3', date: '2026-07-24', time_slot: '09:00 AM', is_booked: true, meeting_link: 'https://zoom.us/j/1234567892', booked_by_name: 'Damilola Shofoluwe', booked_by_email: 'damilola@example.com' }
+          ];
+          setSlotsList(defaultSlots);
+          localStorage.setItem('dsp_available_slots', JSON.stringify(defaultSlots));
+        }
+      }
+    } catch (err) {
+      console.warn('Query slots error:', err);
+    }
+  };
+
+  const handleCreateSlot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSlotDate || !newSlotTime) return;
+
+    const newSlot = {
+      id: 'slot-' + Math.random().toString(36).substr(2, 9),
+      date: newSlotDate,
+      time_slot: newSlotTime,
+      meeting_link: newSlotLink || 'https://zoom.us/j/mock-meeting-' + Math.floor(100000 + Math.random() * 900000),
+      is_booked: false
+    };
+
+    try {
+      const { error } = await supabase
+        .from('admin_available_slots')
+        .insert([newSlot]);
+
+      // Cache locally
+      const cached = localStorage.getItem('dsp_available_slots');
+      const current = cached ? JSON.parse(cached) : [];
+      const updated = [...current, newSlot];
+      localStorage.setItem('dsp_available_slots', JSON.stringify(updated));
+
+      setSlotsList(updated);
+      setNewSlotDate('');
+      setNewSlotTime('');
+      setNewSlotLink('');
+      setSlotStatusMsg('Panel interview slot configured successfully!');
+      setTimeout(() => setSlotStatusMsg(null), 3000);
+    } catch (err) {
+      console.warn('DB Insert slot failed, local cache updated', err);
+      // Fallback
+      const cached = localStorage.getItem('dsp_available_slots');
+      const current = cached ? JSON.parse(cached) : [];
+      const updated = [...current, newSlot];
+      localStorage.setItem('dsp_available_slots', JSON.stringify(updated));
+      setSlotsList(updated);
+      setNewSlotDate('');
+      setNewSlotTime('');
+      setNewSlotLink('');
+      setSlotStatusMsg('Panel interview slot configured successfully (Local Storage)!');
+      setTimeout(() => setSlotStatusMsg(null), 3000);
+    }
+  };
+
+  const handleDeleteSlot = async (slotId: string) => {
+    try {
+      await supabase
+        .from('admin_available_slots')
+        .delete()
+        .eq('id', slotId);
+
+      const updated = slotsList.filter(s => s.id !== slotId);
+      localStorage.setItem('dsp_available_slots', JSON.stringify(updated));
+      setSlotsList(updated);
+    } catch (err) {
+      console.warn('Delete slot failed, fallback local update', err);
+      const updated = slotsList.filter(s => s.id !== slotId);
+      localStorage.setItem('dsp_available_slots', JSON.stringify(updated));
+      setSlotsList(updated);
+    }
+  };
+
+  const handleToggleSlotBooked = async (slotId: string) => {
+    const slot = slotsList.find(s => s.id === slotId);
+    if (!slot) return;
+    const nextBooked = !slot.is_booked;
+
+    try {
+      await supabase
+        .from('admin_available_slots')
+        .update({ is_booked: nextBooked })
+        .eq('id', slotId);
+
+      const updated = slotsList.map(s => {
+        if (s.id === slotId) {
+          return { ...s, is_booked: nextBooked };
+        }
+        return s;
+      });
+      localStorage.setItem('dsp_available_slots', JSON.stringify(updated));
+      setSlotsList(updated);
+    } catch (err) {
+      console.warn('Toggle slot booked failed, fallback local update', err);
+      const updated = slotsList.map(s => {
+        if (s.id === slotId) {
+          return { ...s, is_booked: nextBooked };
+        }
+        return s;
+      });
+      localStorage.setItem('dsp_available_slots', JSON.stringify(updated));
+      setSlotsList(updated);
+    }
+  };
+
   // Initialize and load default state of vetting candidates
   useEffect(() => {
     // We map MOCK_TALENT into our dynamic administrator table view state to track stages and status
@@ -188,6 +317,7 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
       };
     });
     setTalentVettingList(initialVetting);
+    fetchAdminSlots();
   }, []);
 
   // Monitor Supabase session user role to bypass auth gate if user is already an admin
@@ -942,6 +1072,184 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
                   ))}
                 </tbody>
               </table>
+            </div>
+
+          </div>
+
+          {/* =================== 2c. PANEL INTERVIEW SLOT MANAGER UI =================== */}
+          <div className="bg-white border-4 border-neutral-950 p-6 shadow-[8px_8px_0px_0px_rgba(0,168,107,1)] text-left space-y-6">
+            <div className="border-b-2 border-neutral-200 pb-4">
+              <span className="text-[9px] font-mono font-black text-emerald-800 bg-emerald-50 border border-emerald-150 px-2 py-0.5">
+                VETTING INFRASTRUCTURE
+              </span>
+              <h3 className="font-display font-black text-xl text-neutral-950 uppercase tracking-tight mt-1">
+                Panel Interview Slot Manager
+              </h3>
+              <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold">
+                Configure and release dynamic calendar coordinates that synchronize directly onto Phase 2 of active Talent dashboards.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              
+              {/* Form to configure new slot (Left: 4 cols) */}
+              <form onSubmit={handleCreateSlot} className="lg:col-span-4 bg-neutral-50 border-2 border-neutral-200 p-5 space-y-4">
+                <span className="text-[10px] font-mono font-black text-neutral-500 uppercase tracking-widest block">
+                  DEPLOY CALENDAR SLOT
+                </span>
+
+                {slotStatusMsg && (
+                  <div className="p-2 bg-emerald-50 border border-[#00A86B] text-[#00A86B] text-[10px] font-mono font-black uppercase text-center">
+                    {slotStatusMsg}
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-mono font-black text-neutral-400 uppercase tracking-wider block">
+                    Slot Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={newSlotDate}
+                    onChange={(e) => setNewSlotDate(e.target.value)}
+                    className="w-full bg-white border-2 border-neutral-300 py-1.5 px-3 text-xs font-bold text-neutral-900 focus:outline-none focus:border-[#00A86B]"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-mono font-black text-neutral-400 uppercase tracking-wider block">
+                    Slot Time (e.g., 11:30 AM)
+                  </label>
+                  <select
+                    value={newSlotTime}
+                    onChange={(e) => setNewSlotTime(e.target.value)}
+                    required
+                    className="w-full bg-white border-2 border-neutral-300 py-1.5 px-2 text-xs font-bold text-neutral-900 focus:outline-none focus:border-[#00A86B]"
+                  >
+                    <option value="">-- Choose Time Slot --</option>
+                    <option value="09:00 AM">09:00 AM (UTC)</option>
+                    <option value="11:30 AM">11:30 AM (UTC)</option>
+                    <option value="02:00 PM">02:00 PM (UTC)</option>
+                    <option value="04:30 PM">04:30 PM (UTC)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-mono font-black text-neutral-400 uppercase tracking-wider block">
+                    Meeting Link (Zoom / Meet)
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="https://zoom.us/j/..."
+                    value={newSlotLink}
+                    onChange={(e) => setNewSlotLink(e.target.value)}
+                    className="w-full bg-white border-2 border-neutral-300 py-1.5 px-3 text-xs font-bold text-neutral-900 focus:outline-none focus:border-[#00A86B]"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-neutral-950 hover:bg-neutral-900 text-white font-black py-3 px-4 rounded-none text-xs uppercase tracking-widest cursor-pointer border-2 border-neutral-950 shadow-[4px_4px_0px_0px_rgba(0,168,107,1)] hover:shadow-none transition-all duration-150 flex items-center justify-center gap-1.5"
+                >
+                  <Zap className="w-4 h-4 text-emerald-400" />
+                  <span>PUBLISH ACTIVE SLOT</span>
+                </button>
+              </form>
+
+              {/* Dynamic slots list (Right: 8 cols) */}
+              <div className="lg:col-span-8 space-y-3">
+                <span className="text-[10px] font-mono font-black text-neutral-500 uppercase tracking-widest block pl-1">
+                  CURRENTLY RELEASED CALENDAR COORDINATES
+                </span>
+
+                {slotsList.length === 0 ? (
+                  <div className="p-8 border-2 border-dashed border-neutral-200 bg-neutral-50 text-center text-xs font-semibold text-neutral-400 uppercase">
+                    No available panel slots are currently registered. Use the left builder form to launch live schedules.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto border-2 border-neutral-950">
+                    <table className="w-full text-left text-xs tracking-tight border-collapse min-w-[550px]">
+                      <thead>
+                        <tr className="bg-neutral-950 text-white uppercase font-mono text-[9px] font-black tracking-widest border-b-2 border-neutral-950">
+                          <th className="py-2 px-3">Slot Schedule (UTC)</th>
+                          <th className="py-2 px-3">Meeting Credentials</th>
+                          <th className="py-2 px-3 text-center">Booking State</th>
+                          <th className="py-2 px-3 text-right">Operational Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-200">
+                        {slotsList.map((slot) => (
+                          <tr key={slot.id} className="hover:bg-neutral-50 transition duration-100">
+                            
+                            <td className="py-3 px-3">
+                              <p className="font-extrabold text-neutral-950 uppercase">
+                                {new Date(slot.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                              </p>
+                              <p className="font-mono text-[10px] font-black text-emerald-700 mt-0.5">
+                                ⏱️ {slot.time_slot}
+                              </p>
+                            </td>
+
+                            <td className="py-3 px-3">
+                              <a
+                                href={slot.meeting_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-neutral-500 hover:text-neutral-950 font-mono text-[10.5px] uppercase font-bold break-all underline decoration-[#00A86B] decoration-2"
+                              >
+                                Link URL
+                              </a>
+                            </td>
+
+                            <td className="py-3 px-3 text-center">
+                              {slot.is_booked ? (
+                                <div className="space-y-0.5">
+                                  <span className="bg-rose-50 text-rose-800 border border-rose-300 font-mono text-[9px] font-black uppercase px-2 py-0.5 inline-block">
+                                    BOOKED
+                                  </span>
+                                  {slot.booked_by_name && (
+                                    <p className="text-[9px] font-bold text-neutral-600 uppercase mt-1 leading-none">
+                                      {slot.booked_by_name}
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="bg-emerald-50 text-emerald-800 border border-emerald-300 font-mono text-[9px] font-black uppercase px-2 py-0.5 inline-block">
+                                  AVAILABLE
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-3 text-right">
+                              <div className="flex justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleSlotBooked(slot.id)}
+                                  className="bg-neutral-100 hover:bg-neutral-200 border-2 border-neutral-950 px-2 py-1 text-[9px] font-black uppercase transition cursor-pointer"
+                                  title="Manually override booked coordinate"
+                                >
+                                  {slot.is_booked ? 'RELEASE' : 'RESERVE'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteSlot(slot.id)}
+                                  className="bg-rose-50 hover:bg-rose-100 border-2 border-rose-600 text-rose-700 px-2 py-1 text-[9px] font-black uppercase transition cursor-pointer"
+                                  title="Deprovision slot"
+                                >
+                                  ✕ DELETE
+                                </button>
+                              </div>
+                            </td>
+
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
             </div>
 
           </div>
