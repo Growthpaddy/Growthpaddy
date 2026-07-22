@@ -676,61 +676,39 @@ export default function App() {
               {/* Multi-Track Tabs: Talent, Recruiter & Admin */}
               <div className="space-y-2">
                 <span className="text-[9px] font-mono text-neutral-400 font-extrabold uppercase block tracking-wider">SELECT GATEWAY TRACK</span>
-                <div className="grid grid-cols-3 border-2 border-neutral-950">
-                  <button
-                    type="button"
-                    disabled={isSecureLoggingIn}
-                    onClick={() => {
-                      setSignInRole('talent');
-                      setSignInEmail('');
-                      setSignInPassword('');
-                      setSecureLoginError(null);
-                      setSignInError('');
-                    }}
-                    className={`py-3.5 px-1 font-display font-black text-[9px] sm:text-[10px] uppercase tracking-wider transition-all cursor-pointer text-center ${
-                      signInRole === 'talent'
-                        ? 'bg-neutral-950 text-white border-t-4 border-t-[#00A86B]'
-                        : 'bg-neutral-50 text-neutral-500 hover:bg-neutral-100 border-t-4 border-t-transparent'
-                    } disabled:opacity-50`}
-                  >
-                    Talent
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isSecureLoggingIn}
-                    onClick={() => {
-                      setSignInRole('recruiter');
-                      setSignInEmail('');
-                      setSignInPassword('');
-                      setSecureLoginError(null);
-                      setSignInError('');
-                    }}
-                    className={`py-3.5 px-1 font-display font-black text-[9px] sm:text-[10px] uppercase tracking-wider transition-all cursor-pointer text-center border-l-2 border-neutral-950 ${
-                      signInRole === 'recruiter'
-                        ? 'bg-neutral-950 text-white border-t-4 border-t-[#00A86B]'
-                        : 'bg-neutral-50 text-neutral-500 hover:bg-neutral-100 border-t-4 border-t-transparent'
-                    } disabled:opacity-50`}
-                  >
-                    Recruiter
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isSecureLoggingIn}
-                    onClick={() => {
-                      setSignInRole('admin');
-                      setSignInEmail('');
-                      setSignInPassword('');
-                      setSecureLoginError(null);
-                      setSignInError('');
-                    }}
-                    className={`py-3.5 px-1 font-display font-black text-[9px] sm:text-[10px] uppercase tracking-wider transition-all cursor-pointer text-center border-l-2 border-neutral-950 ${
-                      signInRole === 'admin'
-                        ? 'bg-neutral-950 text-white border-t-4 border-t-[#00A86B]'
-                        : 'bg-neutral-50 text-neutral-500 hover:bg-neutral-100 border-t-4 border-t-transparent'
-                    } disabled:opacity-50`}
-                  >
-                    Admin
-                  </button>
+                <div className="grid grid-cols-3 border-2 border-neutral-950 bg-neutral-100 p-0.5 relative">
+                  {(['talent', 'recruiter', 'admin'] as const).map((role) => (
+                    <button
+                      key={role}
+                      type="button"
+                      disabled={isSecureLoggingIn}
+                      onClick={() => {
+                        setSignInRole(role);
+                        setSignInEmail('');
+                        setSignInPassword('');
+                        setSecureLoginError(null);
+                        setSignInError('');
+                      }}
+                      className={`relative py-3.5 px-1 font-display font-black text-[9px] sm:text-[10px] uppercase tracking-wider transition-colors cursor-pointer text-center disabled:opacity-50 ${
+                        signInRole === role
+                          ? 'text-white'
+                          : 'text-neutral-600 hover:text-neutral-950 hover:bg-neutral-200/50'
+                      }`}
+                    >
+                      {signInRole === role && (
+                        <motion.div
+                          layoutId="activeRoleTab"
+                          className="absolute inset-0 bg-neutral-950 border-t-4 border-t-[#00A86B] z-0"
+                          transition={{ type: "spring", stiffness: 450, damping: 32 }}
+                        />
+                      )}
+                      <span className="relative z-10">
+                        {role === 'talent' && 'Talent'}
+                        {role === 'recruiter' && 'Recruiter'}
+                        {role === 'admin' && 'Admin'}
+                      </span>
+                    </button>
+                  ))}
                 </div>
               </div>
 
