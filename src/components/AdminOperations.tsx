@@ -32,15 +32,11 @@ import { TalentCandidate } from '../types';
 
 interface AdminOperationsProps {
   onBackToMain: () => void;
+  mode?: 'dashboard' | 'login' | 'auto';
+  onLoginSuccess?: () => void;
+  onRedirectToLogin?: () => void;
 }
 
-interface AdminUser {
-  email: string;
-  fullName: string;
-  role: string;
-}
-
-// Rich Mock Recruiter data mapping to corporate pipelines
 interface AdminUser {
   email: string;
   fullName: string;
@@ -59,7 +55,12 @@ interface RecruiterRecord {
   onboardedAt: string;
 }
 
-export default function AdminOperations({ onBackToMain }: AdminOperationsProps) {
+export default function AdminOperations({ 
+  onBackToMain, 
+  mode = 'auto', 
+  onLoginSuccess, 
+  onRedirectToLogin 
+}: AdminOperationsProps) {
   const { user, signIn, signUp } = useSupabase();
   
   // Auth state controls
@@ -376,22 +377,30 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
 
   // Monitor Supabase session user role to bypass auth gate if user is already an admin
   useEffect(() => {
+    let authed = false;
+    let adminInfo: AdminUser | null = null;
+
     if (user && user.user_metadata?.role === 'admin') {
-      setIsAdminAuthenticated(true);
-      setCurrentAdmin({
+      authed = true;
+      adminInfo = {
         email: user.email || '',
         fullName: user.user_metadata?.full_name || 'System Staff',
         role: 'admin'
-      });
+      };
     } else {
       const simulatedAdmin = localStorage.getItem('dsp_simulated_admin');
       if (simulatedAdmin) {
         try {
           const parsed = JSON.parse(simulatedAdmin);
-          setIsAdminAuthenticated(true);
-          setCurrentAdmin(parsed);
+          authed = true;
+          adminInfo = parsed;
         } catch (_) {}
       }
+    }
+
+    setIsAdminAuthenticated(authed);
+    if (adminInfo) {
+      setCurrentAdmin(adminInfo);
     }
   }, [user]);
 
@@ -470,6 +479,23 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
     }
 
     try {
+      // Direct demo credential shortcut for admin@dsp.com
+      if (email.toLowerCase() === 'admin@dsp.com' && password === 'password123') {
+        const simulatedAdmin = {
+          email: 'admin@dsp.com',
+          fullName: 'System Administrator',
+          role: 'admin'
+        };
+        localStorage.setItem('dsp_simulated_admin', JSON.stringify(simulatedAdmin));
+        setIsAdminAuthenticated(true);
+        setCurrentAdmin(simulatedAdmin);
+        setLoading(false);
+        if (onLoginSuccess) {
+          onLoginSuccess();
+        }
+        return;
+      }
+
       const { user: authedUser, error: signInErr } = await signIn(email, password);
       
       if (signInErr) {
@@ -477,13 +503,18 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
       }
 
       if (authedUser) {
-        setIsAdminAuthenticated(true);
-        setCurrentAdmin({
+        const simulatedAdmin = {
           email: authedUser.email || email,
           fullName: authedUser.user_metadata?.full_name || fullName || 'System Staff',
           role: 'admin'
-        });
+        };
+        localStorage.setItem('dsp_simulated_admin', JSON.stringify(simulatedAdmin));
+        setIsAdminAuthenticated(true);
+        setCurrentAdmin(simulatedAdmin);
         setLoading(false);
+        if (onLoginSuccess) {
+          onLoginSuccess();
+        }
         return;
       }
 
@@ -501,6 +532,9 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
     setIsAdminAuthenticated(false);
     setCurrentAdmin(null);
     setAuthSuccessMsg('Staff session severed successfully.');
+    if (onRedirectToLogin) {
+      onRedirectToLogin();
+    }
   };
 
   // Compute stats on current live state list
@@ -516,17 +550,97 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
       <div className="bg-neutral-900 text-neutral-400 py-2 px-6 flex justify-between items-center text-[10px] font-mono tracking-wider font-extrabold uppercase border-b border-neutral-800">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-none bg-emerald-500 animate-pulse" />
-          <span>INTERNAL OPERATIONS COMMAND CONSOLE</span>
+          <span>{mode === 'login' ? 'ADMINISTRATIVE LOGIN GATE (/ADMIN-LOGIN)' : 'INTERNAL OPERATIONS COMMAND DASHBOARD (/ADMIN-PROFILE)'}</span>
         </div>
-        <button 
-          onClick={onBackToMain} 
-          className="text-[#00A86B] hover:text-white transition duration-150 underline"
-        >
-          Exit Console
-        </button>
+        <div className="flex items-center gap-3">
+          {mode === 'login' && isAdminAuthenticated && (
+            <button 
+              onClick={onLoginSuccess}
+              className="text-emerald-400 hover:text-white font-bold transition duration-150 uppercase tracking-wider"
+            >
+              Go to Dashboard →
+            </button>
+          )}
+          {mode === 'dashboard' && !isAdminAuthenticated && (
+            <button 
+              onClick={onRedirectToLogin}
+              className="text-amber-400 hover:text-white font-bold transition duration-150 uppercase tracking-wider"
+            >
+              Sign In →
+            </button>
+          )}
+          <button 
+            onClick={onBackToMain} 
+            className="text-[#00A86B] hover:text-white transition duration-150 underline"
+          >
+            Exit Console
+          </button>
+        </div>
       </div>
 
-      {!isAdminAuthenticated ? (
+      {mode === 'dashboard' && !isAdminAuthenticated ? (
+        /* Restricted Access Guard for /admin-profile when not authenticated */
+        <div className="flex-1 flex items-center justify-center p-4 sm:p-12">
+          <div className="bg-white border-4 border-neutral-950 p-6 sm:p-10 max-w-md w-full text-center relative shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] space-y-6">
+            <div className="w-16 h-16 bg-rose-950 text-rose-400 border-2 border-neutral-950 flex items-center justify-center mx-auto">
+              <Lock className="w-8 h-8 stroke-[2.5]" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="font-display font-black text-2xl uppercase tracking-tighter text-neutral-950 leading-none">
+                ACCESS RESTRICTED
+              </h1>
+              <p className="text-xs font-mono font-bold text-neutral-600 uppercase tracking-wider">
+                STAFF AUTHENTICATION REQUIRED FOR DASHBOARD (/ADMIN-PROFILE)
+              </p>
+            </div>
+            <p className="text-xs text-neutral-500 font-semibold leading-relaxed">
+              You must log in with valid administrative credentials at <code className="bg-neutral-100 text-neutral-900 px-1.5 py-0.5 font-mono font-bold">/admin-login</code> to view staff metrics, vetting pipelines, and corporate accounts.
+            </p>
+            <div className="pt-2">
+              <button 
+                onClick={onRedirectToLogin}
+                className="w-full bg-neutral-950 hover:bg-neutral-800 text-white font-black py-3 px-6 uppercase tracking-widest text-xs border-2 border-neutral-950 shadow-[4px_4px_0px_0px_rgba(16,185,129,1)] transition-all cursor-pointer"
+              >
+                GO TO ADMIN LOGIN (/ADMIN-LOGIN) →
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : mode === 'login' && isAdminAuthenticated ? (
+        /* Notice when visiting /admin-login while already authenticated */
+        <div className="flex-1 flex items-center justify-center p-4 sm:p-12">
+          <div className="bg-white border-4 border-neutral-950 p-6 sm:p-10 max-w-md w-full text-center relative shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] space-y-6">
+            <div className="w-16 h-16 bg-emerald-950 text-emerald-400 border-2 border-neutral-950 flex items-center justify-center mx-auto">
+              <ShieldCheck className="w-8 h-8 stroke-[2.5]" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="font-display font-black text-2xl uppercase tracking-tighter text-neutral-950 leading-none">
+                STAFF SESSION ACTIVE
+              </h1>
+              <p className="text-xs font-mono font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 border border-emerald-950 inline-block uppercase">
+                {currentAdmin?.fullName || currentAdmin?.email || 'System Administrator'}
+              </p>
+            </div>
+            <p className="text-xs text-neutral-500 font-semibold leading-relaxed">
+              You are currently authenticated as an administrative staff member. Proceed to the Command Dashboard at <code className="bg-neutral-100 text-neutral-900 px-1.5 py-0.5 font-mono font-bold">/admin-profile</code>.
+            </p>
+            <div className="pt-2 space-y-3">
+              <button 
+                onClick={onLoginSuccess}
+                className="w-full bg-[#00A86B] hover:bg-emerald-600 text-white font-black py-3 px-6 uppercase tracking-widest text-xs border-2 border-neutral-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer"
+              >
+                OPEN ADMIN DASHBOARD (/ADMIN-PROFILE) →
+              </button>
+              <button 
+                onClick={handleAdminSignOut}
+                className="w-full bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold py-2 px-4 uppercase tracking-wider text-[10px] border border-neutral-400 cursor-pointer"
+              >
+                Sign Out Admin Session
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : !isAdminAuthenticated ? (
         /* =================== 1. THE SUBTLY ACCESSED ADMIN GATE =================== */
         <div className="flex-1 flex items-center justify-center p-4 sm:p-12">
           <div className="bg-white border-4 border-neutral-950 p-6 sm:p-10 max-w-md w-full relative shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] transition-all duration-300">
@@ -812,10 +926,10 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
               </div>
               <div>
                 <p className="text-3xl font-display font-black text-[#00A86B] leading-none">
-                  ${revenueTotal.toLocaleString()}
+                  ₦{revenueTotal.toLocaleString()}
                 </p>
                 <p className="text-[9px] uppercase font-bold text-neutral-500 mt-1">
-                  Vetting aggregates collected
+                  @ ₦35,000 / Accreditation Pass
                 </p>
               </div>
             </div>
@@ -1072,7 +1186,7 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
                               : 'bg-rose-50 text-rose-800 border-rose-300'
                           }`}>
                             <span className={`w-1.5 h-1.5 ${talent.phase_3_fee_paid ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                            <span>{talent.phase_3_fee_paid ? 'PAID ₦35k' : 'UNPAID'}</span>
+                            <span>{talent.phase_3_fee_paid ? 'PAID $45' : 'UNPAID'}</span>
                           </span>
                           <button
                             onClick={() => updateTalentStatus(talent.id, { phase_3_fee_paid: !talent.phase_3_fee_paid })}
@@ -1930,7 +2044,7 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
               <div className="flex items-center justify-between p-3 border-2 border-neutral-200 hover:border-neutral-950 transition">
                 <div>
                   <p className="font-extrabold text-xs text-neutral-950 uppercase">Phase 3: Verification Fee</p>
-                  <p className="text-[10px] font-mono text-neutral-500">Fee Amount: ₦35,000</p>
+                  <p className="text-[10px] font-mono text-neutral-500">Fee Amount: $45</p>
                 </div>
                 <button
                   onClick={async () => {
@@ -1944,7 +2058,7 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
                       : 'bg-neutral-100 text-neutral-700 border-neutral-300'
                   }`}
                 >
-                  {selectedTalentModal.phase_3_fee_paid ? 'PAID ₦35k ✓' : 'SET PAID'}
+                  {selectedTalentModal.phase_3_fee_paid ? 'PAID $45 ✓' : 'SET PAID'}
                 </button>
               </div>
 

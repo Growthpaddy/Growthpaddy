@@ -54,10 +54,10 @@ export default function App() {
   const [signInRole, setSignInRole] = useState<'talent' | 'recruiter' | 'admin'>('talent');
 
   // Navigation State
-  const [currentPage, setCurrentPage] = useState<'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin'>('home');
+  const [currentPage, setCurrentPage] = useState<'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login'>('home');
 
   // Helper to map currentPage to pathname
-  const pageToPath = (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin') => {
+  const pageToPath = (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login') => {
     switch (page) {
       case 'home': return '/';
       case 'directory': return '/directory';
@@ -66,12 +66,13 @@ export default function App() {
       case 'assessment': return '/assessment';
       case 'pricing': return '/pricing';
       case 'admin': return '/admin-profile';
+      case 'admin-login': return '/admin-login';
       default: return '/';
     }
   };
 
   // Helper to map pathname to currentPage
-  const pathToPage = (path: string): 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' => {
+  const pathToPage = (path: string): 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login' => {
     const cleaned = path.replace(/\/$/, '').toLowerCase();
     if (cleaned === '/directory') return 'directory';
     if (cleaned === '/recruiter-profile') return 'employer';
@@ -79,6 +80,7 @@ export default function App() {
     if (cleaned === '/assessment') return 'assessment';
     if (cleaned === '/pricing') return 'pricing';
     if (cleaned === '/admin-profile') return 'admin';
+    if (cleaned === '/admin-login') return 'admin-login';
     return 'home';
   };
 
@@ -291,7 +293,7 @@ export default function App() {
     }
   };
 
-  const navigateToPage = (pageName: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin') => {
+  const navigateToPage = (pageName: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login') => {
     setCurrentPage(pageName);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -447,9 +449,22 @@ export default function App() {
               </section>
             )}
 
-            {/* View 7: Staff/Admin Operations Command Center */}
+            {/* View 7: Staff/Admin Operations Command Center Dashboard (/admin-profile) */}
             {currentPage === 'admin' && (
-              <AdminOperations onBackToMain={() => navigateToPage('home')} />
+              <AdminOperations 
+                mode="dashboard" 
+                onBackToMain={() => navigateToPage('home')} 
+                onRedirectToLogin={() => navigateToPage('admin-login')} 
+              />
+            )}
+
+            {/* View 8: Staff/Admin Login Portal (/admin-login) */}
+            {currentPage === 'admin-login' && (
+              <AdminOperations 
+                mode="login" 
+                onBackToMain={() => navigateToPage('home')} 
+                onLoginSuccess={() => navigateToPage('admin')} 
+              />
             )}
 
           </motion.div>

@@ -24,8 +24,16 @@ import {
   Save,
   User,
   Lock,
-  Loader2
+  Loader2,
+  Copy,
+  ExternalLink,
+  MessageSquare,
+  Mail,
+  Building2,
+  Send,
+  Globe
 } from 'lucide-react';
+import { PaymentPhase } from './PaymentPhase';
 import { useSupabase } from '../context/SupabaseContext';
 import { supabase } from '../lib/supabaseClient';
 
@@ -602,16 +610,24 @@ export default function TalentDashboard({
     loadAvailableSlots(); // reload slots
   };
 
-  // Phase 3: Stripe simulation payment form
-  const [cardDetails, setCardDetails] = useState({ cardNo: '', exp: '', cvc: '', name: '' });
+  // Phase 3: Bank Transfer Direct Payment Engine
+  const [copiedAccount, setCopiedAccount] = useState<string | null>(null);
+  const [selectedCurrencyTab, setSelectedCurrencyTab] = useState<'ALL' | 'NGN' | 'USD' | 'EUR' | 'GBP'>('ALL');
   const [payingState, setPayingState] = useState(false);
+  const [proofSentNotice, setProofSentNotice] = useState(false);
 
-  const handlePayCommitment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!cardDetails.cardNo || !cardDetails.exp || !cardDetails.cvc) return;
+  const handleCopyAccount = (accNo: string, currencyCode: string) => {
+    navigator.clipboard.writeText(accNo);
+    setCopiedAccount(currencyCode);
+    setTimeout(() => setCopiedAccount(null), 2500);
+  };
+
+  const handlePayCommitment = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setPayingState(true);
     setTimeout(async () => {
       setPayingState(false);
+      setProofSentNotice(true);
       if (setIsTalentPaid) {
         setIsTalentPaid(true);
       }
@@ -631,8 +647,7 @@ export default function TalentDashboard({
           vetting_status: 'fee_paid'
         }));
       }
-      setActivePhase(4); // Auto progress to build portfolio
-    }, 1800);
+    }, 1200);
   };
 
   // Phase 4: Portfolio Builder state
@@ -1180,123 +1195,17 @@ export default function TalentDashboard({
                         Secure your verified placement status. This refundable onboarding pass filters high-intent candidates from spammers.
                       </p>
                     </div>
-
-                {isTalentPaid ? (
-                  <div className="p-8 text-center bg-emerald-50/20 border border-emerald-300 max-w-md mx-auto space-y-4">
-                    <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
-                    <h4 className="font-black text-xs uppercase tracking-wider text-slate-900">VERIFICATION ACCREDITED</h4>
-                    <p className="text-xs text-slate-600 uppercase tracking-wider leading-relaxed text-left bg-white p-4 border-2 border-emerald-200">
-                      Your onboarding pass is authorized securely. Your certified project profile features the "VERIFIED PROFESSIONAL" badge permanently.
-                    </p>
-                    <button
-                      onClick={() => setActivePhase(4)}
-                      className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-3.5 rounded-none text-xs uppercase tracking-widest cursor-pointer shadow-[2px_2px_0px_0px_rgba(16,185,129,1)]"
-                    >
-                      Build Project Dossier
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                    
-                    {/* Left Column - cost breakdown */}
-                    <div className="lg:col-span-6 bg-amber-50/40 border-2 border-amber-500/30 p-6 text-left space-y-4">
-                      <span className="text-[9px] font-mono font-black text-amber-900 uppercase tracking-widest bg-amber-100 px-2.5 py-0.5 border border-amber-300 inline-block">
-                        WHY THE ₦35,000 VETTING VERIFICATION PASS?
-                      </span>
-                      
-                      <div className="space-y-4 text-xs font-semibold uppercase text-slate-700 leading-relaxed">
-                        <p>
-                          The ₦35,000 verification pass serves as a powerful filter, signaling high intent and serious commitment to prospective employers. By locking down a verified slot, we filter out casual spammers, ensuring our vetted talent pool remains exclusive and high-quality.
-                        </p>
-                        
-                        <div className="bg-white border-l-4 border-emerald-500 p-4 font-mono font-bold text-[10.5px] text-slate-800 space-y-2">
-                          <span className="text-[#00A86B] font-black block">🌟 100% REFUNDABLE GUARANTEE</span>
-                          <p className="normal-case leading-normal font-sans font-medium text-slate-600 text-[11px] mt-1">
-                            The fee is fully refundable immediately upon securing your first role through GrowthPaddy, or if you do not land an engagement within 90 days. It is entirely risk-free.
-                          </p>
-                        </div>
-                        
-                        <div className="pt-2 space-y-2">
-                          <span className="text-[9.5px] font-mono font-black text-slate-900 block">YOUR PASS UNLOCKS:</span>
-                          <ul className="space-y-1.5 text-[10.5px] text-slate-600 font-mono">
-                            <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> "VERIFIED PROFESSIONAL" PROFILE BADGE</li>
-                            <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> DIRECT ACCESS TO PREMIUM REMOTE EMPLOYER MATCHING</li>
-                            <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> COMPLIMENTARY ADMISSION TO THE ACADEMY EXPERT RETRAINING HUB</li>
-                          </ul>
-                        </div>
-                      </div>
+                    <div className="pt-2">
+                      <PaymentPhase
+                        isTalentPaid={isTalentPaid}
+                        userName={userName}
+                        userEmail={user?.email || ''}
+                        onPaymentComplete={() => handlePayCommitment()}
+                        onNextPhase={() => setActivePhase(4)}
+                      />
                     </div>
-
-                    {/* Right Column - payment checkout */}
-                    <div className="lg:col-span-6 bg-slate-50 border border-slate-200 p-5">
-                      <form onSubmit={handlePayCommitment} className="space-y-3 text-xs font-mono">
-                        <span className="text-[9px] font-mono font-black text-slate-500 uppercase tracking-widest block text-left">SECURE CREDIT CARD GATEWAY</span>
-                        
-                        <div className="space-y-1 text-left">
-                          <label className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block">Credit Card Number</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="4242 4242 4242 4242"
-                            maxLength={19}
-                            value={cardDetails.cardNo}
-                            onChange={(e) => setCardDetails({ ...cardDetails, cardNo: e.target.value })}
-                            className="w-full bg-white border border-slate-300 py-1.5 px-3 text-slate-900 font-bold focus:outline-none"
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3 text-left">
-                          <div className="space-y-1">
-                            <label className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block">Exp Date</label>
-                            <input
-                              type="text"
-                              required
-                              placeholder="MM/YY"
-                              maxLength={5}
-                              value={cardDetails.exp}
-                              onChange={(e) => setCardDetails({ ...cardDetails, exp: e.target.value })}
-                              className="w-full bg-white border border-slate-300 py-1.5 px-3 text-slate-900 font-bold focus:outline-none"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block">CVC</label>
-                            <input
-                              type="password"
-                              required
-                              placeholder="•••"
-                              maxLength={3}
-                              value={cardDetails.cvc}
-                              onChange={(e) => setCardDetails({ ...cardDetails, cvc: e.target.value })}
-                              className="w-full bg-white border border-slate-300 py-1.5 px-3 text-slate-900 font-bold focus:outline-none"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="space-y-1 text-left">
-                          <label className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block">Name on Card</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. John Doe"
-                            value={cardDetails.name}
-                            onChange={(e) => setCardDetails({ ...cardDetails, name: e.target.value })}
-                            className="w-full bg-white border border-slate-300 py-1.5 px-3 text-slate-900 font-bold focus:outline-none uppercase"
-                          />
-                        </div>
-
-                        <button
-                          type="submit"
-                          disabled={payingState}
-                          className="w-full bg-[#033c2a] hover:bg-[#002b1c] text-white font-black py-3 rounded-none text-xs uppercase tracking-widest cursor-pointer shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all duration-150"
-                        >
-                          {payingState ? 'Processing Security Ledger...' : 'AUTHORIZE ACCREDITATION PASS (₦35,000)'}
-                        </button>
-                      </form>
-                    </div>
-                  </div>
+                  </>
                 )}
-              </>
-            )}
               </motion.div>
             )}
 

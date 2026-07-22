@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { ShieldCheck, Menu, X, ArrowUpRight, Mail, Globe, Sparkles, Briefcase, Zap, Shield, Lock } from 'lucide-react';
 
 interface HeaderProps {
-  currentPage?: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin';
-  setCurrentPage?: (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin') => void;
+  currentPage?: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login';
+  setCurrentPage?: (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login') => void;
   openHireModal?: () => void;
   openTalentModal?: () => void;
   employerSlots?: number;
@@ -27,7 +27,7 @@ export function Header({
   userType = null
 }: HeaderProps) {
 
-  const handleNavClick = (id: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin') => {
+  const handleNavClick = (id: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login') => {
     if (setCurrentPage) {
       setCurrentPage(id);
     }
@@ -96,13 +96,13 @@ export function Header({
 }
 
 interface FooterProps {
-  setCurrentPage?: (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin') => void;
+  setCurrentPage?: (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login') => void;
 }
 
 export function Footer({ setCurrentPage }: FooterProps) {
   const currentYear = new Date().getFullYear();
 
-  const handleLink = (e: React.MouseEvent, page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin') => {
+  const handleLink = (e: React.MouseEvent, page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login') => {
     if (setCurrentPage) {
       e.preventDefault();
       setCurrentPage(page);
@@ -247,14 +247,14 @@ export function Footer({ setCurrentPage }: FooterProps) {
               onClick={(e) => {
                 if (setCurrentPage) {
                   e.preventDefault();
-                  setCurrentPage('admin');
+                  setCurrentPage('admin-login');
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }
               }}
               className="text-neutral-750 hover:text-neutral-400 hover:underline transition bg-transparent border-0 p-0 cursor-pointer font-bold text-[9px] tracking-wider uppercase"
               id="staff-access-trigger-btn"
             >
-              Staff Access
+              Staff Access (/admin-login)
             </button>
             <span className="w-1.5 h-1.5 rounded-none bg-emerald-500" />
             <span>African Digital Operator Core</span>
