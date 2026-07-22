@@ -80,6 +80,7 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
     recruiters,
     loadingTalents,
     loadingRecruiters,
+    error: pipelineError,
     toastMsg,
     setToastMsg,
     fetchTalents,
@@ -821,6 +822,22 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
 
           </div>
 
+          {/* Pipeline Error Banner */}
+          {pipelineError && (
+            <div className="bg-rose-50 border-2 border-rose-500 text-rose-900 p-4 mb-4 flex items-center justify-between font-mono text-xs shadow-[4px_4px_0px_0px_rgba(244,63,94,1)]">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                <div>
+                  <span className="font-black uppercase block">Supabase Pipeline Error</span>
+                  <span className="text-[11px] font-bold">{pipelineError}</span>
+                </div>
+              </div>
+              <button onClick={fetchTalents} className="bg-rose-600 text-white font-black px-3 py-1 uppercase text-[10px] hover:bg-rose-700 cursor-pointer">
+                RETRY
+              </button>
+            </div>
+          )}
+
           {/* Toast Notification Alert Banner */}
           {toastMsg && (
             <div className="fixed top-6 right-6 z-50 bg-neutral-950 text-white border-2 border-emerald-500 p-4 shadow-[6px_6px_0px_0px_rgba(0,168,107,1)] flex items-center gap-3 animate-fadeIn">
@@ -886,27 +903,46 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
               </div>
               
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono uppercase text-neutral-400 font-bold">Total Enrolled:</span>
+                <button
+                  onClick={fetchTalents}
+                  disabled={loadingTalents}
+                  className="bg-neutral-950 hover:bg-neutral-900 text-white font-mono text-[10px] px-3.5 py-1.5 uppercase tracking-wider flex items-center gap-1.5 font-black border-2 border-neutral-950 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingTalents ? 'animate-spin text-emerald-400' : ''}`} />
+                  <span>REFRESH TALENT</span>
+                </button>
+                <span className="text-[10px] font-mono uppercase text-neutral-400 font-bold ml-2">Total Enrolled:</span>
                 <strong className="text-xs font-mono font-extrabold text-neutral-900 bg-neutral-100 px-2.5 py-1 border border-neutral-300">{talentList.length}</strong>
               </div>
             </div>
 
-            {/* Responsive Horizontal Table Container */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs tracking-tight border-collapse min-w-[1200px]">
-                <thead>
-                  <tr className="bg-neutral-900 text-white uppercase font-mono text-[9px] font-black tracking-widest border-2 border-neutral-900">
-                    <th className="py-3 px-4">Talent Profile</th>
-                    <th className="py-3 px-4 text-center">Progress Matrix</th>
-                    <th className="py-3 px-4 text-center">Phase 1: Diagnostic</th>
-                    <th className="py-3 px-4 text-center">Phase 2: Panel Interview</th>
-                    <th className="py-3 px-4 text-center">Phase 3: Verification Fee</th>
-                    <th className="py-3 px-4 text-center">Phase 4: Portfolio</th>
-                    <th className="py-3 px-4 text-center">Vetting Status</th>
-                    <th className="py-3 px-4 text-right">Admin Action Controls</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y-2 divide-neutral-150">
+            {loadingTalents ? (
+              <div className="py-16 text-center space-y-3 font-mono">
+                <RefreshCw className="w-8 h-8 text-emerald-600 mx-auto animate-spin" />
+                <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">LOADING LIVE TALENT PROFILES FROM SUPABASE...</p>
+              </div>
+            ) : talentList.length === 0 ? (
+              <div className="p-12 text-center border-2 border-dashed border-neutral-300 text-neutral-400 font-mono text-xs uppercase space-y-2">
+                <p className="font-black text-neutral-600">NO TALENT PROFILES FOUND IN SUPABASE</p>
+                <p className="text-[10px] text-neutral-400">Talent candidates registering in the portal will populate public.talent_profiles automatically.</p>
+              </div>
+            ) : (
+              /* Responsive Horizontal Table Container */
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs tracking-tight border-collapse min-w-[1200px]">
+                  <thead>
+                    <tr className="bg-neutral-900 text-white uppercase font-mono text-[9px] font-black tracking-widest border-2 border-neutral-900">
+                      <th className="py-3 px-4">Talent Profile</th>
+                      <th className="py-3 px-4 text-center">Progress Matrix</th>
+                      <th className="py-3 px-4 text-center">Phase 1: Diagnostic</th>
+                      <th className="py-3 px-4 text-center">Phase 2: Panel Interview</th>
+                      <th className="py-3 px-4 text-center">Phase 3: Verification Fee</th>
+                      <th className="py-3 px-4 text-center">Phase 4: Portfolio</th>
+                      <th className="py-3 px-4 text-center">Vetting Status</th>
+                      <th className="py-3 px-4 text-right">Admin Action Controls</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y-2 divide-neutral-150">
                   {talentList.map((talent) => {
                     const completedCount = 
                       (talent.phase_1_quiz_passed ? 1 : 0) +
@@ -1143,6 +1179,7 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
                 </tbody>
               </table>
             </div>
+            )}
 
           </div>
           )}
