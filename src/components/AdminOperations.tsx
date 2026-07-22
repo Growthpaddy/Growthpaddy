@@ -844,18 +844,7 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
               )}
             </div>
 
-            {/* Demo Helpers Box */}
-            <div className="mt-6 p-4 bg-neutral-50 border border-neutral-200 text-left rounded-none">
-              <span className="text-[9px] font-mono font-black text-emerald-800 uppercase tracking-wider block mb-1">
-                ⚙️ SECURE LAB DEMO TESTING MATRIX:
-              </span>
-              <ul className="text-[9px] font-mono font-bold text-neutral-600 space-y-1">
-                <li>• Admin Login: <strong className="text-neutral-950">admin@dsptalenthub.com</strong></li>
-                <li>• Admin Pass: <strong className="text-neutral-950">adminpassword</strong></li>
-                <li>• Staff Login: <strong className="text-neutral-950">staff@dsp.com</strong></li>
-                <li>• Staff Pass: <strong className="text-neutral-950">password123</strong></li>
-              </ul>
-            </div>
+
 
           </div>
         </div>

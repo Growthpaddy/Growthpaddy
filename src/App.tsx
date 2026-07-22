@@ -628,204 +628,238 @@ export default function App() {
       )}
 
       {/* SIGN IN MODAL */}
-      {isSignInModalOpen && (
-        <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white border-4 border-neutral-950 max-w-md w-full p-6 sm:p-8 space-y-6 text-left relative shadow-[8px_8px_0px_0px_rgba(0,168,107,1)]">
-            
-            <div className="flex items-start justify-between border-b-2 border-dashed border-neutral-200 pb-4">
-              <div>
-                <span className="text-[9px] uppercase font-mono font-black text-emerald-700 bg-emerald-50 border border-emerald-150 px-2 py-0.5">
-                  SECURE ENTRY GATEWAY
-                </span>
-                <h3 className="font-display font-black text-xl text-neutral-950 uppercase tracking-tight mt-2 leading-none">
-                  Sign In to Workspace
-                </h3>
-                <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mt-1.5">
-                  Enter your verified credentials to access your dashboard.
-                </p>
-              </div>
-              <button 
-                onClick={() => { 
-                  setIsSignInModalOpen(false); 
-                  setSignInEmail(''); 
-                  setSignInPassword(''); 
-                  setSignInError(''); 
-                  setSecureLoginError(null); 
-                  setShowPassword(false);
-                }}
-                disabled={isSecureLoggingIn}
-                className="text-neutral-400 hover:text-neutral-950 p-1.5 transition cursor-pointer font-black text-lg border-2 border-transparent hover:border-neutral-950 disabled:opacity-50"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Multi-Track Tabs: Talent, Recruiter & Admin */}
-            <div className="space-y-2">
-              <span className="text-[9px] font-mono text-neutral-400 font-extrabold uppercase block tracking-wider">SELECT GATEWAY TRACK</span>
-              <div className="grid grid-cols-3 border-2 border-neutral-950">
-                <button
-                  type="button"
-                  disabled={isSecureLoggingIn}
-                  onClick={() => {
-                    setSignInRole('talent');
-                    setSignInEmail('');
-                    setSignInPassword('');
-                    setSecureLoginError(null);
-                    setSignInError('');
+      <AnimatePresence>
+        {isSignInModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-neutral-950/80 backdrop-blur-xs flex items-center justify-center z-50 p-4"
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              className="bg-white border-4 border-neutral-950 max-w-md w-full p-6 sm:p-8 space-y-6 text-left relative shadow-[8px_8px_0px_0px_rgba(0,168,107,1)]"
+            >
+              
+              <div className="flex items-start justify-between border-b-2 border-dashed border-neutral-200 pb-4">
+                <div>
+                  <span className="text-[9px] uppercase font-mono font-black text-emerald-700 bg-emerald-50 border border-emerald-150 px-2 py-0.5">
+                    SECURE ENTRY GATEWAY
+                  </span>
+                  <h3 className="font-display font-black text-xl text-neutral-950 uppercase tracking-tight mt-2 leading-none">
+                    Sign In to Workspace
+                  </h3>
+                  <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mt-1.5">
+                    Enter your verified credentials to access your dashboard.
+                  </p>
+                </div>
+                <button 
+                  onClick={() => { 
+                    setIsSignInModalOpen(false); 
+                    setSignInEmail(''); 
+                    setSignInPassword(''); 
+                    setSignInError(''); 
+                    setSecureLoginError(null); 
+                    setShowPassword(false);
                   }}
-                  className={`py-3.5 px-1 font-display font-black text-[9px] sm:text-[10px] uppercase tracking-wider transition-all cursor-pointer text-center ${
-                    signInRole === 'talent'
-                      ? 'bg-neutral-950 text-white border-t-4 border-t-[#00A86B]'
-                      : 'bg-neutral-50 text-neutral-500 hover:bg-neutral-100 border-t-4 border-t-transparent'
-                  } disabled:opacity-50`}
-                >
-                  Talent
-                </button>
-                <button
-                  type="button"
                   disabled={isSecureLoggingIn}
-                  onClick={() => {
-                    setSignInRole('recruiter');
-                    setSignInEmail('');
-                    setSignInPassword('');
-                    setSecureLoginError(null);
-                    setSignInError('');
-                  }}
-                  className={`py-3.5 px-1 font-display font-black text-[9px] sm:text-[10px] uppercase tracking-wider transition-all cursor-pointer text-center border-l-2 border-neutral-950 ${
-                    signInRole === 'recruiter'
-                      ? 'bg-neutral-950 text-white border-t-4 border-t-[#00A86B]'
-                      : 'bg-neutral-50 text-neutral-500 hover:bg-neutral-100 border-t-4 border-t-transparent'
-                  } disabled:opacity-50`}
+                  className="text-neutral-400 hover:text-neutral-950 p-1.5 transition cursor-pointer font-black text-lg border-2 border-transparent hover:border-neutral-950 disabled:opacity-50"
                 >
-                  Recruiter
-                </button>
-                <button
-                  type="button"
-                  disabled={isSecureLoggingIn}
-                  onClick={() => {
-                    setSignInRole('admin');
-                    setSignInEmail('');
-                    setSignInPassword('');
-                    setSecureLoginError(null);
-                    setSignInError('');
-                  }}
-                  className={`py-3.5 px-1 font-display font-black text-[9px] sm:text-[10px] uppercase tracking-wider transition-all cursor-pointer text-center border-l-2 border-neutral-950 ${
-                    signInRole === 'admin'
-                      ? 'bg-neutral-950 text-white border-t-4 border-t-[#00A86B]'
-                      : 'bg-neutral-50 text-neutral-500 hover:bg-neutral-100 border-t-4 border-t-transparent'
-                  } disabled:opacity-50`}
-                >
-                  Admin
+                  ✕
                 </button>
               </div>
-            </div>
 
-            <div className="relative flex py-1 items-center">
-              <div className="flex-grow border-t border-neutral-200"></div>
-              <span className="flex-shrink mx-3 text-[9px] font-mono text-neutral-400 font-extrabold uppercase">GATEWAY AUTHS</span>
-              <div className="flex-grow border-t border-neutral-200"></div>
-            </div>
-
-            <form onSubmit={handleSignInSubmit} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-[9px] font-mono text-neutral-400 font-extrabold uppercase block tracking-wider">EMAIL ADDRESS</label>
-                <input 
-                  type="email" 
-                  required 
-                  disabled={isSecureLoggingIn}
-                  value={signInEmail}
-                  onChange={(e) => setSignInEmail(e.target.value)}
-                  placeholder="you@domain.com" 
-                  className="w-full border-2 border-neutral-300 rounded-none px-4 py-3 focus:outline-none focus:border-emerald-600 bg-neutral-50 focus:bg-white text-xs font-bold text-neutral-900 tracking-wide disabled:opacity-50"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[9px] font-mono text-neutral-400 font-extrabold uppercase block tracking-wider">PASSWORD</label>
-                <div className="relative">
-                  <input 
-                    type={showPassword ? "text" : "password"} 
-                    required 
-                    disabled={isSecureLoggingIn}
-                    value={signInPassword}
-                    onChange={(e) => setSignInPassword(e.target.value)}
-                    placeholder="••••••••" 
-                    className="w-full border-2 border-neutral-300 rounded-none pl-4 pr-11 py-3 focus:outline-none focus:border-emerald-600 bg-neutral-50 focus:bg-white text-xs font-bold text-neutral-900 tracking-wide disabled:opacity-50"
-                  />
+              {/* Multi-Track Tabs: Talent, Recruiter & Admin */}
+              <div className="space-y-2">
+                <span className="text-[9px] font-mono text-neutral-400 font-extrabold uppercase block tracking-wider">SELECT GATEWAY TRACK</span>
+                <div className="grid grid-cols-3 border-2 border-neutral-950">
                   <button
-                    id="toggle-password-visibility-btn"
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
                     disabled={isSecureLoggingIn}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-neutral-400 hover:text-neutral-700 transition-all rounded-none border border-transparent hover:border-neutral-200 bg-transparent disabled:opacity-50 focus:outline-none cursor-pointer"
+                    onClick={() => {
+                      setSignInRole('talent');
+                      setSignInEmail('');
+                      setSignInPassword('');
+                      setSecureLoginError(null);
+                      setSignInError('');
+                    }}
+                    className={`py-3.5 px-1 font-display font-black text-[9px] sm:text-[10px] uppercase tracking-wider transition-all cursor-pointer text-center ${
+                      signInRole === 'talent'
+                        ? 'bg-neutral-950 text-white border-t-4 border-t-[#00A86B]'
+                        : 'bg-neutral-50 text-neutral-500 hover:bg-neutral-100 border-t-4 border-t-transparent'
+                    } disabled:opacity-50`}
                   >
-                    {showPassword ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
+                    Talent
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSecureLoggingIn}
+                    onClick={() => {
+                      setSignInRole('recruiter');
+                      setSignInEmail('');
+                      setSignInPassword('');
+                      setSecureLoginError(null);
+                      setSignInError('');
+                    }}
+                    className={`py-3.5 px-1 font-display font-black text-[9px] sm:text-[10px] uppercase tracking-wider transition-all cursor-pointer text-center border-l-2 border-neutral-950 ${
+                      signInRole === 'recruiter'
+                        ? 'bg-neutral-950 text-white border-t-4 border-t-[#00A86B]'
+                        : 'bg-neutral-50 text-neutral-500 hover:bg-neutral-100 border-t-4 border-t-transparent'
+                    } disabled:opacity-50`}
+                  >
+                    Recruiter
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSecureLoggingIn}
+                    onClick={() => {
+                      setSignInRole('admin');
+                      setSignInEmail('');
+                      setSignInPassword('');
+                      setSecureLoginError(null);
+                      setSignInError('');
+                    }}
+                    className={`py-3.5 px-1 font-display font-black text-[9px] sm:text-[10px] uppercase tracking-wider transition-all cursor-pointer text-center border-l-2 border-neutral-950 ${
+                      signInRole === 'admin'
+                        ? 'bg-neutral-950 text-white border-t-4 border-t-[#00A86B]'
+                        : 'bg-neutral-50 text-neutral-500 hover:bg-neutral-100 border-t-4 border-t-transparent'
+                    } disabled:opacity-50`}
+                  >
+                    Admin
                   </button>
                 </div>
               </div>
 
-              {/* Dynamic Slate/Red Error Panel */}
-              {(secureLoginError || signInError) && (
-                <div className="p-3.5 bg-neutral-900 border-l-4 border-rose-500 text-neutral-100 text-xs font-semibold rounded-none space-y-1 animate-shake">
-                  <div className="text-rose-400 font-mono text-[9px] uppercase tracking-wider font-extrabold flex items-center gap-1">
-                    ⚠️ ACCESS DENIED / GATEWAY EXCLUSION
+              {/* Dynamic Animated Form Content for Selected Role */}
+              <AnimatePresence mode="wait">
+                <motion.form 
+                  key={signInRole}
+                  initial={{ opacity: 0, x: 12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -12 }}
+                  transition={{ duration: 0.18, ease: "easeInOut" }}
+                  onSubmit={handleSignInSubmit} 
+                  className="space-y-4"
+                >
+                  <div className="p-2.5 bg-neutral-50 border border-neutral-200 flex items-center justify-between">
+                    <span className="text-[9px] font-mono font-black text-neutral-600 uppercase tracking-wider">
+                      {signInRole === 'talent' && 'TALENT ACCESS PORTAL'}
+                      {signInRole === 'recruiter' && 'RECRUITER WORKSPACE'}
+                      {signInRole === 'admin' && 'ADMIN COMMAND VAULT'}
+                    </span>
+                    <span className="text-[8px] font-mono font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 uppercase">
+                      READY
+                    </span>
                   </div>
-                  <div className="leading-relaxed font-sans text-[11px]">
-                    {secureLoginError || signInError}
+
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-mono text-neutral-400 font-extrabold uppercase block tracking-wider">EMAIL ADDRESS</label>
+                    <input 
+                      type="email" 
+                      required 
+                      disabled={isSecureLoggingIn}
+                      value={signInEmail}
+                      onChange={(e) => setSignInEmail(e.target.value)}
+                      placeholder={
+                        signInRole === 'talent' ? 'talent@domain.com' :
+                        signInRole === 'recruiter' ? 'recruiter@dsp.com' :
+                        'admin@dsp.com'
+                      } 
+                      className="w-full border-2 border-neutral-300 rounded-none px-4 py-3 focus:outline-none focus:border-emerald-600 bg-neutral-50 focus:bg-white text-xs font-bold text-neutral-900 tracking-wide disabled:opacity-50"
+                    />
                   </div>
-                </div>
-              )}
 
-              <button 
-                type="submit" 
-                disabled={isSecureLoggingIn}
-                className={`w-full bg-neutral-950 hover:bg-neutral-900 text-white font-black py-3 px-4 rounded-none text-xs uppercase tracking-widest transition cursor-pointer flex items-center justify-center gap-1.5 border-2 border-neutral-950 shadow-[4px_4px_0px_0px_rgba(0,168,107,1)] hover:shadow-none ${
-                  isSecureLoggingIn ? 'opacity-70 cursor-not-allowed' : ''
-                }`}
-              >
-                {isSecureLoggingIn ? (
-                  <>
-                    <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span>VERIFYING PROFILE SECTOR...</span>
-                  </>
-                ) : (
-                  <>
-                    <Lock className="w-3.5 h-3.5 text-[#00A86B]" />
-                    <span>SECURE ACCESS LOG IN</span>
-                  </>
-                )}
-              </button>
-            </form>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-mono text-neutral-400 font-extrabold uppercase block tracking-wider">PASSWORD</label>
+                    <div className="relative">
+                      <input 
+                        type={showPassword ? "text" : "password"} 
+                        required 
+                        disabled={isSecureLoggingIn}
+                        value={signInPassword}
+                        onChange={(e) => setSignInPassword(e.target.value)}
+                        placeholder="••••••••" 
+                        className="w-full border-2 border-neutral-300 rounded-none pl-4 pr-11 py-3 focus:outline-none focus:border-emerald-600 bg-neutral-50 focus:bg-white text-xs font-bold text-neutral-900 tracking-wide disabled:opacity-50"
+                      />
+                      <button
+                        id="toggle-password-visibility-btn"
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        disabled={isSecureLoggingIn}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-neutral-400 hover:text-neutral-700 transition-all rounded-none border border-transparent hover:border-neutral-200 bg-transparent disabled:opacity-50 focus:outline-none cursor-pointer"
+                      >
+                        {showPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
 
-            <div className="text-center pt-2 border-t border-dashed border-neutral-200">
-              <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">
-                New to the platform?{' '}
-              </span>
-              <button
-                onClick={() => {
-                  setIsSignInModalOpen(false);
-                  setOnboardingData(null);
-                  setCurrentPage('home');
-                }}
-                disabled={isSecureLoggingIn}
-                className="text-[10px] uppercase font-black text-[#00A86B] hover:text-emerald-800 hover:underline tracking-wider cursor-pointer disabled:opacity-50"
-              >
-                Start Onboarding to Register
-              </button>
-            </div>
+                  {/* Dynamic Slate/Red Error Panel */}
+                  {(secureLoginError || signInError) && (
+                    <div className="p-3.5 bg-neutral-900 border-l-4 border-rose-500 text-neutral-100 text-xs font-semibold rounded-none space-y-1 animate-shake">
+                      <div className="text-rose-400 font-mono text-[9px] uppercase tracking-wider font-extrabold flex items-center gap-1">
+                        ⚠️ ACCESS DENIED / GATEWAY EXCLUSION
+                      </div>
+                      <div className="leading-relaxed font-sans text-[11px]">
+                        {secureLoginError || signInError}
+                      </div>
+                    </div>
+                  )}
 
-          </div>
-        </div>
-      )}
+                  <button 
+                    type="submit" 
+                    disabled={isSecureLoggingIn}
+                    className={`w-full bg-neutral-950 hover:bg-neutral-900 text-white font-black py-3 px-4 rounded-none text-xs uppercase tracking-widest transition cursor-pointer flex items-center justify-center gap-1.5 border-2 border-neutral-950 shadow-[4px_4px_0px_0px_rgba(0,168,107,1)] hover:shadow-none ${
+                      isSecureLoggingIn ? 'opacity-70 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    {isSecureLoggingIn ? (
+                      <>
+                        <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>VERIFYING PROFILE SECTOR...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-3.5 h-3.5 text-[#00A86B]" />
+                        <span>SECURE ACCESS LOG IN ({signInRole.toUpperCase()})</span>
+                      </>
+                    )}
+                  </button>
+                </motion.form>
+              </AnimatePresence>
+
+              <div className="text-center pt-2 border-t border-dashed border-neutral-200">
+                <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">
+                  New to the platform?{' '}
+                </span>
+                <button
+                  onClick={() => {
+                    setIsSignInModalOpen(false);
+                    setOnboardingData(null);
+                    setCurrentPage('home');
+                  }}
+                  disabled={isSecureLoggingIn}
+                  className="text-[10px] uppercase font-black text-[#00A86B] hover:text-emerald-800 hover:underline tracking-wider cursor-pointer disabled:opacity-50"
+                >
+                  Start Onboarding to Register
+                </button>
+              </div>
+
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* GLOBAL FOOTER */}
       <Footer setCurrentPage={setCurrentPage} />
