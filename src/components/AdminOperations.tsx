@@ -19,12 +19,15 @@ import {
   LogOut,
   Sliders,
   Sparkles,
-  Zap
+  Zap,
+  ExternalLink,
+  X,
+  Check,
+  Edit3
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useSupabase } from '../context/SupabaseContext';
 import { TalentCandidate } from '../types';
-import { MOCK_TALENT } from '../data/mockTalent';
 
 interface AdminOperationsProps {
   onBackToMain: () => void;
@@ -164,10 +167,11 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
 
   // Unified operational states
   const [recruiters, setRecruiters] = useState<MockRecruiter[]>(INITIAL_RECRUITERS);
-  const [talentVettingList, setTalentVettingList] = useState<any[]>([]);
+  const [talentList, setTalentList] = useState<any[]>([]);
+  const [loadingTalents, setLoadingTalents] = useState<boolean>(false);
+  const [selectedTalentModal, setSelectedTalentModal] = useState<any | null>(null);
   const [selectedResponsesLog, setSelectedResponsesLog] = useState<{ name: string; logs: { question: string; answer: string }[] } | null>(null);
   const [auditViewType, setAuditViewType] = useState<'structured' | 'jsonb'>('jsonb');
-  const [revenueTotal, setRevenueTotal] = useState<number>(24800);
 
   // Available slots management states
   const [slotsList, setSlotsList] = useState<any[]>([]);
@@ -181,6 +185,139 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
   const [quizAttemptsLog, setQuizAttemptsLog] = useState<any[]>([]);
   const [loadingAttempts, setLoadingAttempts] = useState<boolean>(false);
   const [selectedAuditAttempt, setSelectedAuditAttempt] = useState<any | null>(null);
+
+  // 1. LIVE TALENT PIPELINE DASHBOARD - FETCH FROM SUPABASE
+  const fetchTalents = async () => {
+    setLoadingTalents(true);
+    try {
+      const { data, error } = await supabase
+        .from('talent_profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        const mapped = data.map((t: any, idx: number) => ({
+          id: t.id,
+          full_name: t.full_name || t.fullName || t.name || `Candidate #${idx + 1}`,
+          email: t.email || `candidate${idx + 1}@domain.com`,
+          specialty: t.specialty || t.specialization || 'Growth Marketing',
+          career_goal: t.career_goal || t.role || 'Full-Time Remote Job',
+          created_at: t.created_at || new Date().toISOString(),
+          phase_1_quiz_passed: Boolean(t.phase_1_quiz_passed),
+          latest_quiz_score: t.latest_quiz_score ?? t.quiz_score ?? t.phase1Score ?? (t.phase_1_quiz_passed ? 85 : 0),
+          phase_2_interview_scheduled: Boolean(t.phase_2_interview_scheduled || t.phase2Booked),
+          phase_2_interview_passed: Boolean(t.phase_2_interview_passed),
+          phase_3_fee_paid: Boolean(t.phase_3_fee_paid || t.phase3Paid),
+          phase_4_portfolio_submitted: Boolean(t.phase_4_portfolio_submitted),
+          portfolio_url: t.portfolio_url || t.portfolioUrl,
+          vetting_status: (t.vetting_status || 'pending').toLowerCase(),
+          avatar_url: t.avatar_url || t.avatarUrl || `https://images.unsplash.com/photo-${1534528741775 + (idx * 1000)}?w=150&auto=format&fit=crop&q=80`,
+          failedAttemptsCount: t.failed_attempts_count || 0
+        }));
+
+        // Merge offline local profiles if any exist in localStorage
+        const localProfiles: any[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('mock_talent_profiles_')) {
+            try {
+              const raw = JSON.parse(localStorage.getItem(k) || '{}');
+              if (raw && (raw.full_name || raw.name || raw.email)) {
+                localProfiles.push({
+                  id: raw.id || k.replace('mock_talent_profiles_', ''),
+                  full_name: raw.full_name || raw.name || 'Registered Candidate',
+                  email: raw.email || 'talent@domain.com',
+                  specialty: raw.specialty || raw.specialization || 'Growth Marketing',
+                  career_goal: raw.career_goal || raw.role || 'Full-Time Remote Job',
+                  created_at: raw.created_at || new Date().toISOString(),
+                  phase_1_quiz_passed: Boolean(raw.phase_1_quiz_passed),
+                  latest_quiz_score: raw.latest_quiz_score || raw.quiz_score || (raw.phase_1_quiz_passed ? 85 : 0),
+                  phase_2_interview_scheduled: Boolean(raw.phase_2_interview_scheduled),
+                  phase_2_interview_passed: Boolean(raw.phase_2_interview_passed),
+                  phase_3_fee_paid: Boolean(raw.phase_3_fee_paid),
+                  phase_4_portfolio_submitted: Boolean(raw.phase_4_portfolio_submitted),
+                  portfolio_url: raw.portfolio_url,
+                  vetting_status: (raw.vetting_status || 'pending').toLowerCase(),
+                  avatar_url: raw.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+                  failedAttemptsCount: raw.failed_attempts_count || 0
+                });
+              }
+            } catch (_) {}
+          }
+        }
+
+        const combined = [...mapped];
+        localProfiles.forEach(lp => {
+          if (!combined.some(c => c.id === lp.id || c.email === lp.email)) {
+            combined.push(lp);
+          }
+        });
+
+        setTalentList(combined);
+      }
+    } catch (err) {
+      console.warn('Query talent_profiles exception:', err);
+    } finally {
+      setLoadingTalents(false);
+    }
+  };
+
+  // Live Recruiter Profiles Query
+  const fetchRecruiters = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('recruiter_profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        const mapped = data.map((r: any, idx: number) => ({
+          id: r.id || `R${idx + 1}`,
+          orgName: r.organization_name || r.orgName || 'Enterprise Partner',
+          size: r.organization_size || r.size || '11-50 Employees',
+          industry: r.industry_vertical || r.industry || 'SaaS / Tech',
+          neededRole: r.needed_talent_role || r.neededRole || 'Full-Time Dedicated Talent',
+          slotsBought: r.slots_bought || r.slotsBought || 3,
+          activeSearches: r.active_searches || r.activeSearches || 1,
+          onboardedAt: r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : '2026-07-01'
+        }));
+        setRecruiters(mapped);
+      }
+    } catch (err) {
+      console.warn('Query recruiter_profiles error:', err);
+    }
+  };
+
+  // ADMIN ACTION HANDLER (LIVE DB UPDATES)
+  const updateTalentStatus = async (talentId: string, updates: Record<string, any>) => {
+    // Optimistic UI state update
+    setTalentList(prev => prev.map(t => t.id === talentId ? { ...t, ...updates } : t));
+
+    // Local storage fallback sync
+    const mockKey = `mock_talent_profiles_${talentId}`;
+    const existing = localStorage.getItem(mockKey);
+    if (existing) {
+      try {
+        const parsed = JSON.parse(existing);
+        localStorage.setItem(mockKey, JSON.stringify({ ...parsed, ...updates }));
+      } catch (_) {}
+    }
+
+    try {
+      const { error } = await supabase
+        .from('talent_profiles')
+        .update(updates)
+        .eq('id', talentId);
+
+      if (error) {
+        console.warn('Supabase DB update note:', error.message);
+      } else {
+        fetchTalents(); // Refresh list on successful live update
+      }
+    } catch (err) {
+      console.warn('updateTalentStatus error:', err);
+    }
+  };
 
   const fetchQuizAttempts = async () => {
     setLoadingAttempts(true);
@@ -265,12 +402,11 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
         }));
       }
 
-      setTalentVettingList(prev => prev.map(t => {
-        if (t.fullName === attempt.full_name || (userId && t.id === userId)) {
+      setTalentList(prev => prev.map(t => {
+        if (t.full_name === attempt.full_name || t.name === attempt.full_name || (userId && t.id === userId)) {
           return {
             ...t,
-            phase1Score: 75,
-            vetting_status: 'passed_quiz',
+            latest_quiz_score: 75,
             phase_1_quiz_passed: true
           };
         }
@@ -436,23 +572,8 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
 
   // Initialize and load default state of vetting candidates
   useEffect(() => {
-    // We map MOCK_TALENT into our dynamic administrator table view state to track stages and status
-    const initialVetting = MOCK_TALENT.map(t => {
-      // Setup mock vetting variables matching real DB constraints
-      const phase1Score = t.portfolioScore;
-      const phase2Booked = t.id === 'T1' || t.id === 'T2' || t.id === 'T3';
-      const phase3Paid = t.id === 'T1' || t.id === 'T2';
-      
-      return {
-        ...t,
-        phase1Score,
-        phase2Booked,
-        phase3Paid,
-        vetting_status: phase3Paid ? 'passed' : 'pending',
-        failedAttemptsCount: t.id === 'T4' ? 2 : 0, // Mock some failed attempts to demonstrate resetting
-      };
-    });
-    setTalentVettingList(initialVetting);
+    fetchTalents();
+    fetchRecruiters();
     fetchAdminSlots();
   }, []);
 
@@ -466,7 +587,6 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
         role: 'admin'
       });
     } else {
-      // Also check local storage for simulated admin sessions
       const simulatedAdmin = localStorage.getItem('dsp_simulated_admin');
       if (simulatedAdmin) {
         try {
@@ -481,6 +601,10 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
   useEffect(() => {
     if (activeTab === 'audits') {
       fetchQuizAttempts();
+    } else if (activeTab === 'registry') {
+      fetchTalents();
+    } else if (activeTab === 'recruiters') {
+      fetchRecruiters();
     }
   }, [activeTab]);
 
@@ -602,49 +726,11 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
     setAuthSuccessMsg('Staff session severed successfully.');
   };
 
-  // ACTION TRIGGER: Toggle vetting status between passed / pending
-  const handleToggleVettingStatus = (talentId: string) => {
-    setTalentVettingList(prev => prev.map(t => {
-      if (t.id === talentId) {
-        const nextStatus = t.vetting_status === 'passed' ? 'pending' : 'passed';
-        
-        // Adjust simulated aggregates
-        if (nextStatus === 'passed' && !t.phase3Paid) {
-          // Grant mock phase 3 paid state & update revenue simulation
-          setRevenueTotal(rev => rev + 250);
-          return {
-            ...t,
-            vetting_status: nextStatus,
-            phase3Paid: true
-          };
-        }
-        
-        return {
-          ...t,
-          vetting_status: nextStatus
-        };
-      }
-      return t;
-    }));
-  };
-
-  // ACTION TRIGGER: Reset failed attempt count to 0 for retraining adjustment
-  const handleResetRetraining = (talentId: string) => {
-    setTalentVettingList(prev => prev.map(t => {
-      if (t.id === talentId) {
-        return {
-          ...t,
-          failedAttemptsCount: 0
-        };
-      }
-      return t;
-    }));
-  };
-
   // Compute stats on current live state list
-  const activeEnrolledCount = talentVettingList.length;
-  const approvedCardsCount = talentVettingList.filter(t => t.vetting_status === 'passed').length;
+  const activeEnrolledCount = talentList.length;
+  const approvedCardsCount = talentList.filter(t => t.vetting_status === 'approved' || t.vetting_status === 'passed').length;
   const activeRecruitersCount = recruiters.length;
+  const revenueTotal = talentList.filter(t => t.phase_3_fee_paid).length * 35000;
 
   return (
     <div className="bg-neutral-50 min-h-screen text-neutral-900 font-sans border-t-8 border-neutral-950 flex flex-col" id="admin-operations-container">
@@ -962,7 +1048,7 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
           {/* Operations Navigation Tab Selector */}
           <div className="flex border-b-4 border-neutral-950 gap-2 mb-6 mt-4 overflow-x-auto">
             {[
-              { id: 'registry', label: 'Talent Registry', count: talentVettingList.length },
+              { id: 'registry', label: 'Talent Registry', count: talentList.length },
               { id: 'audits', label: 'Gemini Quiz Audits' },
               { id: 'recruiters', label: 'Recruiter Placements', count: recruiters.length },
               { id: 'slots', label: 'Vetting Slots Manager', count: slotsList.length }
@@ -1007,156 +1093,265 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
                   Talent Optimization Registry Table
                 </h3>
                 <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold">
-                  Review digital operator status profiles, phase matrix checks, and unlock original onboarding response strings.
+                  Review digital operator status profiles, 4-phase matrix checks, and update vetting statuses live in Supabase.
                 </p>
               </div>
               
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-mono uppercase text-neutral-400 font-bold">Total Enrolled:</span>
-                <strong className="text-xs font-mono font-extrabold text-neutral-900 bg-neutral-100 px-2.5 py-1 border border-neutral-300">{talentVettingList.length}</strong>
+                <strong className="text-xs font-mono font-extrabold text-neutral-900 bg-neutral-100 px-2.5 py-1 border border-neutral-300">{talentList.length}</strong>
               </div>
             </div>
 
             {/* Responsive Horizontal Table Container */}
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs tracking-tight border-collapse min-w-[900px]">
+              <table className="w-full text-left text-xs tracking-tight border-collapse min-w-[1200px]">
                 <thead>
                   <tr className="bg-neutral-900 text-white uppercase font-mono text-[9px] font-black tracking-widest border-2 border-neutral-900">
                     <th className="py-3 px-4">Talent Profile</th>
-                    <th className="py-3 px-4 text-center">Phase 1 Score</th>
-                    <th className="py-3 px-4 text-center">Phase 2 Interview</th>
-                    <th className="py-3 px-4 text-center">Phase 3 Fee</th>
-                    <th className="py-3 px-4">Vetting Status</th>
-                    <th className="py-3 px-4 text-center">Questionnaire Log</th>
-                    <th className="py-3 px-4 text-right">Administrative Actions</th>
+                    <th className="py-3 px-4 text-center">Progress Matrix</th>
+                    <th className="py-3 px-4 text-center">Phase 1: Diagnostic</th>
+                    <th className="py-3 px-4 text-center">Phase 2: Panel Interview</th>
+                    <th className="py-3 px-4 text-center">Phase 3: Verification Fee</th>
+                    <th className="py-3 px-4 text-center">Phase 4: Portfolio</th>
+                    <th className="py-3 px-4 text-center">Vetting Status</th>
+                    <th className="py-3 px-4 text-right">Admin Action Controls</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y-2 divide-neutral-150">
-                  {talentVettingList.map((talent) => (
+                  {talentList.map((talent) => {
+                    const completedCount = 
+                      (talent.phase_1_quiz_passed ? 1 : 0) +
+                      (talent.phase_2_interview_passed ? 1 : 0) +
+                      (talent.phase_3_fee_paid ? 1 : 0) +
+                      (talent.phase_4_portfolio_submitted ? 1 : 0);
+                    const progressPercent = completedCount * 25;
+
+                    return (
                     <tr key={talent.id} className="hover:bg-neutral-50 transition duration-100">
                       
-                      {/* Talent basic details */}
+                      {/* Basic Info */}
                       <td className="py-4.5 px-4 text-left">
                         <div className="flex items-center gap-3">
                           <img 
-                            src={talent.avatarUrl} 
-                            alt={talent.name} 
+                            src={talent.avatar_url || talent.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'} 
+                            alt={talent.full_name || talent.name} 
                             className="w-10 h-10 border-2 border-neutral-950 object-cover rounded-none shrink-0"
                             referrerPolicy="no-referrer"
                           />
                           <div>
-                            <p className="font-extrabold text-sm text-neutral-950 uppercase">{talent.name}</p>
-                            <p className="text-[10px] font-bold text-neutral-500 uppercase">{talent.role}</p>
-                            
-                            {/* Skills chips */}
-                            <div className="flex flex-wrap gap-1 mt-1.5 max-w-sm">
-                              {talent.skills.slice(0, 3).map((s: string, idx: number) => (
-                                <span key={idx} className="bg-neutral-100 border border-neutral-200 text-neutral-600 px-1.5 py-0.2 rounded-none text-[8.5px] font-bold uppercase">
-                                  {s}
-                                </span>
-                              ))}
-                              {talent.skills.length > 3 && (
-                                <span className="text-[8.5px] text-neutral-400 font-extrabold">+{talent.skills.length - 3} MORE</span>
-                              )}
+                            <p className="font-extrabold text-sm text-neutral-950 uppercase">{talent.full_name || talent.name || 'Anonymous Candidate'}</p>
+                            <p className="text-[10px] font-bold text-neutral-500 uppercase">{talent.email}</p>
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                              <span className="bg-neutral-100 border border-neutral-200 text-neutral-700 px-1.5 py-0.5 text-[8.5px] font-bold uppercase">
+                                {talent.specialty || 'Growth Marketing'}
+                              </span>
+                              <span className="bg-neutral-100 border border-neutral-200 text-neutral-600 px-1.5 py-0.5 text-[8.5px] font-bold uppercase">
+                                {talent.career_goal || 'Full-Time Remote'}
+                              </span>
                             </div>
+                            <p className="text-[8px] font-mono text-neutral-400 mt-1">
+                              Enrolled: {talent.created_at ? new Date(talent.created_at).toLocaleDateString() : 'Recent'}
+                            </p>
                           </div>
                         </div>
                       </td>
 
-                      {/* Phase 1 timed test score */}
-                      <td className="py-4.5 px-4 text-center">
-                        <div className="inline-block">
-                          <span className="font-mono text-xs font-black bg-neutral-100 text-neutral-900 px-2 py-1 border border-neutral-300">
-                            {talent.phase1Score}/100
+                      {/* Progress Matrix */}
+                      <td className="py-4.5 px-4 text-center min-w-[140px]">
+                        <div className="space-y-1.5 max-w-[120px] mx-auto">
+                          <div className="flex items-center justify-between text-[9px] font-mono font-black text-neutral-900">
+                            <span>Phase {completedCount}/4</span>
+                            <span>{progressPercent}%</span>
+                          </div>
+                          <div className="w-full bg-neutral-200 h-2 border border-neutral-900 overflow-hidden">
+                            <div 
+                              className="bg-[#00A86B] h-full transition-all duration-300" 
+                              style={{ width: `${progressPercent}%` }}
+                            />
+                          </div>
+                          <span className={`inline-block text-[8px] font-mono font-extrabold uppercase px-1.5 py-0.5 border ${
+                            completedCount === 4
+                              ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                              : 'bg-neutral-100 text-neutral-600 border-neutral-200'
+                          }`}>
+                            {completedCount === 4 ? 'Phase 4/4 Complete' : `Phase ${completedCount}/4 Complete`}
                           </span>
-                          <span className="block text-[8px] font-mono text-neutral-400 mt-1 uppercase font-bold">TIMED TEST</span>
                         </div>
                       </td>
 
-                      {/* Phase 2 Interview booking status */}
+                      {/* Phase 1: Diagnostic */}
                       <td className="py-4.5 px-4 text-center">
-                        <span className={`inline-flex items-center gap-1 font-mono text-[9px] font-black px-2.5 py-0.5 uppercase border ${
-                          talent.phase2Booked 
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
-                            : 'bg-neutral-100 text-neutral-500 border-neutral-300'
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-none ${talent.phase2Booked ? 'bg-emerald-500' : 'bg-neutral-400'}`} />
-                          <span>{talent.phase2Booked ? 'BOOKED' : 'PENDING'}</span>
-                        </span>
-                      </td>
-
-                      {/* Phase 3 payment state */}
-                      <td className="py-4.5 px-4 text-center">
-                        <span className={`inline-flex items-center gap-1 font-mono text-[9px] font-black px-2.5 py-0.5 uppercase border ${
-                          talent.phase3Paid 
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
-                            : 'bg-rose-50 text-rose-800 border-rose-300'
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-none ${talent.phase3Paid ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                          <span>{talent.phase3Paid ? 'PAID' : 'UNPAID'}</span>
-                        </span>
-                      </td>
-
-                      {/* Vetting Status badge */}
-                      <td className="py-4.5 px-4">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider border-2 ${
-                          talent.vetting_status === 'passed' 
-                            ? 'bg-[#00A86B]/10 text-[#00A86B] border-[#00A86B]' 
-                            : 'bg-amber-50 text-amber-800 border-amber-300'
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-none ${talent.vetting_status === 'passed' ? 'bg-[#00A86B]' : 'bg-amber-500'}`} />
-                          <span>{talent.vetting_status === 'passed' ? 'PASSED CATALOG' : 'IN VETTING'}</span>
-                        </span>
-                      </td>
-
-                      {/* Dynamic onboarding log popup trigger */}
-                      <td className="py-4.5 px-4 text-center">
-                        <button 
-                          onClick={() => {
-                            const logs = MOCK_SESSION_RESPONSES[talent.id] || [
-                              { question: 'User profile path', answer: 'Generic exploratory catalog setup' }
-                            ];
-                            setSelectedResponsesLog({ name: talent.name, logs });
-                          }}
-                          className="bg-neutral-100 hover:bg-neutral-900 text-neutral-950 hover:text-white border-2 border-neutral-950 px-2.5 py-1.5 transition text-[9px] font-black uppercase cursor-pointer flex items-center justify-center gap-1 mx-auto"
-                        >
-                          <Eye className="w-3.5 h-3.5 text-[#00A86B]" />
-                          <span>VIEW PATH RESPONSES</span>
-                        </button>
-                      </td>
-
-                      {/* Administrative triggers: Toggle catalog vetting_status & reset attempt limits */}
-                      <td className="py-4.5 px-4 text-right space-y-2">
-                        
-                        <div className="flex justify-end gap-1.5">
-                          <button 
-                            onClick={() => handleToggleVettingStatus(talent.id)}
-                            className="bg-[#00A86B] hover:bg-emerald-800 text-white font-black text-[9.5px] px-2 py-1 rounded-none uppercase tracking-wider cursor-pointer border border-[#00A86B] transition"
-                            title="Toggle Vetting Status manually"
+                        <div className="space-y-1.5">
+                          <span className={`inline-flex items-center gap-1 font-mono text-[9px] font-black px-2 py-0.5 uppercase border ${
+                            talent.phase_1_quiz_passed 
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
+                              : 'bg-rose-50 text-rose-800 border-rose-300'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 ${talent.phase_1_quiz_passed ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                            <span>{talent.phase_1_quiz_passed ? 'PASSED' : 'PENDING'}</span>
+                          </span>
+                          <div className="text-[9px] font-mono font-bold text-neutral-500">
+                            Score: {talent.latest_quiz_score ?? 0}/100
+                          </div>
+                          <button
+                            onClick={() => updateTalentStatus(talent.id, { phase_1_quiz_passed: !talent.phase_1_quiz_passed })}
+                            className="text-[8.5px] font-mono font-extrabold underline text-neutral-700 hover:text-emerald-700 cursor-pointer block mx-auto"
                           >
-                            {talent.vetting_status === 'passed' ? 'REVOKE PASS' : 'FORCE APPROVAL'}
+                            Toggle Phase 1
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* Phase 2: Panel Interview */}
+                      <td className="py-4.5 px-4 text-center">
+                        <div className="space-y-1.5">
+                          <div className="flex flex-col gap-1 items-center">
+                            <span className={`inline-flex items-center gap-1 font-mono text-[8.5px] font-black px-2 py-0.5 uppercase border ${
+                              talent.phase_2_interview_scheduled 
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
+                                : 'bg-neutral-100 text-neutral-500 border-neutral-300'
+                            }`}>
+                              <span>Sched: {talent.phase_2_interview_scheduled ? 'YES' : 'NO'}</span>
+                            </span>
+                            <span className={`inline-flex items-center gap-1 font-mono text-[8.5px] font-black px-2 py-0.5 uppercase border ${
+                              talent.phase_2_interview_passed 
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
+                                : 'bg-amber-50 text-amber-800 border-amber-300'
+                            }`}>
+                              <span>Passed: {talent.phase_2_interview_passed ? 'YES' : 'NO'}</span>
+                            </span>
+                          </div>
+                          <div className="flex justify-center gap-1.5">
+                            <button
+                              onClick={() => updateTalentStatus(talent.id, { phase_2_interview_scheduled: !talent.phase_2_interview_scheduled })}
+                              className="text-[8px] font-mono font-extrabold underline text-neutral-600 hover:text-neutral-900 cursor-pointer"
+                            >
+                              Toggle Sched
+                            </button>
+                            <button
+                              onClick={() => updateTalentStatus(talent.id, { phase_2_interview_passed: !talent.phase_2_interview_passed })}
+                              className="text-[8px] font-mono font-extrabold underline text-neutral-600 hover:text-emerald-700 cursor-pointer"
+                            >
+                              Toggle Pass
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Phase 3: Verification Fee */}
+                      <td className="py-4.5 px-4 text-center">
+                        <div className="space-y-1.5">
+                          <span className={`inline-flex items-center gap-1 font-mono text-[9px] font-black px-2.5 py-0.5 uppercase border ${
+                            talent.phase_3_fee_paid 
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
+                              : 'bg-rose-50 text-rose-800 border-rose-300'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 ${talent.phase_3_fee_paid ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                            <span>{talent.phase_3_fee_paid ? 'PAID ₦35k' : 'UNPAID'}</span>
+                          </span>
+                          <button
+                            onClick={() => updateTalentStatus(talent.id, { phase_3_fee_paid: !talent.phase_3_fee_paid })}
+                            className="text-[8.5px] font-mono font-extrabold underline text-neutral-700 hover:text-emerald-700 cursor-pointer block mx-auto"
+                          >
+                            Toggle Fee
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* Phase 4: Portfolio */}
+                      <td className="py-4.5 px-4 text-center">
+                        <div className="space-y-1.5">
+                          <span className={`inline-flex items-center gap-1 font-mono text-[8.5px] font-black px-2 py-0.5 uppercase border ${
+                            talent.phase_4_portfolio_submitted 
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
+                              : 'bg-neutral-100 text-neutral-500 border-neutral-300'
+                          }`}>
+                            <span>{talent.phase_4_portfolio_submitted ? 'SUBMITTED' : 'PENDING'}</span>
+                          </span>
+                          {talent.portfolio_url && (
+                            <a 
+                              href={talent.portfolio_url} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="text-[8.5px] font-mono text-emerald-700 hover:underline flex items-center justify-center gap-0.5"
+                            >
+                              <span>View Link</span>
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </a>
+                          )}
+                          <button
+                            onClick={() => updateTalentStatus(talent.id, { phase_4_portfolio_submitted: !talent.phase_4_portfolio_submitted })}
+                            className="text-[8.5px] font-mono font-extrabold underline text-neutral-700 hover:text-emerald-700 cursor-pointer block mx-auto"
+                          >
+                            Toggle Portfolio
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* Overall Vetting Status */}
+                      <td className="py-4.5 px-4 text-center">
+                        <div className="space-y-1.5">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider border-2 ${
+                            talent.vetting_status === 'approved' || talent.vetting_status === 'passed'
+                              ? 'bg-[#00A86B]/10 text-[#00A86B] border-[#00A86B]' 
+                              : talent.vetting_status === 'rejected' || talent.vetting_status === 'revoked'
+                              ? 'bg-rose-50 text-rose-800 border-rose-300'
+                              : 'bg-amber-50 text-amber-800 border-amber-300'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 ${
+                              talent.vetting_status === 'approved' || talent.vetting_status === 'passed'
+                                ? 'bg-[#00A86B]'
+                                : talent.vetting_status === 'rejected' || talent.vetting_status === 'revoked'
+                                ? 'bg-rose-600'
+                                : 'bg-amber-500'
+                            }`} />
+                            <span>{(talent.vetting_status || 'pending').toUpperCase()}</span>
+                          </span>
+
+                          <select
+                            value={talent.vetting_status || 'pending'}
+                            onChange={(e) => updateTalentStatus(talent.id, { vetting_status: e.target.value })}
+                            className="block w-full border border-neutral-950 font-mono text-[9px] font-bold px-1 py-0.5 bg-white focus:outline-none uppercase cursor-pointer"
+                          >
+                            <option value="pending">PENDING</option>
+                            <option value="approved">APPROVED</option>
+                            <option value="rejected">REJECTED</option>
+                            <option value="revoked">REVOKED</option>
+                          </select>
+                        </div>
+                      </td>
+
+                      {/* Administrative Action Controls */}
+                      <td className="py-4.5 px-4 text-right space-y-2">
+                        <div className="flex flex-col items-end gap-1.5">
+                          <button 
+                            onClick={() => setSelectedTalentModal(talent)}
+                            className="bg-neutral-900 hover:bg-neutral-800 text-white font-black text-[9px] px-2 py-1.5 rounded-none uppercase tracking-wider cursor-pointer border border-neutral-950 transition w-full flex items-center justify-center gap-1"
+                          >
+                            <Edit3 className="w-3 h-3 text-emerald-400" />
+                            <span>MANAGE CANDIDATE</span>
                           </button>
 
-                          {talent.failedAttemptsCount > 0 ? (
-                            <button 
-                              onClick={() => handleResetRetraining(talent.id)}
-                              className="bg-neutral-900 hover:bg-neutral-800 text-white font-black text-[9.5px] px-2 py-1 rounded-none uppercase tracking-wider cursor-pointer border border-neutral-950 transition flex items-center gap-1"
-                              title="Clear failed diagnostics threshold"
-                            >
-                              <RotateCcw className="w-3 h-3 text-emerald-400" />
-                              <span>RESET RETRAIN ({talent.failedAttemptsCount})</span>
-                            </button>
-                          ) : (
-                            <div className="text-[8.5px] font-mono text-neutral-400 font-bold uppercase py-1 pr-2">
-                              No Failed Limits
-                            </div>
-                          )}
+                          <button 
+                            onClick={() => updateTalentStatus(talent.id, {
+                              phase_1_quiz_passed: true,
+                              phase_2_interview_scheduled: true,
+                              phase_2_interview_passed: true,
+                              phase_3_fee_paid: true,
+                              phase_4_portfolio_submitted: true,
+                              vetting_status: 'approved'
+                            })}
+                            className="bg-[#00A86B] hover:bg-emerald-800 text-white font-black text-[8.5px] px-2 py-0.5 rounded-none uppercase tracking-wider cursor-pointer border border-[#00A86B] transition w-full text-center"
+                          >
+                            APPROVE ALL
+                          </button>
                         </div>
-
                       </td>
 
                     </tr>
-                  ))}
+                  );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1601,7 +1796,7 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
                   </div>
                   <pre className="whitespace-pre-wrap font-mono leading-relaxed">
                     {JSON.stringify({
-                      talent_id: talentVettingList.find(t => t.name === selectedResponsesLog.name)?.id || 'unknown',
+                      talent_id: talentList.find(t => (t.full_name || t.name) === selectedResponsesLog.name)?.id || 'unknown',
                       recorded_at: new Date().toISOString().split('T')[0] + " 14:03:42 UTC",
                       session_responses: selectedResponsesLog.logs.reduce((acc, current, idx) => {
                         acc[`question_${idx + 1}`] = {
@@ -1752,6 +1947,236 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
                 Close Audit Inspection
               </button>
             </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* =================== CANDIDATE VETTING ACTION MODAL =================== */}
+      {selectedTalentModal && (
+        <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white border-4 border-neutral-950 max-w-xl w-full p-6 sm:p-8 space-y-5 text-left relative shadow-[12px_12px_0px_0px_rgba(0,168,107,1)] max-h-[90vh] overflow-y-auto">
+            
+            <button 
+              onClick={() => setSelectedTalentModal(null)}
+              className="absolute top-4 right-4 text-neutral-400 hover:text-neutral-950 font-mono font-black border-2 border-neutral-950 px-2.5 py-1 text-xs transition uppercase cursor-pointer"
+            >
+              ✕ CLOSE
+            </button>
+
+            {/* Candidate Header */}
+            <div className="border-b-2 border-neutral-200 pb-4 flex items-center gap-4">
+              <img 
+                src={selectedTalentModal.avatar_url || selectedTalentModal.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'} 
+                alt={selectedTalentModal.full_name || selectedTalentModal.name} 
+                className="w-14 h-14 border-2 border-neutral-950 object-cover shrink-0"
+              />
+              <div>
+                <span className="text-[9px] font-mono font-black text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 uppercase tracking-widest">
+                  ACTION CONTROL MATRIX
+                </span>
+                <h3 className="font-display font-black text-xl text-neutral-950 uppercase tracking-tight mt-1">
+                  {selectedTalentModal.full_name || selectedTalentModal.name || 'Candidate Details'}
+                </h3>
+                <p className="text-xs font-mono font-bold text-neutral-500">{selectedTalentModal.email}</p>
+              </div>
+            </div>
+
+            {/* Progress Bar Summary */}
+            {(() => {
+              const count = 
+                (selectedTalentModal.phase_1_quiz_passed ? 1 : 0) +
+                (selectedTalentModal.phase_2_interview_passed ? 1 : 0) +
+                (selectedTalentModal.phase_3_fee_paid ? 1 : 0) +
+                (selectedTalentModal.phase_4_portfolio_submitted ? 1 : 0);
+              const pct = count * 25;
+
+              return (
+                <div className="bg-neutral-50 border-2 border-neutral-950 p-4 space-y-2">
+                  <div className="flex justify-between items-center text-xs font-mono font-black uppercase">
+                    <span>Overall Progression:</span>
+                    <span className="text-[#00A86B]">Phase {count}/4 Complete ({pct}%)</span>
+                  </div>
+                  <div className="w-full bg-neutral-200 h-3 border border-neutral-950 overflow-hidden">
+                    <div className="bg-[#00A86B] h-full transition-all duration-300" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Interactive Phase Matrix Toggles */}
+            <div className="space-y-3">
+              <h4 className="text-[10px] font-mono font-black text-neutral-400 uppercase tracking-widest">
+                4-Phase Vetting Checkpoints
+              </h4>
+
+              {/* Phase 1 */}
+              <div className="flex items-center justify-between p-3 border-2 border-neutral-200 hover:border-neutral-950 transition">
+                <div>
+                  <p className="font-extrabold text-xs text-neutral-950 uppercase">Phase 1: Diagnostic Assessment</p>
+                  <p className="text-[10px] font-mono text-neutral-500">Score: {selectedTalentModal.latest_quiz_score || 0}/100</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    const nextVal = !selectedTalentModal.phase_1_quiz_passed;
+                    setSelectedTalentModal((prev: any) => ({ ...prev, phase_1_quiz_passed: nextVal }));
+                    await updateTalentStatus(selectedTalentModal.id, { phase_1_quiz_passed: nextVal });
+                  }}
+                  className={`font-mono text-[10px] font-black px-3 py-1.5 uppercase border-2 cursor-pointer transition ${
+                    selectedTalentModal.phase_1_quiz_passed
+                      ? 'bg-emerald-500 text-white border-emerald-600'
+                      : 'bg-neutral-100 text-neutral-700 border-neutral-300'
+                  }`}
+                >
+                  {selectedTalentModal.phase_1_quiz_passed ? 'PASSED ✓' : 'SET PASSED'}
+                </button>
+              </div>
+
+              {/* Phase 2 */}
+              <div className="flex items-center justify-between p-3 border-2 border-neutral-200 hover:border-neutral-950 transition">
+                <div>
+                  <p className="font-extrabold text-xs text-neutral-950 uppercase">Phase 2: Panel Interview</p>
+                  <p className="text-[10px] font-mono text-neutral-500">
+                    Sched: {selectedTalentModal.phase_2_interview_scheduled ? 'Yes' : 'No'} | Passed: {selectedTalentModal.phase_2_interview_passed ? 'Yes' : 'No'}
+                  </p>
+                </div>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={async () => {
+                      const nextVal = !selectedTalentModal.phase_2_interview_scheduled;
+                      setSelectedTalentModal((prev: any) => ({ ...prev, phase_2_interview_scheduled: nextVal }));
+                      await updateTalentStatus(selectedTalentModal.id, { phase_2_interview_scheduled: nextVal });
+                    }}
+                    className={`font-mono text-[9px] font-black px-2 py-1 uppercase border-2 cursor-pointer ${
+                      selectedTalentModal.phase_2_interview_scheduled
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-400'
+                        : 'bg-neutral-100 text-neutral-600 border-neutral-300'
+                    }`}
+                  >
+                    {selectedTalentModal.phase_2_interview_scheduled ? 'SCHED ✓' : 'SET SCHED'}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const nextVal = !selectedTalentModal.phase_2_interview_passed;
+                      setSelectedTalentModal((prev: any) => ({ ...prev, phase_2_interview_passed: nextVal }));
+                      await updateTalentStatus(selectedTalentModal.id, { phase_2_interview_passed: nextVal });
+                    }}
+                    className={`font-mono text-[9px] font-black px-2 py-1 uppercase border-2 cursor-pointer ${
+                      selectedTalentModal.phase_2_interview_passed
+                        ? 'bg-emerald-500 text-white border-emerald-600'
+                        : 'bg-neutral-100 text-neutral-600 border-neutral-300'
+                    }`}
+                  >
+                    {selectedTalentModal.phase_2_interview_passed ? 'PASSED ✓' : 'SET PASSED'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Phase 3 */}
+              <div className="flex items-center justify-between p-3 border-2 border-neutral-200 hover:border-neutral-950 transition">
+                <div>
+                  <p className="font-extrabold text-xs text-neutral-950 uppercase">Phase 3: Verification Fee</p>
+                  <p className="text-[10px] font-mono text-neutral-500">Fee Amount: ₦35,000</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    const nextVal = !selectedTalentModal.phase_3_fee_paid;
+                    setSelectedTalentModal((prev: any) => ({ ...prev, phase_3_fee_paid: nextVal }));
+                    await updateTalentStatus(selectedTalentModal.id, { phase_3_fee_paid: nextVal });
+                  }}
+                  className={`font-mono text-[10px] font-black px-3 py-1.5 uppercase border-2 cursor-pointer transition ${
+                    selectedTalentModal.phase_3_fee_paid
+                      ? 'bg-emerald-500 text-white border-emerald-600'
+                      : 'bg-neutral-100 text-neutral-700 border-neutral-300'
+                  }`}
+                >
+                  {selectedTalentModal.phase_3_fee_paid ? 'PAID ₦35k ✓' : 'SET PAID'}
+                </button>
+              </div>
+
+              {/* Phase 4 */}
+              <div className="flex items-center justify-between p-3 border-2 border-neutral-200 hover:border-neutral-950 transition">
+                <div>
+                  <p className="font-extrabold text-xs text-neutral-950 uppercase">Phase 4: Portfolio Verification</p>
+                  <p className="text-[10px] font-mono text-neutral-500">{selectedTalentModal.portfolio_url || 'No URL submitted'}</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    const nextVal = !selectedTalentModal.phase_4_portfolio_submitted;
+                    setSelectedTalentModal((prev: any) => ({ ...prev, phase_4_portfolio_submitted: nextVal }));
+                    await updateTalentStatus(selectedTalentModal.id, { phase_4_portfolio_submitted: nextVal });
+                  }}
+                  className={`font-mono text-[10px] font-black px-3 py-1.5 uppercase border-2 cursor-pointer transition ${
+                    selectedTalentModal.phase_4_portfolio_submitted
+                      ? 'bg-emerald-500 text-white border-emerald-600'
+                      : 'bg-neutral-100 text-neutral-700 border-neutral-300'
+                  }`}
+                >
+                  {selectedTalentModal.phase_4_portfolio_submitted ? 'SUBMITTED ✓' : 'SET SUBMITTED'}
+                </button>
+              </div>
+            </div>
+
+            {/* Overall Vetting Status Selector */}
+            <div className="space-y-1.5 bg-neutral-100 border-2 border-neutral-950 p-3">
+              <label className="block text-[10px] font-mono font-black text-neutral-700 uppercase">
+                Overall Candidate Vetting Status:
+              </label>
+              <select
+                value={selectedTalentModal.vetting_status || 'pending'}
+                onChange={async (e) => {
+                  const newStatus = e.target.value;
+                  setSelectedTalentModal((prev: any) => ({ ...prev, vetting_status: newStatus }));
+                  await updateTalentStatus(selectedTalentModal.id, { vetting_status: newStatus });
+                }}
+                className="w-full border-2 border-neutral-950 font-mono text-xs font-black p-2 bg-white focus:outline-none uppercase cursor-pointer"
+              >
+                <option value="pending">PENDING (IN VETTING)</option>
+                <option value="approved">APPROVED (PASS CATALOG)</option>
+                <option value="rejected">REJECTED</option>
+                <option value="revoked">REVOKED</option>
+              </select>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <button
+                onClick={async () => {
+                  const updates = {
+                    phase_1_quiz_passed: true,
+                    phase_2_interview_scheduled: true,
+                    phase_2_interview_passed: true,
+                    phase_3_fee_paid: true,
+                    phase_4_portfolio_submitted: true,
+                    vetting_status: 'approved'
+                  };
+                  setSelectedTalentModal((prev: any) => ({ ...prev, ...updates }));
+                  await updateTalentStatus(selectedTalentModal.id, updates);
+                  setSelectedTalentModal(null);
+                }}
+                className="flex-1 bg-[#00A86B] hover:bg-emerald-800 text-white font-black py-3 px-4 rounded-none text-xs uppercase tracking-widest transition cursor-pointer border-2 border-[#00A86B] text-center"
+              >
+                APPROVE ALL PHASES
+              </button>
+              <button
+                onClick={async () => {
+                  const updates = { vetting_status: 'revoked' };
+                  setSelectedTalentModal((prev: any) => ({ ...prev, ...updates }));
+                  await updateTalentStatus(selectedTalentModal.id, updates);
+                  setSelectedTalentModal(null);
+                }}
+                className="flex-1 bg-rose-700 hover:bg-rose-800 text-white font-black py-3 px-4 rounded-none text-xs uppercase tracking-widest transition cursor-pointer border-2 border-rose-700 text-center"
+              >
+                REVOKE ACCESS
+              </button>
+            </div>
+
+            <button 
+              onClick={() => setSelectedTalentModal(null)}
+              className="w-full bg-neutral-950 hover:bg-neutral-900 text-white font-black py-3.5 px-6 rounded-none text-xs uppercase tracking-widest transition cursor-pointer text-center border-2 border-neutral-950 mt-2"
+            >
+              SAVE & CLOSE
+            </button>
 
           </div>
         </div>
