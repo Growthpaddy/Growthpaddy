@@ -100,6 +100,20 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Helper to ensure clean error messages from thrown errors or Supabase error objects
+  const parseAuthErrorMessage = (err: any): string => {
+    if (!err) return 'An unexpected error occurred';
+    if (typeof err === 'string') return err;
+    if (err.message && typeof err.message === 'string' && err.message.trim() !== '') return err.message;
+    if (err.error_description && typeof err.error_description === 'string') return err.error_description;
+    if (err.msg && typeof err.msg === 'string') return err.msg;
+    try {
+      const jsonStr = JSON.stringify(err);
+      if (jsonStr && jsonStr !== '{}') return jsonStr;
+    } catch (_) {}
+    return String(err) || 'Authentication failed';
+  };
+
   // Standard authentication hooks mapped directly to Supabase
   const signUp = async (email: string, password: string, options: any = {}) => {
     setError(null);
@@ -121,9 +135,10 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       if (authError) throw authError;
       return { user: data.user, error: null };
     } catch (err: any) {
-      console.error('Sign Up Error:', err.message || err);
-      setError(err.message || String(err));
-      return { user: null, error: err };
+      const errMsg = parseAuthErrorMessage(err);
+      console.error('Sign Up Error:', errMsg);
+      setError(errMsg);
+      return { user: null, error: new Error(errMsg) };
     }
   };
 
@@ -137,9 +152,10 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       if (authError) throw authError;
       return { user: data.user, error: null };
     } catch (err: any) {
-      console.error('Sign In Error:', err.message || err);
-      setError(err.message || String(err));
-      return { user: null, error: err };
+      const errMsg = parseAuthErrorMessage(err);
+      console.error('Sign In Error:', errMsg);
+      setError(errMsg);
+      return { user: null, error: new Error(errMsg) };
     }
   };
 
@@ -152,9 +168,10 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       setSession(null);
       return { error: null };
     } catch (err: any) {
-      console.error('Sign Out Error:', err.message || err);
-      setError(err.message || String(err));
-      return { error: err };
+      const errMsg = parseAuthErrorMessage(err);
+      console.error('Sign Out Error:', errMsg);
+      setError(errMsg);
+      return { error: new Error(errMsg) };
     }
   };
 
@@ -229,9 +246,10 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
  
       return { user: newUser, profile, error: null };
     } catch (err: any) {
-      console.error('Talent Registration Flow Exception:', err.message || err);
-      setError(err.message || String(err));
-      return { user: null, profile: null, error: err };
+      const errMsg = parseAuthErrorMessage(err);
+      console.error('Talent Registration Flow Exception:', errMsg);
+      setError(errMsg);
+      return { user: null, profile: null, error: new Error(errMsg) };
     }
   };
  
@@ -300,9 +318,10 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
  
       return { user: newUser, profile, error: null };
     } catch (err: any) {
-      console.error('Recruiter Registration Flow Exception:', err.message || err);
-      setError(err.message || String(err));
-      return { user: null, profile: null, error: err };
+      const errMsg = parseAuthErrorMessage(err);
+      console.error('Recruiter Registration Flow Exception:', errMsg);
+      setError(errMsg);
+      return { user: null, profile: null, error: new Error(errMsg) };
     }
   };
 
@@ -315,7 +334,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
     if (!email || !password) {
       const err = new Error('Email and password are required for registration.');
-      console.error(err);
+      console.error(err.message);
       setError(err.message);
       return { user: null, error: err };
     }
@@ -411,9 +430,10 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
       return { user: newUser, error: null };
     } catch (err: any) {
-      console.error('handleOnboardingSubmit exception:', err.message || err);
-      setError(err.message || String(err));
-      return { user: null, error: err };
+      const errMsg = parseAuthErrorMessage(err);
+      console.error('handleOnboardingSubmit exception:', errMsg);
+      setError(errMsg);
+      return { user: null, error: new Error(errMsg) };
     }
   };
 
