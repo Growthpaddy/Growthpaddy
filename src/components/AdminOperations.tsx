@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useSupabase } from '../context/SupabaseContext';
+import { useAdminPipeline } from '../hooks/useAdminPipeline';
 import { TalentCandidate } from '../types';
 
 interface AdminOperationsProps {
@@ -40,9 +41,16 @@ interface AdminUser {
 }
 
 // Rich Mock Recruiter data mapping to corporate pipelines
-interface MockRecruiter {
+interface AdminUser {
+  email: string;
+  fullName: string;
+  role: string;
+}
+
+interface RecruiterRecord {
   id: string;
   orgName: string;
+  email: string;
   size: string;
   industry: string;
   neededRole: string;
@@ -50,102 +58,6 @@ interface MockRecruiter {
   activeSearches: number;
   onboardedAt: string;
 }
-
-// Initial mock recruiters to show in Recruiter Placement Monitoring Table
-const INITIAL_RECRUITERS: MockRecruiter[] = [
-  {
-    id: 'R1',
-    orgName: 'Sterling Growth Capital',
-    size: '11-50',
-    industry: 'SaaS / B2B',
-    neededRole: 'AI Automation Operations Architect',
-    slotsBought: 3,
-    activeSearches: 2,
-    onboardedAt: '2026-06-12'
-  },
-  {
-    id: 'R2',
-    orgName: 'AgriCorp Tech',
-    size: '51-200',
-    industry: 'Agriculture Technology',
-    neededRole: 'SEO Content Strategist',
-    slotsBought: 1,
-    activeSearches: 1,
-    onboardedAt: '2026-07-01'
-  },
-  {
-    id: 'R3',
-    orgName: 'SupaExpress Africa',
-    size: '201-500',
-    industry: 'Logistics & Delivery',
-    neededRole: 'Full-Time Dedicated Talent',
-    slotsBought: 5,
-    activeSearches: 3,
-    onboardedAt: '2026-07-15'
-  },
-  {
-    id: 'R4',
-    orgName: 'Nesta Labs',
-    size: '1-10',
-    industry: 'Creative / Web Dev',
-    neededRole: 'Conversion Rate Optimization',
-    slotsBought: 2,
-    activeSearches: 1,
-    onboardedAt: '2026-07-17'
-  }
-];
-
-// Rich custom dynamic questionnaire answers for the "session_responses" log
-const MOCK_SESSION_RESPONSES: Record<string, { question: string; answer: string }[]> = {
-  'T1': [
-    { question: 'What is your primary specialty?', answer: 'Growth Marketing & CRO' },
-    { question: 'Main career goal inside network?', answer: 'Full-Time Remote Job' },
-    { question: 'What is your experience level?', answer: 'Seasoned Professional (5+ Years)' },
-    { question: 'Digital Toolsets proficiency?', answer: 'Google Analytics 4, Mixpanel, SQL, HubSpot, Figma' },
-    { question: 'Average test response speed?', answer: '1.4 seconds/question' },
-    { question: 'Acceptable contract terms?', answer: 'Direct agency-proxy placement accepted' }
-  ],
-  'T2': [
-    { question: 'What is your primary specialty?', answer: 'AI Automation Operations' },
-    { question: 'Main career goal inside network?', answer: 'Freelance Gigs & Automation setup' },
-    { question: 'What is your experience level?', answer: 'Seasoned Professional (4+ Years)' },
-    { question: 'Digital Toolsets proficiency?', answer: 'Zapier Enterprise, Make.com, n8n, Python, Gemini API' },
-    { question: 'Average test response speed?', answer: '0.9 seconds/question' },
-    { question: 'Acceptable contract terms?', answer: 'Prefers recurring technical SLA models' }
-  ],
-  'T3': [
-    { question: 'What is your primary specialty?', answer: 'SEO Specialization & Semantic Content' },
-    { question: 'Main career goal inside network?', answer: 'Full-Time Remote Job' },
-    { question: 'What is your experience level?', answer: 'Seasoned Professional (6+ Years)' },
-    { question: 'Digital Toolsets proficiency?', answer: 'Ahrefs, Semrush, Screaming Frog, Next.js, Programmatic SEO' },
-    { question: 'Average test response speed?', answer: '1.6 seconds/question' },
-    { question: 'Acceptable contract terms?', answer: 'Retainer agreements only' }
-  ],
-  'T4': [
-    { question: 'What is your primary specialty?', answer: 'PPC & Paid Acquisition' },
-    { question: 'Main career goal inside network?', answer: 'Internship Pathway / Supervised Gigs' },
-    { question: 'What is your experience level?', answer: 'Fresher / Entry-Level Track' },
-    { question: 'Digital Toolsets proficiency?', answer: 'Google Paid Search, Meta Ads Manager, RoAS tracking, CapCut' },
-    { question: 'Average test response speed?', answer: '2.1 seconds/question' },
-    { question: 'Acceptable contract terms?', answer: 'Prefers structured corporate mentorship' }
-  ],
-  'T5': [
-    { question: 'What is your primary specialty?', answer: 'Social Media & Brand Builder' },
-    { question: 'Main career goal inside network?', answer: 'Freelance Gigs / Internships' },
-    { question: 'What is your experience level?', answer: 'Fresher / Entry-Level Track' },
-    { question: 'Digital Toolsets proficiency?', answer: 'TikTok Analytics, CapCut Pro, Canva, Adobe Express' },
-    { question: 'Average test response speed?', answer: '1.8 seconds/question' },
-    { question: 'Acceptable contract terms?', answer: 'Willing to take short assignments' }
-  ],
-  'T6': [
-    { question: 'What is your primary specialty?', answer: 'Lifecycle & Email Marketer' },
-    { question: 'Main career goal inside network?', answer: 'Full-Time Remote Job' },
-    { question: 'What is your experience level?', answer: 'Seasoned Professional (4+ Years)' },
-    { question: 'Digital Toolsets proficiency?', answer: 'Klaviyo, HubSpot, HTML/CSS templates, Behavioral Triggers' },
-    { question: 'Average test response speed?', answer: '1.2 seconds/question' },
-    { question: 'Acceptable contract terms?', answer: 'Direct corporate hire preferred' }
-  ]
-};
 
 export default function AdminOperations({ onBackToMain }: AdminOperationsProps) {
   const { user, signIn, signUp } = useSupabase();
@@ -162,13 +74,23 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
   const [authSuccessMsg, setAuthSuccessMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   
+  // Toast notification state & Live Pipeline hook
+  const {
+    talents: talentList,
+    recruiters,
+    loadingTalents,
+    loadingRecruiters,
+    toastMsg,
+    setToastMsg,
+    fetchTalents,
+    fetchRecruiters,
+    handleUpdateTalent
+  } = useAdminPipeline();
+
   // Current logged in admin info
   const [currentAdmin, setCurrentAdmin] = useState<AdminUser | null>(null);
 
-  // Unified operational states
-  const [recruiters, setRecruiters] = useState<MockRecruiter[]>(INITIAL_RECRUITERS);
-  const [talentList, setTalentList] = useState<any[]>([]);
-  const [loadingTalents, setLoadingTalents] = useState<boolean>(false);
+  // Modal and audit states
   const [selectedTalentModal, setSelectedTalentModal] = useState<any | null>(null);
   const [selectedResponsesLog, setSelectedResponsesLog] = useState<{ name: string; logs: { question: string; answer: string }[] } | null>(null);
   const [auditViewType, setAuditViewType] = useState<'structured' | 'jsonb'>('jsonb');
@@ -186,137 +108,12 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
   const [loadingAttempts, setLoadingAttempts] = useState<boolean>(false);
   const [selectedAuditAttempt, setSelectedAuditAttempt] = useState<any | null>(null);
 
-  // 1. LIVE TALENT PIPELINE DASHBOARD - FETCH FROM SUPABASE
-  const fetchTalents = async () => {
-    setLoadingTalents(true);
-    try {
-      const { data, error } = await supabase
-        .from('talent_profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (!error && data) {
-        const mapped = data.map((t: any, idx: number) => ({
-          id: t.id,
-          full_name: t.full_name || t.fullName || t.name || `Candidate #${idx + 1}`,
-          email: t.email || `candidate${idx + 1}@domain.com`,
-          specialty: t.specialty || t.specialization || 'Growth Marketing',
-          career_goal: t.career_goal || t.role || 'Full-Time Remote Job',
-          created_at: t.created_at || new Date().toISOString(),
-          phase_1_quiz_passed: Boolean(t.phase_1_quiz_passed),
-          latest_quiz_score: t.latest_quiz_score ?? t.quiz_score ?? t.phase1Score ?? (t.phase_1_quiz_passed ? 85 : 0),
-          phase_2_interview_scheduled: Boolean(t.phase_2_interview_scheduled || t.phase2Booked),
-          phase_2_interview_passed: Boolean(t.phase_2_interview_passed),
-          phase_3_fee_paid: Boolean(t.phase_3_fee_paid || t.phase3Paid),
-          phase_4_portfolio_submitted: Boolean(t.phase_4_portfolio_submitted),
-          portfolio_url: t.portfolio_url || t.portfolioUrl,
-          vetting_status: (t.vetting_status || 'pending').toLowerCase(),
-          avatar_url: t.avatar_url || t.avatarUrl || `https://images.unsplash.com/photo-${1534528741775 + (idx * 1000)}?w=150&auto=format&fit=crop&q=80`,
-          failedAttemptsCount: t.failed_attempts_count || 0
-        }));
-
-        // Merge offline local profiles if any exist in localStorage
-        const localProfiles: any[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (k && k.startsWith('mock_talent_profiles_')) {
-            try {
-              const raw = JSON.parse(localStorage.getItem(k) || '{}');
-              if (raw && (raw.full_name || raw.name || raw.email)) {
-                localProfiles.push({
-                  id: raw.id || k.replace('mock_talent_profiles_', ''),
-                  full_name: raw.full_name || raw.name || 'Registered Candidate',
-                  email: raw.email || 'talent@domain.com',
-                  specialty: raw.specialty || raw.specialization || 'Growth Marketing',
-                  career_goal: raw.career_goal || raw.role || 'Full-Time Remote Job',
-                  created_at: raw.created_at || new Date().toISOString(),
-                  phase_1_quiz_passed: Boolean(raw.phase_1_quiz_passed),
-                  latest_quiz_score: raw.latest_quiz_score || raw.quiz_score || (raw.phase_1_quiz_passed ? 85 : 0),
-                  phase_2_interview_scheduled: Boolean(raw.phase_2_interview_scheduled),
-                  phase_2_interview_passed: Boolean(raw.phase_2_interview_passed),
-                  phase_3_fee_paid: Boolean(raw.phase_3_fee_paid),
-                  phase_4_portfolio_submitted: Boolean(raw.phase_4_portfolio_submitted),
-                  portfolio_url: raw.portfolio_url,
-                  vetting_status: (raw.vetting_status || 'pending').toLowerCase(),
-                  avatar_url: raw.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-                  failedAttemptsCount: raw.failed_attempts_count || 0
-                });
-              }
-            } catch (_) {}
-          }
-        }
-
-        const combined = [...mapped];
-        localProfiles.forEach(lp => {
-          if (!combined.some(c => c.id === lp.id || c.email === lp.email)) {
-            combined.push(lp);
-          }
-        });
-
-        setTalentList(combined);
-      }
-    } catch (err) {
-      console.warn('Query talent_profiles exception:', err);
-    } finally {
-      setLoadingTalents(false);
-    }
-  };
-
-  // Live Recruiter Profiles Query
-  const fetchRecruiters = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('recruiter_profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (!error && data && data.length > 0) {
-        const mapped = data.map((r: any, idx: number) => ({
-          id: r.id || `R${idx + 1}`,
-          orgName: r.organization_name || r.orgName || 'Enterprise Partner',
-          size: r.organization_size || r.size || '11-50 Employees',
-          industry: r.industry_vertical || r.industry || 'SaaS / Tech',
-          neededRole: r.needed_talent_role || r.neededRole || 'Full-Time Dedicated Talent',
-          slotsBought: r.slots_bought || r.slotsBought || 3,
-          activeSearches: r.active_searches || r.activeSearches || 1,
-          onboardedAt: r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : '2026-07-01'
-        }));
-        setRecruiters(mapped);
-      }
-    } catch (err) {
-      console.warn('Query recruiter_profiles error:', err);
-    }
-  };
-
-  // ADMIN ACTION HANDLER (LIVE DB UPDATES)
+  // Wrapper for updateTalentStatus to synchronize selected modal
   const updateTalentStatus = async (talentId: string, updates: Record<string, any>) => {
-    // Optimistic UI state update
-    setTalentList(prev => prev.map(t => t.id === talentId ? { ...t, ...updates } : t));
-
-    // Local storage fallback sync
-    const mockKey = `mock_talent_profiles_${talentId}`;
-    const existing = localStorage.getItem(mockKey);
-    if (existing) {
-      try {
-        const parsed = JSON.parse(existing);
-        localStorage.setItem(mockKey, JSON.stringify({ ...parsed, ...updates }));
-      } catch (_) {}
+    if (selectedTalentModal && selectedTalentModal.id === talentId) {
+      setSelectedTalentModal((prev: any) => (prev ? { ...prev, ...updates } : null));
     }
-
-    try {
-      const { error } = await supabase
-        .from('talent_profiles')
-        .update(updates)
-        .eq('id', talentId);
-
-      if (error) {
-        console.warn('Supabase DB update note:', error.message);
-      } else {
-        fetchTalents(); // Refresh list on successful live update
-      }
-    } catch (err) {
-      console.warn('updateTalentStatus error:', err);
-    }
+    await handleUpdateTalent(talentId, updates);
   };
 
   const fetchQuizAttempts = async () => {
@@ -402,16 +199,15 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
         }));
       }
 
-      setTalentList(prev => prev.map(t => {
-        if (t.full_name === attempt.full_name || t.name === attempt.full_name || (userId && t.id === userId)) {
-          return {
-            ...t,
-            latest_quiz_score: 75,
-            phase_1_quiz_passed: true
-          };
-        }
-        return t;
-      }));
+      if (userId) {
+        await handleUpdateTalent(userId, {
+          phase_1_quiz_passed: true,
+          latest_quiz_score: 75,
+          vetting_status: 'passed_quiz'
+        });
+      } else {
+        await fetchTalents();
+      }
 
       setQuizAttemptsLog(prev => prev.map(a => {
         if (a.id === attempt.id) {
@@ -608,7 +404,7 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
     }
   }, [activeTab]);
 
-  // Handle Admin registration logic
+  // Handle Admin registration logic (creates real user in Supabase Auth & admin_profiles)
   const handleAdminSignUpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
@@ -622,8 +418,7 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
     }
 
     try {
-      // 1. SUPABASE AUTH SIGNUP TRIGGER:
-      // Executing supabase.auth.signUp and writing option metadata values.
+      // 1. Live Supabase Auth SignUp Call
       const { user: authedUser, error: signUpErr } = await signUp(email, password, {
         data: {
           role: 'admin',
@@ -632,36 +427,35 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
       });
 
       if (signUpErr) {
-        // Fallback to local storage admin storage for simulated/offline workflows
-        console.warn('Supabase Auth error. Falling back to secure admin simulation mode...', signUpErr);
-        
-        const existingAdmins = JSON.parse(localStorage.getItem('dsp_simulated_admins_db') || '[]');
-        const exists = existingAdmins.some((a: any) => a.email.toLowerCase() === email.toLowerCase());
-        
-        if (exists) {
-          throw new Error('An administrator with this professional email address is already configured.');
-        }
-
-        const newAdmin = { email: email.toLowerCase(), fullName, password, role: 'admin' };
-        existingAdmins.push(newAdmin);
-        localStorage.setItem('dsp_simulated_admins_db', JSON.stringify(existingAdmins));
-
-        setAuthSuccessMsg('Staff Account created successfully in simulated vault. You can now Sign In.');
-        setAuthView('signin');
-        setLoading(false);
-        return;
+        throw signUpErr;
       }
 
-      setAuthSuccessMsg('Staff account successfully staged! Verification dispatched. Please sign in.');
+      // 2. Write to admin_profiles table if user created
+      if (authedUser) {
+        try {
+          await supabase.from('admin_profiles').upsert([
+            {
+              id: authedUser.id,
+              full_name: fullName,
+              email: email.toLowerCase().trim(),
+              role: 'admin'
+            }
+          ]);
+        } catch (dbErr) {
+          console.warn('admin_profiles record notice:', dbErr);
+        }
+      }
+
+      setAuthSuccessMsg('Live Staff Account created! Verification dispatched. You can now Sign In.');
       setAuthView('signin');
     } catch (err: any) {
-      setAuthError(err.message || 'Verification pipeline encountered a failure.');
+      setAuthError(err.message || 'Staff node registration failed.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle Admin Sign In logic
+  // Handle Admin Sign In logic with live Supabase Auth & admin_profiles
   const handleAdminSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
@@ -675,42 +469,24 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
     }
 
     try {
-      // 1. Try real authentication if configured
       const { user: authedUser, error: signInErr } = await signIn(email, password);
       
-      if (authedUser && !signInErr) {
+      if (signInErr) {
+        throw signInErr;
+      }
+
+      if (authedUser) {
         setIsAdminAuthenticated(true);
         setCurrentAdmin({
-          email: authedUser.email || '',
-          fullName: authedUser.user_metadata?.full_name || 'System Staff',
+          email: authedUser.email || email,
+          fullName: authedUser.user_metadata?.full_name || fullName || 'System Staff',
           role: 'admin'
         });
         setLoading(false);
         return;
       }
 
-      // 2. Fallback to Local Storage administrative registry simulation
-      const simulatedAdmins = JSON.parse(localStorage.getItem('dsp_simulated_admins_db') || '[]');
-      
-      // Also allow a default universal seed admin for prompt testing
-      const universalAdmins = [
-        { email: 'admin@dsptalenthub.com', fullName: 'Director of Talent Systems', password: 'adminpassword', role: 'admin' },
-        { email: 'staff@dsp.com', fullName: 'Interim Sourcing Lead', password: 'password123', role: 'admin' }
-      ];
-
-      const combined = [...simulatedAdmins, ...universalAdmins];
-      const found = combined.find(
-        (a: any) => a.email.toLowerCase() === email.toLowerCase() && a.password === password
-      );
-
-      if (found) {
-        const sessionPayload = { email: found.email, fullName: found.fullName, role: 'admin' };
-        localStorage.setItem('dsp_simulated_admin', JSON.stringify(sessionPayload));
-        setIsAdminAuthenticated(true);
-        setCurrentAdmin(sessionPayload);
-      } else {
-        throw new Error('Access Denied. Invalid credentials or insufficient operational role.');
-      }
+      throw new Error('Access Denied. Invalid credentials or insufficient operational role.');
     } catch (err: any) {
       setAuthError(err.message || 'Operation restricted. Check credential matrix.');
     } finally {
@@ -1044,6 +820,18 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
             </div>
 
           </div>
+
+          {/* Toast Notification Alert Banner */}
+          {toastMsg && (
+            <div className="fixed top-6 right-6 z-50 bg-neutral-950 text-white border-2 border-emerald-500 p-4 shadow-[6px_6px_0px_0px_rgba(0,168,107,1)] flex items-center gap-3 animate-fadeIn">
+              <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
+              <div>
+                <p className="font-mono text-xs font-black uppercase text-emerald-400">SUPABASE LIVE UPDATE</p>
+                <p className="text-xs font-extrabold text-neutral-200">{toastMsg}</p>
+              </div>
+              <button onClick={() => setToastMsg(null)} className="ml-2 text-neutral-400 hover:text-white font-mono text-xs cursor-pointer">✕</button>
+            </div>
+          )}
 
           {/* Operations Navigation Tab Selector */}
           <div className="flex border-b-4 border-neutral-950 gap-2 mb-6 mt-4 overflow-x-auto">
@@ -1475,77 +1263,106 @@ export default function AdminOperations({ onBackToMain }: AdminOperationsProps) 
           {activeTab === 'recruiters' && (
             /* =================== 2b. THE RECRUITER PLACEMENT MONITORING TABLE =================== */
             <div className="bg-white border-4 border-neutral-950 p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] text-left">
-            <div className="border-b-2 border-neutral-200 pb-4 mb-6">
-              <span className="text-[9px] font-mono font-black text-emerald-805 bg-emerald-50 border border-emerald-150 px-2 py-0.5">
-                PIPELINE CONTROLS
-              </span>
-              <h3 className="font-display font-black text-xl text-neutral-950 uppercase tracking-tight mt-1">
-                The Recruiter Placement Monitoring Table
-              </h3>
-              <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold">
-                Tracks active corporate organization pipelines, company metrics, licensing slots, and specific search preference types.
-              </p>
+            <div className="flex items-center justify-between border-b-2 border-neutral-200 pb-4 mb-6">
+              <div>
+                <span className="text-[9px] font-mono font-black text-emerald-800 bg-emerald-50 border border-emerald-150 px-2 py-0.5">
+                  PIPELINE CONTROLS
+                </span>
+                <h3 className="font-display font-black text-xl text-neutral-950 uppercase tracking-tight mt-1">
+                  The Recruiter Placement Directory
+                </h3>
+                <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold">
+                  Live directory of corporate client organizations querying public.recruiter_profiles in real time.
+                </p>
+              </div>
+              <button 
+                onClick={fetchRecruiters}
+                disabled={loadingRecruiters}
+                className="bg-neutral-950 hover:bg-neutral-900 text-white font-mono text-[10px] px-3.5 py-2 uppercase tracking-wider flex items-center gap-1.5 font-black border-2 border-neutral-950 cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingRecruiters ? 'animate-spin text-emerald-400' : ''}`} />
+                <span>REFRESH DIRECTORY</span>
+              </button>
             </div>
 
-            {/* Grid Matrix Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs tracking-tight border-collapse min-w-[800px]">
-                <thead>
-                  <tr className="bg-neutral-900 text-white uppercase font-mono text-[9px] font-black tracking-widest border-2 border-neutral-900">
-                    <th className="py-3 px-4">Corporate Client Organization</th>
-                    <th className="py-3 px-4">Industry / Vertical</th>
-                    <th className="py-3 px-4">Company Size</th>
-                    <th className="py-3 px-4">Search Preference Target</th>
-                    <th className="py-3 px-4 text-center">Purchased Slots</th>
-                    <th className="py-3 px-4 text-center">Active Campaigns</th>
-                    <th className="py-3 px-4 text-right">Onboarding Date</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y-2 divide-neutral-150">
-                  {recruiters.map((recruiter) => (
-                    <tr key={recruiter.id} className="hover:bg-neutral-50 transition duration-100">
-                      
-                      <td className="py-4 px-4 font-extrabold text-neutral-950 uppercase flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-none bg-neutral-950 border border-emerald-400" />
-                        <span>{recruiter.orgName}</span>
-                      </td>
-
-                      <td className="py-4 px-4 uppercase text-neutral-500 font-bold">
-                        {recruiter.industry}
-                      </td>
-
-                      <td className="py-4 px-4 font-mono font-bold text-neutral-700">
-                        {recruiter.size} EMPLOYEES
-                      </td>
-
-                      <td className="py-4 px-4">
-                        <span className="bg-emerald-50 border border-emerald-150 text-[#00A86B] font-bold uppercase text-[9px] px-2 py-1 rounded-none">
-                          {recruiter.neededRole}
-                        </span>
-                      </td>
-
-                      <td className="py-4 px-4 text-center">
-                        <span className="font-mono text-xs font-black bg-neutral-150 px-2.5 py-0.5 border border-neutral-300">
-                          {recruiter.slotsBought} SLOTS
-                        </span>
-                      </td>
-
-                      <td className="py-4 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1.5 font-mono text-xs font-black">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                          <span>{recruiter.activeSearches} RUNNING</span>
-                        </div>
-                      </td>
-
-                      <td className="py-4 px-4 text-right text-neutral-400 font-mono font-bold">
-                        {recruiter.onboardedAt}
-                      </td>
-
+            {loadingRecruiters ? (
+              <div className="py-16 text-center space-y-3 font-mono">
+                <RefreshCw className="w-8 h-8 text-emerald-600 mx-auto animate-spin" />
+                <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">LOADING LIVE RECRUITER PROFILES FROM SUPABASE...</p>
+              </div>
+            ) : recruiters.length === 0 ? (
+              <div className="p-12 text-center border-2 border-dashed border-neutral-300 text-neutral-400 font-mono text-xs uppercase space-y-2">
+                <p className="font-black text-neutral-600">NO RECRUITER PROFILES IN SUPABASE LEDGER</p>
+                <p className="text-[10px] text-neutral-400">Recruiters signing up in the application will populate public.recruiter_profiles automatically.</p>
+              </div>
+            ) : (
+              /* Grid Matrix Table */
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs tracking-tight border-collapse min-w-[800px]">
+                  <thead>
+                    <tr className="bg-neutral-900 text-white uppercase font-mono text-[9px] font-black tracking-widest border-2 border-neutral-900">
+                      <th className="py-3 px-4">Corporate Client Organization</th>
+                      <th className="py-3 px-4">Industry / Vertical</th>
+                      <th className="py-3 px-4">Company Size</th>
+                      <th className="py-3 px-4">Search Preference Target</th>
+                      <th className="py-3 px-4 text-center">Purchased Slots</th>
+                      <th className="py-3 px-4 text-center">Active Campaigns</th>
+                      <th className="py-3 px-4 text-right">Onboarding Date</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y-2 divide-neutral-150">
+                    {recruiters.map((recruiter) => (
+                      <tr key={recruiter.id} className="hover:bg-neutral-50 transition duration-100">
+                        
+                        <td className="py-4 px-4 text-left">
+                          <div className="font-extrabold text-neutral-950 uppercase flex items-center gap-2">
+                            <div className="w-2.5 h-2.5 rounded-none bg-neutral-950 border border-emerald-400 shrink-0" />
+                            <span>{recruiter.orgName}</span>
+                          </div>
+                          {recruiter.email && (
+                            <p className="text-[10px] font-mono font-bold text-neutral-500 uppercase mt-0.5 pl-4.5">
+                              {recruiter.email}
+                            </p>
+                          )}
+                        </td>
+
+                        <td className="py-4 px-4 uppercase text-neutral-500 font-bold">
+                          {recruiter.industry}
+                        </td>
+
+                        <td className="py-4 px-4 font-mono font-bold text-neutral-700">
+                          {recruiter.size} EMPLOYEES
+                        </td>
+
+                        <td className="py-4 px-4">
+                          <span className="bg-emerald-50 border border-emerald-150 text-[#00A86B] font-bold uppercase text-[9px] px-2 py-1 rounded-none">
+                            {recruiter.neededRole}
+                          </span>
+                        </td>
+
+                        <td className="py-4 px-4 text-center">
+                          <span className="font-mono text-xs font-black bg-neutral-150 px-2.5 py-0.5 border border-neutral-300">
+                            {recruiter.slotsBought} SLOTS
+                          </span>
+                        </td>
+
+                        <td className="py-4 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5 font-mono text-xs font-black">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span>{recruiter.activeSearches} RUNNING</span>
+                          </div>
+                        </td>
+
+                        <td className="py-4 px-4 text-right text-neutral-400 font-mono font-bold">
+                          {recruiter.onboardedAt}
+                        </td>
+
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
           </div>
           )}
