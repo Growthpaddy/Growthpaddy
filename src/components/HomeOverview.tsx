@@ -615,28 +615,28 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
 
       {/* 6. IMMERSIVE OUTCOMES CTA BOX */}
       <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-12">
-        <div className="bg-neutral-950 text-white rounded-none border-4 border-neutral-950 p-8 sm:p-12 text-center space-y-5 relative overflow-hidden shadow-[6px_6px_0px_0px_rgba(16,185,129,1)]">
+        <div className="bg-white text-neutral-950 border-4 border-neutral-950 p-8 sm:p-12 text-center space-y-5 relative overflow-hidden shadow-[8px_8px_0px_0px_rgba(0,168,107,1)]">
           
-          <h3 className="font-display font-black text-2xl sm:text-4xl text-white uppercase tracking-tight leading-none">
-            READY TO OUTSOURCE THE RECRUITMENT BOTTLENECK?
+          <h3 className="font-display font-black text-2xl sm:text-4xl text-neutral-950 uppercase tracking-tight leading-none">
+            READY TO HIRE VERIFIED AFRICAN TALENT?
           </h3>
           
-          <p className="text-neutral-400 text-xs max-w-md mx-auto uppercase tracking-wider font-bold leading-relaxed">
-            Protect your growth timeline. Connect directly with highly skilled digital specialists who have proven their competence.
+          <p className="text-neutral-700 text-xs sm:text-sm max-w-lg mx-auto uppercase tracking-wider font-bold leading-relaxed">
+            Connect directly with skilled digital professionals who have passed real-world practical tests and are ready to work immediately.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center pt-3">
             <button 
               onClick={() => navigateToPage('directory')} 
-              className="bg-emerald-400 hover:bg-emerald-500 text-neutral-950 font-black px-6 py-3.5 rounded-none text-xs uppercase tracking-widest cursor-pointer transition-colors"
+              className="bg-[#00A86B] hover:bg-emerald-600 text-white font-black px-6 py-3.5 border-2 border-neutral-950 text-xs uppercase tracking-widest cursor-pointer transition-colors shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
             >
-              START SOURCING
+              BROWSE TALENT DIRECTORY
             </button>
             <button 
               onClick={() => navigateToPage('pricing')} 
-              className="bg-transparent hover:bg-neutral-900 border-2 border-white text-white font-black px-6 py-3.5 rounded-none text-xs uppercase tracking-widest cursor-pointer transition-colors"
+              className="bg-white hover:bg-neutral-100 border-2 border-neutral-950 text-neutral-950 font-black px-6 py-3.5 text-xs uppercase tracking-widest cursor-pointer transition-colors shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
             >
-              VIEW SLOT OPTIONS
+              VIEW PRICING & PLANS
             </button>
           </div>
           

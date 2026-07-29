@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Menu, X, ArrowUpRight, Mail, Globe, Sparkles, Briefcase, Zap, Shield, Lock } from 'lucide-react';
+import { ShieldCheck, Menu, X, ArrowUpRight, ArrowRight, Mail, Globe, Sparkles, Briefcase, Zap, Shield, Lock, MessageSquare } from 'lucide-react';
 
 interface HeaderProps {
   currentPage?: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login';
@@ -111,138 +111,196 @@ export function Footer({ setCurrentPage }: FooterProps) {
   };
 
   return (
-    <footer className="bg-neutral-950 text-neutral-400 py-16 border-t-4 border-neutral-950 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+    <footer className="bg-neutral-50 text-neutral-900 py-14 border-t-4 border-neutral-950 px-4 sm:px-6 lg:px-8 relative">
       
-      <div className="max-w-7xl mx-auto space-y-12 relative z-10">
+      <div className="max-w-7xl mx-auto space-y-10 relative z-10">
         
-        {/* Core Sourcing Stat Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 p-6 rounded-none bg-neutral-905 border-2 border-neutral-800">
-          <div className="space-y-1 text-left p-2 border-r border-neutral-805 last:border-r-0">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-[#10b981] flex items-center gap-1.5 font-black">
-              <Zap className="w-3.5 h-3.5" />
-              SKILL VERIFICATION
+        {/* Core Benefits Feature Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="bg-white p-5 border-2 border-neutral-950 shadow-[4px_4px_0px_0px_rgba(0,168,107,1)] space-y-2 text-left">
+            <span className="text-xs font-mono font-black uppercase text-[#00A86B] flex items-center gap-2">
+              <Zap className="w-4 h-4 text-[#00A86B]" />
+              PRACTICAL TESTS
             </span>
-            <p className="font-extrabold uppercase text-white tracking-tight text-xs">Vetted Matrices</p>
-            <p className="text-[10px] uppercase font-bold text-neutral-500">Adaptive assessments, no fluff</p>
+            <p className="font-extrabold text-neutral-950 text-sm uppercase tracking-tight">Real Skill Proof</p>
+            <p className="text-xs text-neutral-600 font-medium leading-relaxed">
+              Every professional takes real-world practical tests so you can hire based on true capability.
+            </p>
           </div>
-          <div className="space-y-1 text-left p-2 md:pl-6 border-r border-neutral-805 last:border-r-0">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-450 flex items-center gap-1.5 font-black">
-              <Briefcase className="w-3.5 h-3.5" />
-              SOURCING LATENCY
+
+          <div className="bg-white p-5 border-2 border-neutral-950 shadow-[4px_4px_0px_0px_rgba(59,130,246,1)] space-y-2 text-left">
+            <span className="text-xs font-mono font-black uppercase text-blue-700 flex items-center gap-2">
+              <Briefcase className="w-4 h-4 text-blue-700" />
+              FAST HIRING
             </span>
-            <p className="font-extrabold uppercase text-white tracking-tight text-xs">Zero Bottleneck</p>
-            <p className="text-[10px] uppercase font-bold text-neutral-500">Direct query profile unlocking</p>
+            <p className="font-extrabold text-neutral-950 text-sm uppercase tracking-tight">Direct Connections</p>
+            <p className="text-xs text-neutral-600 font-medium leading-relaxed">
+              Browse candidate profiles and connect directly without delays or agency middleman fees.
+            </p>
           </div>
-          <div className="space-y-1 text-left p-2 md:pl-6 border-r border-neutral-805 last:border-r-0">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-[#10b981] flex items-center gap-1.5 font-black">
-              <Shield className="w-3.5 h-3.5" />
-              CONFIDENCE MATRIX
+
+          <div className="bg-white p-5 border-2 border-neutral-950 shadow-[4px_4px_0px_0px_rgba(147,51,234,1)] space-y-2 text-left">
+            <span className="text-xs font-mono font-black uppercase text-purple-700 flex items-center gap-2">
+              <Shield className="w-4 h-4 text-purple-700" />
+              VERIFIED BADGES
             </span>
-            <p className="font-extrabold uppercase text-white tracking-tight text-xs">Proof-Driven dossiers</p>
-            <p className="text-[10px] uppercase font-bold text-neutral-500">SaaS audit metric transparency</p>
+            <p className="font-extrabold text-neutral-950 text-sm uppercase tracking-tight">100% Verified Work</p>
+            <p className="text-xs text-neutral-600 font-medium leading-relaxed">
+              View real project work, test scores, and verified accreditation badges on candidate profiles.
+            </p>
           </div>
-          <div className="space-y-1 text-left p-2 md:pl-6 last:border-r-0">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-[#10b981] flex items-center gap-1.5 font-black">
-              <Lock className="w-3.5 h-3.5" />
-              COMPLIANCE SAFE
+
+          <div className="bg-white p-5 border-2 border-neutral-950 shadow-[4px_4px_0px_0px_rgba(217,119,6,1)] space-y-2 text-left">
+            <span className="text-xs font-mono font-black uppercase text-amber-700 flex items-center gap-2">
+              <Lock className="w-4 h-4 text-amber-700" />
+              PRIVACY FIRST
             </span>
-            <p className="font-extrabold uppercase text-white tracking-tight text-xs">Anti-Crawl Guard</p>
-            <p className="text-[10px] uppercase font-bold text-neutral-500">Protected contact directories</p>
+            <p className="font-extrabold text-neutral-950 text-sm uppercase tracking-tight">Protected Data</p>
+            <p className="text-xs text-neutral-600 font-medium leading-relaxed">
+              All candidate details and hiring preferences are kept secure with direct privacy protection.
+            </p>
           </div>
         </div>
 
-        {/* Multi-Column Directory */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-8 items-start pt-4">
+        {/* Navigation & Brand Links Grid */}
+        <div className="bg-white border-2 border-neutral-950 p-6 sm:p-8 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-8 items-start">
           
-          {/* Brand Column (Spans 4) */}
-          <div className="lg:col-span-4 space-y-4 text-left">
+          {/* Brand & Mission */}
+          <div className="lg:col-span-5 space-y-3.5 text-left">
             <button 
               onClick={(e) => handleLink(e, 'home')}
-              className="inline-flex items-center gap-2.5 cursor-pointer bg-transparent border-0 p-0 text-left group"
+              className="inline-flex items-center gap-3 cursor-pointer bg-transparent border-0 p-0 text-left group"
             >
-              <div className="w-9 h-9 bg-neutral-900 border border-neutral-800 rounded-none flex items-center justify-center">
-                <ShieldCheck className="w-5.5 h-5.5 text-emerald-450" />
+              <div className="w-10 h-10 bg-[#00A86B] text-white border-2 border-neutral-950 flex items-center justify-center shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
+                <ShieldCheck className="w-6 h-6" />
               </div>
               <div className="flex flex-col">
-                <span className="font-display font-black text-sm uppercase tracking-wider text-white">
+                <span className="font-display font-black text-lg uppercase tracking-wider text-neutral-950">
                   DSP TALENT HUB
                 </span>
-                <span className="text-[9px] font-mono font-black text-neutral-500 tracking-wider">AFRICA'S VETTED MATRIX</span>
+                <span className="text-[10px] font-mono font-bold text-neutral-600 uppercase tracking-widest">AFRICA'S VERIFIED TALENT NETWORK</span>
               </div>
             </button>
-            <p className="text-[11px] uppercase tracking-wider font-bold text-neutral-500 max-w-sm leading-relaxed">
-              AFRICA'S PREMIER PLATFORM FOR DIGITAL OPERATORS. WE EXCLUDE TRADITIONAL RESUME METRICS. SOURCING RUNS PURELY ON ADAPTIVE ASSESSMENTS AND PROVEN SINE-WAVE VERIFICATION.
+            
+            <p className="text-xs font-medium text-neutral-700 max-w-md leading-relaxed">
+              We connect global businesses with top pre-vetted digital talent across Africa. We evaluate candidates through hands-on practical assessments, so companies hire proven professionals.
             </p>
+
             <div className="flex items-center gap-3 pt-1">
-              <a href="mailto:hiring@dsptalenthub.com" className="w-8 h-8 rounded-none bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 flex items-center justify-center text-neutral-400 hover:text-emerald-400 transition" title="Contact Us">
-                <Mail className="w-4 h-4" />
+              <a 
+                href="https://wa.me/2348169664607" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-2 border-neutral-950 px-3 py-1.5 text-xs font-mono font-black uppercase tracking-wider flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                <span>WhatsApp Support</span>
               </a>
-              <a href="#" className="w-8 h-8 rounded-none bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 flex items-center justify-center text-neutral-400 hover:text-[#10b981] transition" title="Global Network">
-                <Globe className="w-4 h-4" />
+
+              <a 
+                href="mailto:stanleypatrick3800@gmail.com" 
+                className="bg-neutral-100 hover:bg-neutral-200 text-neutral-900 border-2 border-neutral-950 px-3 py-1.5 text-xs font-mono font-black uppercase tracking-wider flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition"
+              >
+                <Mail className="w-3.5 h-3.5 text-neutral-700" />
+                <span>Email Us</span>
               </a>
             </div>
           </div>
 
-          {/* Platform Column (Spans 2) */}
-          <div className="lg:col-span-2 text-left space-y-4">
-            <h5 className="font-mono text-[10px] text-white uppercase tracking-wider font-extrabold border-l-2 border-emerald-500 pl-2">SYSTEM</h5>
-            <ul className="space-y-3 text-[11px] font-bold uppercase tracking-wider text-left">
+          {/* Employers Column */}
+          <div className="lg:col-span-3 text-left space-y-3">
+            <h5 className="font-mono text-xs text-neutral-950 uppercase tracking-wider font-black border-l-4 border-[#00A86B] pl-2">
+              FOR EMPLOYERS
+            </h5>
+            <ul className="space-y-2 text-xs font-bold uppercase tracking-wider text-left">
               <li>
-                <button onClick={(e) => handleLink(e, 'directory')} className="text-neutral-500 hover:text-white transition cursor-pointer text-left">
-                  Find Talent
+                <button onClick={(e) => handleLink(e, 'directory')} className="text-neutral-700 hover:text-[#00A86B] transition cursor-pointer text-left flex items-center gap-1.5">
+                  <ArrowRight className="w-3.5 h-3.5 text-[#00A86B]" />
+                  <span>Browse Talent Directory</span>
                 </button>
               </li>
               <li>
-                <button onClick={(e) => handleLink(e, 'employer')} className="text-neutral-500 hover:text-white transition cursor-pointer text-left">
-                  Employers
+                <button onClick={(e) => handleLink(e, 'employer')} className="text-neutral-700 hover:text-[#00A86B] transition cursor-pointer text-left flex items-center gap-1.5">
+                  <ArrowRight className="w-3.5 h-3.5 text-[#00A86B]" />
+                  <span>Employer Hiring Portal</span>
                 </button>
               </li>
               <li>
-                <button onClick={(e) => handleLink(e, 'pricing')} className="text-neutral-500 hover:text-white transition cursor-pointer text-left">
-                  Rates Matrix
-                </button>
-              </li>
-            </ul>
-          </div>
-
-          {/* Candidates Column (Spans 2) */}
-          <div className="lg:col-span-2 text-left space-y-4">
-            <h5 className="font-mono text-[10px] text-white uppercase tracking-wider font-extrabold border-l-2 border-emerald-500 pl-2">TALENT</h5>
-            <ul className="space-y-2 text-[11px] font-bold uppercase tracking-wider text-left">
-              <li>
-                <button onClick={(e) => handleLink(e, 'talent')} className="text-neutral-500 hover:text-white transition cursor-pointer text-left">
-                  Portfolio Builder
-                </button>
-              </li>
-              <li>
-                <button onClick={(e) => handleLink(e, 'assessment')} className="text-emerald-400 hover:text-[#10b981] transition cursor-pointer text-left flex items-center gap-1">
-                  Assessments <Sparkles className="w-2.5 h-2.5 animate-pulse" />
-                </button>
-              </li>
-              <li>
-                <button onClick={(e) => handleLink(e, 'pricing')} className="text-neutral-500 hover:text-white transition cursor-pointer text-left">
-                  Verification
+                <button onClick={(e) => handleLink(e, 'pricing')} className="text-neutral-700 hover:text-[#00A86B] transition cursor-pointer text-left flex items-center gap-1.5">
+                  <ArrowRight className="w-3.5 h-3.5 text-[#00A86B]" />
+                  <span>Pricing & Membership</span>
                 </button>
               </li>
             </ul>
           </div>
 
-          {/* Legal Column (Spans 2) */}
-          <div className="lg:col-span-2 text-left space-y-4">
-            <h5 className="font-mono text-[10px] text-white uppercase tracking-wider font-extrabold border-l-2 border-emerald-500 pl-2">INFO</h5>
-            <ul className="space-y-2 text-[11px] font-bold uppercase tracking-wider text-left text-left">
-              <li><a href="#" className="text-neutral-500 hover:text-white transition">Terms</a></li>
-              <li><a href="#" className="text-neutral-500 hover:text-white transition">Privacy</a></li>
-              <li><a href="#" className="text-neutral-500 hover:text-white transition">Disclosures</a></li>
+          {/* Talent Candidates Column */}
+          <div className="lg:col-span-2 text-left space-y-3">
+            <h5 className="font-mono text-xs text-neutral-950 uppercase tracking-wider font-black border-l-4 border-[#00A86B] pl-2">
+              FOR TALENT
+            </h5>
+            <ul className="space-y-2 text-xs font-bold uppercase tracking-wider text-left">
+              <li>
+                <button onClick={(e) => handleLink(e, 'talent')} className="text-neutral-700 hover:text-[#00A86B] transition cursor-pointer text-left flex items-center gap-1.5">
+                  <ArrowRight className="w-3.5 h-3.5 text-[#00A86B]" />
+                  <span>Talent Dashboard</span>
+                </button>
+              </li>
+              <li>
+                <button onClick={(e) => handleLink(e, 'assessment')} className="text-emerald-800 hover:text-[#00A86B] transition cursor-pointer text-left flex items-center gap-1.5">
+                  <ArrowRight className="w-3.5 h-3.5 text-[#00A86B]" />
+                  <span>Skill Assessment</span>
+                </button>
+              </li>
+              <li>
+                <button onClick={(e) => handleLink(e, 'pricing')} className="text-neutral-700 hover:text-[#00A86B] transition cursor-pointer text-left flex items-center gap-1.5">
+                  <ArrowRight className="w-3.5 h-3.5 text-[#00A86B]" />
+                  <span>Accreditation Pass</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          {/* Quick Info Column */}
+          <div className="lg:col-span-2 text-left space-y-3">
+            <h5 className="font-mono text-xs text-neutral-950 uppercase tracking-wider font-black border-l-4 border-[#00A86B] pl-2">
+              HELP & ACCESS
+            </h5>
+            <ul className="space-y-2 text-xs font-bold uppercase tracking-wider text-left">
+              <li>
+                <button 
+                  onClick={(e) => {
+                    if (setCurrentPage) {
+                      e.preventDefault();
+                      setCurrentPage('admin-login');
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                  }}
+                  className="text-neutral-900 hover:text-emerald-700 transition cursor-pointer text-left font-mono font-black"
+                  id="footer-staff-link"
+                >
+                  <span>Staff Admin Login</span>
+                </button>
+              </li>
+              <li>
+                <a href="https://wa.me/2348169664607" target="_blank" rel="noopener noreferrer" className="text-neutral-700 hover:text-[#00A86B] transition">
+                  <span>Help Center</span>
+                </a>
+              </li>
+              <li>
+                <button onClick={(e) => handleLink(e, 'home')} className="text-neutral-700 hover:text-[#00A86B] transition text-left">
+                  <span>About DSP</span>
+                </button>
+              </li>
             </ul>
           </div>
 
         </div>
 
-        {/* Bottom Panel */}
-        <div className="border-t border-neutral-900 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-[10px] uppercase font-bold text-neutral-500">
-          <p>© {currentYear} DSP Talent Hub Sourcing Systems. Vetted professional operators network.</p>
-          <div className="flex items-center gap-4 text-neutral-600 font-mono">
+        {/* Bottom Bar */}
+        <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-neutral-600 border-t-2 border-neutral-300">
+          <p>© {currentYear} DSP Talent Hub. All rights reserved. Connecting verified African professionals with global opportunities.</p>
+          <div className="flex items-center gap-4">
             <button 
               onClick={(e) => {
                 if (setCurrentPage) {
@@ -251,13 +309,13 @@ export function Footer({ setCurrentPage }: FooterProps) {
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }
               }}
-              className="text-neutral-750 hover:text-neutral-400 hover:underline transition bg-transparent border-0 p-0 cursor-pointer font-bold text-[9px] tracking-wider uppercase"
+              className="bg-white hover:bg-neutral-100 text-neutral-950 border-2 border-neutral-950 px-3 py-1.5 text-xs font-mono font-black uppercase tracking-wider transition cursor-pointer shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
               id="staff-access-trigger-btn"
             >
-              Staff Access (/admin-login)
+              Staff Portal (/admin-login)
             </button>
-            <span className="w-1.5 h-1.5 rounded-none bg-emerald-500" />
-            <span>African Digital Operator Core</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-[#00A86B]" />
+            <span className="font-mono text-[11px] font-bold uppercase text-neutral-800">Verified Platform</span>
           </div>
         </div>
 
@@ -265,3 +323,4 @@ export function Footer({ setCurrentPage }: FooterProps) {
     </footer>
   );
 }
+
