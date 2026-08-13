@@ -46,6 +46,8 @@ export interface TalentCandidate {
   email: string;
   phone: string;
   about: string;
+  slug?: string;
+  profilePictureUrl?: string;
   projects?: ProjectData[];
   caseStudies?: CaseStudy[];
   certifications?: string[];

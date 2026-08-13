@@ -75,14 +75,14 @@ export default function TalentDirectory({
       try {
         const { data, error } = await supabase
           .from('talent_profiles')
-          .select('id, full_name, specialty, experience_level, skills, vetting_status, portfolio_url, career_goal, location, timezone, phase_1_score, bio')
+          .select('id, full_name, specialty, experience_level, skills, vetting_status, portfolio_url, career_goal, location, timezone, phase_1_score, bio, profile_picture_url, slug')
           .eq('phase_1_quiz_passed', true);
 
         if (data && data.length > 0) {
           const dbTalent: TalentCandidate[] = data.map((item: any, idx: number) => ({
             id: item.id || `DB-${idx}`,
             name: item.full_name || 'Verified Tech Operator',
-            avatarUrl: `https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300`,
+            avatarUrl: item.profile_picture_url || `https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300`,
             role: item.specialty || 'Full-Stack Developer',
             specialization: (item.specialty as any) || 'AI Automation',
             verificationBadge: item.vetting_status === 'verified' ? 'Verified Professional' : 'Top Performer',
@@ -95,6 +95,8 @@ export default function TalentDirectory({
             email: 'matchmaker@growthpaddy.com',
             phone: '+234 816 966 4607',
             about: item.career_goal ? `Career Goal: ${item.career_goal}` : 'Vetted candidate active in GrowthPaddy pool.',
+            slug: item.slug || (item.full_name ? item.full_name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : undefined),
+            profilePictureUrl: item.profile_picture_url,
             featuredProject: {
               title: 'Verified Technical Case Study',
               metrics: 'Phase 1 Audit Passed (100% Scorecard)'

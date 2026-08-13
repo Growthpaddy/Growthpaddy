@@ -141,13 +141,26 @@ export default function TalentProfile({ onSignOut, navigateToPage }: TalentProfi
               <Sparkles className="w-4 h-4 text-white" />
               <span>GROWTHPADDY</span>
             </div>
-            <div className="border-l-2 border-slate-300 dark:border-slate-700 pl-3">
-              <span className="text-[10px] font-mono font-black uppercase tracking-widest text-[#00A86B] block">
-                TALENT OPERATOR PORTAL
-              </span>
-              <h2 className="font-display font-black text-sm uppercase tracking-tight text-slate-900 dark:text-white">
-                {profile?.full_name || 'Vetted Operator Workspace'}
-              </h2>
+            <div className="border-l-2 border-slate-300 dark:border-slate-700 pl-3 flex items-center gap-2.5">
+              {profile?.profile_picture_url ? (
+                <img
+                  src={profile.profile_picture_url}
+                  alt={profile?.full_name || 'Talent Avatar'}
+                  className="w-10 h-10 border-2 border-[#00A86B] object-cover shrink-0 shadow-xs"
+                />
+              ) : (
+                <div className="w-10 h-10 bg-neutral-950 text-emerald-400 font-mono font-black text-sm flex items-center justify-center border-2 border-[#00A86B] shrink-0">
+                  {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : 'T'}
+                </div>
+              )}
+              <div>
+                <span className="text-[10px] font-mono font-black uppercase tracking-widest text-[#00A86B] block">
+                  TALENT OPERATOR PORTAL
+                </span>
+                <h2 className="font-display font-black text-sm uppercase tracking-tight text-slate-900 dark:text-white">
+                  {profile?.full_name || 'Vetted Operator Workspace'}
+                </h2>
+              </div>
             </div>
           </div>
 
@@ -229,7 +242,12 @@ export default function TalentProfile({ onSignOut, navigateToPage }: TalentProfi
               experienceLevel: profile?.experience_level === 'fresher' || profile?.experience_level === 'Fresher/Newbie' ? 'Fresher/Newbie' : 'Seasoned Professional',
               specialty: profile?.specialty || 'AI Automation',
               careerGoal: profile?.career_goal || 'Full-Time Remote Job',
-              email: profile?.email
+              email: profile?.email,
+              profilePictureUrl: profile?.profile_picture_url,
+              slug: profile?.slug
+            }}
+            onProfileUpdated={(updatedData) => {
+              setProfile((prev: any) => ({ ...prev, ...updatedData }));
             }}
           />
         )}

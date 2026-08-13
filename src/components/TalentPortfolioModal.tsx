@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   X, 
   Sparkles, 
@@ -13,7 +13,10 @@ import {
   User, 
   ArrowRight,
   FileCode2,
-  Zap
+  Zap,
+  Copy,
+  Check,
+  Share2
 } from 'lucide-react';
 
 interface TalentPortfolioModalProps {
@@ -27,6 +30,8 @@ interface TalentPortfolioModalProps {
     careerGoal?: string;
     email?: string;
     portfolioUrl?: string;
+    profilePictureUrl?: string;
+    slug?: string;
   } | null;
 }
 
@@ -36,6 +41,8 @@ export default function TalentPortfolioModal({
   onNavigateToDashboard,
   onboardingData
 }: TalentPortfolioModalProps) {
+  const [copiedLink, setCopiedLink] = useState(false);
+
   if (!isOpen) return null;
 
   const candidateName = onboardingData?.userName || 'Verified Talent Operator';
@@ -44,6 +51,15 @@ export default function TalentPortfolioModal({
   const careerGoal = onboardingData?.careerGoal || 'Building high-performance automated workflows and growth infrastructure.';
   const email = onboardingData?.email || 'talent@growthpaddy.com';
   const portfolioUrl = onboardingData?.portfolioUrl || '';
+  const profilePictureUrl = onboardingData?.profilePictureUrl || '';
+  const slug = onboardingData?.slug || candidateName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const shareableUrl = `${window.location.origin}/p/${slug}`;
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(shareableUrl);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2500);
+  };
 
   const defaultSkills = [
     'TypeScript', 'Supabase', 'React', 'Vite', 'Python', 
@@ -90,11 +106,19 @@ export default function TalentPortfolioModal({
           <div className="bg-neutral-950 text-white p-6 border-2 border-neutral-950 relative overflow-hidden space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-[#00A86B] text-white flex items-center justify-center font-display font-black text-2xl border-2 border-white shrink-0">
-                  {candidateName.charAt(0).toUpperCase()}
-                </div>
+                {profilePictureUrl ? (
+                  <img 
+                    src={profilePictureUrl} 
+                    alt={candidateName} 
+                    className="w-16 h-16 object-cover border-2 border-[#00A86B] shrink-0"
+                  />
+                ) : (
+                  <div className="w-16 h-16 bg-[#00A86B] text-white flex items-center justify-center font-display font-black text-2xl border-2 border-white shrink-0">
+                    {candidateName.charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h2 className="font-display font-black text-xl text-white uppercase tracking-tight">
                       {candidateName}
                     </h2>
@@ -107,7 +131,7 @@ export default function TalentPortfolioModal({
                     ⚡ {specialty} • {experienceTier}
                   </p>
                   <p className="text-[10px] font-mono text-neutral-400 mt-1">
-                    {email}
+                    {email} • <span className="text-emerald-400 font-bold">/p/{slug}</span>
                   </p>
                 </div>
               </div>
@@ -141,6 +165,38 @@ export default function TalentPortfolioModal({
             <div className="bg-neutral-900 border-l-4 border-[#00A86B] p-3 text-xs text-neutral-300 font-medium leading-relaxed">
               "{careerGoal}"
             </div>
+          </div>
+
+          {/* Shareable Unique Slug Link Bar */}
+          <div className="p-3.5 bg-neutral-100 border-2 border-neutral-950 flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
+            <div className="flex items-center gap-2">
+              <Share2 className="w-4 h-4 text-[#00A86B] shrink-0" />
+              <div>
+                <span className="text-[9px] font-mono font-bold text-neutral-500 uppercase block">
+                  PUBLIC PORTFOLIO HANDLE
+                </span>
+                <span className="text-xs font-mono font-black text-neutral-900 break-all">
+                  {shareableUrl}
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={handleCopyLink}
+              className="bg-neutral-950 hover:bg-neutral-800 text-white font-mono font-black px-3.5 py-2 text-[10px] uppercase tracking-wider border-2 border-neutral-950 flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              {copiedLink ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-emerald-400">COPIED LINK!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>COPY PORTFOLIO LINK</span>
+                </>
+              )}
+            </button>
           </div>
 
           {/* Verified Skills & Tech Stack Section */}

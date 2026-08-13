@@ -25,7 +25,13 @@ import {
   Briefcase,
   FileCode2,
   CheckCircle,
-  HelpCircle
+  HelpCircle,
+  Copy,
+  Share2,
+  Camera,
+  Image,
+  Link2,
+  Upload
 } from 'lucide-react';
 import { PaymentPhase } from './PaymentPhase';
 import { useSupabase } from '../context/SupabaseContext';
@@ -41,7 +47,10 @@ interface TalentDashboardProps {
     specialty?: string;
     careerGoal?: string;
     email?: string;
+    profilePictureUrl?: string;
+    slug?: string;
   };
+  onProfileUpdated?: (updatedData: { profile_picture_url?: string; full_name?: string; specialty?: string; slug?: string }) => void;
 }
 
 interface QuizQuestion {
@@ -142,7 +151,8 @@ export default function TalentDashboard({
   isTalentPaid = false, 
   setIsTalentPaid,
   navigateToPage,
-  onboardingData 
+  onboardingData,
+  onProfileUpdated
 }: TalentDashboardProps) {
   
   const { user, updateProfileData, generateGeminiQuiz, gradeGeminiQuiz } = useSupabase();
@@ -155,6 +165,9 @@ export default function TalentDashboard({
   );
   const [careerGoal, setCareerGoal] = useState(onboardingData?.careerGoal || 'Full-Time Remote Position');
   const [portfolioUrl, setPortfolioUrl] = useState('');
+  const [profilePictureUrl, setProfilePictureUrl] = useState(onboardingData?.profilePictureUrl || '');
+  const [slug, setSlug] = useState(onboardingData?.slug || '');
+  const [copiedSlugLink, setCopiedSlugLink] = useState(false);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([
     'TypeScript', 'Supabase', 'Vite', 'Tailwind CSS', 'Make.com'
   ]);
@@ -162,6 +175,85 @@ export default function TalentDashboard({
   
   const [syncingProfile, setSyncingProfile] = useState(false);
   const [profileSyncSuccess, setProfileSyncSuccess] = useState(false);
+
+  // File Upload State & Ref
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageUploadStatus, setImageUploadStatus] = useState<string | null>(null);
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+
+  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Strict 5 KB limit (5 * 1024 = 5,120 bytes)
+    const MAX_BYTES = 5 * 1024;
+    if (file.size > MAX_BYTES) {
+      const fileSizeKb = (file.size / 1024).toFixed(2);
+      setImageUploadError(`❌ File rejected: ${fileSizeKb} KB exceeds strict 5 KB (5,120 bytes) limit. Please select an image under 5 KB.`);
+      setImageUploadStatus(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    setUploadingImage(true);
+    setImageUploadStatus(null);
+    setImageUploadError(null);
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        setProfilePictureUrl(dataUrl);
+
+        // Instantly save to profile_picture_url column in talent_profiles table
+        if (user) {
+          const { error } = await supabase
+            .from('talent_profiles')
+            .update({
+              profile_picture_url: dataUrl,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', user.id);
+
+          if (error) {
+            console.warn('Update profile_picture_url error:', error.message);
+          }
+        }
+
+        if (onProfileUpdated) {
+          onProfileUpdated({ profile_picture_url: dataUrl });
+        }
+
+        const fileSizeKb = (file.size / 1024).toFixed(2);
+        setImageUploadStatus(`✓ Photo uploaded & saved! (${fileSizeKb} KB)`);
+        setTimeout(() => setImageUploadStatus(null), 4000);
+      }
+      setUploadingImage(false);
+    };
+
+    reader.onerror = () => {
+      setImageUploadError('Failed to read image file.');
+      setUploadingImage(false);
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  const PRESET_AVATARS = [
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300',
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300',
+    'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300',
+    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=300'
+  ];
+
+  const handleCopyPublicLink = () => {
+    const currentSlug = slug || userName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const shareUrl = `${window.location.origin}/p/${currentSlug}`;
+    navigator.clipboard.writeText(shareUrl);
+    setCopiedSlugLink(true);
+    setTimeout(() => setCopiedSlugLink(false), 2500);
+  };
 
   // 3-Phase Navigation state
   const [activePhase, setActivePhase] = useState<1 | 2 | 3>(1);
@@ -268,6 +360,12 @@ export default function TalentDashboard({
           }
           if (data.portfolio_url) setPortfolioUrl(data.portfolio_url);
           if (data.career_goal) setCareerGoal(data.career_goal);
+          if (data.profile_picture_url) setProfilePictureUrl(data.profile_picture_url);
+          if (data.slug) {
+            setSlug(data.slug);
+          } else if (data.full_name) {
+            setSlug(data.full_name.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+          }
           if (data.quiz_attempts_count !== undefined) setQuizAttempts(data.quiz_attempts_count);
           if (data.quiz_locked_until) setQuizLockedUntil(data.quiz_locked_until);
           
@@ -309,31 +407,50 @@ export default function TalentDashboard({
     setProfileSyncSuccess(false);
 
     try {
-      const payload = {
+      const computedSlug = slug.trim() 
+        ? slug.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+        : userName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+      const payload: any = {
         full_name: userName,
         specialty: specialty,
         experience_level: experienceTier,
         skills: selectedSkills,
         portfolio_url: portfolioUrl,
         career_goal: careerGoal,
+        profile_picture_url: profilePictureUrl,
+        slug: computedSlug || 'talent',
         updated_at: new Date().toISOString()
       };
 
       if (user) {
-        const { error } = await supabase
+        const { error, data } = await supabase
           .from('talent_profiles')
           .update(payload)
-          .eq('id', user.id);
+          .eq('id', user.id)
+          .select('slug, profile_picture_url')
+          .maybeSingle();
 
         if (error) {
           console.warn('Client update warning, using fallback context update:', error);
           await updateProfileData(payload);
+        } else if (data?.slug) {
+          setSlug(data.slug);
         }
       } else {
         await updateProfileData(payload);
+        setSlug(computedSlug);
       }
 
       setProfileSyncSuccess(true);
+      if (onProfileUpdated) {
+        onProfileUpdated({
+          profile_picture_url: profilePictureUrl,
+          full_name: userName,
+          specialty: specialty,
+          slug: computedSlug
+        });
+      }
       setTimeout(() => setProfileSyncSuccess(false), 3500);
     } catch (err) {
       console.error('Save profile exception:', err);
@@ -604,9 +721,207 @@ export default function TalentDashboard({
               </p>
             </div>
 
+            {/* Public Portfolio & Unique Shareable Link Card */}
+            <div className="bg-neutral-950 text-white p-4 border-2 border-neutral-900 shadow-[3px_3px_0px_0px_rgba(0,168,107,1)] space-y-3">
+              <div className="flex items-center justify-between gap-2 border-b border-neutral-800 pb-2">
+                <span className="text-[9px] font-mono font-black text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <Share2 className="w-3.5 h-3.5 text-[#00A86B]" />
+                  YOUR UNIQUE PUBLIC PORTFOLIO LINK
+                </span>
+                <span className="text-[9px] font-mono text-neutral-400 uppercase">
+                  SUPABASE SLUG ENABLED
+                </span>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <p className="text-xs font-mono font-bold text-white break-all">
+                    {window.location.origin}/p/{slug || userName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}
+                  </p>
+                  <p className="text-[9.5px] font-mono text-neutral-400">
+                    Share this unique slug link with recruiters & hiring managers.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleCopyPublicLink}
+                  className="bg-[#00A86B] hover:bg-emerald-600 text-white font-mono font-black px-3.5 py-2 text-[10px] uppercase tracking-wider border border-white flex items-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  {copiedSlugLink ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-white" />
+                      <span>COPIED LINK!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>COPY LINK</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
             {/* Profile Form */}
             <form onSubmit={handleSaveProfile} className="space-y-5 text-left">
               
+              {/* Profile Picture / Avatar Settings with File Input & URL Upload */}
+              <div className="space-y-3 p-4 bg-neutral-50 dark:bg-slate-800/60 border-2 border-neutral-200 dark:border-slate-700">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-200 dark:border-slate-700/80 pb-2">
+                  <label className="text-[10px] font-mono font-black text-slate-700 dark:text-slate-300 uppercase block tracking-wider flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5 text-[#00A86B]" />
+                    Profile Picture & Avatar Photo
+                  </label>
+                  
+                  <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-400 text-[9px] font-mono font-black px-2 py-0.5 uppercase tracking-wider">
+                    ⚡ STRICT SIZE LIMIT: MAX 5 KB (5,120 BYTES)
+                  </span>
+                </div>
+
+                {/* Status or Error Notice */}
+                {imageUploadError && (
+                  <div className="p-2.5 bg-rose-50 dark:bg-rose-950/60 border-2 border-rose-600 text-rose-700 dark:text-rose-300 font-mono text-xs font-bold flex items-center justify-between">
+                    <span>{imageUploadError}</span>
+                    <button 
+                      type="button" 
+                      onClick={() => setImageUploadError(null)} 
+                      className="text-xs font-black uppercase text-rose-800 dark:text-rose-200 hover:underline cursor-pointer ml-2"
+                    >
+                      DISMISS
+                    </button>
+                  </div>
+                )}
+
+                {imageUploadStatus && (
+                  <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/60 border-2 border-[#00A86B] text-[#00A86B] dark:text-emerald-400 font-mono text-xs font-bold">
+                    {imageUploadStatus}
+                  </div>
+                )}
+                
+                {/* Hidden Native File Input */}
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  accept="image/*" 
+                  onChange={handleImageFileUpload} 
+                  className="hidden" 
+                />
+
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  {/* Avatar Container - Click to upload */}
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="relative group w-16 h-16 border-2 border-neutral-900 dark:border-slate-600 bg-neutral-900 text-white flex items-center justify-center font-display font-black text-xl overflow-hidden shrink-0 cursor-pointer shadow-[2px_2px_0px_0px_rgba(0,168,107,1)]"
+                    title="Click to upload profile picture file (Max 5 KB)"
+                  >
+                    {profilePictureUrl ? (
+                      <img src={profilePictureUrl} alt="Avatar Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{userName ? userName.charAt(0).toUpperCase() : 'T'}</span>
+                    )}
+                    <div className="absolute inset-0 bg-neutral-950/75 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-[9px] font-mono font-bold text-emerald-400">
+                      <Camera className="w-4 h-4 text-emerald-400 mb-0.5" />
+                      <span>UPLOAD (&lt;5KB)</span>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 space-y-2 w-full">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingImage}
+                        className="bg-neutral-950 hover:bg-neutral-800 text-white font-mono font-black text-xs px-3.5 py-2 uppercase tracking-wider border-2 border-neutral-950 flex items-center gap-2 cursor-pointer transition-all shadow-[2px_2px_0px_0px_rgba(0,168,107,1)] hover:shadow-none disabled:opacity-50"
+                      >
+                        {uploadingImage ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+                            <span>UPLOADING IMAGE FILE...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-4 h-4 text-emerald-400" />
+                            <span>CHOOSE FILE (&le; 5 KB)</span>
+                          </>
+                        )}
+                      </button>
+
+                      <span className="text-[10px] font-mono text-slate-500 uppercase font-bold">OR PASTE URL:</span>
+                    </div>
+
+                    <input
+                      type="url"
+                      placeholder="Paste image URL (e.g. Unsplash, LinkedIn photo URL)"
+                      value={profilePictureUrl}
+                      onChange={(e) => {
+                        const newUrl = e.target.value;
+                        setProfilePictureUrl(newUrl);
+                        if (onProfileUpdated) {
+                          onProfileUpdated({ profile_picture_url: newUrl });
+                        }
+                      }}
+                      className="w-full border-2 border-neutral-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-[#00A86B]"
+                    />
+                  </div>
+                </div>
+
+                {/* Preset Avatars Selection */}
+                <div className="pt-2 border-t border-neutral-200 dark:border-slate-700/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[9px] font-mono text-slate-500 uppercase font-bold">
+                      PRESET AVATARS:
+                    </span>
+                    {PRESET_AVATARS.map((url, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={async () => {
+                          setProfilePictureUrl(url);
+                          if (user) {
+                            await supabase
+                              .from('talent_profiles')
+                              .update({ profile_picture_url: url, updated_at: new Date().toISOString() })
+                              .eq('id', user.id);
+                          }
+                          if (onProfileUpdated) {
+                            onProfileUpdated({ profile_picture_url: url });
+                          }
+                          setImageUploadStatus('✓ Preset avatar applied!');
+                          setTimeout(() => setImageUploadStatus(null), 3000);
+                        }}
+                        className={`w-7 h-7 border-2 overflow-hidden cursor-pointer transition-transform hover:scale-110 ${
+                          profilePictureUrl === url ? 'border-[#00A86B] ring-2 ring-[#00A86B]' : 'border-neutral-300 dark:border-slate-700'
+                        }`}
+                      >
+                        <img src={url} alt={`Preset ${idx}`} className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+
+                  {profilePictureUrl && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setProfilePictureUrl('');
+                        if (user) {
+                          await supabase
+                            .from('talent_profiles')
+                            .update({ profile_picture_url: '', updated_at: new Date().toISOString() })
+                            .eq('id', user.id);
+                        }
+                        if (onProfileUpdated) {
+                          onProfileUpdated({ profile_picture_url: '' });
+                        }
+                      }}
+                      className="text-[9px] font-mono text-rose-600 hover:text-rose-700 underline font-black uppercase cursor-pointer"
+                    >
+                      Remove Photo
+                    </button>
+                  )}
+                </div>
+              </div>
+
               {/* Full Display Name */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-mono font-black text-slate-700 dark:text-slate-300 uppercase block tracking-wider">
@@ -625,6 +940,29 @@ export default function TalentDashboard({
                     className="w-full border-2 border-neutral-300 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 pl-10 pr-4 py-2.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-[#00A86B]"
                   />
                 </div>
+              </div>
+
+              {/* Unique Profile Slug / Handle */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-mono font-black text-slate-700 dark:text-slate-300 uppercase block tracking-wider flex items-center gap-1">
+                  <Link2 className="w-3.5 h-3.5 text-[#00A86B]" />
+                  Custom Profile Handle (Slug)
+                </label>
+                <div className="flex items-center">
+                  <span className="bg-neutral-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-mono text-xs px-3 py-2.5 border-2 border-r-0 border-neutral-300 dark:border-slate-700 font-bold shrink-0">
+                    growthpaddy.com/p/
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="marcus-vance"
+                    value={slug}
+                    onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                    className="w-full border-2 border-neutral-300 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-2.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-[#00A86B]"
+                  />
+                </div>
+                <p className="text-[9.5px] font-mono text-slate-500 dark:text-slate-400">
+                  ⚡ Auto-managed by Supabase trigger on save. Ensures unique profile link across all talent.
+                </p>
               </div>
 
               {/* Specialty & Title */}

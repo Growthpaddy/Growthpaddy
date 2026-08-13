@@ -151,6 +151,8 @@ export default function App() {
     experienceLevel?: string;
     email?: string;
     portfolioUrl?: string;
+    profilePictureUrl?: string;
+    slug?: string;
     orgName?: string;
     orgSize?: string;
     industry?: string;
@@ -253,7 +255,9 @@ export default function App() {
               specialty: data.specialty,
               experienceLevel: data.experience_level === 'fresher' || data.experience_level === 'Fresher/Newbie' ? 'Fresher/Newbie' : 'Seasoned Professional',
               email: user.email,
-              portfolioUrl: data.portfolio_url || user.user_metadata?.portfolio_url || ''
+              portfolioUrl: data.portfolio_url || user.user_metadata?.portfolio_url || '',
+              profilePictureUrl: data.profile_picture_url,
+              slug: data.slug || (data.full_name ? data.full_name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : '')
             });
             if (data.vetting_status === 'fee_paid' || data.vetting_status === 'completed') {
               setIsTalentPaid(true);
