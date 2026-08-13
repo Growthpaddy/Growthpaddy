@@ -120,12 +120,8 @@ export default function TalentProfile({ onSignOut, navigateToPage }: TalentProfi
   // Helper status text for topbar badge
   const getStatusBadge = () => {
     if (!profile) return 'INITIALIZING';
-    if (profile.vetting_status === 'completed') return '100% VETTED & HIRED READY';
-    if (profile.phase_3_fee_paid || profile.vetting_status === 'fee_paid') return 'ACCREDITATION VERIFIED';
-    if (profile.phase_2_interview_passed) return 'INTERVIEW PASSED';
-    if (profile.phase_2_interview_scheduled) return 'PANEL SCHEDULED';
-    if (profile.phase_1_quiz_passed) return 'PHASE 1 CLEARED';
-    return 'PHASE 1 IN PROGRESS';
+    if (profile.vetting_status === 'approved' || profile.vetting_status === 'verified') return 'VERIFIED SKILLS';
+    return 'UNVERIFIED SKILLS';
   };
 
   return (
@@ -155,10 +151,10 @@ export default function TalentProfile({ onSignOut, navigateToPage }: TalentProfi
               )}
               <div>
                 <span className="text-[10px] font-mono font-black uppercase tracking-widest text-[#00A86B] block">
-                  TALENT OPERATOR PORTAL
+                  TALENT PORTAL
                 </span>
                 <h2 className="font-display font-black text-sm uppercase tracking-tight text-slate-900 dark:text-white">
-                  {profile?.full_name || 'Vetted Operator Workspace'}
+                  {profile?.full_name || 'Talent Workspace'}
                 </h2>
               </div>
             </div>
@@ -169,7 +165,7 @@ export default function TalentProfile({ onSignOut, navigateToPage }: TalentProfi
             
             {/* Candidate Status Badge */}
             <div className={`inline-flex items-center gap-1.5 px-3 py-1 text-[10px] font-mono font-black uppercase tracking-wider border ${
-              profile?.phase_1_quiz_passed || profile?.vetting_status === 'completed'
+              profile?.vetting_status === 'approved' || profile?.vetting_status === 'verified'
                 ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
                 : 'bg-amber-50 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700'
             }`}>
@@ -238,13 +234,14 @@ export default function TalentProfile({ onSignOut, navigateToPage }: TalentProfi
             setIsTalentPaid={setIsTalentPaid}
             navigateToPage={navigateToPage}
             onboardingData={{
-              userName: profile?.full_name || 'Vetted Operator',
+              userName: profile?.full_name || 'Talent Candidate',
               experienceLevel: profile?.experience_level === 'fresher' || profile?.experience_level === 'Fresher/Newbie' ? 'Fresher/Newbie' : 'Seasoned Professional',
               specialty: profile?.specialty || 'AI Automation',
               careerGoal: profile?.career_goal || 'Full-Time Remote Job',
               email: profile?.email,
               profilePictureUrl: profile?.profile_picture_url,
-              slug: profile?.slug
+              slug: profile?.slug,
+              vettingStatus: profile?.vetting_status
             }}
             onProfileUpdated={(updatedData) => {
               setProfile((prev: any) => ({ ...prev, ...updatedData }));

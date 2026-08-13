@@ -103,7 +103,7 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
           const fetched: CandidatePreview[] = data.map((item: any, idx: number) => ({
             id: item.id || `db-${idx}`,
             name: item.full_name || `Vetted Specialist #${idx + 1}`,
-            role: item.specialty ? `${item.specialty} Operator` : 'Digital Operations Lead',
+            role: item.specialty ? `${item.specialty} Specialist` : 'Digital Growth Specialist',
             specialty: item.specialty || 'Tech Operations',
             vettingStatus: '100% Vetted',
             skills: item.skills && item.skills.length > 0 ? item.skills.slice(0, 4) : ['TypeScript', 'AI Tools', 'APIs', 'Workflow Ops'],
@@ -256,7 +256,7 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
                 ⏳ 120+ Hours Saved Per Hire
               </h3>
               <p className="text-xs text-neutral-600 font-medium uppercase leading-relaxed tracking-wide">
-                Stop reading hundreds of unqualified resumes. We reject 97% of applicants before they ever reach your screen, delivering only shortlist-ready operators.
+                Stop reading hundreds of unqualified resumes. We reject 97% of applicants before they ever reach your screen, delivering only shortlist-ready talent.
               </p>
             </div>
             <div className="pt-3 border-t border-dashed border-neutral-200">
@@ -298,7 +298,7 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
                 <span>LIVE CANDIDATE STREAM</span>
               </div>
               <h2 className="font-display font-black text-3xl sm:text-5xl uppercase tracking-tight text-white">
-                EXPLORE FEATURED PRE-VETTED OPERATORS
+                EXPLORE FEATURED PRE-VETTED TALENT
               </h2>
               <p className="text-xs text-neutral-400 font-mono uppercase tracking-wider mt-1">
                 Real candidates actively open for immediate placement. Audited skills, verified project portfolios.
@@ -535,7 +535,7 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
           </div>
 
           <h2 className="font-display font-black text-3xl sm:text-5xl uppercase tracking-tight text-neutral-950 max-w-3xl mx-auto">
-            Ready to scale your business with pre-vetted operators?
+            Ready to scale your business with pre-vetted talent?
           </h2>
 
           <p className="text-xs sm:text-sm text-neutral-600 font-bold uppercase tracking-wider max-w-xl mx-auto leading-relaxed">

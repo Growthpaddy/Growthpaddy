@@ -424,11 +424,11 @@ export default function App() {
                       VERIFIED DIRECTORY
                     </span>
                     <span className="text-[10px] uppercase font-mono font-black text-neutral-500 bg-neutral-100 border border-neutral-300 px-2.5 py-0.5 inline-block">
-                      ACTIVE OPERATORS
+                      ACTIVE TALENT
                     </span>
                   </div>
                   <h2 className="font-display font-black text-3xl sm:text-4xl text-neutral-950 uppercase tracking-tight leading-none">
-                    BROWSE DIGITAL OPERATORS & GROWTH SPECIALISTS
+                    BROWSE DIGITAL TALENT & GROWTH SPECIALISTS
                   </h2>
                   <p className="text-xs text-neutral-500 font-bold uppercase tracking-wider">
                     Sourced candidates must clear Phase 1-3 screening protocols before catalog inclusion. Unlock actual candidate files below.

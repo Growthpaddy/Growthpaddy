@@ -69,7 +69,7 @@ export default function TalentSignup({ onSuccess, onSwitchToLogin }: TalentSignu
             Apply as Vetted Talent
           </h2>
           <p className="text-xs sm:text-sm text-neutral-600 font-bold uppercase tracking-wide leading-snug">
-            Join the top 3% of digital operators. Get vetted, get hired.
+            Join the top 3% of digital talent. Get vetted, get hired.
           </p>
         </div>
 

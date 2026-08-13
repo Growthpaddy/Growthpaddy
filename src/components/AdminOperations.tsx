@@ -179,7 +179,7 @@ export default function AdminOperations({
     try {
       await supabase
         .from('talent_quiz_attempts')
-        .update({ passed: true, score: 75, ai_feedback: attempt.ai_feedback + " (FORCE PASSED BY OPERATOR)" })
+        .update({ passed: true, score: 75, ai_feedback: attempt.ai_feedback + " (FORCE PASSED BY ADMIN)" })
         .eq('id', attempt.id);
 
       const userId = attempt.user_id;
@@ -217,7 +217,7 @@ export default function AdminOperations({
             ...a,
             passed: true,
             score: 75,
-            ai_feedback: a.ai_feedback + " (FORCE PASSED BY OPERATOR)"
+            ai_feedback: a.ai_feedback + " (FORCE PASSED BY ADMIN)"
           };
         }
         return a;
@@ -232,7 +232,7 @@ export default function AdminOperations({
               ...a,
               passed: true,
               score: 75,
-              ai_feedback: a.ai_feedback + " (FORCE PASSED BY OPERATOR)"
+              ai_feedback: a.ai_feedback + " (FORCE PASSED BY ADMIN)"
             };
           }
           return a;
@@ -842,7 +842,7 @@ export default function AdminOperations({
                 </span>
               </h2>
               <p className="text-[11px] text-neutral-400 font-bold uppercase tracking-wider font-mono">
-                Operator Node ID: {currentAdmin?.email.toLowerCase()}
+                Admin Node ID: {currentAdmin?.email.toLowerCase()}
               </p>
             </div>
             
@@ -1012,7 +1012,7 @@ export default function AdminOperations({
                   Talent Optimization Registry Table
                 </h3>
                 <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold">
-                  Review digital operator status profiles, 4-phase matrix checks, and update vetting statuses live in Supabase.
+                  Review digital talent status profiles, 4-phase matrix checks, and update vetting statuses live in Supabase.
                 </p>
               </div>
               
@@ -1231,29 +1231,46 @@ export default function AdminOperations({
                       <td className="py-4.5 px-4 text-center">
                         <div className="space-y-1.5">
                           <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider border-2 ${
-                            talent.vetting_status === 'approved' || talent.vetting_status === 'passed'
+                            talent.vetting_status === 'approved' || talent.vetting_status === 'verified' || talent.vetting_status === 'passed'
                               ? 'bg-[#00A86B]/10 text-[#00A86B] border-[#00A86B]' 
                               : talent.vetting_status === 'rejected' || talent.vetting_status === 'revoked'
                               ? 'bg-rose-50 text-rose-800 border-rose-300'
                               : 'bg-amber-50 text-amber-800 border-amber-300'
                           }`}>
                             <span className={`w-1.5 h-1.5 ${
-                              talent.vetting_status === 'approved' || talent.vetting_status === 'passed'
+                              talent.vetting_status === 'approved' || talent.vetting_status === 'verified' || talent.vetting_status === 'passed'
                                 ? 'bg-[#00A86B]'
                                 : talent.vetting_status === 'rejected' || talent.vetting_status === 'revoked'
                                 ? 'bg-rose-600'
                                 : 'bg-amber-500'
                             }`} />
-                            <span>{(talent.vetting_status || 'pending').toUpperCase()}</span>
+                            <span>
+                              {talent.vetting_status === 'approved' || talent.vetting_status === 'verified' || talent.vetting_status === 'passed'
+                                ? 'VERIFIED SKILLS'
+                                : 'UNVERIFIED SKILLS'}
+                            </span>
                           </span>
+
+                          <button
+                            onClick={() => updateTalentStatus(talent.id, { 
+                              vetting_status: (talent.vetting_status === 'approved' || talent.vetting_status === 'verified') ? 'pending' : 'approved' 
+                            })}
+                            className={`w-full text-[8.5px] font-mono font-black px-1.5 py-1 uppercase border border-neutral-950 transition cursor-pointer ${
+                              (talent.vetting_status === 'approved' || talent.vetting_status === 'verified')
+                                ? 'bg-amber-100 hover:bg-amber-200 text-amber-900'
+                                : 'bg-[#00A86B] hover:bg-emerald-700 text-white'
+                            }`}
+                          >
+                            {(talent.vetting_status === 'approved' || talent.vetting_status === 'verified') ? '✕ UNVERIFY SKILLS' : '✓ VERIFY SKILLS'}
+                          </button>
 
                           <select
                             value={talent.vetting_status || 'pending'}
                             onChange={(e) => updateTalentStatus(talent.id, { vetting_status: e.target.value })}
                             className="block w-full border border-neutral-950 font-mono text-[9px] font-bold px-1 py-0.5 bg-white focus:outline-none uppercase cursor-pointer"
                           >
-                            <option value="pending">PENDING</option>
-                            <option value="approved">APPROVED</option>
+                            <option value="pending">UNVERIFIED SKILLS (PENDING)</option>
+                            <option value="approved">VERIFIED SKILLS (APPROVED)</option>
                             <option value="rejected">REJECTED</option>
                             <option value="revoked">REVOKED</option>
                           </select>

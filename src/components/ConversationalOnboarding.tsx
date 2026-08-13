@@ -235,7 +235,7 @@ export default function ConversationalOnboarding({ onComplete }: ConversationalO
                     I am a Recruiter
                   </h3>
                   <p className="text-xs text-neutral-500 font-bold uppercase tracking-wider leading-relaxed">
-                    I want to bypass agency commissions, access audited portfolios, and coordinate directly with top-tier operators.
+                    I want to bypass agency commissions, access audited portfolios, and coordinate directly with top-tier talent.
                   </p>
                 </div>
               </div>
@@ -259,8 +259,8 @@ export default function ConversationalOnboarding({ onComplete }: ConversationalO
             <button 
               onClick={() => onComplete({
                 userType: null,
-                userName: 'Guest Operator',
-                full_name: 'Guest Operator'
+                userName: 'Guest Talent',
+                full_name: 'Guest Talent'
               })}
               className="inline-flex items-center gap-1.5 text-xs font-black uppercase text-neutral-500 hover:text-neutral-950 hover:underline tracking-wider cursor-pointer bg-transparent border-0"
             >
@@ -661,10 +661,10 @@ export default function ConversationalOnboarding({ onComplete }: ConversationalO
                   onChange={(e) => setData({ ...data, orgSize: e.target.value })}
                   className="w-full border-2 border-slate-200 focus:border-[#00A86B] rounded-xl py-3 px-4 text-xs font-bold text-slate-900 bg-slate-50/50 focus:outline-none uppercase tracking-wide transition cursor-pointer"
                 >
-                  <option value="1-10">1-10 Operators (Seed / Early Stage)</option>
-                  <option value="11-50">11-50 Operators (Growth Stage Venture)</option>
-                  <option value="51-200">51-200 Operators (SME scale)</option>
-                  <option value="200+">200+ Operators (Enterprise Scale)</option>
+                  <option value="1-10">1-10 Team Members (Seed / Early Stage)</option>
+                  <option value="11-50">11-50 Team Members (Growth Stage Venture)</option>
+                  <option value="51-200">51-200 Team Members (SME scale)</option>
+                  <option value="200+">200+ Team Members (Enterprise Scale)</option>
                 </select>
               </div>
 

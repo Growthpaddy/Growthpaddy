@@ -295,7 +295,7 @@ export default function EmployerWorkspace({
                   onClick={() => navigateToPage && navigateToPage('directory')}
                   className="w-full bg-neutral-950 hover:bg-neutral-900 border-2 border-neutral-950 text-center font-black text-white py-3.5 rounded-none text-xs uppercase tracking-widest shadow-[3px_3px_0px_0px_rgba(16,185,129,1)]"
                 >
-                  BROWSE ALL SYSTEM DIGITAL OPERATORS
+                  BROWSE ALL SYSTEM DIGITAL TALENT
                 </button>
               </motion.div>
             )}

@@ -72,7 +72,7 @@ export default function TalentPortfolioModal({
 
           if (data) {
             setFetchedData({
-              userName: data.full_name || 'Verified Operator',
+              userName: data.full_name || 'Verified Talent',
               specialty: data.specialty || 'AI Automation & Growth Specialist',
               experienceLevel: data.experience_level || 'Seasoned Professional',
               careerGoal: data.career_goal || 'Building automated growth systems',
@@ -94,7 +94,7 @@ export default function TalentPortfolioModal({
 
   const displayData = fetchedData || onboardingData;
 
-  const candidateName = displayData?.userName || 'Verified Talent Operator';
+  const candidateName = displayData?.userName || 'Verified Talent';
   const specialty = displayData?.specialty || 'AI Automation & Growth Engineer';
   const experienceTier = displayData?.experienceLevel || 'Seasoned Professional';
   const careerGoal = displayData?.careerGoal || 'Building high-performance automated workflows and growth infrastructure.';
@@ -173,7 +173,7 @@ export default function TalentPortfolioModal({
                     </h2>
                     <span className="inline-flex items-center gap-1 bg-amber-400 text-neutral-950 text-[9px] font-mono font-black px-2 py-0.5 border border-neutral-950 uppercase">
                       <Award className="w-3 h-3 text-neutral-950" />
-                      VERIFIED OPERATOR
+                      VERIFIED SKILLS
                     </span>
                   </div>
                   <p className="text-xs font-mono font-bold text-emerald-400 uppercase mt-0.5">

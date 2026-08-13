@@ -81,7 +81,7 @@ export default function TalentDirectory({
         if (data && data.length > 0) {
           const dbTalent: TalentCandidate[] = data.map((item: any, idx: number) => ({
             id: item.id || `DB-${idx}`,
-            name: item.full_name || 'Verified Tech Operator',
+            name: item.full_name || 'Verified Tech Specialist',
             avatarUrl: item.profile_picture_url || `https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300`,
             role: item.specialty || 'Full-Stack Developer',
             specialization: (item.specialty as any) || 'AI Automation',

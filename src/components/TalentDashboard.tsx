@@ -158,8 +158,9 @@ export default function TalentDashboard({
   const { user, updateProfileData, generateGeminiQuiz, gradeGeminiQuiz } = useSupabase();
 
   // Active editable profile state
-  const [userName, setUserName] = useState(onboardingData?.userName || 'Vetted Operator');
+  const [userName, setUserName] = useState(onboardingData?.userName || 'Talent Candidate');
   const [specialty, setSpecialty] = useState(onboardingData?.specialty || 'AI Automation Engineer');
+  const [dbVettingStatus, setDbVettingStatus] = useState<string>(onboardingData?.vettingStatus || 'pending');
   const [experienceTier, setExperienceTier] = useState<string>(
     onboardingData?.experienceLevel || 'Senior / Lead'
   );
@@ -352,6 +353,7 @@ export default function TalentDashboard({
           .maybeSingle();
 
         if (data) {
+          if (data.vetting_status) setDbVettingStatus(data.vetting_status);
           if (data.full_name) setUserName(data.full_name);
           if (data.specialty) setSpecialty(data.specialty);
           if (data.experience_level) setExperienceTier(data.experience_level);
@@ -687,7 +689,8 @@ export default function TalentDashboard({
     }
   };
 
-  const isFullyVetted = isTalentPaid || phase2InterviewPassed && isTalentPaid;
+  const isVerifiedByAdmin = dbVettingStatus === 'approved' || dbVettingStatus === 'verified' || onboardingData?.vettingStatus === 'approved' || onboardingData?.vettingStatus === 'verified';
+  const isFullyVetted = isVerifiedByAdmin;
   const isPhase1Passed = quizFinished && quizScore !== null && quizScore >= 75;
 
   return (
@@ -717,7 +720,7 @@ export default function TalentDashboard({
                 My Public Profile & Portfolio Builder
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase leading-snug mt-1">
-                Fill out your details to immediately appear in recruiter searches. (Tagged as <span className="font-bold text-amber-600 dark:text-amber-400">"Unverified / Open Candidate"</span> until vetted).
+                Fill out your details to immediately appear in recruiter searches. (Tagged as <span className="font-bold text-amber-600 dark:text-amber-400">"UNVERIFIED SKILLS"</span> until verified by an Admin).
               </p>
             </div>
 
@@ -1001,9 +1004,9 @@ export default function TalentDashboard({
                   onChange={(e) => setExperienceTier(e.target.value)}
                   className="w-full border-2 border-neutral-300 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-4 py-2.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-[#00A86B]"
                 >
-                  <option value="Junior">Junior Operator (1-2 yrs)</option>
+                  <option value="Junior">Junior Talent (1-2 yrs)</option>
                   <option value="Mid-Level">Mid-Level Specialist (2-4 yrs)</option>
-                  <option value="Senior / Lead">Senior / Lead Operator (5+ yrs)</option>
+                  <option value="Senior / Lead">Senior / Lead Talent (5+ yrs)</option>
                 </select>
               </div>
 
@@ -1160,20 +1163,20 @@ export default function TalentDashboard({
                     </p>
                     <p className="text-[9px] uppercase font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
                       <MapPin className="w-3 h-3" />
-                      <span>Remote Operator • {experienceTier}</span>
+                      <span>Remote Talent • {experienceTier}</span>
                     </p>
                   </div>
                 </div>
 
                 {/* Candidate Badge Tag */}
                 <div className="text-right shrink-0">
-                  {isFullyVetted ? (
-                    <span className="inline-flex items-center gap-1 bg-amber-500 text-neutral-950 text-[9px] font-mono font-black px-2 py-0.5 border border-neutral-950 uppercase">
-                      🏆 FULLY VETTED
+                  {isVerifiedByAdmin ? (
+                    <span className="inline-flex items-center gap-1 bg-emerald-500 text-white text-[9px] font-mono font-black px-2 py-0.5 border border-neutral-950 uppercase">
+                      🏆 VERIFIED SKILLS
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[8.5px] font-mono font-bold px-2 py-0.5 border border-slate-300 dark:border-slate-700 uppercase">
-                      UNVERIFIED CANDIDATE
+                    <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 text-[8.5px] font-mono font-bold px-2 py-0.5 border border-amber-300 dark:border-amber-700 uppercase">
+                      UNVERIFIED SKILLS
                     </span>
                   )}
                 </div>
@@ -1220,48 +1223,48 @@ export default function TalentDashboard({
         <div className="lg:col-span-6 space-y-6">
           
           {/* BADGE STATUS BANNER */}
-          {isFullyVetted ? (
-            <div className="bg-gradient-to-r from-amber-500/10 via-yellow-500/20 to-amber-500/10 border-4 border-amber-500 p-6 rounded-none shadow-[6px_6px_0px_0px_rgba(217,119,6,1)] space-y-3 text-left">
+          {isVerifiedByAdmin ? (
+            <div className="bg-gradient-to-r from-emerald-500/10 via-emerald-500/20 to-emerald-500/10 border-4 border-emerald-500 p-6 rounded-none shadow-[6px_6px_0px_0px_rgba(0,168,107,1)] space-y-3 text-left">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <Award className="w-7 h-7 text-amber-500 fill-amber-100 shrink-0" />
+                  <Award className="w-7 h-7 text-emerald-500 fill-emerald-100 shrink-0" />
                   <div>
-                    <span className="text-[9px] font-mono font-black uppercase text-amber-700 dark:text-amber-300 tracking-widest block">
-                      ACCREDITATION COMPLETE
+                    <span className="text-[9px] font-mono font-black uppercase text-emerald-700 dark:text-emerald-300 tracking-widest block">
+                      ADMIN VERIFICATION ACTIVE
                     </span>
-                    <h3 className="font-display font-black text-lg uppercase tracking-tight text-amber-950 dark:text-amber-200">
-                      🏆 GrowthPaddy Fully Vetted Candidate
+                    <h3 className="font-display font-black text-lg uppercase tracking-tight text-emerald-950 dark:text-emerald-200">
+                      🏆 Verified Skills Badge Earned
                     </h3>
                   </div>
                 </div>
-                <span className="bg-amber-500 text-neutral-950 font-mono text-[10px] font-black px-3 py-1 uppercase tracking-widest border border-neutral-950">
-                  GOLD BADGE ACTIVE
+                <span className="bg-[#00A86B] text-white font-mono text-[10px] font-black px-3 py-1 uppercase tracking-widest border border-neutral-950">
+                  VERIFIED SKILLS
                 </span>
               </div>
-              <p className="text-xs text-amber-950 dark:text-amber-200 font-semibold uppercase leading-relaxed border-l-4 border-amber-500 pl-3">
-                Your profile is verified and ranks at the top of recruiter search results! Employers have priority direct access to contact you.
+              <p className="text-xs text-emerald-950 dark:text-emerald-200 font-semibold uppercase leading-relaxed border-l-4 border-emerald-500 pl-3">
+                Your profile skills have been verified by an Admin and rank at the top of recruiter search results! Employers have priority direct access to contact you.
               </p>
             </div>
           ) : (
-            <div className="bg-slate-100 dark:bg-slate-800/80 border-4 border-slate-300 dark:border-slate-700 p-6 rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] space-y-3 text-left">
+            <div className="bg-amber-50 dark:bg-amber-950/40 border-4 border-amber-400 dark:border-amber-600 p-6 rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] space-y-3 text-left">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Lock className="w-6 h-6 text-amber-600 dark:text-amber-400 shrink-0" />
                   <div>
-                    <span className="text-[9px] font-mono font-black uppercase text-amber-600 dark:text-amber-400 tracking-widest block">
-                      UNVERIFIED CANDIDATE STATUS
+                    <span className="text-[9px] font-mono font-black uppercase text-amber-700 dark:text-amber-300 tracking-widest block">
+                      STATUS: UNVERIFIED SKILLS
                     </span>
                     <h3 className="font-display font-black text-base uppercase tracking-tight text-slate-900 dark:text-white">
-                      Unlock the Verified Gold Badge
+                      Awaiting Admin Verification
                     </h3>
                   </div>
                 </div>
-                <span className="bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-mono text-[9px] font-black px-2.5 py-1 uppercase tracking-widest border border-slate-300 dark:border-slate-600">
-                  UNVERIFIED / OPEN CANDIDATE
+                <span className="bg-amber-100 dark:bg-amber-900/80 text-amber-800 dark:text-amber-200 font-mono text-[9px] font-black px-2.5 py-1 uppercase tracking-widest border border-amber-300 dark:border-amber-600">
+                  UNVERIFIED SKILLS
                 </span>
               </div>
               <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed uppercase border-l-4 border-amber-500 pl-3">
-                Your profile is active, but you are not yet Fully Vetted. Complete all 3 phases below to get the Verified Gold Badge and priority placement for recruiters.
+                Every talent profile is set to <strong className="text-amber-800 dark:text-amber-300 font-black">UNVERIFIED SKILLS</strong> by default. Complete your details and vetting phases below so an Admin can review and verify your profile.
               </p>
             </div>
           )}
