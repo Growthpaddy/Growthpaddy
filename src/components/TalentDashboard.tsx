@@ -4,34 +4,28 @@ import {
   ShieldCheck,
   CheckCircle2, 
   ArrowRight,
-  CreditCard,
   Zap,
   Check,
-  TrendingUp,
   AlertTriangle,
   Award,
   Calendar,
   Clock,
-  Briefcase,
-  Layers,
-  FileText,
   UserCheck,
-  ChevronRight,
-  Info,
-  Sliders,
   Sparkles,
   MapPin,
   Save,
   User,
   Lock,
   Loader2,
-  Copy,
+  Sliders,
+  Plus,
+  X,
+  Globe,
   ExternalLink,
-  MessageSquare,
-  Mail,
-  Building2,
-  Send,
-  Globe
+  Briefcase,
+  FileCode2,
+  CheckCircle,
+  HelpCircle
 } from 'lucide-react';
 import { PaymentPhase } from './PaymentPhase';
 import { useSupabase } from '../context/SupabaseContext';
@@ -43,7 +37,7 @@ interface TalentDashboardProps {
   navigateToPage?: (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing') => void;
   onboardingData?: {
     userName?: string;
-    experienceLevel?: 'Fresher/Newbie' | 'Seasoned Professional';
+    experienceLevel?: string;
     specialty?: string;
     careerGoal?: string;
     email?: string;
@@ -58,6 +52,13 @@ interface QuizQuestion {
   explanation: string;
 }
 
+const PRESET_SKILL_TAGS = [
+  'TypeScript', 'Supabase', 'Vite', 'React', 'Node.js', 
+  'Python', 'Tailwind CSS', 'Zapier', 'Make.com', 'GA4', 
+  'SEO', 'PPC', 'LLM Prompts', 'PostgreSQL', 'Figma', 
+  'A/B Testing', 'Growth Marketing', 'Conversion API', 'Cold Email', 'TikTok Ads'
+];
+
 // Question banks based on experience tier
 const PROFESSIONAL_QUESTIONS: QuizQuestion[] = [
   {
@@ -70,7 +71,7 @@ const PROFESSIONAL_QUESTIONS: QuizQuestion[] = [
       'Rewrite the incoming webhook request string format inside direct server loops'
     ],
     correctIdx: 0,
-    explanation: 'De-coupling the input trigger from synchronous heavy operations with a 220/202 state prevents timeout limits cleanly.'
+    explanation: 'De-coupling the input trigger from synchronous heavy operations with a 202 Accepted state prevents timeout limits cleanly.'
   },
   {
     id: 'p2',
@@ -144,42 +145,46 @@ export default function TalentDashboard({
   onboardingData 
 }: TalentDashboardProps) {
   
-  const { user, updateProfileData, triggerGradeQuiz, generateGeminiQuiz, gradeGeminiQuiz } = useSupabase();
+  const { user, updateProfileData, generateGeminiQuiz, gradeGeminiQuiz } = useSupabase();
 
-  // Active editable form/profile values with automatic DB sync
-  const [userName, setUserName] = useState(onboardingData?.userName || 'Candidate Specialist');
-  const [experienceTier, setExperienceTier] = useState<'Fresher/Newbie' | 'Seasoned Professional'>(
-    onboardingData?.experienceLevel || 'Seasoned Professional'
+  // Active editable profile state
+  const [userName, setUserName] = useState(onboardingData?.userName || 'Vetted Operator');
+  const [specialty, setSpecialty] = useState(onboardingData?.specialty || 'AI Automation Engineer');
+  const [experienceTier, setExperienceTier] = useState<string>(
+    onboardingData?.experienceLevel || 'Senior / Lead'
   );
-  const [specialty, setSpecialty] = useState(onboardingData?.specialty || 'AI Automation');
-  const [careerGoal, setCareerGoal] = useState(onboardingData?.careerGoal || 'Full-Time Remote Job');
+  const [careerGoal, setCareerGoal] = useState(onboardingData?.careerGoal || 'Full-Time Remote Position');
+  const [portfolioUrl, setPortfolioUrl] = useState('');
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([
+    'TypeScript', 'Supabase', 'Vite', 'Tailwind CSS', 'Make.com'
+  ]);
+  const [customSkillInput, setCustomSkillInput] = useState('');
   
   const [syncingProfile, setSyncingProfile] = useState(false);
   const [profileSyncSuccess, setProfileSyncSuccess] = useState(false);
 
-  // 4-Phase Navigation state
-  const [activePhase, setActivePhase] = useState<1 | 2 | 3 | 4>(1);
+  // 3-Phase Navigation state
+  const [activePhase, setActivePhase] = useState<1 | 2 | 3>(1);
 
   // Vetting Completed Flags
   const [quizScore, setQuizScore] = useState<number | null>(null);
   const [quizFinished, setQuizFinished] = useState(false);
   const [interviewBooked, setInterviewBooked] = useState(false);
   const [bookedSlot, setBookedSlot] = useState<{date: string, time: string} | null>(null);
-  const [dossierSubmitted, setDossierSubmitted] = useState(false);
   const [phase2InterviewPassed, setPhase2InterviewPassed] = useState(false);
   const [showFirstFailModal, setShowFirstFailModal] = useState(false);
   const [dynamicQuestions, setDynamicQuestions] = useState<any[] | null>(null);
   const [loadingQuiz, setLoadingQuiz] = useState(false);
   const [quizFeedback, setQuizFeedback] = useState<string>('');
 
-  // Phase 1 Retries, lockouts, and live slots
+  // Phase 1 Retries & lockout
   const [quizAttempts, setQuizAttempts] = useState(0);
   const [quizLockedUntil, setQuizLockedUntil] = useState<string | null>(null);
   const [countdownString, setCountdownString] = useState('');
   const [dbSlots, setDbSlots] = useState<any[]>([]);
   const [selectedSlotId, setSelectedSlotId] = useState<string>('');
 
-  // Fetch dynamic available slots
+  // Fetch available slots
   const loadAvailableSlots = async () => {
     try {
       const { data, error } = await supabase
@@ -190,23 +195,15 @@ export default function TalentDashboard({
       if (!error && data && data.length > 0) {
         setDbSlots(data);
       } else {
-        // Load fallback mock slots
-        const cached = localStorage.getItem('dsp_available_slots');
-        if (cached) {
-          const parsed = JSON.parse(cached).filter((s: any) => !s.is_booked);
-          setDbSlots(parsed);
-        } else {
-          const defaultSlots = [
-            { id: 'slot-1', date: '2026-07-22', time_slot: '11:30 AM', is_booked: false, meeting_link: 'https://zoom.us/j/1234567890' },
-            { id: 'slot-2', date: '2026-07-23', time_slot: '02:00 PM', is_booked: false, meeting_link: 'https://zoom.us/j/1234567891' },
-            { id: 'slot-3', date: '2026-07-24', time_slot: '09:00 AM', is_booked: false, meeting_link: 'https://zoom.us/j/1234567892' }
-          ];
-          setDbSlots(defaultSlots);
-          localStorage.setItem('dsp_available_slots', JSON.stringify(defaultSlots));
-        }
+        const defaultSlots = [
+          { id: 'slot-1', date: '2026-08-15', time_slot: '11:30 AM', is_booked: false },
+          { id: 'slot-2', date: '2026-08-16', time_slot: '02:00 PM', is_booked: false },
+          { id: 'slot-3', date: '2026-08-17', time_slot: '09:00 AM', is_booked: false }
+        ];
+        setDbSlots(defaultSlots);
       }
     } catch (err) {
-      console.warn('Available slots query exception, using mock fallback', err);
+      console.warn('Available slots query exception:', err);
     }
   };
 
@@ -214,7 +211,7 @@ export default function TalentDashboard({
     loadAvailableSlots();
   }, []);
 
-  // Countdown timer loop for quiz lockout
+  // Countdown timer loop for lockout
   useEffect(() => {
     if (!quizLockedUntil) return;
     const updateCountdown = () => {
@@ -225,7 +222,6 @@ export default function TalentDashboard({
         setCountdownString('');
         setQuizAttempts(0);
         setQuizLockedUntil(null);
-        // Save to DB / Local state
         if (user) {
           updateProfileData({
             quiz_attempts_count: 0,
@@ -252,112 +248,131 @@ export default function TalentDashboard({
     return new Date(quizLockedUntil) > new Date();
   };
 
-  // Load and sync real user profile from Supabase on mount
+  // Sync profile data from Supabase DB on mount
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (!user) return;
       try {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('talent_profiles')
           .select('*')
           .eq('id', user.id)
           .maybeSingle();
 
-        // Load unified profile parameters
-        let val = data;
-        if (!val) {
-          const cached = localStorage.getItem(`mock_talent_profiles_${user.id}`);
-          if (cached) {
-            val = JSON.parse(cached);
+        if (data) {
+          if (data.full_name) setUserName(data.full_name);
+          if (data.specialty) setSpecialty(data.specialty);
+          if (data.experience_level) setExperienceTier(data.experience_level);
+          if (data.skills && Array.isArray(data.skills) && data.skills.length > 0) {
+            setSelectedSkills(data.skills);
           }
-        }
-
-        if (val) {
-          if (val.full_name) setUserName(val.full_name);
-          if (val.specialty) setSpecialty(val.specialty);
-          if (val.experience_level) {
-            const mapped = val.experience_level === 'fresher' || val.experience_level === 'Fresher/Newbie' ? 'Fresher/Newbie' : 'Seasoned Professional';
-            setExperienceTier(mapped);
-          }
-          if (val.career_goal) setCareerGoal(val.career_goal);
-          if (val.quiz_attempts_count !== undefined) setQuizAttempts(val.quiz_attempts_count);
-          if (val.quiz_locked_until) setQuizLockedUntil(val.quiz_locked_until);
+          if (data.portfolio_url) setPortfolioUrl(data.portfolio_url);
+          if (data.career_goal) setCareerGoal(data.career_goal);
+          if (data.quiz_attempts_count !== undefined) setQuizAttempts(data.quiz_attempts_count);
+          if (data.quiz_locked_until) setQuizLockedUntil(data.quiz_locked_until);
           
-          if (val.phase_1_quiz_passed) {
+          if (data.phase_1_quiz_passed) {
             setQuizFinished(true);
             setQuizScore(100);
           }
 
-          if (val.phase_2_interview_scheduled || val.vetting_status === 'interview_scheduled') {
+          if (data.phase_2_interview_scheduled || data.vetting_status === 'interview_scheduled') {
             setInterviewBooked(true);
-            if (val.booked_slot_date && val.booked_slot_time_slot) {
-              setBookedSlot({ date: val.booked_slot_date, time: val.booked_slot_time_slot });
-            } else {
-              setBookedSlot({ date: 'July 22, 2026', time: '11:30 AM' });
+            if (data.booked_slot_date && data.booked_slot_time_slot) {
+              setBookedSlot({ date: data.booked_slot_date, time: data.booked_slot_time_slot });
             }
           }
 
-          if (val.phase_3_fee_paid || val.vetting_status === 'fee_paid') {
+          if (data.phase_2_interview_passed) {
+            setPhase2InterviewPassed(true);
+          }
+
+          if (data.phase_3_fee_paid || data.vetting_status === 'fee_paid' || data.vetting_status === 'completed' || data.vetting_status === 'approved') {
             setQuizFinished(true);
             setQuizScore(100);
             setInterviewBooked(true);
             setPhase2InterviewPassed(true);
             if (setIsTalentPaid) setIsTalentPaid(true);
-          }
-
-          if (val.phase_2_interview_passed) {
-            setPhase2InterviewPassed(true);
-          }
-
-          if (val.vetting_status === 'completed') {
-            setQuizFinished(true);
-            setQuizScore(100);
-            setInterviewBooked(true);
-            setPhase2InterviewPassed(true);
-            if (setIsTalentPaid) setIsTalentPaid(true);
-            setDossierSubmitted(true);
           }
         }
       } catch (err) {
-        console.warn('Could not load online profile parameters, remaining on local sandbox mode.', err);
+        console.warn('Could not load user profile parameters:', err);
       }
     };
     fetchUserProfile();
   }, [user]);
 
-  // Synchronize changes to Supabase
-  const handleSaveProfileSettings = async (e: React.FormEvent) => {
+  // Handle Save Profile
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSyncingProfile(true);
     setProfileSyncSuccess(false);
 
-    const payload = {
-      full_name: userName,
-      specialty: specialty,
-      experience_level: experienceTier,
-      career_goal: careerGoal,
-    };
+    try {
+      const payload = {
+        full_name: userName,
+        specialty: specialty,
+        experience_level: experienceTier,
+        skills: selectedSkills,
+        portfolio_url: portfolioUrl,
+        career_goal: careerGoal,
+        updated_at: new Date().toISOString()
+      };
 
-    const { error } = await updateProfileData(payload);
-    setSyncingProfile(false);
-    
-    if (!error) {
+      if (user) {
+        const { error } = await supabase
+          .from('talent_profiles')
+          .update(payload)
+          .eq('id', user.id);
+
+        if (error) {
+          console.warn('Client update warning, using fallback context update:', error);
+          await updateProfileData(payload);
+        }
+      } else {
+        await updateProfileData(payload);
+      }
+
       setProfileSyncSuccess(true);
-      setTimeout(() => setProfileSyncSuccess(false), 3000);
+      setTimeout(() => setProfileSyncSuccess(false), 3500);
+    } catch (err) {
+      console.error('Save profile exception:', err);
+    } finally {
+      setSyncingProfile(false);
     }
   };
 
-  // Phase 1 Quiz State
+  // Skill Tag toggle handler
+  const toggleSkillTag = (skill: string) => {
+    if (selectedSkills.includes(skill)) {
+      setSelectedSkills(selectedSkills.filter(s => s !== skill));
+    } else {
+      setSelectedSkills([...selectedSkills, skill]);
+    }
+  };
+
+  const handleAddCustomSkill = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customSkillInput.trim()) return;
+    const tag = customSkillInput.trim();
+    if (!selectedSkills.includes(tag)) {
+      setSelectedSkills([...selectedSkills, tag]);
+    }
+    setCustomSkillInput('');
+  };
+
+  // Phase 1 Quiz Execution
   const activeQuestions = dynamicQuestions && dynamicQuestions.length > 0 
     ? dynamicQuestions 
-    : (experienceTier === 'Seasoned Professional' ? PROFESSIONAL_QUESTIONS : FRESHER_QUESTIONS);
+    : (experienceTier === 'Senior / Lead' || experienceTier === 'Seasoned Professional' ? PROFESSIONAL_QUESTIONS : FRESHER_QUESTIONS);
+  
   const [currentQIdx, setCurrentQIdx] = useState(0);
   const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
   const [showQExplanation, setShowQExplanation] = useState(false);
-  const [quizTimer, setQuizTimer] = useState(60); // 60 seconds countdown
+  const [quizTimer, setQuizTimer] = useState(60);
   const [quizActive, setQuizActive] = useState(false);
 
-  // Timer simulation
+  // Timer loop
   useEffect(() => {
     let interval: any = null;
     if (quizActive && quizTimer > 0 && !quizFinished) {
@@ -379,13 +394,11 @@ export default function TalentDashboard({
     setQuizFinished(false);
     try {
       const { questions, error } = await generateGeminiQuiz(specialty, experienceTier);
-      if (error) {
-        console.warn("Could not generate Gemini quiz. Utilizing preset questions...", error);
-      } else if (questions && questions.length > 0) {
+      if (!error && questions && questions.length > 0) {
         setDynamicQuestions(questions);
       }
     } catch (err) {
-      console.warn("Exception generating quiz:", err);
+      console.warn("Quiz generation fallback used:", err);
     } finally {
       setLoadingQuiz(false);
       setQuizActive(true);
@@ -431,10 +444,8 @@ export default function TalentDashboard({
       if (result && !result.error) {
         const finalScore = result.score;
         const finalPassed = result.passed;
-        const feedback = result.feedback;
-
         setQuizScore(finalScore);
-        setQuizFeedback(feedback);
+        setQuizFeedback(result.feedback);
 
         const nextAttempts = quizAttempts + 1;
         setQuizAttempts(nextAttempts);
@@ -445,70 +456,32 @@ export default function TalentDashboard({
             quiz_attempts_count: nextAttempts,
             vetting_status: 'passed_quiz'
           });
-
-          // Cache locally
-          const mockKey = `mock_talent_profiles_${user?.id || 'guest'}`;
-          const existing = JSON.parse(localStorage.getItem(mockKey) || '{}');
-          localStorage.setItem(mockKey, JSON.stringify({
-            ...existing,
-            phase_1_quiz_passed: true,
-            quiz_attempts_count: nextAttempts,
-            vetting_status: 'passed_quiz'
-          }));
         } else {
-          // Failed attempt
           if (nextAttempts >= 2) {
-            const lockDuration = 5 * 24 * 60 * 60 * 1000; // 5 days in ms
-            const lockedUntil = new Date(Date.now() + lockDuration).toISOString();
+            const lockedUntil = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
             setQuizLockedUntil(lockedUntil);
-
             await updateProfileData({
               phase_1_quiz_passed: false,
               quiz_attempts_count: nextAttempts,
               quiz_locked_until: lockedUntil,
               vetting_status: 'quiz_locked'
             });
-
-            // Cache locally
-            const mockKey = `mock_talent_profiles_${user?.id || 'guest'}`;
-            const existing = JSON.parse(localStorage.getItem(mockKey) || '{}');
-            localStorage.setItem(mockKey, JSON.stringify({
-              ...existing,
-              phase_1_quiz_passed: false,
-              quiz_attempts_count: nextAttempts,
-              quiz_locked_until: lockedUntil,
-              vetting_status: 'quiz_locked'
-            }));
           } else {
-            // First Failure
             setShowFirstFailModal(true);
             await updateProfileData({
               quiz_attempts_count: nextAttempts,
               vetting_status: 'failed_first_attempt'
             });
-
-            // Cache locally
-            const mockKey = `mock_talent_profiles_${user?.id || 'guest'}`;
-            const existing = JSON.parse(localStorage.getItem(mockKey) || '{}');
-            localStorage.setItem(mockKey, JSON.stringify({
-              ...existing,
-              quiz_attempts_count: nextAttempts,
-              vetting_status: 'failed_first_attempt'
-            }));
           }
         }
       } else {
-        // Local programmatic fallback
         let correct = 0;
         activeQuestions.forEach((q, idx) => {
           if (quizAnswers[idx] === q.correctIdx) correct++;
         });
         const finalScore = Math.round((correct / activeQuestions.length) * 100);
         setQuizScore(finalScore);
-        setQuizFeedback(finalScore >= 75 
-          ? "Excellent achievement! You cleared the DSP Phase 1 Gateway." 
-          : "You didn't pass the assessment on this attempt.");
-
+        setQuizFeedback(finalScore >= 75 ? "Score threshold cleared!" : "Scored below 75%. Retry diagnostic.");
         const nextAttempts = quizAttempts + 1;
         setQuizAttempts(nextAttempts);
 
@@ -538,20 +511,19 @@ export default function TalentDashboard({
         }
       }
     } catch (err) {
-      console.error("Grading failed:", err);
+      console.error("Grading exception:", err);
       setLoadingQuiz(false);
     }
   };
 
-  // Phase 2: Booking slots data
+  // Phase 2: Booking slots
   const handleBookInterview = async () => {
     if (!selectedSlotId) return;
     const slot = dbSlots.find(s => s.id === selectedSlotId);
     if (!slot) return;
 
-    // Update slot is_booked = true in DB
     try {
-      const { error } = await supabase
+      await supabase
         .from('admin_available_slots')
         .update({ 
           is_booked: true,
@@ -559,31 +531,11 @@ export default function TalentDashboard({
           booked_by_email: user?.email || 'unspecified'
         })
         .eq('id', slot.id);
-
-      // Also update locally cached slots
-      const cached = localStorage.getItem('dsp_available_slots');
-      if (cached) {
-        const parsed = JSON.parse(cached).map((s: any) => {
-          if (s.id === slot.id) {
-            return { 
-              ...s, 
-              is_booked: true, 
-              booked_by_name: userName, 
-              booked_by_email: user?.email || 'unspecified' 
-            };
-          }
-          return s;
-        });
-        localStorage.setItem('dsp_available_slots', JSON.stringify(parsed));
-      }
     } catch (err) {
-      console.warn('DB update of slots failed, utilizing mock fallback', err);
+      console.warn('Booking slot update warning:', err);
     }
 
-    setBookedSlot({
-      date: slot.date,
-      time: slot.time_slot
-    });
+    setBookedSlot({ date: slot.date, time: slot.time_slot });
     setInterviewBooked(true);
 
     if (user) {
@@ -594,911 +546,764 @@ export default function TalentDashboard({
         booked_slot_time_slot: slot.time_slot,
         vetting_status: 'interview_scheduled'
       });
-      
-      // Cache locally
-      const mockKey = `mock_talent_profiles_${user.id}`;
-      const existing = JSON.parse(localStorage.getItem(mockKey) || '{}');
-      localStorage.setItem(mockKey, JSON.stringify({
-        ...existing,
-        phase_2_interview_scheduled: true,
-        booked_slot_id: slot.id,
-        booked_slot_date: slot.date,
-        booked_slot_time_slot: slot.time_slot,
-        vetting_status: 'interview_scheduled'
-      }));
     }
-    loadAvailableSlots(); // reload slots
+    loadAvailableSlots();
   };
 
-  // Phase 3: Bank Transfer Direct Payment Engine
-  const [copiedAccount, setCopiedAccount] = useState<string | null>(null);
-  const [selectedCurrencyTab, setSelectedCurrencyTab] = useState<'ALL' | 'NGN' | 'USD' | 'EUR' | 'GBP'>('ALL');
-  const [payingState, setPayingState] = useState(false);
-  const [proofSentNotice, setProofSentNotice] = useState(false);
+  // Phase 3 Payment Complete
+  const handlePayCommitment = async () => {
+    if (setIsTalentPaid) setIsTalentPaid(true);
+    if (user) {
+      await updateProfileData({
+        phase_3_fee_paid: true,
+        vetting_status: 'approved'
+      });
 
-  const handleCopyAccount = (accNo: string, currencyCode: string) => {
-    navigator.clipboard.writeText(accNo);
-    setCopiedAccount(currencyCode);
-    setTimeout(() => setCopiedAccount(null), 2500);
-  };
-
-  const handlePayCommitment = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setPayingState(true);
-    setTimeout(async () => {
-      setPayingState(false);
-      setProofSentNotice(true);
-      if (setIsTalentPaid) {
-        setIsTalentPaid(true);
-      }
-      
-      if (user) {
-        await updateProfileData({
+      // Update Supabase directly
+      await supabase
+        .from('talent_profiles')
+        .update({
           phase_3_fee_paid: true,
-          vetting_status: 'fee_paid'
-        });
-
-        // Cache locally
-        const mockKey = `mock_talent_profiles_${user.id}`;
-        const existing = JSON.parse(localStorage.getItem(mockKey) || '{}');
-        localStorage.setItem(mockKey, JSON.stringify({
-          ...existing,
-          phase_3_fee_paid: true,
-          vetting_status: 'fee_paid'
-        }));
-      }
-    }, 1200);
+          vetting_status: 'approved'
+        })
+        .eq('id', user.id);
+    }
   };
 
-  // Phase 4: Portfolio Builder state
-  const [portfolioData, setPortfolioData] = useState({
-    title: '',
-    metrics: '',
-    url: '',
-    about: '',
-    caseText: ''
-  });
-
-  const handleSaveDossier = (e: React.FormEvent) => {
-    e.preventDefault();
-    setDossierSubmitted(true);
-    setTimeout(async () => {
-      if (user) {
-        await updateProfileData({
-          vetting_status: 'completed',
-          session_responses: {
-            ...onboardingData,
-            portfolio: portfolioData
-          }
-        });
-      }
-      alert('Your verified case dossier has been serialized and published to the employer directory successfully!');
-    }, 1200);
-  };
-
+  const isFullyVetted = isTalentPaid || phase2InterviewPassed && isTalentPaid;
   const isPhase1Passed = quizFinished && quizScore !== null && quizScore >= 75;
 
-  // Vetting indicators summary
-  const getPhaseStatusBadge = (phaseNum: 1 | 2 | 3 | 4) => {
-    if (phaseNum === 1) return quizFinished ? 'Passed' : 'Incomplete';
-    if (phaseNum === 2) {
-      if (phase2InterviewPassed) return 'Passed';
-      return interviewBooked ? 'Scheduled' : 'Incomplete';
-    }
-    if (phaseNum === 3) return isTalentPaid ? 'Verified' : 'Incomplete';
-    if (phaseNum === 4) return dossierSubmitted ? 'Submitted' : 'Active';
-    return 'Incomplete';
-  };
-
-  // Specialty Dynamic Skill Mapping for Portfolio Card Preview
-  const getPreviewSkills = () => {
-    const skillMap: Record<string, string[]> = {
-      'SEO': ['Technical SEO', 'Programmatic SEO', 'Semrush Audit', 'Search Console'],
-      'AI Automation': ['Make.com workflows', 'Gemini API', 'Vector Databases', 'Structured JSON'],
-      'Growth Marketing': ['LTV Optimization', 'A/B Testing', 'Retention Analytics', 'Paid Acquisition'],
-      'PPC': ['Facebook Ad Manager', 'Google Search Ads', 'Ad Account Audits', 'Conversion API'],
-      'Social Media': ['TikTok Brand Scale', 'User-Generated Content', 'Community Building', 'Shortform Video'],
-      'Email Marketing': ['Klaviyo Flows', 'Direct-Response Copy', 'List Segmentation', 'Cold Outreach']
-    };
-    return skillMap[specialty] || ['Automation Webhooks', 'Structured Prompts', 'Growth Optimization'];
-  };
-
   return (
-    <div id="talent-vetting-workspace" className="space-y-8 py-8 px-4 sm:px-6 lg:px-8 bg-[#fafbfc]">
+    <div id="talent-vetting-workspace" className="space-y-8 py-4 px-4 sm:px-6 lg:px-8 text-left">
       
-      {/* Page header with verified badge status */}
-      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-6 bg-white p-6 border-2 border-neutral-200 rounded-none shadow-sm text-left">
-        <div className="space-y-2 max-w-xl">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] uppercase font-mono font-black tracking-widest text-emerald-700 bg-emerald-50 px-2.5 py-0.5 border border-emerald-300 inline-block">
-              SPECIALIST CONSOLE
-            </span>
-            <span className="text-[10px] uppercase font-mono font-black tracking-widest text-slate-700 bg-slate-50 px-2.5 py-0.5 border border-slate-200 inline-block">
-              DIFFICULTY: {experienceTier === 'Seasoned Professional' ? 'EXPERT PROFESSIONAL' : 'FOUNDATIONAL FRESHER'}
-            </span>
-          </div>
-          <h1 className="font-display font-black text-2xl text-neutral-950 uppercase tracking-tight leading-none pt-1">
-            {userName}'s Vetting Hub
-          </h1>
-          <p className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">
-            Track and complete your 4-Phase Operational Verification to secure priority ranking in employer matching filters.
-          </p>
-        </div>
-
-        {/* Global Progress Matrix */}
-        <div className="bg-slate-900 text-white p-4 rounded-none text-left min-w-[280px] flex-shrink-0 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[9px] font-mono text-slate-400 uppercase font-black tracking-widest">VERIFIED COMPLIANCE STATUS</span>
-            <span className="text-xs font-mono font-bold text-emerald-400">
-              {isTalentPaid && quizFinished && phase2InterviewPassed && dossierSubmitted ? '100% HIRED READY' : 'IN VETTING PIPELINE'}
-            </span>
-          </div>
-          <div className="grid grid-cols-4 gap-1.5 pt-1.5">
-            <div className={`h-1.5 rounded-none ${quizFinished ? 'bg-[#00A86B]' : 'bg-slate-700'}`} />
-            <div className={`h-1.5 rounded-none ${phase2InterviewPassed ? 'bg-[#00A86B]' : 'bg-slate-700'}`} />
-            <div className={`h-1.5 rounded-none ${isTalentPaid ? 'bg-[#00A86B]' : 'bg-slate-700'}`} />
-            <div className={`h-1.5 rounded-none ${dossierSubmitted ? 'bg-[#00A86B]' : 'bg-slate-700'}`} />
-          </div>
-          <p className="text-[9.5px] text-slate-400 font-bold uppercase tracking-wider block">
-            Specialization Field: <span className="text-white font-black">{specialty}</span>
-          </p>
-        </div>
-      </div>
-
-      {/* 4-PHASE PROGRESS STEPPER WIZARD */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-left">
-        {[
-          { num: 1, title: 'Phase 1: Scenario Quiz', subtitle: 'Adaptive Assessment', state: getPhaseStatusBadge(1), isLocked: false },
-          { num: 2, title: 'Phase 2: Panel Interview', subtitle: 'Schedule Boarding', state: getPhaseStatusBadge(2), isLocked: !isPhase1Passed },
-          { num: 3, title: 'Phase 3: Review Fee', subtitle: 'Platform Accreditation', state: getPhaseStatusBadge(3), isLocked: !phase2InterviewPassed },
-          { num: 4, title: 'Phase 4: Dossier Builder', subtitle: 'Project Evidence', state: getPhaseStatusBadge(4), isLocked: !isTalentPaid }
-        ].map((ph) => {
-          const isSelected = activePhase === ph.num;
-          return (
-            <button
-              key={ph.num}
-              onClick={() => setActivePhase(ph.num as any)}
-              className={`p-4 border-2 text-left transition-all relative focus:outline-none cursor-pointer flex flex-col justify-between h-28 rounded-none
-                ${isSelected 
-                  ? 'border-[#00A86B] bg-emerald-50/10 shadow-sm' 
-                  : 'border-slate-200 bg-white hover:bg-slate-50/50'}
-                ${ph.isLocked ? 'opacity-85' : ''}`}
-            >
-              <div>
-                <div className="flex items-center justify-between gap-1.5">
-                  <span className={`text-[8.5px] font-mono font-black uppercase tracking-widest px-2 py-0.5 rounded-none border block w-max
-                    ${ph.state === 'Passed' || ph.state === 'Scheduled' || ph.state === 'Verified' || ph.state === 'Submitted'
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-300' 
-                      : 'bg-slate-50 text-slate-500 border-slate-200'}`}
-                  >
-                    {ph.state}
-                  </span>
-                  {ph.isLocked && (
-                    <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  )}
-                </div>
-                <h4 className="font-display font-black text-xs text-slate-800 uppercase tracking-tight mt-2">{ph.title}</h4>
-              </div>
-              <p className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold">{ph.subtitle}</p>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Bento Grid: Left Vetting Board, Right Profile Customizer & Live Card Preview */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      {/* TWO-COLUMN HYBRID DASHBOARD GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
-        {/* Left 8-column Panel: Vetting Action Content */}
-        <div className="lg:col-span-8 bg-white border-2 border-neutral-200 p-6 sm:p-8 text-left rounded-none shadow-sm min-h-[460px]">
+        {/* ================================================================ */}
+        {/* SECTION 1: MY PUBLIC PROFILE & PORTFOLIO BUILDER (Left Column)   */}
+        {/* ================================================================ */}
+        <div className="lg:col-span-6 space-y-6">
           
-          <AnimatePresence mode="wait">
+          <div className="bg-white dark:bg-slate-900 border-2 border-neutral-900 dark:border-slate-800 p-6 sm:p-7 rounded-none shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] space-y-6">
             
-            {/* ======================================================== */}
-            {/* PHASE 1: SCENARIO QUIZ ASSESSMENT                        */}
-            {/* ======================================================== */}
-            {activePhase === 1 && (
-              <motion.div
-                key="phase1"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="space-y-6"
-              >
-                <div className="border-b border-slate-100 pb-4">
-                  <span className="text-[9.5px] font-mono font-black text-[#00A86B] uppercase bg-emerald-50 px-2 py-0.5 border border-emerald-200">
-                    ADAPTIVE AUTOMATION ENGINE
-                  </span>
-                  <h3 className="font-display font-black text-lg text-slate-900 uppercase mt-1">
-                    Phase 1: Marketing Operations scenario quiz
-                  </h3>
-                  <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mt-1">
-                    Prove your hands-on systems capability. You have 60 seconds. High score requirement: <strong className="text-emerald-700 font-mono">75% score threshold to pass</strong>.
-                  </p>
-                </div>
-
-                {isQuizCurrentlyLocked() && (
-                  <div className="p-8 text-center bg-rose-50/30 border-2 border-rose-600 max-w-lg mx-auto space-y-5">
-                    <AlertTriangle className="w-12 h-12 text-rose-600 mx-auto" />
-                    <h4 className="font-black text-xs uppercase tracking-widest text-neutral-900">DIAGNOSTIC PIPELINE TEMPORARILY LOCKED</h4>
-                    <p className="text-xs uppercase font-extrabold text-rose-800 leading-relaxed">
-                      To protect pipeline integrity, candidates are limited to two sequential attempts. Your access will be automatically restored after the duration below.
-                    </p>
-                    
-                    <div className="bg-slate-950 text-rose-500 font-mono text-2xl py-3 px-6 font-black tracking-widest inline-block border-2 border-rose-600 shadow-[4px_4px_0px_0px_rgba(225,29,72,1)]">
-                      {countdownString || '0d 0h 0m 0s'}
-                    </div>
-
-                    <p className="text-[10.5px] text-slate-500 uppercase tracking-wider font-bold leading-relaxed pt-2">
-                      While you wait, leverage our high-impact preparation and fast-track coaching streams:
-                    </p>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                      <a
-                        href="https://learnwithdsp.com/shop"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="bg-slate-900 hover:bg-slate-800 text-white font-black py-3 px-4 rounded-none text-xs uppercase tracking-wider text-center flex items-center justify-center border-2 border-slate-900 hover:scale-[1.01] transition-transform duration-100"
-                      >
-                        Option A: DSP Courses
-                      </a>
-                      <a
-                        href="https://wa.me/2347056571093?text=Hello%2C%20I%20failed%20the%20GrowthPaddy%20quiz%20and%20need%20expert%20coaching%20to%20pass%20my%20next%20attempt."
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 px-4 rounded-none text-xs uppercase tracking-wider text-center flex items-center justify-center border-2 border-emerald-600 hover:scale-[1.01] transition-transform duration-100"
-                      >
-                        Option B: WhatsApp Coaching
-                      </a>
-                    </div>
-                  </div>
-                )}
-
-                {loadingQuiz && (
-                  <div className="p-12 border border-dashed border-slate-300 bg-slate-50 text-center space-y-4 max-w-lg mx-auto">
-                    <Loader2 className="w-12 h-12 text-[#00A86B] mx-auto animate-spin" />
-                    <h4 className="font-black text-xs text-slate-800 uppercase tracking-widest">CO-ORDINATING SYSTEM COGNITION...</h4>
-                    <p className="text-[11px] text-slate-500 leading-relaxed uppercase font-semibold">
-                      Please hold as our dynamic AI engine formats hyper-relevant, scenario-based evaluation models tailored to your specialization profile.
-                    </p>
-                  </div>
-                )}
-
-                {!loadingQuiz && !quizActive && !quizFinished && !isQuizCurrentlyLocked() && (
-                  <div className="p-8 border border-dashed border-slate-300 bg-slate-50 text-center space-y-4 max-w-lg mx-auto">
-                    <Award className="w-12 h-12 text-[#00A86B] mx-auto" />
-                    <h4 className="font-black text-xs text-slate-800 uppercase tracking-wider">Are you ready to initiate?</h4>
-                    <p className="text-xs text-slate-500 leading-relaxed uppercase font-semibold">
-                      This diagnostic contains 3 challenging structural logic inquiries covering {specialty} paradigms. Once activated, the timer counts down immediately.
-                    </p>
-                    
-                    {quizAttempts === 1 && (
-                      <div className="p-3 bg-amber-50 border-2 border-amber-300 text-amber-900 text-[10px] font-mono font-black uppercase tracking-wider leading-relaxed text-left">
-                        ⚠️ Take a deep breath and stay calm if you're feeling nervous! You have 1 remaining attempt.
-                      </div>
-                    )}
-
-                    <button
-                      onClick={handleStartQuiz}
-                      className="bg-slate-900 hover:bg-slate-800 text-white font-black py-3 px-6 rounded-none text-xs uppercase tracking-widest cursor-pointer shadow-[3px_3px_0px_0px_rgba(16,185,129,1)] transition-all duration-150"
-                    >
-                      INITIALIZE CORE DIAGNOSTIC
-                    </button>
-                  </div>
-                )}
-
-                {quizActive && !quizFinished && !isQuizCurrentlyLocked() && (
-                  <div className="space-y-6 max-w-2xl">
-                    <div className="flex justify-between items-center text-xs font-mono bg-slate-950 text-white py-2 px-4">
-                      <span>QUESTION {currentQIdx + 1} OF {activeQuestions.length}</span>
-                      <span className={`${quizTimer <= 15 ? 'text-rose-500 animate-pulse font-black' : 'text-emerald-400 font-bold'}`}>
-                        ⏱️ TIMER: {quizTimer}s
-                      </span>
-                    </div>
-
-                    <div className="bg-slate-50 border border-slate-200 p-5">
-                      <h4 className="font-bold text-slate-900 text-sm uppercase leading-relaxed text-left">
-                        {activeQuestions[currentQIdx].question}
-                      </h4>
-                    </div>
-
-                    <div className="space-y-2">
-                      {activeQuestions[currentQIdx].options.map((opt, idx) => {
-                        const hasSelected = quizAnswers[currentQIdx] !== undefined;
-                        const isThisSelected = quizAnswers[currentQIdx] === idx;
-                        const isCorrect = idx === activeQuestions[currentQIdx].correctIdx;
-
-                        let btnClass = 'border-slate-200 bg-white hover:bg-slate-50 text-slate-800';
-                        if (hasSelected) {
-                          if (isCorrect) {
-                            btnClass = 'border-emerald-500 bg-emerald-50/25 text-emerald-800 font-bold';
-                          } else if (isThisSelected) {
-                            btnClass = 'border-rose-300 bg-rose-50/25 text-rose-800 font-bold';
-                          } else {
-                            btnClass = 'border-slate-200 bg-white opacity-60 text-slate-500';
-                          }
-                        }
-
-                        return (
-                          <button
-                            key={idx}
-                            onClick={() => handleSelectQuizAnswer(idx)}
-                            disabled={hasSelected}
-                            className={`w-full text-left p-3.5 border transition rounded-none text-xs flex gap-3 ${btnClass}`}
-                          >
-                            <span className="font-mono text-[10px] font-black uppercase">[{String.fromCharCode(65 + idx)}]</span>
-                            <span>{opt}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {showQExplanation && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="p-4 bg-emerald-50/30 border border-emerald-200 text-emerald-950 space-y-2 text-xs text-left"
-                      >
-                        <p className="font-bold uppercase tracking-wider text-[9px] text-emerald-700">✓ VETTING INSIGHT RESOLUTION:</p>
-                        <p className="leading-relaxed font-medium uppercase">{activeQuestions[currentQIdx].explanation}</p>
-                        
-                        <button
-                          onClick={handleNextQuizQuestion}
-                          className="bg-slate-950 text-white font-black py-2 px-4 rounded-none text-[10px] uppercase tracking-widest cursor-pointer flex items-center gap-1.5 mt-2"
-                        >
-                          <span>CONTINUE FLOW</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
-                      </motion.div>
-                    )}
-                  </div>
-                )}
-
-                {!loadingQuiz && quizFinished && !isQuizCurrentlyLocked() && (
-                  <div className="p-8 text-center bg-slate-50 border border-slate-200 max-w-md mx-auto space-y-4">
-                    <CheckCircle2 className="w-12 h-12 text-[#00A86B] mx-auto" />
-                    <h4 className="font-black text-xs uppercase tracking-widest text-slate-900">DIAGNOSTIC COMPLETED</h4>
-                    <p className="text-3xl font-display font-black text-slate-950">
-                      SCORE: {quizScore}%
-                    </p>
-                    <p className="text-xs uppercase tracking-wider font-semibold leading-relaxed text-slate-500">
-                      {quizScore !== null && quizScore >= 75 
-                        ? `Congratulations! You cleared the DSP Phase 1 Gateway! Your profile status is verified as COMPREHENSIVE EXPERT.`
-                        : `Your score was ${quizScore}%. The minimum entry parameter is 75%. Please brush up on core metrics and retry.`}
-                    </p>
-
-                    {quizFeedback && (
-                      <div className="bg-[#00A86B]/5 border-2 border-[#00A86B]/20 p-4 text-xs font-semibold text-slate-850 uppercase tracking-wide rounded-none text-left leading-relaxed">
-                        <span className="font-mono text-[9px] font-black text-[#00A86B] block mb-1">★ GEMINI EXPERT EVALUATION FEEDBACK:</span>
-                        {quizFeedback}
-                      </div>
-                    )}
-
-                    {quizScore !== null && quizScore < 75 && quizAttempts === 1 && (
-                      <div className="p-3 bg-amber-50 border-2 border-amber-300 text-amber-900 text-[10px] font-mono font-black uppercase tracking-wider leading-relaxed text-left">
-                        ⚠️ Take a deep breath and stay calm if you're feeling nervous! You have 1 remaining attempt.
-                      </div>
-                    )}
-                    
-                    {quizScore !== null && quizScore >= 75 ? (
-                      <button
-                        onClick={() => setActivePhase(2)}
-                        className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-3.5 rounded-none text-xs uppercase tracking-widest cursor-pointer shadow-[2px_2px_0px_0px_rgba(16,185,129,1)]"
-                      >
-                        Proceed to Phase 2
-                      </button>
-                    ) : (
-                      <button
-                        onClick={handleStartQuiz}
-                        className="w-full bg-rose-900 hover:bg-rose-950 text-white font-black py-3.5 rounded-none text-xs uppercase tracking-widest cursor-pointer"
-                      >
-                        RE-INITIALIZE DIAGNOSTIC
-                      </button>
-                    )}
-                  </div>
-                )}
-
-              </motion.div>
-            )}
-
-            {/* ======================================================== */}
-            {/* PHASE 2: PANEL INTERVIEW SCHEDULER                      */}
-            {/* ======================================================== */}
-            {activePhase === 2 && (
-              <motion.div
-                key="phase2"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="space-y-6"
-              >
-                {!isPhase1Passed ? (
-                  <div className="py-16 px-4 text-center space-y-6 max-w-md mx-auto flex flex-col items-center justify-center">
-                    <div className="w-16 h-16 bg-slate-100 border-2 border-slate-300 flex items-center justify-center rounded-none text-slate-400 opacity-50">
-                      <Lock className="w-8 h-8 stroke-[2.5]" />
-                    </div>
-                    <h4 className="font-display font-black text-xs uppercase tracking-widest text-slate-900">PHASE LOCKED</h4>
-                    <p className="text-xs uppercase font-extrabold text-slate-500 leading-relaxed">
-                      Complete Phase 1 with a 75%+ score to unlock Panel Scheduling.
-                    </p>
-                    <button
-                      onClick={() => setActivePhase(1)}
-                      className="bg-slate-900 hover:bg-slate-800 text-white font-black py-2.5 px-6 rounded-none text-[10px] uppercase tracking-wider transition cursor-pointer"
-                    >
-                      Return to Phase 1 Diagnostic
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="border-b border-slate-100 pb-5 text-left">
-                      <span className="text-[9.5px] font-mono font-black text-emerald-700 uppercase bg-emerald-50 px-2 py-0.5 border border-emerald-200">
-                        CALENDLY SCHEDULING INTEGRATION
-                      </span>
-                      <h3 className="font-display font-black text-lg text-slate-900 uppercase mt-1">
-                        Phase 2: Panel Vetting Video Session
-                      </h3>
-                      <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mt-1">
-                        Pick a calendar day and confirm a timezone-adjusted slot for your 2-to-3 person panel competence review.
-                      </p>
-                    </div>
-
-                {interviewBooked && bookedSlot ? (
-                  <div className="p-8 text-center bg-emerald-50/20 border border-emerald-300 max-w-md mx-auto space-y-4">
-                    <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
-                    <h4 className="font-black text-xs uppercase tracking-wider text-slate-900">
-                      {phase2InterviewPassed ? 'PANEL REVIEW PASSED' : 'PANEL REVIEW BOOKED'}
-                    </h4>
-                    <p className="text-xs text-slate-600 uppercase tracking-wider leading-relaxed text-left bg-white p-4 border-2 border-emerald-200">
-                      📅 Date: <strong className="text-slate-900 uppercase">{new Date(bookedSlot.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</strong> <br />
-                      ⏱️ Time: <strong className="text-slate-900 uppercase">{bookedSlot.time} (UTC/GMT)</strong>
-                    </p>
-                    
-                    {phase2InterviewPassed ? (
-                      <div className="p-3 bg-emerald-100 border border-emerald-300 text-emerald-950 text-[10px] font-bold uppercase text-left rounded-none">
-                        ✓ ACCREDITATION COMPLETE: Your interview records have been processed and approved by the panel. Verification is unlocked.
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <p className="text-[10px] text-slate-400 font-mono uppercase tracking-widest block pt-2">
-                          ZOOM credentials and calendar invites have been routed to your profile coordinates.
-                        </p>
-                        
-                        <div className="p-4 bg-slate-950 text-white space-y-2 text-left rounded-none border border-emerald-500">
-                          <span className="text-[9px] font-mono font-black text-emerald-400 uppercase tracking-widest block">DEVELOPER PREVIEW MATRIX</span>
-                          <p className="text-[10px] text-slate-300 font-semibold uppercase leading-normal">
-                            In production, growthpaddy staff will grade your video call. For demo/review testing, bypass the manual staff evaluation by clicking below:
-                          </p>
-                          <button
-                            onClick={async () => {
-                              setPhase2InterviewPassed(true);
-                              if (user) {
-                                await updateProfileData({
-                                  phase_2_interview_passed: true,
-                                  vetting_status: 'interview_passed'
-                                });
-                                // Cache locally
-                                const mockKey = `mock_talent_profiles_${user.id}`;
-                                const existing = JSON.parse(localStorage.getItem(mockKey) || '{}');
-                                localStorage.setItem(mockKey, JSON.stringify({
-                                  ...existing,
-                                  phase_2_interview_passed: true,
-                                  vetting_status: 'interview_passed'
-                                }));
-                              }
-                            }}
-                            className="w-full bg-[#00A86B] hover:bg-emerald-600 text-white font-black py-2.5 rounded-none text-[10px] uppercase tracking-widest transition cursor-pointer"
-                          >
-                            Bypass & Pass Interview (Demo Mode)
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    <button
-                      onClick={() => setActivePhase(3)}
-                      className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-3.5 rounded-none text-xs uppercase tracking-widest cursor-pointer shadow-[2px_2px_0px_0px_rgba(16,185,129,1)]"
-                    >
-                      Proceed to Phase 3
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-4 text-left">
-                    <h4 className="text-[10px] uppercase font-mono font-black text-slate-700">SELECT AN AVAILABLE TIME SLOT</h4>
-                    
-                    {dbSlots.length === 0 ? (
-                      <div className="p-8 bg-slate-50 border-2 border-dashed border-slate-200 text-center text-xs text-slate-500 font-semibold uppercase tracking-wider">
-                        ⚠️ No panel interview slots are available at this moment. Please contact support or check back soon.
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                        {dbSlots.map((slot) => {
-                          const isSel = selectedSlotId === slot.id;
-                          return (
-                            <button
-                              key={slot.id}
-                              type="button"
-                              onClick={() => setSelectedSlotId(slot.id)}
-                              className={`p-4 border text-left transition cursor-pointer focus:outline-none rounded-none flex flex-col justify-between h-24
-                                ${isSel 
-                                  ? 'bg-emerald-50/10 border-emerald-500 text-emerald-950 font-bold shadow-sm' 
-                                  : 'bg-white text-slate-800 hover:bg-slate-50 border-slate-200'}`}
-                            >
-                              <div className="flex items-center gap-1.5">
-                                <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                                <span className="text-[10px] font-mono font-black text-slate-600 uppercase tracking-widest">
-                                  {new Date(slot.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5 mt-2">
-                                <Clock className="w-3.5 h-3.5 text-slate-400" />
-                                <span className="text-sm font-mono font-black text-neutral-900">{slot.time_slot}</span>
-                              </div>
-                              <span className="text-[8.5px] font-mono text-slate-400 font-black tracking-widest block text-right">UTC ZONE</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    <div className="pt-4 flex justify-end">
-                      <button
-                        onClick={handleBookInterview}
-                        disabled={!selectedSlotId}
-                        className="bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-800 text-white font-black py-3.5 px-6 rounded-none text-xs uppercase tracking-widest cursor-pointer shadow-[3px_3px_0px_0px_rgba(16,185,129,1)] transition-all"
-                      >
-                        BOOK PANEL SESSION
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </motion.div>
-            )}
-
-            {/* ======================================================== */}
-            {/* PHASE 3: PLATFORM ACCREDITATION PASS                      */}
-            {/* ======================================================== */}
-            {activePhase === 3 && (
-              <motion.div
-                key="phase3"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="space-y-6"
-              >
-                {!phase2InterviewPassed ? (
-                  <div className="py-16 px-4 text-center space-y-6 max-w-md mx-auto flex flex-col items-center justify-center">
-                    <div className="w-16 h-16 bg-slate-100 border-2 border-slate-300 flex items-center justify-center rounded-none text-slate-400 opacity-50">
-                      <Lock className="w-8 h-8 stroke-[2.5]" />
-                    </div>
-                    <h4 className="font-display font-black text-xs uppercase tracking-widest text-slate-900">PHASE LOCKED</h4>
-                    <p className="text-xs uppercase font-extrabold text-slate-500 leading-relaxed">
-                      Complete your Phase 2 Panel Vetting Interview to unlock Verification Access.
-                    </p>
-                    <button
-                      onClick={() => setActivePhase(2)}
-                      className="bg-slate-900 hover:bg-slate-800 text-white font-black py-2.5 px-6 rounded-none text-[10px] uppercase tracking-wider transition cursor-pointer"
-                    >
-                      Return to Phase 2 Interview Board
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="border-b border-slate-100 pb-5 text-left">
-                      <span className="text-[9.5px] font-mono font-black text-emerald-700 uppercase bg-emerald-50 px-2 py-0.5 border border-emerald-200">
-                        PLATFORM ACCREDITATION SAFE-GUARD
-                      </span>
-                      <h3 className="font-display font-black text-lg text-slate-900 uppercase mt-1">
-                        Phase 3: Vetting Verification Pass
-                      </h3>
-                      <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mt-1">
-                        Secure your verified placement status. This refundable onboarding pass filters high-intent candidates from spammers.
-                      </p>
-                    </div>
-                    <div className="pt-2">
-                      <PaymentPhase
-                        isTalentPaid={isTalentPaid}
-                        userName={userName}
-                        userEmail={user?.email || ''}
-                        onPaymentComplete={() => handlePayCommitment()}
-                        onNextPhase={() => setActivePhase(4)}
-                      />
-                    </div>
-                  </>
-                )}
-              </motion.div>
-            )}
-
-            {/* ======================================================== */}
-            {/* PHASE 4: PORTFOLIO & EVIDENCE DOSSIER BUILDER           */}
-            {/* ======================================================== */}
-            {activePhase === 4 && (
-              <motion.div
-                key="phase4"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="space-y-6"
-              >
-                <div className="border-b border-slate-100 pb-5 text-left">
-                  <span className="text-[9.5px] font-mono font-black text-emerald-700 uppercase bg-emerald-50 px-2 py-0.5 border border-emerald-200">
-                    OBJECTIVE RECORD SERIALIZATION
-                  </span>
-                  <h3 className="font-display font-black text-lg text-slate-900 uppercase mt-1">
-                    Phase 4: Verified Case & Portfolio Dossier
-                  </h3>
-                  <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mt-1">
-                    Populate actual verifiable metrics, live automation web apps, and concrete campaign numbers. Leave zero empty resume claims.
-                  </p>
-                </div>
-
-                {!isTalentPaid && (
-                  <div className="p-6 bg-rose-50 border border-rose-300 space-y-3 text-rose-950 text-left">
-                    <span className="text-[9px] font-mono font-black uppercase tracking-widest block">⛔ ACCESS PRIVILEGE CONSTRAINED:</span>
-                    <p className="text-xs font-bold uppercase tracking-wider leading-relaxed">
-                      You must authorize your Onboarding Verification Pass (Phase 3) first prior to compiling your public folder parameters for employers.
-                    </p>
-                    <button
-                      onClick={() => setActivePhase(3)}
-                      className="bg-rose-900 hover:bg-rose-950 text-white font-black py-2 px-4 rounded-none text-[10px] uppercase tracking-widest cursor-pointer"
-                    >
-                      Go to Phase 3
-                    </button>
-                  </div>
-                )}
-
-                {isTalentPaid && (
-                  <form onSubmit={handleSaveDossier} className="space-y-4 max-w-3xl text-left">
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      
-                      <div className="space-y-1">
-                        <label className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block">CHAMPION PROJECT TITLE</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. Programmatic SEO scale optimization"
-                          value={portfolioData.title}
-                          onChange={(e) => setPortfolioData({ ...portfolioData, title: e.target.value })}
-                          className="w-full border border-slate-300 py-2 px-4 text-xs font-bold text-slate-900 focus:outline-none"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block">KEY RESULTS METRIC (OBJECTIVE VALUE)</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. +42% sign-up conversions, $142,000 cart recovery"
-                          value={portfolioData.metrics}
-                          onChange={(e) => setPortfolioData({ ...portfolioData, metrics: e.target.value })}
-                          className="w-full border border-slate-300 py-2 px-4 text-xs font-bold text-slate-900 focus:outline-none"
-                        />
-                      </div>
-
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block">LIVE PROTOTYPE OR REPOSITORY LINK</label>
-                      <input
-                        type="url"
-                        placeholder="e.g. https://github.com/myaccount/make-flow-agent"
-                        value={portfolioData.url}
-                        onChange={(e) => setPortfolioData({ ...portfolioData, url: e.target.value })}
-                        className="w-full border border-slate-300 py-2 px-4 text-xs font-bold text-slate-900 focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block">BRIEF CASE DESCRIPTION</label>
-                      <textarea
-                        required
-                        rows={3}
-                        placeholder="Detailing the automated flow systems, semantic groupings, or bidding adjustments configured..."
-                        value={portfolioData.about}
-                        onChange={(e) => setPortfolioData({ ...portfolioData, about: e.target.value })}
-                        className="w-full border border-slate-300 py-2 px-4 text-xs font-bold text-slate-900 focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block">EVIDENCE PROOF (DRAG-AND-DROP OR PASTE SCREENSHOT LINK)</label>
-                      <div className="border-2 border-dashed border-slate-300 hover:border-slate-400 bg-slate-50 p-6 text-center transition cursor-pointer">
-                        <FileText className="w-8 h-8 text-slate-400 mx-auto" />
-                        <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-2">DRAG AND DROP SCREENSHOT IMAGES OR AUDIT LOGS HERE</p>
-                        <p className="text-[9px] text-slate-400 mt-0.5 uppercase tracking-wide">Supports JPG, PNG, PDF formats up to 10MB</p>
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="bg-slate-900 hover:bg-slate-800 text-white font-black py-3 px-6 rounded-none text-xs uppercase tracking-widest cursor-pointer shadow-[3px_3px_0px_0px_rgba(16,185,129,1)] hover:shadow-none transition-all duration-155"
-                    >
-                      {dossierSubmitted ? 'SERIALIZING DOSSIER RECORD...' : 'SERIALIZE VERIFIED DOSSIER'}
-                    </button>
-
-                  </form>
-                )}
-
-              </motion.div>
-            )}
-
-          </AnimatePresence>
-        </div>
-
-        {/* Right 4-column Panel: Live Profile Customizer & Live Card Preview */}
-        <div className="lg:col-span-4 space-y-6 text-left">
-          
-          {/* Interactive Profile Form Settings */}
-          <div className="bg-white border-2 border-slate-200 p-5 rounded-none shadow-sm space-y-4">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-              <Sliders className="w-4 h-4 text-[#00A86B]" />
-              <h3 className="font-display font-black text-sm text-slate-900 uppercase">
-                Profile Customizer Form
-              </h3>
+            {/* Section Header */}
+            <div className="border-b-2 border-neutral-900 dark:border-slate-800 pb-4">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-mono font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 dark:bg-emerald-950/80 px-2.5 py-0.5 border border-emerald-300">
+                  SECTION 1
+                </span>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">
+                  RECRUITER DISCOVERY FORM
+                </span>
+              </div>
+              <h2 className="font-display font-black text-xl text-slate-900 dark:text-white uppercase tracking-tight mt-2">
+                My Public Profile & Portfolio Builder
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase leading-snug mt-1">
+                Fill out your details to immediately appear in recruiter searches. (Tagged as <span className="font-bold text-amber-600 dark:text-amber-400">"Unverified / Open Candidate"</span> until vetted).
+              </p>
             </div>
 
-            <form onSubmit={handleSaveProfileSettings} className="space-y-3">
-              <div className="space-y-1">
-                <label className="text-[9px] font-mono font-black text-slate-400 uppercase tracking-wider block">
-                  FULL DISPLAY NAME
+            {/* Profile Form */}
+            <form onSubmit={handleSaveProfile} className="space-y-5 text-left">
+              
+              {/* Full Display Name */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-mono font-black text-slate-700 dark:text-slate-300 uppercase block tracking-wider">
+                  Full Display Name <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
-                    <User className="w-3.5 h-3.5" />
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
+                    <User className="w-4 h-4" />
                   </span>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Patrick Moore"
+                    placeholder="e.g. Marcus Vance"
                     value={userName}
                     onChange={(e) => setUserName(e.target.value)}
-                    className="w-full border border-slate-300 bg-white py-1.5 pl-9 pr-3 text-xs font-bold text-slate-900 focus:outline-none focus:border-[#00A86B]"
+                    className="w-full border-2 border-neutral-300 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 pl-10 pr-4 py-2.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-[#00A86B]"
                   />
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[9px] font-mono font-black text-slate-400 uppercase tracking-wider block">
-                  SPECIALIZATION FOCUS
+              {/* Specialty & Title */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-mono font-black text-slate-700 dark:text-slate-300 uppercase block tracking-wider">
+                  Specialty & Role Focus <span className="text-red-500">*</span>
                 </label>
-                <select
-                  value={specialty}
-                  onChange={(e) => setSpecialty(e.target.value)}
-                  className="w-full border border-slate-300 bg-white py-1.5 px-2 text-xs font-bold text-slate-900 focus:outline-none focus:border-[#00A86B]"
-                >
-                  <option value="SEO">SEO (Search Engine Optimization)</option>
-                  <option value="AI Automation">AI & Workflow Automation</option>
-                  <option value="Growth Marketing">Growth Marketing / Analytics</option>
-                  <option value="PPC">PPC & Paid Acquisition</option>
-                  <option value="Social Media">Social Media & UGC Brand Building</option>
-                  <option value="Email Marketing">Email Marketing & Klaviyo Flows</option>
-                </select>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
+                    <Briefcase className="w-4 h-4" />
+                  </span>
+                  <select
+                    value={specialty}
+                    onChange={(e) => setSpecialty(e.target.value)}
+                    className="w-full border-2 border-neutral-300 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 pl-10 pr-4 py-2.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-[#00A86B]"
+                  >
+                    <option value="AI Automation Engineer">AI Automation Engineer</option>
+                    <option value="Full-Stack Developer">Full-Stack Developer</option>
+                    <option value="Digital & Growth Marketer">Digital & Growth Marketer</option>
+                    <option value="UI/UX Designer">UI/UX Designer</option>
+                    <option value="Data Analyst">Data Analyst</option>
+                    <option value="Technical SEO Specialist">Technical SEO Specialist</option>
+                    <option value="PPC & Paid Media Manager">PPC & Paid Media Manager</option>
+                    <option value="Email & Lifecycle Specialist">Email & Lifecycle Specialist</option>
+                  </select>
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[9px] font-mono font-black text-slate-400 uppercase tracking-wider block">
-                  EXPERIENCE TIER
+              {/* Experience Level Dropdown */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-mono font-black text-slate-700 dark:text-slate-300 uppercase block tracking-wider">
+                  Experience Level <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={experienceTier}
-                  onChange={(e) => setExperienceTier(e.target.value as any)}
-                  className="w-full border border-slate-300 bg-white py-1.5 px-2 text-xs font-bold text-slate-900 focus:outline-none focus:border-[#00A86B]"
+                  onChange={(e) => setExperienceTier(e.target.value)}
+                  className="w-full border-2 border-neutral-300 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-4 py-2.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-[#00A86B]"
                 >
-                  <option value="Fresher/Newbie">Foundational Fresher</option>
-                  <option value="Seasoned Professional">Expert Professional (Seasoned)</option>
+                  <option value="Junior">Junior Operator (1-2 yrs)</option>
+                  <option value="Mid-Level">Mid-Level Specialist (2-4 yrs)</option>
+                  <option value="Senior / Lead">Senior / Lead Operator (5+ yrs)</option>
                 </select>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[9px] font-mono font-black text-slate-400 uppercase tracking-wider block">
-                  CAREER OBJECTIVE TARGET
+              {/* Skill Tags Multi-Select Selector */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono font-black text-slate-700 dark:text-slate-300 uppercase block tracking-wider">
+                  Skill Categories & Tech Stack Pills (Click to toggle)
                 </label>
-                <select
+                
+                {/* Selected Active Skill Tags */}
+                <div className="flex flex-wrap gap-1.5 p-3 bg-neutral-100 dark:bg-slate-800/60 border border-neutral-300 dark:border-slate-700 min-h-[44px]">
+                  {selectedSkills.length === 0 ? (
+                    <span className="text-[10px] font-mono text-slate-400 uppercase italic">
+                      No skill tags selected yet. Click pills below to select.
+                    </span>
+                  ) : (
+                    selectedSkills.map((skill) => (
+                      <span 
+                        key={skill}
+                        onClick={() => toggleSkillTag(skill)}
+                        className="inline-flex items-center gap-1 text-[10px] font-mono font-black uppercase px-2.5 py-1 bg-[#00A86B] text-white cursor-pointer border border-neutral-900 hover:bg-rose-600 transition-colors group"
+                      >
+                        <span>{skill}</span>
+                        <X className="w-3 h-3 text-white group-hover:scale-125" />
+                      </span>
+                    ))
+                  )}
+                </div>
+
+                {/* Preset Skill Selector Pills */}
+                <div className="flex flex-wrap gap-1 pt-1">
+                  {PRESET_SKILL_TAGS.map((skill) => {
+                    const isSelected = selectedSkills.includes(skill);
+                    return (
+                      <button
+                        key={skill}
+                        type="button"
+                        onClick={() => toggleSkillTag(skill)}
+                        className={`text-[9.5px] font-mono font-black uppercase px-2.5 py-1 border cursor-pointer transition-colors ${
+                          isSelected 
+                            ? 'bg-[#00A86B] text-white border-neutral-900' 
+                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-neutral-300 dark:border-slate-700 hover:border-neutral-900'
+                        }`}
+                      >
+                        {isSelected ? `✓ ${skill}` : `+ ${skill}`}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Custom Skill Input */}
+                <div className="flex gap-2 pt-1">
+                  <input
+                    type="text"
+                    placeholder="Add custom skill (e.g. Docker, Make.com)"
+                    value={customSkillInput}
+                    onChange={(e) => setCustomSkillInput(e.target.value)}
+                    className="flex-1 border-2 border-neutral-300 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 px-3 py-1.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-[#00A86B]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddCustomSkill}
+                    className="bg-neutral-900 dark:bg-slate-700 hover:bg-neutral-800 text-white font-mono font-black px-3 py-1.5 text-xs uppercase cursor-pointer flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Portfolio & Proof Links */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-mono font-black text-slate-700 dark:text-slate-300 uppercase block tracking-wider">
+                  Portfolio & Proof URL (GitHub, Website, Behance)
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
+                    <Globe className="w-4 h-4" />
+                  </span>
+                  <input
+                    type="url"
+                    placeholder="https://github.com/myusername or https://myportfolio.com"
+                    value={portfolioUrl}
+                    onChange={(e) => setPortfolioUrl(e.target.value)}
+                    className="w-full border-2 border-neutral-300 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 pl-10 pr-4 py-2.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-[#00A86B]"
+                  />
+                </div>
+              </div>
+
+              {/* Career Goal & Bio */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-mono font-black text-slate-700 dark:text-slate-300 uppercase block tracking-wider">
+                  Career Target & Bio Summary
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="e.g. Full-Time Remote Position building automated workflow pipelines and growth infrastructure."
                   value={careerGoal}
                   onChange={(e) => setCareerGoal(e.target.value)}
-                  className="w-full border border-slate-300 bg-white py-1.5 px-2 text-xs font-bold text-slate-900 focus:outline-none focus:border-[#00A86B]"
-                >
-                  <option value="Internship">Remote Internship Pathway</option>
-                  <option value="Freelance Gigs">High-Growth Freelance Gigs</option>
-                  <option value="Full-Time Remote Job">Full-Time Remote Position</option>
-                </select>
+                  className="w-full border-2 border-neutral-300 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 p-3 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-[#00A86B]"
+                />
               </div>
 
+              {/* Sync Feedback Message */}
               {profileSyncSuccess && (
-                <div className="p-2 bg-emerald-50 border border-emerald-300 text-emerald-800 text-[10px] font-mono font-bold uppercase text-center animate-fadeIn">
-                  ✓ CLOUD DOSSIER CO-ORDINATED SECURELY
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/80 border-2 border-emerald-500 text-emerald-900 dark:text-emerald-200 text-xs font-mono font-bold uppercase text-center animate-fadeIn flex items-center justify-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#00A86B]" />
+                  <span>✓ PUBLIC PROFILE UPDATED IN SUPABASE LIVE</span>
                 </div>
               )}
 
+              {/* Submit Save Button */}
               <button
                 type="submit"
                 disabled={syncingProfile}
-                className="w-full bg-[#00A86B] hover:bg-emerald-700 text-white font-black py-2.5 rounded-none text-[10px] uppercase tracking-widest transition-all duration-150 flex items-center justify-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(15,23,42,1)]"
+                className="w-full bg-[#00A86B] hover:bg-emerald-600 text-white font-black py-3.5 px-6 rounded-none text-xs uppercase tracking-widest border-2 border-neutral-950 cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all flex items-center justify-center gap-2"
               >
                 {syncingProfile ? (
-                  <span>SYNCHRONIZING SECURELY...</span>
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <span>SAVING TO SUPABASE...</span>
+                  </>
                 ) : (
                   <>
-                    <Save className="w-3.5 h-3.5" />
-                    <span>SAVE PROFILE TO DB</span>
+                    <Save className="w-4 h-4" />
+                    <span>SAVE PROFILE CHANGES</span>
                   </>
                 )}
               </button>
+
             </form>
+
           </div>
 
-          {/* Live Portfolio Card Preview */}
-          <div className="space-y-2">
-            <span className="text-[9px] font-mono font-black text-slate-400 uppercase tracking-wider block pl-1">
-              LIVE PORTFOLIO CARD PREVIEW (EMPLOYER VIEW)
+          {/* Live Recruiter Card Preview */}
+          <div className="space-y-2 text-left">
+            <span className="text-[10px] font-mono font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+              LIVE RECRUITER CARD PREVIEW (HOW EMPLOYERS SEE YOU)
             </span>
             
-            {/* Replicated high-quality card layout */}
-            <div className="border-4 border-neutral-950 rounded-none p-5 bg-white text-left shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all space-y-4">
-              <div className="flex items-start justify-between gap-4">
+            <div className="border-4 border-neutral-950 dark:border-slate-700 rounded-none p-5 bg-white dark:bg-slate-900 text-left shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] space-y-4">
+              
+              <div className="flex items-start justify-between gap-3">
                 <div className="flex gap-3">
-                  <div className="w-12 h-12 bg-slate-100 flex items-center justify-center border-2 border-neutral-950 relative overflow-hidden flex-shrink-0">
-                    <User className="w-6 h-6 text-slate-600 grayscale" />
+                  <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 flex items-center justify-center border-2 border-neutral-950 dark:border-slate-700 relative overflow-hidden shrink-0">
+                    <User className="w-6 h-6 text-slate-600 dark:text-slate-300" />
                   </div>
                   <div>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <h4 className="font-display font-black text-sm uppercase text-neutral-950">
-                        {userName}
-                      </h4>
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[8px] font-mono font-black uppercase border leading-none bg-emerald-50 text-emerald-800 border-emerald-200">
-                        <ShieldCheck className="w-2.5 h-2.5 flex-shrink-0 text-emerald-600" />
-                        <span>{isTalentPaid ? 'VERIFIED' : 'PENDING'}</span>
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-[#00A86B] font-black uppercase mt-1">
-                      {specialty} Specialist
+                    <h4 className="font-display font-black text-sm uppercase text-slate-900 dark:text-white">
+                      {userName || 'Candidate Name'}
+                    </h4>
+                    <p className="text-[11px] text-[#00A86B] font-black uppercase mt-0.5">
+                      {specialty}
                     </p>
-                    <p className="text-[9px] uppercase font-bold mt-0.5 flex items-center gap-1 text-slate-500">
-                      <MapPin className="w-3 h-3 text-slate-400" />
-                      <span>Remote / Global</span>
+                    <p className="text-[9px] uppercase font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+                      <MapPin className="w-3 h-3" />
+                      <span>Remote Operator • {experienceTier}</span>
                     </p>
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <span className="text-[8px] font-mono font-black uppercase tracking-wide block text-slate-400">SCORE</span>
-                  <p className="text-base font-black font-display flex items-center justify-end gap-0.5 mt-0.5 text-neutral-950">
-                    <Award className="w-3.5 h-3.5 text-emerald-600" />
-                    {quizFinished ? '95' : '0'}
-                    <span className="text-[10px] font-normal text-slate-400">/100</span>
-                  </p>
+                {/* Candidate Badge Tag */}
+                <div className="text-right shrink-0">
+                  {isFullyVetted ? (
+                    <span className="inline-flex items-center gap-1 bg-amber-500 text-neutral-950 text-[9px] font-mono font-black px-2 py-0.5 border border-neutral-950 uppercase">
+                      🏆 FULLY VETTED
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[8.5px] font-mono font-bold px-2 py-0.5 border border-slate-300 dark:border-slate-700 uppercase">
+                      UNVERIFIED CANDIDATE
+                    </span>
+                  )}
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <p className="text-[10px] font-mono font-bold text-slate-500 uppercase">
-                  CAREER OBJECTIVE: <span className="text-slate-900 font-black">{careerGoal}</span>
-                </p>
-                <p className="text-xs text-neutral-700 leading-relaxed font-semibold uppercase">
-                  Verified {experienceTier === 'Seasoned Professional' ? 'expert' : 'foundational'} operations specialist, fully vetted in scenario modeling campaigns and automation networks.
-                </p>
-              </div>
+              {/* Bio summary */}
+              <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
+                "{careerGoal || 'Specializing in automation and full-stack execution.'}"
+              </p>
 
-              {/* Dynamic skills tag list based on specialty selection */}
-              <div className="flex flex-wrap gap-1 pt-1 border-t-2 border-dashed border-slate-100">
-                {getPreviewSkills().map((skill, idx) => (
-                  <span 
-                    key={idx} 
-                    className="text-[9px] font-mono uppercase font-bold px-2 py-0.5 border bg-neutral-50 border-neutral-200 text-neutral-600"
+              {/* Portfolio Link indicator */}
+              {portfolioUrl && (
+                <a
+                  href={portfolioUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-[#00A86B] hover:underline uppercase"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  <span>View Verified Portfolio / Code Repository</span>
+                </a>
+              )}
+
+              {/* Skill Tags */}
+              <div className="flex flex-wrap gap-1 pt-2 border-t border-dashed border-slate-200 dark:border-slate-800">
+                {selectedSkills.map((skill, idx) => (
+                  <span
+                    key={idx}
+                    className="text-[9px] font-mono uppercase font-bold px-2 py-0.5 border bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
                   >
                     {skill}
                   </span>
                 ))}
               </div>
+
             </div>
+          </div>
+
+        </div>
+
+        {/* ================================================================ */}
+        {/* SECTION 2: THE VETTING PIPELINE (Right Column)                    */}
+        {/* ================================================================ */}
+        <div className="lg:col-span-6 space-y-6">
+          
+          {/* BADGE STATUS BANNER */}
+          {isFullyVetted ? (
+            <div className="bg-gradient-to-r from-amber-500/10 via-yellow-500/20 to-amber-500/10 border-4 border-amber-500 p-6 rounded-none shadow-[6px_6px_0px_0px_rgba(217,119,6,1)] space-y-3 text-left">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Award className="w-7 h-7 text-amber-500 fill-amber-100 shrink-0" />
+                  <div>
+                    <span className="text-[9px] font-mono font-black uppercase text-amber-700 dark:text-amber-300 tracking-widest block">
+                      ACCREDITATION COMPLETE
+                    </span>
+                    <h3 className="font-display font-black text-lg uppercase tracking-tight text-amber-950 dark:text-amber-200">
+                      🏆 GrowthPaddy Fully Vetted Candidate
+                    </h3>
+                  </div>
+                </div>
+                <span className="bg-amber-500 text-neutral-950 font-mono text-[10px] font-black px-3 py-1 uppercase tracking-widest border border-neutral-950">
+                  GOLD BADGE ACTIVE
+                </span>
+              </div>
+              <p className="text-xs text-amber-950 dark:text-amber-200 font-semibold uppercase leading-relaxed border-l-4 border-amber-500 pl-3">
+                Your profile is verified and ranks at the top of recruiter search results! Employers have priority direct access to contact you.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-slate-100 dark:bg-slate-800/80 border-4 border-slate-300 dark:border-slate-700 p-6 rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] space-y-3 text-left">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Lock className="w-6 h-6 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <div>
+                    <span className="text-[9px] font-mono font-black uppercase text-amber-600 dark:text-amber-400 tracking-widest block">
+                      UNVERIFIED CANDIDATE STATUS
+                    </span>
+                    <h3 className="font-display font-black text-base uppercase tracking-tight text-slate-900 dark:text-white">
+                      Unlock the Verified Gold Badge
+                    </h3>
+                  </div>
+                </div>
+                <span className="bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-mono text-[9px] font-black px-2.5 py-1 uppercase tracking-widest border border-slate-300 dark:border-slate-600">
+                  UNVERIFIED / OPEN CANDIDATE
+                </span>
+              </div>
+              <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed uppercase border-l-4 border-amber-500 pl-3">
+                Your profile is active, but you are not yet Fully Vetted. Complete all 3 phases below to get the Verified Gold Badge and priority placement for recruiters.
+              </p>
+            </div>
+          )}
+
+          {/* 3-PHASE STEPPER CONTROLS */}
+          <div className="bg-white dark:bg-slate-900 border-2 border-neutral-900 dark:border-slate-800 p-6 sm:p-7 rounded-none shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] space-y-6">
+            
+            <div className="border-b-2 border-neutral-900 dark:border-slate-800 pb-4">
+              <span className="text-[10px] font-mono font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 dark:bg-emerald-950/80 px-2.5 py-0.5 border border-emerald-300">
+                SECTION 2
+              </span>
+              <h2 className="font-display font-black text-xl text-slate-900 dark:text-white uppercase tracking-tight mt-2">
+                The 3-Phase Vetting Pipeline
+              </h2>
+            </div>
+
+            {/* Stepper Buttons */}
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { num: 1, title: 'Phase 1', label: 'AI Quiz Diagnostic', isPassed: isPhase1Passed, isLocked: false },
+                { num: 2, title: 'Phase 2', label: 'Panel Interview', isPassed: phase2InterviewPassed, isLocked: !isPhase1Passed },
+                { num: 3, title: 'Phase 3', label: 'Verification Pass', isPassed: isTalentPaid, isLocked: !phase2InterviewPassed }
+              ].map((ph) => {
+                const isSelected = activePhase === ph.num;
+                return (
+                  <button
+                    key={ph.num}
+                    onClick={() => setActivePhase(ph.num as any)}
+                    className={`p-3 border-2 text-left transition-all cursor-pointer flex flex-col justify-between h-24 ${
+                      isSelected
+                        ? 'border-[#00A86B] bg-emerald-50/20 dark:bg-emerald-950/40 shadow-sm'
+                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono font-black uppercase tracking-wider text-slate-500">
+                        {ph.title}
+                      </span>
+                      {ph.isPassed ? (
+                        <CheckCircle2 className="w-4 h-4 text-[#00A86B]" />
+                      ) : ph.isLocked ? (
+                        <Lock className="w-3.5 h-3.5 text-slate-400" />
+                      ) : null}
+                    </div>
+                    <div>
+                      <h4 className="font-display font-black text-xs uppercase text-slate-900 dark:text-white">
+                        {ph.label}
+                      </h4>
+                      <span className="text-[8.5px] font-mono uppercase font-bold text-slate-400 block mt-0.5">
+                        {ph.isPassed ? '✓ CLEARED' : ph.isLocked ? 'LOCKED' : 'ACTIVE'}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* PHASE CONTENT DISPLAY */}
+            <div className="pt-2">
+              
+              {/* ==================================== */}
+              {/* PHASE 1: DIAGNOSTIC QUIZ              */}
+              {/* ==================================== */}
+              {activePhase === 1 && (
+                <div className="space-y-6 text-left border-t border-slate-200 dark:border-slate-800 pt-5">
+                  <div className="space-y-1">
+                    <span className="text-[9.5px] font-mono font-black text-[#00A86B] uppercase bg-emerald-50 dark:bg-emerald-950/80 px-2 py-0.5 border border-emerald-300">
+                      PHASE 1: AI SCENARIO DIAGNOSTIC
+                    </span>
+                    <h3 className="font-display font-black text-lg text-slate-900 dark:text-white uppercase mt-1">
+                      Hands-on Competency Evaluation
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium">
+                      Demonstrate structural capability. Requirement: <strong className="text-[#00A86B]">≥ 75% score threshold to pass</strong>.
+                    </p>
+                  </div>
+
+                  {/* Lockout Screen */}
+                  {isQuizCurrentlyLocked() && (
+                    <div className="p-6 text-center bg-rose-50/50 dark:bg-rose-950/40 border-2 border-rose-600 space-y-4">
+                      <AlertTriangle className="w-10 h-10 text-rose-600 mx-auto" />
+                      <h4 className="font-black text-xs uppercase tracking-widest text-slate-900 dark:text-white">DIAGNOSTIC TEMPORARILY LOCKED</h4>
+                      <p className="text-xs uppercase font-extrabold text-rose-800 dark:text-rose-300 leading-relaxed">
+                        To protect pipeline integrity, candidates are limited to two attempts. Access restores in:
+                      </p>
+                      <div className="bg-slate-950 text-rose-500 font-mono text-xl py-2 px-4 font-black tracking-widest inline-block border-2 border-rose-600">
+                        {countdownString || '0d 0h 0m 0s'}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Loading Quiz */}
+                  {loadingQuiz && (
+                    <div className="p-10 border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-center space-y-3">
+                      <Loader2 className="w-10 h-10 text-[#00A86B] mx-auto animate-spin" />
+                      <h4 className="font-black text-xs text-slate-800 dark:text-slate-200 uppercase tracking-widest">FORMATTING AI DIAGNOSTIC SCENARIOS...</h4>
+                    </div>
+                  )}
+
+                  {/* Start Quiz Prompt */}
+                  {!loadingQuiz && !quizActive && !quizFinished && !isQuizCurrentlyLocked() && (
+                    <div className="p-8 border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-center space-y-4">
+                      <Award className="w-12 h-12 text-[#00A86B] mx-auto" />
+                      <h4 className="font-black text-xs text-slate-800 dark:text-slate-200 uppercase tracking-wider">Ready to initiate Phase 1?</h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed uppercase font-semibold">
+                        This diagnostic tests 3 scenario-based inquiries tailored to {specialty}. You have 60 seconds once activated.
+                      </p>
+                      {quizAttempts === 1 && (
+                        <div className="p-2.5 bg-amber-50 dark:bg-amber-950/80 border border-amber-300 text-amber-900 dark:text-amber-200 text-[10px] font-mono font-black uppercase tracking-wider">
+                          ⚠️ 1 attempt remaining. Take a deep breath and read scenarios carefully!
+                        </div>
+                      )}
+                      <button
+                        onClick={handleStartQuiz}
+                        className="w-full bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white font-black py-3 px-6 text-xs uppercase tracking-widest cursor-pointer border-2 border-neutral-950"
+                      >
+                        INITIALIZE AI DIAGNOSTIC
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Active Quiz Question Loop */}
+                  {quizActive && !quizFinished && !isQuizCurrentlyLocked() && (
+                    <div className="space-y-5">
+                      <div className="flex justify-between items-center text-xs font-mono bg-slate-950 text-white py-2 px-4">
+                        <span>QUESTION {currentQIdx + 1} OF {activeQuestions.length}</span>
+                        <span className={quizTimer <= 15 ? 'text-rose-500 font-black animate-pulse' : 'text-emerald-400 font-bold'}>
+                          ⏱️ {quizTimer}s
+                        </span>
+                      </div>
+
+                      <div className="bg-slate-50 dark:bg-slate-800 p-4 border border-slate-200 dark:border-slate-700">
+                        <h4 className="font-bold text-slate-900 dark:text-white text-xs uppercase leading-relaxed">
+                          {activeQuestions[currentQIdx].question}
+                        </h4>
+                      </div>
+
+                      <div className="space-y-2">
+                        {activeQuestions[currentQIdx].options.map((opt, idx) => {
+                          const hasSelected = quizAnswers[currentQIdx] !== undefined;
+                          const isThisSelected = quizAnswers[currentQIdx] === idx;
+                          const isCorrect = idx === activeQuestions[currentQIdx].correctIdx;
+
+                          let btnClass = 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200';
+                          if (hasSelected) {
+                            if (isCorrect) {
+                              btnClass = 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 font-bold';
+                            } else if (isThisSelected) {
+                              btnClass = 'border-rose-400 bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-200 font-bold';
+                            } else {
+                              btnClass = 'border-slate-200 dark:border-slate-800 opacity-50';
+                            }
+                          }
+
+                          return (
+                            <button
+                              key={idx}
+                              onClick={() => handleSelectQuizAnswer(idx)}
+                              disabled={hasSelected}
+                              className={`w-full text-left p-3 border text-xs flex gap-2.5 cursor-pointer ${btnClass}`}
+                            >
+                              <span className="font-mono text-[10px] font-black uppercase">[{String.fromCharCode(65 + idx)}]</span>
+                              <span>{opt}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {showQExplanation && (
+                        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 text-emerald-950 dark:text-emerald-200 space-y-2 text-xs">
+                          <p className="font-bold uppercase tracking-wider text-[9px] text-[#00A86B]">✓ INSIGHT RESOLUTION:</p>
+                          <p className="leading-relaxed font-medium uppercase">{activeQuestions[currentQIdx].explanation}</p>
+                          <button
+                            onClick={handleNextQuizQuestion}
+                            className="bg-slate-950 text-white font-black py-2 px-4 text-[10px] uppercase tracking-widest cursor-pointer flex items-center gap-1.5 mt-2"
+                          >
+                            <span>CONTINUE NEXT</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Quiz Result Screen */}
+                  {!loadingQuiz && quizFinished && !isQuizCurrentlyLocked() && (
+                    <div className="p-6 text-center bg-slate-50 dark:bg-slate-800/60 border-2 border-slate-200 dark:border-slate-700 space-y-4">
+                      <CheckCircle2 className="w-10 h-10 text-[#00A86B] mx-auto" />
+                      <h4 className="font-black text-xs uppercase tracking-widest text-slate-900 dark:text-white">DIAGNOSTIC SCORE RESULT</h4>
+                      <p className="text-3xl font-display font-black text-slate-950 dark:text-white">
+                        {quizScore}%
+                      </p>
+                      <p className="text-xs uppercase font-semibold text-slate-600 dark:text-slate-300">
+                        {quizScore !== null && quizScore >= 75 
+                          ? `Passed Phase 1 threshold (≥ 75%)!`
+                          : `Score was ${quizScore}%. Minimum threshold is 75%. Please retry.`}
+                      </p>
+
+                      {quizScore !== null && quizScore >= 75 ? (
+                        <button
+                          onClick={() => setActivePhase(2)}
+                          className="w-full bg-[#00A86B] hover:bg-emerald-600 text-white font-black py-3 text-xs uppercase tracking-widest cursor-pointer border-2 border-neutral-950"
+                        >
+                          Proceed to Phase 2 Panel Booking
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleStartQuiz}
+                          className="w-full bg-rose-700 hover:bg-rose-800 text-white font-black py-3 text-xs uppercase tracking-widest cursor-pointer"
+                        >
+                          RE-TRY AI DIAGNOSTIC
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                </div>
+              )}
+
+              {/* ==================================== */}
+              {/* PHASE 2: PANEL SESSION               */}
+              {/* ==================================== */}
+              {activePhase === 2 && (
+                <div className="space-y-6 text-left border-t border-slate-200 dark:border-slate-800 pt-5">
+                  {!isPhase1Passed ? (
+                    <div className="py-12 px-4 text-center space-y-4">
+                      <Lock className="w-10 h-10 text-slate-400 mx-auto" />
+                      <h4 className="font-black text-xs uppercase tracking-widest text-slate-900 dark:text-white">PHASE 2 LOCKED</h4>
+                      <p className="text-xs uppercase font-medium text-slate-500">
+                        Clear Phase 1 AI Diagnostic with a 75%+ score to unlock Panel Scheduling.
+                      </p>
+                      <button
+                        onClick={() => setActivePhase(1)}
+                        className="bg-slate-900 text-white font-black py-2.5 px-6 text-[10px] uppercase cursor-pointer"
+                      >
+                        Return to Phase 1
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-5">
+                      <div className="space-y-1">
+                        <span className="text-[9.5px] font-mono font-black text-[#00A86B] uppercase bg-emerald-50 dark:bg-emerald-950/80 px-2 py-0.5 border border-emerald-300">
+                          PHASE 2: PANEL VETTING VIDEO SESSION
+                        </span>
+                        <h3 className="font-display font-black text-lg text-slate-900 dark:text-white uppercase mt-1">
+                          Book Panel Review Slot
+                        </h3>
+                      </div>
+
+                      {interviewBooked && bookedSlot ? (
+                        <div className="p-6 text-center bg-emerald-50/50 dark:bg-emerald-950/40 border-2 border-emerald-500 space-y-4">
+                          <CheckCircle2 className="w-10 h-10 text-[#00A86B] mx-auto" />
+                          <h4 className="font-black text-xs uppercase tracking-wider text-slate-900 dark:text-white">
+                            {phase2InterviewPassed ? 'PANEL REVIEW APPROVED' : 'PANEL REVIEW BOOKED'}
+                          </h4>
+                          <p className="text-xs text-slate-700 dark:text-slate-300 font-bold uppercase bg-white dark:bg-slate-900 p-3 border border-emerald-300">
+                            📅 Date: {bookedSlot.date} • ⏱️ Time: {bookedSlot.time} (UTC)
+                          </p>
+
+                          {!phase2InterviewPassed && (
+                            <button
+                              onClick={async () => {
+                                setPhase2InterviewPassed(true);
+                                if (user) {
+                                  await updateProfileData({
+                                    phase_2_interview_passed: true,
+                                    vetting_status: 'interview_passed'
+                                  });
+                                }
+                              }}
+                              className="w-full bg-[#00A86B] hover:bg-emerald-600 text-white font-black py-2.5 text-[10px] uppercase cursor-pointer"
+                            >
+                              Bypass & Approve Panel Session (Demo)
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => setActivePhase(3)}
+                            className="w-full bg-slate-900 text-white font-black py-3 text-xs uppercase tracking-widest cursor-pointer"
+                          >
+                            Proceed to Phase 3 Verification Pass
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-mono font-black text-slate-600 dark:text-slate-400 uppercase block">
+                            SELECT AVAILABLE INTERVIEW SLOT:
+                          </label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {dbSlots.map((slot) => {
+                              const isSel = selectedSlotId === slot.id;
+                              return (
+                                <button
+                                  key={slot.id}
+                                  type="button"
+                                  onClick={() => setSelectedSlotId(slot.id)}
+                                  className={`p-3 border text-left cursor-pointer ${
+                                    isSel 
+                                      ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-950 dark:text-emerald-200 font-bold' 
+                                      : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-800'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-1.5 text-xs font-mono font-bold">
+                                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>{slot.date}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 text-xs font-mono font-black mt-1">
+                                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>{slot.time_slot}</span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          <button
+                            onClick={handleBookInterview}
+                            disabled={!selectedSlotId}
+                            className="w-full bg-slate-900 disabled:opacity-50 text-white font-black py-3 text-xs uppercase tracking-widest cursor-pointer mt-2"
+                          >
+                            CONFIRM PANEL BOOKING
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ==================================== */}
+              {/* PHASE 3: VERIFICATION PASS           */}
+              {/* ==================================== */}
+              {activePhase === 3 && (
+                <div className="space-y-6 text-left border-t border-slate-200 dark:border-slate-800 pt-5">
+                  {!phase2InterviewPassed ? (
+                    <div className="py-12 px-4 text-center space-y-4">
+                      <Lock className="w-10 h-10 text-slate-400 mx-auto" />
+                      <h4 className="font-black text-xs uppercase tracking-widest text-slate-900 dark:text-white">PHASE 3 LOCKED</h4>
+                      <p className="text-xs uppercase font-medium text-slate-500">
+                        Complete your Phase 2 Panel Interview to unlock Verification Access.
+                      </p>
+                      <button
+                        onClick={() => setActivePhase(2)}
+                        className="bg-slate-900 text-white font-black py-2.5 px-6 text-[10px] uppercase cursor-pointer"
+                      >
+                        Return to Phase 2
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="space-y-1">
+                        <span className="text-[9.5px] font-mono font-black text-[#00A86B] uppercase bg-emerald-50 dark:bg-emerald-950/80 px-2 py-0.5 border border-emerald-300">
+                          PHASE 3: VETTING VERIFICATION PASS
+                        </span>
+                        <h3 className="font-display font-black text-lg text-slate-900 dark:text-white uppercase mt-1">
+                          Unlock Verified Gold Badge (₦35,000)
+                        </h3>
+                      </div>
+
+                      <PaymentPhase
+                        isTalentPaid={isTalentPaid}
+                        userName={userName}
+                        userEmail={user?.email || ''}
+                        onPaymentComplete={() => handlePayCommitment()}
+                        onNextPhase={() => setActivePhase(3)}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+            </div>
+
           </div>
 
         </div>
 
       </div>
 
-      {/* First Failure Supportive Modal */}
+      {/* First Failure Modal */}
       <AnimatePresence>
         {showFirstFailModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
@@ -1506,29 +1311,22 @@ export default function TalentDashboard({
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white border-4 border-neutral-950 p-6 sm:p-8 max-w-md w-full relative shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] text-left"
+              className="bg-white border-4 border-neutral-950 p-6 max-w-md w-full relative text-left shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] space-y-4"
             >
-              <div className="text-center space-y-4">
-                <div className="w-14 h-14 bg-amber-50 text-amber-500 border-2 border-neutral-950 flex items-center justify-center mx-auto rounded-none">
-                  <Sparkles className="w-7 h-7 stroke-[2.5]" />
-                </div>
-                <h3 className="font-display font-black text-xl uppercase tracking-tighter text-neutral-950 leading-none">
-                  KEEP MOVING FORWARD!
+              <div className="text-center space-y-3">
+                <Sparkles className="w-10 h-10 text-amber-500 mx-auto" />
+                <h3 className="font-display font-black text-lg uppercase text-neutral-950">
+                  Keep Moving Forward!
                 </h3>
-                <p className="text-[10px] font-mono text-amber-800 uppercase tracking-widest font-black bg-amber-50 py-1 px-2 border border-amber-200 block text-center">
-                  ★ ADVISORY FROM THE PANEL ★
+                <p className="text-xs font-semibold text-slate-700 uppercase leading-relaxed">
+                  Take a deep breath! You have 1 remaining attempt. Review your core specialization parameters and retry.
                 </p>
-                <p className="text-xs font-semibold text-slate-700 uppercase leading-relaxed text-center">
-                  Take a deep breath and stay calm if you're feeling nervous! You have 1 remaining attempt.
-                </p>
-                <div className="pt-2">
-                  <button
-                    onClick={() => setShowFirstFailModal(false)}
-                    className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-3 px-6 rounded-none text-xs uppercase tracking-widest transition shadow-[3px_3px_0px_0px_rgba(16,185,129,1)] cursor-pointer"
-                  >
-                    PREPARE & RETRY DIAGNOSTIC
-                  </button>
-                </div>
+                <button
+                  onClick={() => setShowFirstFailModal(false)}
+                  className="w-full bg-slate-900 text-white font-black py-3 text-xs uppercase cursor-pointer"
+                >
+                  Prepare & Retry Diagnostic
+                </button>
               </div>
             </motion.div>
           </div>
