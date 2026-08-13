@@ -309,13 +309,13 @@ export function Footer({ setCurrentPage }: FooterProps) {
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }
               }}
-              className="bg-white hover:bg-neutral-100 text-neutral-950 border-2 border-neutral-950 px-3 py-1.5 text-xs font-mono font-black uppercase tracking-wider transition cursor-pointer shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+              className="text-[11px] font-mono text-neutral-400 hover:text-neutral-700 transition cursor-pointer underline underline-offset-2"
               id="staff-access-trigger-btn"
             >
-              Staff Portal (/admin-login)
+              Admin Access
             </button>
-            <span className="w-2.5 h-2.5 rounded-full bg-[#00A86B]" />
-            <span className="font-mono text-[11px] font-bold uppercase text-neutral-800">Verified Platform</span>
+            <span className="w-2 h-2 rounded-full bg-[#00A86B]" />
+            <span className="font-mono text-[11px] font-bold uppercase text-neutral-600">Verified Platform</span>
           </div>
         </div>
 

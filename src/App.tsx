@@ -25,6 +25,7 @@ import FAQSection from './components/FAQSection';
 import HomeOverview from './components/HomeOverview';
 import EmployerWorkspace from './components/EmployerWorkspace';
 import TalentDashboard from './components/TalentDashboard';
+import TalentSignup from './components/TalentSignup';
 import PracticeAssessment from './components/PracticeAssessment';
 import PricingPlans from './components/PricingPlans';
 import ConversationalOnboarding from './components/ConversationalOnboarding';
@@ -33,6 +34,8 @@ import { useSupabase } from './context/SupabaseContext';
 import { supabase } from './lib/supabaseClient';
 import AdminOperations from './components/AdminOperations';
 import { useSecureLogin } from './hooks/useSecureLogin';
+import ProtectedRoute from './components/ProtectedRoute';
+import TalentProfile from './components/TalentProfile';
 
 export default function App() {
   const { 
@@ -301,25 +304,27 @@ export default function App() {
   return (
     <div className="min-h-screen bg-white text-neutral-850 font-sans antialiased selection:bg-emerald-500/30 selection:text-neutral-900">
       
-      {/* GLOBAL HEADER */}
-      <Header 
-        currentPage={currentPage} 
-        setCurrentPage={setCurrentPage} 
-        openHireModal={() => setIsHireModalOpen(true)}
-        openTalentModal={() => setIsTalentModalOpen(true)}
-        employerSlots={employerSlots}
-        isLoggedIn={onboardingData !== null}
-        userName={onboardingData?.userName || ''}
-        userType={onboardingData?.userType || null}
-        onSignInClick={() => {
-          setSignInError('');
-          setIsSignInModalOpen(true);
-        }}
-        onSignOutClick={() => {
-          setOnboardingData(null);
-          setCurrentPage('home');
-        }}
-      />
+      {/* GLOBAL HEADER (Hidden on isolated talent-profile portal) */}
+      {currentPage !== 'talent' && (
+        <Header 
+          currentPage={currentPage} 
+          setCurrentPage={setCurrentPage} 
+          openHireModal={() => setIsHireModalOpen(true)}
+          openTalentModal={() => setIsTalentModalOpen(true)}
+          employerSlots={employerSlots}
+          isLoggedIn={onboardingData !== null}
+          userName={onboardingData?.userName || ''}
+          userType={onboardingData?.userType || null}
+          onSignInClick={() => {
+            setSignInError('');
+            setIsSignInModalOpen(true);
+          }}
+          onSignOutClick={() => {
+            setOnboardingData(null);
+            setCurrentPage('home');
+          }}
+        />
+      )}
 
       {/* PRIMARY VIEWS CONTAINER */}
       <main className="min-h-[70vh]">
@@ -334,31 +339,8 @@ export default function App() {
             
             {/* View 1: Home/Overview Landing Page */}
             {currentPage === 'home' && (
-              onboardingData === null ? (
-                <div className="w-full bg-neutral-50 min-h-[75vh]">
-                  <ConversationalOnboarding 
-                    onComplete={async (data) => {
-                      setOnboardingData(data as any);
-                      
-                      // Trigger confetti success state
-                      setConfettiMessage(data.userType === 'recruiter' ? 'RECRUITER PORTAL DEPLOYED!' : 'TALENT PROFILE ACTIVATED!');
-                      setShowConfetti(true);
-
-                      // Save user profile securely to Supabase using the unified onboarding submit handler
-                      if (data.email && data.password) {
-                        await handleOnboardingSubmit(data);
-                      }
-
-                      if (data.userType === 'recruiter') {
-                        setCurrentPage('directory'); // Go straight to directory
-                      } else if (data.userType === 'talent') {
-                        setCurrentPage('talent'); // Go straight to Talent dashboard
-                      }
-                    }}
-                  />
-                </div>
-              ) : (
-                <div>
+              <div>
+                {onboardingData && (
                   <div className="bg-[#00A86B] text-white p-3 text-center text-xs font-black uppercase tracking-wider flex flex-col sm:flex-row items-center justify-between px-6 sm:px-12 gap-2 border-b-2 border-neutral-950">
                     <span>⚡ ACTIVE WORKSPACE: ADDRESSING YOU AS {onboardingData.userName.toUpperCase()} ({onboardingData.userType === 'talent' ? 'VETTED TALENT PIPELINE' : onboardingData.userType === 'recruiter' ? 'RECRUITER PORTAL' : 'GUEST EXPLORER'})</span>
                     <button 
@@ -371,13 +353,13 @@ export default function App() {
                       RESET SESSION / RE-ENTER PIPELINE
                     </button>
                   </div>
-                  <HomeOverview 
-                    navigateToPage={navigateToPage} 
-                    openHireModal={() => setIsHireModalOpen(true)} 
-                    openTalentModal={() => setIsTalentModalOpen(true)} 
-                  />
-                </div>
-              )
+                )}
+                <HomeOverview 
+                  navigateToPage={navigateToPage} 
+                  openHireModal={() => setIsHireModalOpen(true)} 
+                  openTalentModal={() => setIsTalentModalOpen(true)} 
+                />
+              </div>
             )}
 
             {/* View 2: Find Talent (Directory Page) */}
@@ -420,16 +402,17 @@ export default function App() {
               </section>
             )}
 
-            {/* View 4: Talent Vetting Hub Dashboard */}
+            {/* View 4: Talent Vetting Hub Dashboard (/talent-profile) */}
             {currentPage === 'talent' && (
-              <section className="max-w-7xl mx-auto space-y-6">
-                <TalentDashboard 
-                  isTalentPaid={isTalentPaid}
-                  setIsTalentPaid={setIsTalentPaid}
+              <ProtectedRoute requiredRole="talent" fallbackPage="/">
+                <TalentProfile 
+                  onSignOut={() => {
+                    setOnboardingData(null);
+                    setCurrentPage('home');
+                  }}
                   navigateToPage={navigateToPage}
-                  onboardingData={onboardingData as any}
                 />
-              </section>
+              </ProtectedRoute>
             )}
 
             {/* View 5: Practice Assessment (Self evaluation sandbox) */}
@@ -558,86 +541,29 @@ export default function App() {
         </div>
       )}
 
-      {/* FOOTER MODAL - REGISTER GENERAL FORM */}
+      {/* TALENT SIGNUP MODAL */}
       {isTalentModalOpen && (
-        <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white border-4 border-neutral-950 max-w-md w-full p-6 sm:p-8 space-y-6 text-left relative shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+        <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="relative w-full max-w-md my-auto">
             <button 
-              onClick={() => { setIsTalentModalOpen(false); setTalentSubmitted(false); }}
-              className="absolute top-4 right-4 text-neutral-400 hover:text-neutral-950 font-mono font-black"
+              onClick={() => setIsTalentModalOpen(false)}
+              className="absolute top-3 right-3 text-neutral-400 hover:text-neutral-950 font-mono font-black z-20 bg-white border border-neutral-300 w-8 h-8 flex items-center justify-center rounded-none cursor-pointer"
+              aria-label="Close modal"
             >
               ✕
             </button>
-            <div className="border-b border-neutral-100 pb-3">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-805 bg-emerald-50 px-2 py-0.5">ACCREDITATION MATCHMAKING</span>
-              <h3 className="font-display font-black text-xl text-neutral-950 uppercase tracking-tight mt-1">Initiate Vetting Protocol</h3>
-            </div>
-            {talentSubmitted ? (
-              <div className="text-center py-6 space-y-4">
-                <CheckCircle2 className="w-12 h-12 text-[#00A86B] mx-auto" />
-                <h4 className="font-display font-black text-sm uppercase tracking-wider text-neutral-900">PROTOCOLS INITIATED</h4>
-                <p className="text-xs text-neutral-500 uppercase font-semibold">Your verification record has been staged. A vetting link has been dispatched to your email coordinates to activate Phase 1 diagnostic.</p>
-              </div>
-            ) : (
-              <form 
-                onSubmit={(e) => { e.preventDefault(); setTalentSubmitted(true); }}
-                className="space-y-4 text-xs font-sans"
-              >
-                <div className="space-y-1">
-                  <label className="text-[9px] font-mono text-neutral-400 font-bold uppercase block">Professional Full Name</label>
-                  <input 
-                    type="text" 
-                    required 
-                    value={talentForm.name} 
-                    onChange={(e) => setTalentForm({ ...talentForm, name: e.target.value })}
-                    placeholder="Enter your name" 
-                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/50 focus:bg-white text-xs text-neutral-800"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[9px] font-mono text-neutral-400 font-bold uppercase block">Email Address</label>
-                  <input 
-                    type="email" 
-                    required 
-                    value={talentForm.email} 
-                    onChange={(e) => setTalentForm({ ...talentForm, email: e.target.value })}
-                    placeholder="you@corporate-domain.com" 
-                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/50 focus:bg-white text-xs text-neutral-800"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[9px] font-mono text-neutral-400 font-bold uppercase block">Specialization Tier</label>
-                  <select 
-                    value={talentForm.track}
-                    onChange={(e) => setTalentForm({ ...talentForm, track: e.target.value })}
-                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/50 text-xs text-neutral-800"
-                  >
-                    <option value="Professional Track">Professional Verification (immediate listing)</option>
-                    <option value="Internship Track">Supervised Internship Pathway (junior placement)</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[9px] font-mono text-neutral-400 font-bold uppercase block">Digital Toolsets Proficiencies</label>
-                  <input 
-                    type="text" 
-                    value={talentForm.skills}
-                    onChange={(e) => setTalentForm({ ...talentForm, skills: e.target.value })}
-                    placeholder="e.g. Zapier, Make, GA4, Semrush, Technical crawls, custom campaign configurations" 
-                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/50 focus:bg-white text-xs text-neutral-800"
-                  />
-                </div>
-
-                <button 
-                  type="submit" 
-                  className="w-full bg-[#0a1b10] hover:bg-neutral-900 text-white font-bold py-3.5 px-4 rounded-xl text-xs uppercase cursor-pointer"
-                >
-                  Begin Verification
-                </button>
-              </form>
-            )}
+            <TalentSignup 
+              onSuccess={() => {
+                setIsTalentModalOpen(false);
+                setCurrentPage('talent');
+                setConfettiMessage('TALENT ACCOUNT CREATED! WELCOME TO THE PIPELINE.');
+                setShowConfetti(true);
+              }}
+              onSwitchToLogin={() => {
+                setIsTalentModalOpen(false);
+                setIsSignInModalOpen(true);
+              }}
+            />
           </div>
         </div>
       )}
@@ -854,8 +780,10 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* GLOBAL FOOTER */}
-      <Footer setCurrentPage={setCurrentPage} />
+      {/* GLOBAL FOOTER (Hidden on isolated talent-profile portal) */}
+      {currentPage !== 'talent' && (
+        <Footer setCurrentPage={setCurrentPage} />
+      )}
 
       {/* CONFETTI SUCCESS TRIGGER */}
       <ConfettiSuccess 
