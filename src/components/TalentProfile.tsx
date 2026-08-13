@@ -27,8 +27,8 @@ export default function TalentProfile({ onSignOut, navigateToPage }: TalentProfi
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isTalentPaid, setIsTalentPaid] = useState(false);
 
-  // Fetch live profile directly from Supabase DB on mount or when user changes
-  const fetchLiveProfile = async () => {
+  // Fetch live profile or create missing profile row dynamically (Self-Healing)
+  const fetchOrCreateTalentProfile = async () => {
     if (!user) {
       setLoading(false);
       return;
@@ -38,56 +38,69 @@ export default function TalentProfile({ onSignOut, navigateToPage }: TalentProfi
     setError(null);
 
     try {
-      const { data, error: fetchErr } = await supabase
+      // 1. Attempt to fetch existing profile
+      let { data: profileData, error: fetchErr } = await supabase
         .from('talent_profiles')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (fetchErr) {
-        console.warn('Could not fetch single profile from talent_profiles table:', fetchErr.message);
-        // Fallback query if row missing
-        const { data: maybeData } = await supabase
+      // 2. SELF-HEALING: If no profile row exists, create it live on the fly
+      if (!profileData) {
+        console.log("Profile missing in talent_profiles table. Creating live profile row...");
+        
+        const newProfile = {
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Talent Candidate',
+          specialty: user.user_metadata?.specialty || 'AI Automation Engineer',
+          experience_level: 'Seasoned Professional',
+          vetting_status: 'pending',
+          phase_1_quiz_passed: false,
+          phase_2_interview_passed: false,
+          phase_2_interview_scheduled: false,
+          phase_3_fee_paid: false,
+          phase_4_portfolio_submitted: false
+        };
+
+        const { data: createdProfile, error: createError } = await supabase
           .from('talent_profiles')
-          .select('*')
-          .eq('id', user.id)
-          .maybeSingle();
+          .insert([newProfile])
+          .select()
+          .single();
 
-        if (maybeData) {
-          setProfile(maybeData);
-          if (maybeData.phase_3_fee_paid || maybeData.vetting_status === 'fee_paid' || maybeData.vetting_status === 'completed') {
-            setIsTalentPaid(true);
+        if (createError) {
+          console.warn("Insert missing profile error, retrying select query:", createError.message);
+          const { data: retryData } = await supabase
+            .from('talent_profiles')
+            .select('*')
+            .eq('id', user.id)
+            .maybeSingle();
+
+          if (retryData) {
+            profileData = retryData;
+          } else {
+            profileData = newProfile;
           }
         } else {
-          // Construct live session fallback profile object
-          setProfile({
-            id: user.id,
-            full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Vetted Operator',
-            email: user.email,
-            specialty: user.user_metadata?.specialty || 'AI Automation',
-            experience_level: 'Seasoned Professional',
-            vetting_status: 'not_started',
-            phase_1_quiz_passed: false,
-            phase_2_interview_scheduled: false,
-            phase_3_fee_paid: false
-          });
-        }
-      } else if (data) {
-        setProfile(data);
-        if (data.phase_3_fee_paid || data.vetting_status === 'fee_paid' || data.vetting_status === 'completed') {
-          setIsTalentPaid(true);
+          profileData = createdProfile;
         }
       }
+
+      setProfile(profileData);
+      if (profileData?.phase_3_fee_paid || profileData?.vetting_status === 'fee_paid' || profileData?.vetting_status === 'completed' || profileData?.vetting_status === 'approved') {
+        setIsTalentPaid(true);
+      }
     } catch (err: any) {
-      console.error('Exception fetching live talent profile:', err);
-      setError('Could not load profile from database.');
+      console.error("Error fetching/creating profile:", err);
+      setError("Unable to load profile. Please refresh or try logging in again.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchLiveProfile();
+    fetchOrCreateTalentProfile();
   }, [user]);
 
   const handleSignOut = async () => {
@@ -162,7 +175,7 @@ export default function TalentProfile({ onSignOut, navigateToPage }: TalentProfi
 
             {/* Refresh Profile Button */}
             <button
-              onClick={fetchLiveProfile}
+              onClick={fetchOrCreateTalentProfile}
               title="Sync Live DB Record"
               className="p-2 border-2 border-neutral-950 dark:border-slate-700 bg-neutral-100 dark:bg-slate-800 text-neutral-800 dark:text-slate-200 hover:bg-neutral-200 dark:hover:bg-slate-700 cursor-pointer transition-colors"
             >
@@ -200,7 +213,7 @@ export default function TalentProfile({ onSignOut, navigateToPage }: TalentProfi
             </div>
             <p className="text-xs font-medium">{error}</p>
             <button
-              onClick={fetchLiveProfile}
+              onClick={fetchOrCreateTalentProfile}
               className="bg-rose-900 text-white font-black px-4 py-2 text-[10px] uppercase tracking-wider cursor-pointer"
             >
               Retry Sync
