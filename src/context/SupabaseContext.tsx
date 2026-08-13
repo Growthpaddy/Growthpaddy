@@ -362,7 +362,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         email: email,
         session_responses: rawProfileData,
         phase_1_quiz_passed: false,
-        vetting_status: 'not_started',
+        vetting_status: 'pending',
         updated_at: new Date().toISOString()
       };
 
@@ -588,7 +588,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
           email: email,
           session_responses: payload,
           phase_1_quiz_passed: false,
-          vetting_status: 'not_started',
+          vetting_status: 'pending',
           updated_at: new Date().toISOString()
         };
 

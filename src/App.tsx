@@ -36,6 +36,7 @@ import AdminOperations from './components/AdminOperations';
 import { useSecureLogin } from './hooks/useSecureLogin';
 import ProtectedRoute from './components/ProtectedRoute';
 import TalentProfile from './components/TalentProfile';
+import TalentPortfolioModal from './components/TalentPortfolioModal';
 
 export default function App() {
   const { 
@@ -138,18 +139,22 @@ export default function App() {
   const [talentForm, setTalentForm] = useState({ name: '', email: '', track: 'Internship Track', skills: '' });
   const [talentSubmitted, setTalentSubmitted] = useState(false);
 
+  // Dedicated Portfolio Modal State
+  const [isPortfolioModalOpen, setIsPortfolioModalOpen] = useState(false);
+
   // Active Onboarded User State
   const [onboardingData, setOnboardingData] = useState<{
     userType: 'talent' | 'recruiter' | 'admin' | null;
     userName: string;
-    careerGoal?: 'Internship' | 'Freelance Gigs' | 'Full-Time Remote Job';
+    careerGoal?: string;
     specialty?: string;
-    experienceLevel?: 'Fresher/Newbie' | 'Seasoned Professional';
+    experienceLevel?: string;
     email?: string;
+    portfolioUrl?: string;
     orgName?: string;
     orgSize?: string;
     industry?: string;
-    neededRole?: 'Interns' | 'Project Freelancers' | 'Full-Time Dedicated Talent';
+    neededRole?: string;
   } | null>(null);
 
   // Seed default demo accounts in localStorage if not already present
@@ -247,7 +252,8 @@ export default function App() {
               careerGoal: data.career_goal,
               specialty: data.specialty,
               experienceLevel: data.experience_level === 'fresher' || data.experience_level === 'Fresher/Newbie' ? 'Fresher/Newbie' : 'Seasoned Professional',
-              email: user.email
+              email: user.email,
+              portfolioUrl: data.portfolio_url || user.user_metadata?.portfolio_url || ''
             });
             if (data.vetting_status === 'fee_paid' || data.vetting_status === 'completed') {
               setIsTalentPaid(true);
@@ -322,6 +328,19 @@ export default function App() {
           onSignOutClick={() => {
             setOnboardingData(null);
             setCurrentPage('home');
+          }}
+          onVisitDashboard={() => {
+            if (onboardingData?.userType === 'recruiter') {
+              setCurrentPage('employer');
+            } else if (onboardingData?.userType === 'admin') {
+              setCurrentPage('admin');
+            } else {
+              setCurrentPage('talent');
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onVisitPortfolio={() => {
+            setIsPortfolioModalOpen(true);
           }}
         />
       )}
@@ -790,6 +809,24 @@ export default function App() {
         isActive={showConfetti} 
         onComplete={() => setShowConfetti(false)} 
         message={confettiMessage} 
+      />
+
+      {/* DEDICATED TALENT PORTFOLIO SHOWCASE MODAL */}
+      <TalentPortfolioModal
+        isOpen={isPortfolioModalOpen}
+        onClose={() => setIsPortfolioModalOpen(false)}
+        onNavigateToDashboard={() => {
+          setIsPortfolioModalOpen(false);
+          if (onboardingData?.userType === 'recruiter') {
+            setCurrentPage('employer');
+          } else if (onboardingData?.userType === 'admin') {
+            setCurrentPage('admin');
+          } else {
+            setCurrentPage('talent');
+          }
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onboardingData={onboardingData}
       />
 
     </div>

@@ -135,7 +135,7 @@ export function useSecureLogin(): UseSecureLoginReturn {
           }
 
           if (!talent) {
-            console.error(`DEBUG [handleSecureLogin]: Profile query returned null for table: talent_profiles. User ID: ${userId}. Initiating auto-healing...`);
+            console.log(`DEBUG [handleSecureLogin]: Profile query returned null for table: talent_profiles. User ID: ${userId}. Initiating auto-healing...`);
             
             // Try to find rawProfileData in local storage first
             const localProfileStr = localStorage.getItem(`mock_talent_profiles_${userId}`);
@@ -163,6 +163,11 @@ export function useSecureLogin(): UseSecureLoginReturn {
             const experienceLevel = mapExperienceLevel(rawExperienceLevel);
             const session_responses = meta.session_responses || localProfilePayload?.session_responses || {};
 
+            const getValidVettingStatus = (status?: string | null): string => {
+              if (status && status !== 'not_started') return status;
+              return 'pending';
+            };
+
             const healedPayload = {
               id: userId,
               full_name: userName,
@@ -172,7 +177,7 @@ export function useSecureLogin(): UseSecureLoginReturn {
               email: activeUser.email,
               session_responses: session_responses,
               phase_1_quiz_passed: localProfilePayload?.phase_1_quiz_passed || false,
-              vetting_status: localProfilePayload?.vetting_status || 'not_started',
+              vetting_status: getValidVettingStatus(localProfilePayload?.vetting_status),
               updated_at: new Date().toISOString()
             };
 
@@ -185,9 +190,15 @@ export function useSecureLogin(): UseSecureLoginReturn {
 
             if (healedError) {
               console.error('DEBUG [handleSecureLogin]: Profile healing database insert failed:', healedError.message);
+              // Fallback to healed payload in memory so login succeeds smoothly
+              talent = healedPayload;
+              localStorage.setItem(`mock_talent_profiles_${userId}`, JSON.stringify(healedPayload));
             } else if (healedData) {
               console.log('DEBUG [handleSecureLogin]: Profile healing database insert succeeded!', healedData);
               talent = healedData;
+            } else {
+              talent = healedPayload;
+              localStorage.setItem(`mock_talent_profiles_${userId}`, JSON.stringify(healedPayload));
             }
           }
 
@@ -272,7 +283,7 @@ export function useSecureLogin(): UseSecureLoginReturn {
           }
 
           if (!recruiter) {
-            console.error(`DEBUG [handleSecureLogin]: Profile query returned null for table: recruiter_profiles. User ID: ${userId}. Initiating auto-healing...`);
+            console.log(`DEBUG [handleSecureLogin]: Profile query returned null for table: recruiter_profiles. User ID: ${userId}. Initiating auto-healing...`);
 
             // Try to find rawCompanyData in local storage first
             const localProfileStr = localStorage.getItem(`mock_recruiter_profiles_${userId}`);

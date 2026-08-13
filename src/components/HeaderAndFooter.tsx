@@ -1,5 +1,25 @@
-import React, { useState } from 'react';
-import { ShieldCheck, Menu, X, ArrowUpRight, ArrowRight, Mail, Globe, Sparkles, Briefcase, Zap, Shield, Lock, MessageSquare } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  ShieldCheck, 
+  Menu, 
+  X, 
+  ArrowUpRight, 
+  ArrowRight, 
+  Mail, 
+  Globe, 
+  Sparkles, 
+  Briefcase, 
+  Zap, 
+  Shield, 
+  Lock, 
+  MessageSquare,
+  ChevronDown,
+  LayoutDashboard,
+  FolderKanban,
+  LogOut,
+  User,
+  ExternalLink
+} from 'lucide-react';
 
 interface HeaderProps {
   currentPage?: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login';
@@ -9,9 +29,11 @@ interface HeaderProps {
   employerSlots?: number;
   onSignInClick?: () => void;
   onSignOutClick?: () => void;
+  onVisitDashboard?: () => void;
+  onVisitPortfolio?: () => void;
   isLoggedIn?: boolean;
   userName?: string;
-  userType?: 'talent' | 'recruiter' | null;
+  userType?: 'talent' | 'recruiter' | 'admin' | null;
 }
 
 export function Header({ 
@@ -22,16 +44,60 @@ export function Header({
   employerSlots = 1,
   onSignInClick,
   onSignOutClick,
+  onVisitDashboard,
+  onVisitPortfolio,
   isLoggedIn = false,
   userName = '',
   userType = null
 }: HeaderProps) {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const handleNavClick = (id: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login') => {
     if (setCurrentPage) {
       setCurrentPage(id);
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleDashboardClick = () => {
+    setIsDropdownOpen(false);
+    if (onVisitDashboard) {
+      onVisitDashboard();
+    } else if (setCurrentPage) {
+      setCurrentPage(userType === 'recruiter' ? 'employer' : userType === 'admin' ? 'admin' : 'talent');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handlePortfolioClick = () => {
+    setIsDropdownOpen(false);
+    if (onVisitPortfolio) {
+      onVisitPortfolio();
+    } else if (setCurrentPage) {
+      setCurrentPage('talent');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleSignOut = () => {
+    setIsDropdownOpen(false);
+    if (onSignOutClick) {
+      onSignOutClick();
+    }
   };
 
   return (
@@ -60,24 +126,80 @@ export function Header({
           </div>
         </button>
 
-        {/* Header Actions / Sign In Container */}
+        {/* Header Actions / Sign In & Dropdown Container */}
         <div className="flex items-center gap-3">
           {isLoggedIn ? (
-            <div className="flex items-center gap-3">
-              {/* Active Workspace Status indicator */}
-              <div className="hidden sm:flex items-center gap-2 bg-neutral-100 border border-neutral-300 py-1 px-3 rounded-none text-[10px] font-black uppercase font-mono text-neutral-700">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>
-                  {userType === 'recruiter' ? 'RECRUITER:' : userType === 'talent' ? 'TALENT:' : 'EXPLORER:'} {userName.toUpperCase()}
-                </span>
+            <div className="flex items-center gap-2 sm:gap-3" ref={dropdownRef}>
+              
+              {/* User Name Dropdown Trigger Button */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="flex items-center gap-2 bg-neutral-100 hover:bg-emerald-50 border-2 border-neutral-950 py-1.5 px-3 rounded-none text-[10px] font-black uppercase font-mono text-neutral-900 cursor-pointer transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none"
+                  id="header-user-dropdown-btn"
+                  aria-expanded={isDropdownOpen}
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>
+                    {userType === 'recruiter' ? 'RECRUITER:' : userType === 'talent' ? 'TALENT:' : 'EXPLORER:'} {userName.toUpperCase() || 'MY ACCOUNT'}
+                  </span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-neutral-700 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Dropdown Menu */}
+                {isDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-60 bg-white border-4 border-neutral-950 shadow-[6px_6px_0px_0px_rgba(0,168,107,1)] z-50 py-1 animate-fadeIn text-left">
+                    
+                    {/* Header Info */}
+                    <div className="px-3.5 py-2.5 border-b-2 border-neutral-200 bg-neutral-50">
+                      <span className="text-[9px] font-mono font-bold text-neutral-500 uppercase block tracking-wider">
+                        ACTIVE SESSION
+                      </span>
+                      <span className="text-xs font-black text-neutral-950 truncate block mt-0.5">
+                        {userName || 'Logged In Candidate'}
+                      </span>
+                    </div>
+
+                    {/* Option 1: Visit Dashboard */}
+                    <button
+                      onClick={handleDashboardClick}
+                      className="w-full text-left px-3.5 py-2.5 text-xs font-black uppercase tracking-wider text-neutral-900 hover:bg-emerald-50 hover:text-emerald-900 flex items-center gap-2.5 transition-colors cursor-pointer border-b border-neutral-100 font-mono"
+                    >
+                      <LayoutDashboard className="w-4 h-4 text-[#00A86B]" />
+                      <span>VISIT DASHBOARD</span>
+                    </button>
+
+                    {/* Option 2: Visit Portfolio */}
+                    <button
+                      onClick={handlePortfolioClick}
+                      className="w-full text-left px-3.5 py-2.5 text-xs font-black uppercase tracking-wider text-neutral-900 hover:bg-emerald-50 hover:text-emerald-900 flex items-center gap-2.5 transition-colors cursor-pointer border-b border-neutral-100 font-mono"
+                    >
+                      <FolderKanban className="w-4 h-4 text-[#00A86B]" />
+                      <span>VISIT PORTFOLIO</span>
+                    </button>
+
+                    {/* Option 3: Sign Out */}
+                    <button
+                      onClick={handleSignOut}
+                      className="w-full text-left px-3.5 py-2.5 text-xs font-black uppercase tracking-wider text-rose-700 hover:bg-rose-50 flex items-center gap-2.5 transition-colors cursor-pointer font-mono"
+                    >
+                      <LogOut className="w-4 h-4 text-rose-600" />
+                      <span>SIGN OUT</span>
+                    </button>
+
+                  </div>
+                )}
               </div>
+
+              {/* Direct Sign Out Button */}
               <button 
                 onClick={onSignOutClick}
-                className="text-[10px] font-black uppercase tracking-wider text-neutral-700 hover:text-rose-600 border-2 border-neutral-300 hover:border-rose-600 py-1.5 px-3 transition-colors cursor-pointer rounded-none bg-white font-mono"
+                className="hidden md:inline-flex text-[10px] font-black uppercase tracking-wider text-neutral-700 hover:text-rose-600 border-2 border-neutral-300 hover:border-rose-600 py-1.5 px-3 transition-colors cursor-pointer rounded-none bg-white font-mono"
                 id="header-signout-btn"
               >
                 SIGN OUT
               </button>
+
             </div>
           ) : (
             <button 
