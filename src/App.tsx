@@ -115,18 +115,17 @@ export default function App() {
     const syncRouteFromURL = () => {
       const route = getRouteFromLocation();
 
-      // If user entered via a hash URL (e.g. /#/directory or /#/p/slug), clean it up to standard URL without hash
-      if (window.location.hash) {
-        const targetPath = route.slug ? `/p/${route.slug}` : pageToPath(route.page);
+      if (route.slug) {
+        // Ensure hash URL is kept as /#/p/slug so edge proxies always hit index.html (no 404 on direct hit/refresh)
+        window.history.replaceState(null, '', `/#/p/${route.slug}`);
+        setSelectedPublicSlug(route.slug);
+        setIsPortfolioModalOpen(true);
+      } else if (window.location.hash && !window.location.hash.includes('/p/')) {
+        const targetPath = pageToPath(route.page);
         window.history.replaceState(null, '', targetPath);
       }
 
       setCurrentPage(route.page);
-
-      if (route.slug) {
-        setSelectedPublicSlug(route.slug);
-        setIsPortfolioModalOpen(true);
-      }
     };
 
     syncRouteFromURL();
@@ -852,7 +851,7 @@ export default function App() {
         onClose={() => {
           setIsPortfolioModalOpen(false);
           setSelectedPublicSlug(undefined);
-          if (window.location.pathname.startsWith('/p/')) {
+          if (window.location.hash.includes('/p/') || window.location.pathname.startsWith('/p/')) {
             window.history.pushState(null, '', pageToPath(currentPage));
           }
         }}

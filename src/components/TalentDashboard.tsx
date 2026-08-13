@@ -250,7 +250,7 @@ export default function TalentDashboard({
 
   const handleCopyPublicLink = () => {
     const currentSlug = slug || userName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const shareUrl = `${window.location.origin}/p/${currentSlug}`;
+    const shareUrl = `${window.location.origin}/#/p/${currentSlug}`;
     navigator.clipboard.writeText(shareUrl);
     setCopiedSlugLink(true);
     setTimeout(() => setCopiedSlugLink(false), 2500);
