@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabaseClient';
 import { 
   X, 
   Sparkles, 
@@ -16,13 +17,15 @@ import {
   Zap,
   Copy,
   Check,
-  Share2
+  Share2,
+  FolderKanban
 } from 'lucide-react';
 
 interface TalentPortfolioModalProps {
   isOpen: boolean;
   onClose: () => void;
   onNavigateToDashboard: () => void;
+  publicSlug?: string;
   onboardingData?: {
     userName?: string;
     specialty?: string;
@@ -39,20 +42,66 @@ export default function TalentPortfolioModal({
   isOpen,
   onClose,
   onNavigateToDashboard,
+  publicSlug,
   onboardingData
 }: TalentPortfolioModalProps) {
   const [copiedLink, setCopiedLink] = useState(false);
+  const [fetchedData, setFetchedData] = useState<{
+    userName?: string;
+    specialty?: string;
+    experienceLevel?: string;
+    careerGoal?: string;
+    email?: string;
+    portfolioUrl?: string;
+    profilePictureUrl?: string;
+    slug?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const targetSlug = publicSlug || onboardingData?.slug;
+    if (targetSlug && publicSlug) {
+      const fetchBySlug = async () => {
+        try {
+          const { data } = await supabase
+            .from('talent_profiles')
+            .select('*')
+            .eq('slug', targetSlug)
+            .maybeSingle();
+
+          if (data) {
+            setFetchedData({
+              userName: data.full_name || 'Verified Operator',
+              specialty: data.specialty || 'AI Automation & Growth Specialist',
+              experienceLevel: data.experience_level || 'Seasoned Professional',
+              careerGoal: data.career_goal || 'Building automated growth systems',
+              email: data.email || 'talent@growthpaddy.com',
+              portfolioUrl: data.portfolio_url || '',
+              profilePictureUrl: data.profile_picture_url || '',
+              slug: data.slug || targetSlug
+            });
+          }
+        } catch (err) {
+          console.warn('Error fetching candidate profile by slug:', err);
+        }
+      };
+      fetchBySlug();
+    }
+  }, [isOpen, publicSlug, onboardingData]);
 
   if (!isOpen) return null;
 
-  const candidateName = onboardingData?.userName || 'Verified Talent Operator';
-  const specialty = onboardingData?.specialty || 'AI Automation & Growth Engineer';
-  const experienceTier = onboardingData?.experienceLevel || 'Seasoned Professional';
-  const careerGoal = onboardingData?.careerGoal || 'Building high-performance automated workflows and growth infrastructure.';
-  const email = onboardingData?.email || 'talent@growthpaddy.com';
-  const portfolioUrl = onboardingData?.portfolioUrl || '';
-  const profilePictureUrl = onboardingData?.profilePictureUrl || '';
-  const slug = onboardingData?.slug || candidateName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const displayData = fetchedData || onboardingData;
+
+  const candidateName = displayData?.userName || 'Verified Talent Operator';
+  const specialty = displayData?.specialty || 'AI Automation & Growth Engineer';
+  const experienceTier = displayData?.experienceLevel || 'Seasoned Professional';
+  const careerGoal = displayData?.careerGoal || 'Building high-performance automated workflows and growth infrastructure.';
+  const email = displayData?.email || 'talent@growthpaddy.com';
+  const portfolioUrl = displayData?.portfolioUrl || '';
+  const profilePictureUrl = displayData?.profilePictureUrl || '';
+  const slug = displayData?.slug || candidateName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
   const shareableUrl = `${window.location.origin}/p/${slug}`;
 
   const handleCopyLink = () => {
@@ -78,7 +127,7 @@ export default function TalentPortfolioModal({
         <div className="flex items-center justify-between p-5 border-b-2 border-neutral-950 bg-neutral-50">
           <div className="flex items-center gap-2.5">
             <div className="bg-neutral-950 text-emerald-400 p-2 font-mono font-black border border-neutral-950">
-              <FolderIcon className="w-5 h-5 text-[#00A86B]" />
+              <FolderKanban className="w-5 h-5 text-[#00A86B]" />
             </div>
             <div>
               <span className="text-[9px] font-mono font-black text-[#00A86B] uppercase tracking-widest block">

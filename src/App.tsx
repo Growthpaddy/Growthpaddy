@@ -60,6 +60,10 @@ export default function App() {
   // Navigation State
   const [currentPage, setCurrentPage] = useState<'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login'>('home');
 
+  // Dedicated Portfolio Modal State
+  const [isPortfolioModalOpen, setIsPortfolioModalOpen] = useState(false);
+  const [selectedPublicSlug, setSelectedPublicSlug] = useState<string | undefined>(undefined);
+
   // Helper to map currentPage to pathname
   const pageToPath = (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login') => {
     switch (page) {
@@ -75,34 +79,63 @@ export default function App() {
     }
   };
 
-  // Helper to map pathname to currentPage
-  const pathToPage = (path: string): 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login' => {
-    const cleaned = path.replace(/\/$/, '').toLowerCase();
-    if (cleaned === '/directory') return 'directory';
-    if (cleaned === '/recruiter-profile') return 'employer';
-    if (cleaned === '/talent-profile') return 'talent';
-    if (cleaned === '/assessment') return 'assessment';
-    if (cleaned === '/pricing') return 'pricing';
-    if (cleaned === '/admin-profile') return 'admin';
-    if (cleaned === '/admin-login') return 'admin-login';
-    return 'home';
-  };
+  // Helper to map pathname or hash to currentPage and optional candidate slug
+  const getRouteFromLocation = (): { page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login'; slug?: string } => {
+    let rawPath = window.location.pathname;
 
-  // 1. Initial Load and popstate (back/forward) listener
-  useEffect(() => {
-    const initialPage = pathToPage(window.location.pathname);
-    if (initialPage !== currentPage) {
-      setCurrentPage(initialPage);
+    // Check if user entered via a hash URL (e.g., /#/directory, /#/p/marcus-vance, or #directory)
+    if (window.location.hash) {
+      const hashContent = window.location.hash.replace(/^#\/?/, '/');
+      if (hashContent) {
+        rawPath = hashContent.startsWith('/') ? hashContent : '/' + hashContent;
+      }
     }
 
-    const handlePopState = () => {
-      const targetPage = pathToPage(window.location.pathname);
-      setCurrentPage(targetPage);
+    const cleaned = rawPath.replace(/\/$/, '').toLowerCase();
+
+    // Direct candidate profile link: /p/some-slug
+    if (cleaned.startsWith('/p/')) {
+      const slug = cleaned.replace('/p/', '');
+      return { page: 'directory', slug };
+    }
+
+    if (cleaned === '/directory') return { page: 'directory' };
+    if (cleaned === '/recruiter-profile' || cleaned === '/employer') return { page: 'employer' };
+    if (cleaned === '/talent-profile' || cleaned === '/talent') return { page: 'talent' };
+    if (cleaned === '/assessment') return { page: 'assessment' };
+    if (cleaned === '/pricing') return { page: 'pricing' };
+    if (cleaned === '/admin-profile' || cleaned === '/admin') return { page: 'admin' };
+    if (cleaned === '/admin-login') return { page: 'admin-login' };
+
+    return { page: 'home' };
+  };
+
+  // 1. Initial Load and popstate/hashchange listener
+  useEffect(() => {
+    const syncRouteFromURL = () => {
+      const route = getRouteFromLocation();
+
+      // If user entered via a hash URL (e.g. /#/directory or /#/p/slug), clean it up to standard URL without hash
+      if (window.location.hash) {
+        const targetPath = route.slug ? `/p/${route.slug}` : pageToPath(route.page);
+        window.history.replaceState(null, '', targetPath);
+      }
+
+      setCurrentPage(route.page);
+
+      if (route.slug) {
+        setSelectedPublicSlug(route.slug);
+        setIsPortfolioModalOpen(true);
+      }
     };
 
-    window.addEventListener('popstate', handlePopState);
+    syncRouteFromURL();
+
+    window.addEventListener('popstate', syncRouteFromURL);
+    window.addEventListener('hashchange', syncRouteFromURL);
     return () => {
-      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('popstate', syncRouteFromURL);
+      window.removeEventListener('hashchange', syncRouteFromURL);
     };
   }, []);
 
@@ -110,7 +143,7 @@ export default function App() {
   useEffect(() => {
     const currentPath = window.location.pathname;
     const targetPath = pageToPath(currentPage);
-    if (currentPath !== targetPath) {
+    if (currentPath !== targetPath && !currentPath.startsWith('/p/')) {
       window.history.pushState(null, '', targetPath);
     }
   }, [currentPage]);
@@ -138,9 +171,6 @@ export default function App() {
   const [isTalentModalOpen, setIsTalentModalOpen] = useState(false);
   const [talentForm, setTalentForm] = useState({ name: '', email: '', track: 'Internship Track', skills: '' });
   const [talentSubmitted, setTalentSubmitted] = useState(false);
-
-  // Dedicated Portfolio Modal State
-  const [isPortfolioModalOpen, setIsPortfolioModalOpen] = useState(false);
 
   // Active Onboarded User State
   const [onboardingData, setOnboardingData] = useState<{
@@ -818,9 +848,17 @@ export default function App() {
       {/* DEDICATED TALENT PORTFOLIO SHOWCASE MODAL */}
       <TalentPortfolioModal
         isOpen={isPortfolioModalOpen}
-        onClose={() => setIsPortfolioModalOpen(false)}
+        publicSlug={selectedPublicSlug}
+        onClose={() => {
+          setIsPortfolioModalOpen(false);
+          setSelectedPublicSlug(undefined);
+          if (window.location.pathname.startsWith('/p/')) {
+            window.history.pushState(null, '', pageToPath(currentPage));
+          }
+        }}
         onNavigateToDashboard={() => {
           setIsPortfolioModalOpen(false);
+          setSelectedPublicSlug(undefined);
           if (onboardingData?.userType === 'recruiter') {
             setCurrentPage('employer');
           } else if (onboardingData?.userType === 'admin') {
