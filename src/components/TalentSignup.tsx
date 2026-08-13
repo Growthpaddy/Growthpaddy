@@ -20,40 +20,36 @@ export default function TalentSignup({ onSuccess, onSwitchToLogin }: TalentSignu
     setLoading(true);
     setError(null);
 
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            role: 'talent', // Triggers insertion into talent_profiles
-            full_name: fullName,
-          }
-        }
-      });
-
-      if (error) {
-        setError(error.message);
-        setLoading(false);
-      } else {
-        // Clear form state (zero local storage used)
-        setFullName('');
-        setEmail('');
-        setPassword('');
-        setLoading(false);
-
-        // Trigger success callback if provided
-        if (onSuccess) {
-          onSuccess();
-        } else {
-          // Standard SPA navigation fallback to Talent Dashboard route
-          window.history.pushState({}, '', '/talent-profile');
-          window.dispatchEvent(new Event('popstate'));
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          role: 'talent',
+          full_name: fullName,
         }
       }
-    } catch (err: any) {
-      setError(err?.message || 'An unexpected error occurred during talent registration.');
+    });
+
+    if (error) {
+      console.error("Supabase Signup Error:", error);
+      setError(error.message || "Signup failed. Please try again.");
       setLoading(false);
+      return;
+    }
+
+    // If user object is created successfully, proceed directly to dashboard
+    if (data.user) {
+      setFullName('');
+      setEmail('');
+      setPassword('');
+      setLoading(false);
+
+      if (onSuccess) {
+        onSuccess();
+      }
+      window.history.pushState({}, '', '/talent-profile');
+      window.dispatchEvent(new Event('popstate'));
     }
   };
 
