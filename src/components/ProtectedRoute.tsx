@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Loader2, ShieldAlert, Sparkles } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
+import { Preloader } from './Preloader';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -101,25 +102,7 @@ export default function ProtectedRoute({
   }, [requiredRole, fallbackPage]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6 text-center space-y-6">
-        <div className="relative">
-          <div className="w-16 h-16 border-4 border-emerald-500/30 border-t-[#00A86B] rounded-full animate-spin"></div>
-          <Sparkles className="w-6 h-6 text-[#00A86B] absolute inset-0 m-auto" />
-        </div>
-        <div className="space-y-2 max-w-sm">
-          <span className="text-[10px] font-mono font-black uppercase tracking-widest text-emerald-400 bg-emerald-950/80 px-3 py-1 border border-emerald-800">
-            SECURITY GUARD CHECK
-          </span>
-          <h3 className="font-display font-black text-lg uppercase tracking-tight text-white">
-            Verifying Session & Role Credentials
-          </h3>
-          <p className="text-xs text-slate-400 font-mono uppercase tracking-wider">
-            Authenticating live profile sector access...
-          </p>
-        </div>
-      </div>
-    );
+    return <Preloader />;
   }
 
   if (!authorized) {

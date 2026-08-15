@@ -942,7 +942,7 @@ export default function AdminOperations({
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
                 <div>
-                  <span className="font-black uppercase block">Supabase Pipeline Error</span>
+                  <span className="font-black uppercase block">System Pipeline Error</span>
                   <span className="text-[11px] font-bold">{pipelineError}</span>
                 </div>
               </div>
@@ -957,7 +957,7 @@ export default function AdminOperations({
             <div className="fixed top-6 right-6 z-50 bg-neutral-950 text-white border-2 border-emerald-500 p-4 shadow-[6px_6px_0px_0px_rgba(0,168,107,1)] flex items-center gap-3 animate-fadeIn">
               <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
               <div>
-                <p className="font-mono text-xs font-black uppercase text-emerald-400">SUPABASE LIVE UPDATE</p>
+                <p className="font-mono text-xs font-black uppercase text-emerald-400">GROWTHPADDY LIVE UPDATE</p>
                 <p className="text-xs font-extrabold text-neutral-200">{toastMsg}</p>
               </div>
               <button onClick={() => setToastMsg(null)} className="ml-2 text-neutral-400 hover:text-white font-mono text-xs cursor-pointer">✕</button>
@@ -1012,7 +1012,7 @@ export default function AdminOperations({
                   Talent Optimization Registry Table
                 </h3>
                 <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-bold">
-                  Review digital talent status profiles, 4-phase matrix checks, and update vetting statuses live in Supabase.
+                  Review digital talent status profiles, 4-phase matrix checks, and manage candidate vetting statuses live.
                 </p>
               </div>
               
@@ -1033,11 +1033,11 @@ export default function AdminOperations({
             {loadingTalents ? (
               <div className="py-16 text-center space-y-3 font-mono">
                 <RefreshCw className="w-8 h-8 text-emerald-600 mx-auto animate-spin" />
-                <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">LOADING LIVE TALENT PROFILES FROM SUPABASE...</p>
+                <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">LOADING LIVE TALENT PROFILES...</p>
               </div>
             ) : talentList.length === 0 ? (
               <div className="p-12 text-center border-2 border-dashed border-neutral-300 text-neutral-400 font-mono text-xs uppercase space-y-2">
-                <p className="font-black text-neutral-600">NO TALENT PROFILES FOUND IN SUPABASE</p>
+                <p className="font-black text-neutral-600">NO TALENT PROFILES FOUND IN REGISTRY</p>
                 <p className="text-[10px] text-neutral-400">Talent candidates registering in the portal will populate public.talent_profiles automatically.</p>
               </div>
             ) : (
@@ -1456,12 +1456,12 @@ export default function AdminOperations({
             {loadingRecruiters ? (
               <div className="py-16 text-center space-y-3 font-mono">
                 <RefreshCw className="w-8 h-8 text-emerald-600 mx-auto animate-spin" />
-                <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">LOADING LIVE RECRUITER PROFILES FROM SUPABASE...</p>
+                <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">LOADING LIVE RECRUITER PROFILES...</p>
               </div>
             ) : recruiters.length === 0 ? (
               <div className="p-12 text-center border-2 border-dashed border-neutral-300 text-neutral-400 font-mono text-xs uppercase space-y-2">
-                <p className="font-black text-neutral-600">NO RECRUITER PROFILES IN SUPABASE LEDGER</p>
-                <p className="text-[10px] text-neutral-400">Recruiters signing up in the application will populate public.recruiter_profiles automatically.</p>
+                <p className="font-black text-neutral-600">NO RECRUITER PROFILES IN LEDGER</p>
+                <p className="text-[10px] text-neutral-400">Recruiters signing up in the application will populate the directory automatically.</p>
               </div>
             ) : (
               /* Grid Matrix Table */
@@ -1772,12 +1772,12 @@ export default function AdminOperations({
             {auditViewType === 'jsonb' ? (
               <div className="space-y-2">
                 <div className="flex justify-between items-center text-[9px] font-mono font-bold text-neutral-400 uppercase">
-                  <span>POSTGRESQL JSONB REPRESENTATION:</span>
+                  <span>RAW RECORD AUDIT DATA:</span>
                   <span className="text-emerald-700 font-extrabold">READ-ONLY AUDIT STREAM</span>
                 </div>
                 <div className="bg-neutral-900 border-2 border-neutral-950 p-4 font-mono text-[11px] text-emerald-400 overflow-auto max-h-[300px] rounded-none shadow-inner select-all relative">
                   <div className="absolute right-2 top-2 bg-neutral-800 text-[8px] font-bold text-neutral-400 px-1.5 py-0.5">
-                    JSONB payload
+                    Data payload
                   </div>
                   <pre className="whitespace-pre-wrap font-mono leading-relaxed">
                     {JSON.stringify({

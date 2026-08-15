@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useSupabase } from '../context/SupabaseContext';
 import TalentDashboard from './TalentDashboard';
+import { Preloader } from './Preloader';
 import { 
   ShieldCheck, 
   LogOut, 
@@ -198,12 +199,7 @@ export default function TalentProfile({ onSignOut, navigateToPage }: TalentProfi
       {/* PORTAL BODY CONTAINER */}
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6">
         {loading ? (
-          <div className="p-16 text-center space-y-3">
-            <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin mx-auto" />
-            <p className="text-xs font-semibold text-slate-500">
-              Loading your workspace profile...
-            </p>
-          </div>
+          <Preloader />
         ) : error ? (
           <div className="p-6 max-w-lg mx-auto bg-red-50 border border-red-200 text-red-800 rounded-2xl text-left space-y-3">
             <div className="flex items-center gap-2 font-semibold text-xs">

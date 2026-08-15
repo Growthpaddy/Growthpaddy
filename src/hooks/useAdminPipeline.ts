@@ -75,14 +75,14 @@ export function useAdminPipeline() {
         setTalents(mapped);
       }
     } catch (err: any) {
-      console.warn('Error fetching talent_profiles:', err);
-      setError(err.message || 'Failed to fetch talents from Supabase');
+      console.warn('Error fetching talent profiles:', err);
+      setError(err.message || 'Failed to load talent directory profiles');
     } finally {
       setLoadingTalents(false);
     }
   }, []);
 
-  // Fetch Recruiters from Supabase
+  // Fetch Recruiters from Network
   const fetchRecruiters = useCallback(async () => {
     setLoadingRecruiters(true);
     try {
@@ -108,20 +108,20 @@ export function useAdminPipeline() {
         setRecruiters(mapped);
       }
     } catch (err: any) {
-      console.warn('Error fetching recruiter_profiles:', err);
+      console.warn('Error fetching recruiter profiles:', err);
     } finally {
       setLoadingRecruiters(false);
     }
   }, []);
 
-  // Update Talent Profile in Supabase with Optimistic State Update
+  // Update Talent Profile with Optimistic State Update
   const handleUpdateTalent = useCallback(async (talentId: string, updates: Record<string, any>) => {
     // 1. Optimistic local state update
     setTalents((prev) =>
       prev.map((t) => (t.id === talentId ? { ...t, ...updates } : t))
     );
 
-    // 2. Perform Supabase update
+    // 2. Perform database update
     try {
       const { error: updateErr } = await supabase
         .from('talent_profiles')
@@ -129,15 +129,15 @@ export function useAdminPipeline() {
         .eq('id', talentId);
 
       if (updateErr) {
-        console.warn('Supabase DB update warning:', updateErr.message);
+        console.warn('DB update warning:', updateErr.message);
       } else {
-        setToastMsg('Candidate state updated in Supabase successfully');
+        setToastMsg('Candidate vetting status updated successfully');
         setTimeout(() => setToastMsg(null), 3000);
         // Refresh to ensure full synchronization
         await fetchTalents();
       }
     } catch (err: any) {
-      console.error('Error updating talent_profiles:', err);
+      console.error('Error updating talent profile:', err);
     }
   }, [fetchTalents]);
 

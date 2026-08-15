@@ -100,14 +100,30 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Helper to ensure clean error messages from thrown errors or Supabase error objects
+  // Helper to ensure clean error messages from thrown errors or error objects
   const parseAuthErrorMessage = (err: any): string => {
     if (!err) return 'An unexpected error occurred during authentication.';
     
-    // Catch Supabase AuthRetryableFetchError or 500 server error
+    // Catch service 500 or network retry errors
     if (err.name === 'AuthRetryableFetchError' || err.status === 500 || err.statusCode === 500) {
-      return 'Supabase Auth service encountered a server error (500). If email confirmation is enabled, please verify your Supabase SMTP settings or try logging in directly.';
+      return 'Authentication service is temporarily unavailable. Please try logging in directly or try again in a few moments.';
     }
+
+    const sanitizeVendorText = (text: string): string => {
+      let cleaned = text
+        .replace(/supabase/gi, 'GrowthPaddy Network')
+        .replace(/postgres(ql)?/gi, 'Database')
+        .replace(/talent_profiles/gi, 'talent directory')
+        .replace(/recruiter_profiles/gi, 'recruiter directory')
+        .replace(/user_roles/gi, 'user permissions')
+        .replace(/admin_profiles/gi, 'admin directory')
+        .replace(/row-level security/gi, 'access security')
+        .replace(/rls/gi, 'access control');
+      if (cleaned.toLowerCase().includes('database error') || cleaned.toLowerCase().includes('internal server error')) {
+        return 'Authentication failed. Please check your credentials and try again.';
+      }
+      return cleaned;
+    };
 
     if (typeof err === 'string') {
       const trimmed = err.trim();
@@ -117,7 +133,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
           return parseAuthErrorMessage(parsed);
         } catch (_) {}
       }
-      if (trimmed && trimmed !== '{}' && trimmed !== '[object Object]') return trimmed;
+      if (trimmed && trimmed !== '{}' && trimmed !== '[object Object]') return sanitizeVendorText(trimmed);
       return 'Authentication failed. Please check your credentials.';
     }
 
@@ -130,37 +146,37 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             return parseAuthErrorMessage(parsed);
           } catch (_) {}
         }
-        return msg;
+        return sanitizeVendorText(msg);
       }
     }
 
     if (err.error_description && typeof err.error_description === 'string' && err.error_description.trim()) {
-      return err.error_description.trim();
+      return sanitizeVendorText(err.error_description.trim());
     }
     if (err.error?.message && typeof err.error.message === 'string' && err.error.message.trim()) {
-      return err.error.message.trim();
+      return sanitizeVendorText(err.error.message.trim());
     }
     if (err.error?.error_description && typeof err.error.error_description === 'string' && err.error.error_description.trim()) {
-      return err.error.error_description.trim();
+      return sanitizeVendorText(err.error.error_description.trim());
     }
     if (typeof err.error === 'string' && err.error.trim()) {
-      return err.error.trim();
+      return sanitizeVendorText(err.error.trim());
     }
     if (err.msg && typeof err.msg === 'string' && err.msg.trim()) {
-      return err.msg.trim();
+      return sanitizeVendorText(err.msg.trim());
     }
     if (err.details && typeof err.details === 'string' && err.details.trim()) {
-      return err.details.trim();
+      return sanitizeVendorText(err.details.trim());
     }
     if (err.hint && typeof err.hint === 'string' && err.hint.trim()) {
-      return err.hint.trim();
+      return sanitizeVendorText(err.hint.trim());
     }
     if (err.statusText && typeof err.statusText === 'string' && err.statusText.trim()) {
-      return err.statusText.trim();
+      return sanitizeVendorText(err.statusText.trim());
     }
 
     if (err.name && err.name !== 'Error' && err.name !== 'Object') {
-      return `${err.name}${err.status ? ` (${err.status})` : ''}: Authentication service failed. Please try again.`;
+      return `Authentication service encountered an issue (${err.status || 400}). Please try again.`;
     }
 
     return 'Authentication request failed. Please verify your credentials and network connection.';

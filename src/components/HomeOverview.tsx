@@ -69,7 +69,7 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
       role: 'Senior Full-Stack Developer',
       specialty: 'Full-Stack Engineering',
       vettingStatus: '100% Verified',
-      skills: ['React', 'TypeScript', 'Node.js', 'PostgreSQL'],
+      skills: ['React', 'TypeScript', 'Node.js', 'Cloud Architecture'],
       score: 96,
       avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300'
     },

@@ -111,8 +111,8 @@ export default function TalentPortfolioModal({
   };
 
   const defaultSkills = [
-    'TypeScript', 'Supabase', 'React', 'Vite', 'Python', 
-    'Make.com', 'Zapier', 'GA4 Analytics', 'LLM Prompts', 'PostgreSQL'
+    'TypeScript', 'Workflow Automation', 'Cloud APIs', 'Python', 
+    'Make.com', 'Zapier', 'GA4 Analytics', 'LLM Prompts', 'Data Pipelines'
   ];
 
   return (
@@ -285,7 +285,7 @@ export default function TalentPortfolioModal({
                   Automated LLM Webhook Engine
                 </h4>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Engineered custom Make.com scenarios with strict Gemini schema validation, background queueing, and Supabase database persistence.
+                  Engineered custom Make.com scenarios with strict Gemini schema validation, background queueing, and secure cloud persistence.
                 </p>
                 <div className="text-[10px] font-mono text-slate-500 pt-1 border-t border-slate-200 flex items-center gap-1">
                   <Zap className="w-3 h-3 text-emerald-600" />

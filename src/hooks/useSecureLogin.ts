@@ -231,9 +231,9 @@ export function useSecureLogin(): UseSecureLoginReturn {
                 email: activeUser.email,
               };
             } else {
-              // Sign out user immediately from Supabase to prevent unauthorized session
+              // Sign out user immediately to prevent unauthorized session
               await supabase.auth.signOut();
-              setError('Access Denied: Profile not found in talent_profiles table. Please switch tabs to login.');
+              setError('Access Denied: Account not registered as talent. Please switch role tab to log in.');
               setLoading(false);
               return { success: false, user: null, onboarding: null };
             }
@@ -352,9 +352,9 @@ export function useSecureLogin(): UseSecureLoginReturn {
                 email: activeUser.email,
               };
             } else {
-              // Sign out user immediately from Supabase to prevent unauthorized session
+              // Sign out user immediately to prevent unauthorized session
               await supabase.auth.signOut();
-              setError('Access Denied: Profile not found in recruiter_profiles table. Please switch tabs to login.');
+              setError('Access Denied: Account not registered as an employer. Please switch role tab to log in.');
               setLoading(false);
               return { success: false, user: null, onboarding: null };
             }

@@ -118,14 +118,15 @@ export default function TalentDirectory({
     setIsLoading(true);
     setFetchError(null);
     try {
-      // Query all talent profiles from Supabase
+      // Query all talent profiles live from Supabase
       const { data: dbData, error } = await supabase
         .from('talent_profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.warn('Supabase talent_profiles fetch notification:', error.message);
+        console.error("Error loading talent pool:", error);
+        setFetchError(error.message);
       }
 
       let allTalentRows = dbData || [];
@@ -139,7 +140,7 @@ export default function TalentDirectory({
             const itemStr = localStorage.getItem(key);
             if (itemStr) {
               const parsed = JSON.parse(itemStr);
-              if (parsed && (parsed.full_name || parsed.userName || parsed.name)) {
+              if (parsed && (parsed.full_name || parsed.userName || parsed.name || parsed.email)) {
                 // If not already in db results by ID, append
                 if (!allTalentRows.some(row => row.id === parsed.id)) {
                   localCandidates.push(parsed);
@@ -157,9 +158,9 @@ export default function TalentDirectory({
 
       if (allTalentRows && allTalentRows.length > 0) {
         const parsedCandidates: TalentCandidate[] = allTalentRows.map((item: any, idx: number) => {
-          const name = item.full_name || item.fullName || item.userName || item.name || `Specialist #${idx + 1}`;
-          const normalizedSpec = normalizeSpecialization(item.specialty || item.specialization || item.role);
-          const rawSkills = item.skills;
+          const name = item.full_name || item.fullName || item.userName || item.name || (item.email ? item.email.split('@')[0] : `Specialist #${idx + 1}`);
+          const normalizedSpec = normalizeSpecialization(item.specialty || item.specialization || item.role || item.career_goal);
+          const rawSkills = item.skills || item.session_responses?.skills;
           
           let parsedSkills: string[] = [];
           if (Array.isArray(rawSkills) && rawSkills.length > 0) {
@@ -176,7 +177,7 @@ export default function TalentDirectory({
 
           if (parsedSkills.length === 0) {
             if (normalizedSpec === 'AI Automation') parsedSkills = ['AI Automation', 'Make.com', 'Zapier', 'Python', 'OpenAI / Gemini API'];
-            else if (normalizedSpec === 'Full-Stack Developer') parsedSkills = ['TypeScript', 'React', 'Node.js', 'PostgreSQL', 'Tailwind CSS'];
+            else if (normalizedSpec === 'Full-Stack Developer') parsedSkills = ['TypeScript', 'React', 'Node.js', 'REST APIs', 'Cloud Architecture'];
             else if (normalizedSpec === 'SEO') parsedSkills = ['Technical SEO', 'Content Strategy', 'Ahrefs', 'Search Console', 'Schema Markup'];
             else if (normalizedSpec === 'Growth Marketing') parsedSkills = ['Funnel Optimization', 'CRO', 'A/B Testing', 'GA4', 'User Acquisition'];
             else if (normalizedSpec === 'PPC') parsedSkills = ['Google Ads', 'Meta Ads Manager', 'ROAS Scaling', 'Audience Retargeting'];
@@ -190,7 +191,7 @@ export default function TalentDirectory({
             ? item.latest_quiz_score
             : item.phase_1_quiz_passed 
             ? 96 
-            : 90;
+            : 88;
 
           const isVerified = item.vetting_status === 'approved' || item.vetting_status === 'verified' || item.phase_3_fee_paid || item.phase_4_portfolio_submitted;
           const verificationBadge: 'Verified Professional' | 'Top Performer' | 'Verified Intern' = isVerified
@@ -242,7 +243,7 @@ export default function TalentDirectory({
         setCandidatesList([]);
       }
     } catch (err: any) {
-      console.warn('Talent directory fetch notice:', err);
+      console.error('Error loading talent pool:', err);
       setFetchError(err.message || 'Unable to sync talent pool.');
       setCandidatesList([]);
     } finally {
@@ -252,6 +253,22 @@ export default function TalentDirectory({
 
   useEffect(() => {
     fetchTalentPool();
+
+    // Listen for live database updates from Supabase
+    const channel = supabase
+      .channel('talent_profiles_live_sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'talent_profiles' },
+        () => {
+          fetchTalentPool();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // Prefilter based on onboarding recruiter role
@@ -326,7 +343,7 @@ export default function TalentDirectory({
             <div className="flex items-center gap-2.5 flex-wrap">
               <span className="text-[10px] font-mono font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/80 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Supabase Live Directory</span>
+                <span>Verified Talent Pool</span>
               </span>
               <h3 className="font-display font-bold text-xl sm:text-2xl text-slate-900">
                 Verified Candidate Directory
@@ -359,7 +376,7 @@ export default function TalentDirectory({
 
             <button
               onClick={fetchTalentPool}
-              title="Refresh Directory from Supabase"
+              title="Refresh Talent Directory"
               className="p-2.5 border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 rounded-xl text-slate-600 transition cursor-pointer shrink-0 flex items-center gap-1.5 text-xs font-semibold"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-emerald-600' : ''}`} />
@@ -437,10 +454,10 @@ export default function TalentDirectory({
 
           <div className="space-y-2">
             <h4 className="font-display font-bold text-xl sm:text-2xl text-slate-900">
-              No Candidates in Database Yet
+              No Candidates Found Yet
             </h4>
             <p className="text-xs text-slate-500 leading-relaxed max-w-md mx-auto">
-              The talent directory connects directly to the live database table (<code className="bg-slate-100 px-1.5 py-0.5 rounded text-emerald-700 font-mono text-[11px]">talent_profiles</code>). As new candidates complete registration and pass diagnostic assessments, their profiles will populate here automatically.
+              The talent directory connects directly to the GrowthPaddy vetted talent network. As new candidates complete registration and pass diagnostic assessments, their profiles will populate here automatically.
             </p>
           </div>
 
@@ -747,3 +764,6 @@ export default function TalentDirectory({
     </div>
   );
 }
+
+export const Directory = TalentDirectory;
+export const TalentPool = TalentDirectory;

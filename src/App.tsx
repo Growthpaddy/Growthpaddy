@@ -37,8 +37,10 @@ import { useSecureLogin } from './hooks/useSecureLogin';
 import ProtectedRoute from './components/ProtectedRoute';
 import TalentProfile from './components/TalentProfile';
 import TalentPortfolioModal from './components/TalentPortfolioModal';
+import { Preloader } from './components/Preloader';
 
 export default function App() {
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const { 
     user, 
     signIn, 
@@ -339,6 +341,10 @@ export default function App() {
     setCurrentPage(pageName);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  if (isInitialLoading) {
+    return <Preloader onComplete={() => setIsInitialLoading(false)} />;
+  }
 
   return (
     <div className="min-h-screen bg-white text-neutral-850 font-sans antialiased selection:bg-emerald-500/30 selection:text-neutral-900">

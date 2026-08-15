@@ -63,9 +63,9 @@ interface QuizQuestion {
 }
 
 const PRESET_SKILL_TAGS = [
-  'TypeScript', 'Supabase', 'Vite', 'React', 'Node.js', 
-  'Python', 'Tailwind CSS', 'Zapier', 'Make.com', 'GA4', 
-  'SEO', 'PPC', 'LLM Prompts', 'PostgreSQL', 'Figma', 
+  'TypeScript', 'Workflow Automation', 'Cloud APIs', 'React', 'Node.js', 
+  'Python', 'REST Architecture', 'Zapier', 'Make.com', 'GA4', 
+  'SEO', 'PPC', 'LLM Prompts', 'Data Pipelines', 'Figma', 
   'A/B Testing', 'Growth Marketing', 'Conversion API', 'Cold Email', 'TikTok Ads'
 ];
 
@@ -171,7 +171,7 @@ export default function TalentDashboard({
   const [slug, setSlug] = useState(onboardingData?.slug || '');
   const [copiedSlugLink, setCopiedSlugLink] = useState(false);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([
-    'TypeScript', 'Supabase', 'Vite', 'Tailwind CSS', 'Make.com'
+    'TypeScript', 'Workflow Automation', 'Cloud APIs', 'Data Pipelines', 'Make.com'
   ]);
   const [customSkillInput, setCustomSkillInput] = useState('');
   
@@ -733,7 +733,7 @@ export default function TalentDashboard({
                   YOUR UNIQUE PUBLIC PORTFOLIO LINK
                 </span>
                 <span className="text-[9px] font-mono text-neutral-400 uppercase">
-                  SUPABASE SLUG ENABLED
+                  LIVE PORTFOLIO ENABLED
                 </span>
               </div>
 
@@ -965,7 +965,7 @@ export default function TalentDashboard({
                   />
                 </div>
                 <p className="text-[9.5px] font-mono text-slate-500 dark:text-slate-400">
-                  ⚡ Auto-managed by Supabase trigger on save. Ensures unique profile link across all talent.
+                  ⚡ Auto-managed on save. Ensures unique profile link across all talent.
                 </p>
               </div>
 
@@ -1115,7 +1115,7 @@ export default function TalentDashboard({
               {profileSyncSuccess && (
                 <div className="p-3 bg-emerald-50 dark:bg-emerald-950/80 border-2 border-emerald-500 text-emerald-900 dark:text-emerald-200 text-xs font-mono font-bold uppercase text-center animate-fadeIn flex items-center justify-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-[#00A86B]" />
-                  <span>✓ PUBLIC PROFILE UPDATED IN SUPABASE LIVE</span>
+                  <span>✓ PUBLIC PROFILE SAVED & UPDATED</span>
                 </div>
               )}
 
@@ -1128,7 +1128,7 @@ export default function TalentDashboard({
                 {syncingProfile ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin text-white" />
-                    <span>SAVING TO SUPABASE...</span>
+                    <span>SAVING PROFILE...</span>
                   </>
                 ) : (
                   <>

@@ -8,7 +8,7 @@ export const MOCK_TALENT: TalentCandidate[] = [
     role: 'Growth Marketing Lead',
     specialization: 'Growth Marketing',
     verificationBadge: 'Verified Professional',
-    skills: ['Conversion Rate Optimization', 'A/B Testing', 'Google Analytics 4', 'User Acquisition', 'SQL', 'Attribution Modeling'],
+    skills: ['Conversion Rate Optimization', 'A/B Testing', 'Google Analytics 4', 'User Acquisition', 'Data Analysis', 'Attribution Modeling'],
     availability: 'Available Immediately',
     portfolioScore: 98,
     location: 'Nairobi, Kenya',
