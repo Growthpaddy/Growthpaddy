@@ -76,7 +76,7 @@ export default function TalentPortfolioModal({
               specialty: data.specialty || 'AI Automation & Growth Specialist',
               experienceLevel: data.experience_level || 'Seasoned Professional',
               careerGoal: data.career_goal || 'Building automated growth systems',
-              email: data.email || 'talent@growthpaddy.com',
+              email: data.email || 'talent@digitalcampux.com',
               portfolioUrl: data.portfolio_url || '',
               profilePictureUrl: data.profile_picture_url || '',
               slug: data.slug || targetSlug
@@ -95,14 +95,14 @@ export default function TalentPortfolioModal({
   const displayData = fetchedData || onboardingData;
 
   const candidateName = displayData?.userName || 'Verified Talent';
-  const specialty = displayData?.specialty || 'AI Automation & Growth Engineer';
+  const specialty = displayData?.specialty || 'AI Automation & Growth Specialist';
   const experienceTier = displayData?.experienceLevel || 'Seasoned Professional';
   const careerGoal = displayData?.careerGoal || 'Building high-performance automated workflows and growth infrastructure.';
-  const email = displayData?.email || 'talent@growthpaddy.com';
+  const email = displayData?.email || 'talent@digitalcampux.com';
   const portfolioUrl = displayData?.portfolioUrl || '';
   const profilePictureUrl = displayData?.profilePictureUrl || '';
   const slug = displayData?.slug || candidateName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-  const shareableUrl = `${window.location.origin}/p/${slug}`;
+  const shareableUrl = `${window.location.origin}/#/p/${slug}`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(shareableUrl);
@@ -116,71 +116,67 @@ export default function TalentPortfolioModal({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/80 backdrop-blur-xs p-4 overflow-y-auto animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto animate-fadeIn">
       
-      <div className="bg-white border-4 border-neutral-950 shadow-[10px_10px_0px_0px_rgba(0,168,107,1)] max-w-3xl w-full my-8 relative overflow-hidden text-left">
+      <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-3xl w-full my-8 relative overflow-hidden text-left">
         
-        {/* Top Accent Bar */}
-        <div className="h-2 w-full bg-[#00A86B]" />
-
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-5 border-b-2 border-neutral-950 bg-neutral-50">
-          <div className="flex items-center gap-2.5">
-            <div className="bg-neutral-950 text-emerald-400 p-2 font-mono font-black border border-neutral-950">
-              <FolderKanban className="w-5 h-5 text-[#00A86B]" />
+        <div className="flex items-center justify-between p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50">
+          <div className="flex items-center gap-3">
+            <div className="bg-emerald-50 text-emerald-700 p-2 rounded-xl border border-emerald-200">
+              <FolderKanban className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-[9px] font-mono font-black text-[#00A86B] uppercase tracking-widest block">
-                GROWTHPADDY DEDICATED PORTFOLIO
+              <span className="text-[10px] font-mono font-bold text-emerald-700 uppercase tracking-wider block">
+                Digital Campux Portfolio
               </span>
-              <h3 className="font-display font-black text-lg text-neutral-950 uppercase tracking-tight">
-                VERIFIED TALENT SHOWCASE
+              <h3 className="font-display font-bold text-base sm:text-lg text-slate-900">
+                Verified Candidate Showcase
               </h3>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 border-2 border-neutral-950 bg-white hover:bg-rose-50 text-neutral-950 hover:text-rose-600 transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center transition cursor-pointer"
             id="close-portfolio-modal-btn"
           >
-            <X className="w-5 h-5 stroke-[3px]" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+        <div className="p-6 sm:p-7 space-y-6 max-h-[75vh] overflow-y-auto">
           
           {/* Candidate Profile Hero Card */}
-          <div className="bg-neutral-950 text-white p-6 border-2 border-neutral-950 relative overflow-hidden space-y-4">
+          <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white p-6 rounded-2xl border border-slate-800 space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 {profilePictureUrl ? (
                   <img 
                     src={profilePictureUrl} 
                     alt={candidateName} 
-                    className="w-16 h-16 object-cover border-2 border-[#00A86B] shrink-0"
+                    className="w-14 h-14 object-cover rounded-xl border-2 border-emerald-500/40 shrink-0"
                   />
                 ) : (
-                  <div className="w-16 h-16 bg-[#00A86B] text-white flex items-center justify-center font-display font-black text-2xl border-2 border-white shrink-0">
+                  <div className="w-14 h-14 bg-emerald-600 text-white flex items-center justify-center font-display font-bold text-xl rounded-xl border border-emerald-400 shrink-0">
                     {candidateName.charAt(0).toUpperCase()}
                   </div>
                 )}
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="font-display font-black text-xl text-white uppercase tracking-tight">
+                    <h2 className="font-display font-bold text-lg sm:text-xl text-white">
                       {candidateName}
                     </h2>
-                    <span className="inline-flex items-center gap-1 bg-amber-400 text-neutral-950 text-[9px] font-mono font-black px-2 py-0.5 border border-neutral-950 uppercase">
-                      <Award className="w-3 h-3 text-neutral-950" />
-                      VERIFIED SKILLS
+                    <span className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                      ✓ Verified Skills
                     </span>
                   </div>
-                  <p className="text-xs font-mono font-bold text-emerald-400 uppercase mt-0.5">
-                    ⚡ {specialty} • {experienceTier}
+                  <p className="text-xs text-emerald-400 font-semibold mt-0.5">
+                    {specialty} · {experienceTier}
                   </p>
-                  <p className="text-[10px] font-mono text-neutral-400 mt-1">
-                    {email} • <span className="text-emerald-400 font-bold">/p/{slug}</span>
+                  <p className="text-xs text-slate-400 mt-0.5 font-mono">
+                    {email} · <span className="text-slate-300">/p/{slug}</span>
                   </p>
                 </div>
               </div>
@@ -191,10 +187,10 @@ export default function TalentPortfolioModal({
                   href={portfolioUrl.startsWith('http') ? portfolioUrl : `https://${portfolioUrl}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="bg-[#00A86B] hover:bg-emerald-600 text-white font-mono font-black px-4 py-2 text-xs uppercase tracking-wider border-2 border-white flex items-center gap-2 cursor-pointer shrink-0 shadow-[2px_2px_0px_0px_rgba(255,255,255,1)] hover:shadow-none transition-all"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2 text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs transition"
                 >
-                  <ExternalLink className="w-4 h-4" />
-                  <span>OPEN LIVE PORTFOLIO</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Open Live Portfolio</span>
                 </a>
               ) : (
                 <button
@@ -202,29 +198,29 @@ export default function TalentPortfolioModal({
                     onClose();
                     onNavigateToDashboard();
                   }}
-                  className="bg-amber-400 hover:bg-amber-500 text-neutral-950 font-mono font-black px-3.5 py-2 text-[10px] uppercase tracking-wider border-2 border-neutral-950 flex items-center gap-1.5 cursor-pointer shrink-0"
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold px-3.5 py-2 text-xs rounded-xl border border-slate-700 flex items-center gap-1.5 cursor-pointer shrink-0 transition"
                 >
-                  <Globe className="w-3.5 h-3.5" />
-                  <span>ADD PORTFOLIO LINK</span>
+                  <Globe className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Add Portfolio Link</span>
                 </button>
               )}
             </div>
 
             {/* Candidate Bio Statement */}
-            <div className="bg-neutral-900 border-l-4 border-[#00A86B] p-3 text-xs text-neutral-300 font-medium leading-relaxed">
+            <div className="bg-slate-800/80 border-l-2 border-emerald-500 p-3 rounded-r-xl text-xs text-slate-300 leading-relaxed">
               "{careerGoal}"
             </div>
           </div>
 
           {/* Shareable Unique Slug Link Bar */}
-          <div className="p-3.5 bg-neutral-100 border-2 border-neutral-950 flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
-            <div className="flex items-center gap-2">
-              <Share2 className="w-4 h-4 text-[#00A86B] shrink-0" />
+          <div className="p-4 bg-slate-50 border border-slate-200/90 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
+            <div className="flex items-center gap-3">
+              <Share2 className="w-4 h-4 text-emerald-600 shrink-0" />
               <div>
-                <span className="text-[9px] font-mono font-bold text-neutral-500 uppercase block">
-                  PUBLIC PORTFOLIO HANDLE
+                <span className="text-[10px] font-mono text-slate-500 uppercase font-semibold block">
+                  Public Candidate Share Link
                 </span>
-                <span className="text-xs font-mono font-black text-neutral-900 break-all">
+                <span className="text-xs font-mono font-bold text-slate-800 break-all">
                   {shareableUrl}
                 </span>
               </div>
@@ -232,31 +228,31 @@ export default function TalentPortfolioModal({
 
             <button
               onClick={handleCopyLink}
-              className="bg-neutral-950 hover:bg-neutral-800 text-white font-mono font-black px-3.5 py-2 text-[10px] uppercase tracking-wider border-2 border-neutral-950 flex items-center gap-1.5 cursor-pointer shrink-0"
+              className="bg-slate-900 hover:bg-emerald-600 text-white font-semibold px-3.5 py-2 text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shrink-0 transition shadow-2xs"
             >
               {copiedLink ? (
                 <>
                   <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-400">COPIED LINK!</span>
+                  <span>Copied!</span>
                 </>
               ) : (
                 <>
                   <Copy className="w-3.5 h-3.5" />
-                  <span>COPY PORTFOLIO LINK</span>
+                  <span>Copy Link</span>
                 </>
               )}
             </button>
           </div>
 
           {/* Verified Skills & Tech Stack Section */}
-          <div className="space-y-3 text-left">
-            <div className="flex items-center justify-between border-b-2 border-neutral-200 pb-1.5">
-              <span className="text-xs font-mono font-black text-neutral-950 uppercase tracking-wider flex items-center gap-2">
-                <Code className="w-4 h-4 text-[#00A86B]" />
-                VERIFIED TECHNICAL STACK & COMPETENCIES
+          <div className="space-y-2.5 text-left">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <span className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                <Code className="w-4 h-4 text-emerald-600" />
+                Verified Technical Competencies
               </span>
-              <span className="text-[10px] font-mono font-bold text-neutral-500 uppercase">
-                100% VETTED
+              <span className="text-[10px] font-mono text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                100% Vetted
               </span>
             </div>
 
@@ -264,7 +260,7 @@ export default function TalentPortfolioModal({
               {defaultSkills.map((skill, idx) => (
                 <span
                   key={idx}
-                  className="text-[10px] font-mono uppercase font-black px-2.5 py-1 bg-emerald-50 text-emerald-900 border border-emerald-800"
+                  className="text-[11px] font-mono font-semibold px-2.5 py-1 bg-slate-100 text-slate-800 rounded-lg border border-slate-200"
                 >
                   ✓ {skill}
                 </span>
@@ -274,42 +270,42 @@ export default function TalentPortfolioModal({
 
           {/* Featured Deliverables & Case Studies */}
           <div className="space-y-3 text-left">
-            <span className="text-xs font-mono font-black text-neutral-950 uppercase tracking-wider flex items-center gap-2 border-b-2 border-neutral-200 pb-1.5">
-              <FileCode2 className="w-4 h-4 text-[#00A86B]" />
-              FEATURED PORTFOLIO DELIVERABLES
+            <span className="text-xs font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-2">
+              <FileCode2 className="w-4 h-4 text-emerald-600" />
+              Audited Deliverables & Work Samples
             </span>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               
-              <div className="bg-neutral-50 border-2 border-neutral-950 p-4 space-y-2 relative">
-                <span className="text-[9px] font-mono font-black text-[#00A86B] bg-emerald-100 px-2 py-0.5 border border-neutral-950 uppercase inline-block">
-                  PROJECT CASE STUDY 01
+              <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 space-y-2 relative">
+                <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full inline-block">
+                  Case Study 01
                 </span>
-                <h4 className="font-display font-black text-sm uppercase text-neutral-950">
+                <h4 className="font-bold text-xs text-slate-900">
                   Automated LLM Webhook Engine
                 </h4>
-                <p className="text-xs text-neutral-600 font-medium leading-relaxed">
+                <p className="text-xs text-slate-600 leading-relaxed">
                   Engineered custom Make.com scenarios with strict Gemini schema validation, background queueing, and Supabase database persistence.
                 </p>
-                <div className="text-[9px] font-mono font-bold text-neutral-500 pt-1 border-t border-neutral-200 flex items-center gap-1">
-                  <Zap className="w-3 h-3 text-[#00A86B]" />
-                  <span>Phase 1 Practical Audit Score: 100/100</span>
+                <div className="text-[10px] font-mono text-slate-500 pt-1 border-t border-slate-200 flex items-center gap-1">
+                  <Zap className="w-3 h-3 text-emerald-600" />
+                  <span>Phase 1 Score: 100/100</span>
                 </div>
               </div>
 
-              <div className="bg-neutral-50 border-2 border-neutral-950 p-4 space-y-2 relative">
-                <span className="text-[9px] font-mono font-black text-[#00A86B] bg-emerald-100 px-2 py-0.5 border border-neutral-950 uppercase inline-block">
-                  PROJECT CASE STUDY 02
+              <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 space-y-2 relative">
+                <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full inline-block">
+                  Case Study 02
                 </span>
-                <h4 className="font-display font-black text-sm uppercase text-neutral-950">
+                <h4 className="font-bold text-xs text-slate-900">
                   Growth Analytics & Conversion API
                 </h4>
-                <p className="text-xs text-neutral-600 font-medium leading-relaxed">
+                <p className="text-xs text-slate-600 leading-relaxed">
                   Implemented server-side GA4 conversion tracking, real-time lead webhook listeners, and dynamic recruiter directory metrics.
                 </p>
-                <div className="text-[9px] font-mono font-bold text-neutral-500 pt-1 border-t border-neutral-200 flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3 text-[#00A86B]" />
-                  <span>Accreditation Verification: Passed</span>
+                <div className="text-[10px] font-mono text-slate-500 pt-1 border-t border-slate-200 flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                  <span>Accreditation: Approved</span>
                 </div>
               </div>
 
@@ -317,13 +313,13 @@ export default function TalentPortfolioModal({
           </div>
 
           {/* External Link or Dashboard Navigation Callout */}
-          <div className="bg-emerald-50 border-2 border-neutral-950 p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
+          <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
             <div>
-              <p className="text-xs font-black uppercase text-neutral-950">
-                WANT TO UPDATE OR EXTEND YOUR PORTFOLIO?
+              <p className="text-xs font-bold text-slate-900">
+                Want to update your showcase details?
               </p>
-              <p className="text-[11px] text-neutral-600 font-medium mt-0.5">
-                You can manage skills, links, and portfolio details directly in your candidate dashboard.
+              <p className="text-xs text-slate-600 mt-0.5">
+                Manage skills, links, and portfolio project descriptions inside your candidate portal.
               </p>
             </div>
             
@@ -332,10 +328,10 @@ export default function TalentPortfolioModal({
                 onClose();
                 onNavigateToDashboard();
               }}
-              className="bg-neutral-950 hover:bg-neutral-900 text-white font-mono font-black px-4 py-2 text-xs uppercase tracking-widest border-2 border-neutral-950 flex items-center gap-2 cursor-pointer shrink-0 shadow-[2px_2px_0px_0px_rgba(0,168,107,1)] hover:shadow-none"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2 text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs transition"
             >
-              <span>GOTO DASHBOARD</span>
-              <ArrowRight className="w-4 h-4 text-emerald-400" />
+              <span>Go to Dashboard</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -344,19 +340,5 @@ export default function TalentPortfolioModal({
       </div>
 
     </div>
-  );
-}
-
-function FolderIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg 
-      {...props}
-      fill="none" 
-      stroke="currentColor" 
-      viewBox="0 0 24 24" 
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-    </svg>
   );
 }

@@ -831,7 +831,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         passing_threshold: 75,
         passed,
         feedback: passed 
-          ? `Outstanding achievement! You cleared the DSP Talent Phase 1 Gateway with an impressive score of ${score}%. Your profile has been activated and unlocked for active recruitment matching channels!` 
+          ? `Outstanding achievement! You cleared the Digital Campux Phase 1 Gateway with an impressive score of ${score}%. Your profile has been activated and unlocked for active recruitment matching channels!` 
           : `Your score is ${score}%. To proceed onto the recruitment matching pipeline, please brush up on core digital growth metrics and retry the Phase 1 diagnostic.`,
         metrics: {
           total_questions: answers.length,

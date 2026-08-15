@@ -10,7 +10,11 @@ import {
   Settings,
   Building,
   Save,
-  CheckCircle2
+  CheckCircle2,
+  Calendar,
+  User,
+  Sparkles,
+  Plus
 } from 'lucide-react';
 import { MOCK_TALENT } from '../data/mockTalent';
 import { useSupabase } from '../context/SupabaseContext';
@@ -143,96 +147,98 @@ export default function EmployerWorkspace({
   };
 
   return (
-    <div className="space-y-10 py-10 px-4 sm:px-6 lg:px-8 bg-neutral-105">
+    <div className="space-y-8 text-left max-w-7xl mx-auto">
       
-      {/* 1. Header Banner & Dynamic stats */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6 bg-white p-6 sm:p-8 border-4 border-neutral-950 rounded-none shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] text-left">
-        <div className="space-y-2 max-w-xl">
-          <span className="text-[10px] uppercase font-mono font-black tracking-widest text-emerald-850 bg-emerald-50 px-2.5 py-0.5 border border-emerald-950 inline-block">
-            RECRUITING CORE CONSOLE
-          </span>
-          <h1 className="font-display font-black text-3xl sm:text-4xl text-neutral-950 uppercase tracking-tight">
-            {orgName}'s Workspace
-          </h1>
-          <p className="text-xs font-bold text-neutral-600 uppercase tracking-wider leading-relaxed">
-            Manage corporate preferences, view unlocked dossiers, pipeline candidates, schedule interviews, and private sourcing notes.
+      {/* 1. Header Banner & Stats */}
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6 bg-white p-6 sm:p-7 border border-slate-200/80 rounded-2xl shadow-xs">
+        <div className="space-y-1.5 max-w-xl">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wider bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+              Employer Console
+            </span>
+          </div>
+          <h2 className="font-display font-bold text-2xl sm:text-3xl text-slate-900">
+            {orgName}'s Hiring Workspace
+          </h2>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Manage unlocked dossiers, pipeline interviews, private notes, and custom hiring criteria.
           </p>
         </div>
 
         {/* Access Slots Summary Card */}
-        <div className="bg-neutral-950 text-white p-5 rounded-none border-2 border-neutral-950 text-left min-w-[280px] flex-shrink-0 space-y-4">
+        <div className="bg-slate-900 text-white p-5 rounded-2xl border border-slate-800 text-left min-w-[260px] flex-shrink-0 space-y-3.5 shadow-sm">
           <div className="flex items-center justify-between gap-4">
-            <div className="space-y-1">
-              <span className="text-[9px] font-mono text-[#00A86B] uppercase tracking-widest block font-black">ACCESS BALANCE</span>
-              <p className="text-3xl font-display font-black text-white leading-none">
-                {employerSlots} <span className="text-xs text-neutral-400 font-bold uppercase tracking-wider font-mono">SLOTS</span>
+            <div className="space-y-0.5">
+              <span className="text-[11px] font-mono text-emerald-400 font-bold uppercase tracking-wider block">Available Slots</span>
+              <p className="text-2xl font-display font-bold text-white leading-none">
+                {employerSlots} <span className="text-xs text-slate-400 font-medium font-sans">Active</span>
               </p>
             </div>
-            <div className="w-10 h-10 bg-[#00A86B] rounded-none flex items-center justify-center border-2 border-neutral-950">
+            <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center">
               <Unlock className="w-5 h-5 text-white" />
             </div>
           </div>
           <button
             onClick={() => navigateToPage && navigateToPage('pricing')}
-            className="w-full bg-white hover:bg-neutral-150 text-neutral-950 font-black py-2 px-3 rounded-none text-[10px] uppercase tracking-widest transition cursor-pointer text-center block border border-neutral-950 shadow-[2px_2px_0px_0px_rgba(16,185,129,1)]"
+            className="w-full bg-slate-800 hover:bg-emerald-600 text-white font-semibold py-2 px-3 rounded-xl text-xs transition cursor-pointer text-center block"
           >
-            PURCHASE BALANCE
+            Add Sourcing Slots
           </button>
         </div>
       </div>
 
       {/* 2. Interactive Workspace Tabs */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* Left Side: Navigation Workspace Tabs (Width: 3) */}
-        <div className="lg:col-span-3 flex flex-row lg:flex-col gap-2 overflow-x-auto pb-2 lg:pb-0">
+        <div className="lg:col-span-3 flex flex-row lg:flex-col gap-1.5 overflow-x-auto pb-1 lg:pb-0">
           <button
             onClick={() => setActiveTab('unlocked')}
-            className={`flex-1 lg:flex-initial py-3.5 px-4 text-xs font-black rounded-none text-left transition duration-150 cursor-pointer flex items-center gap-2.5 whitespace-nowrap uppercase tracking-widest border-2 border-neutral-950
+            className={`flex-1 lg:flex-initial py-2.5 px-3.5 text-xs font-semibold rounded-xl text-left transition duration-150 cursor-pointer flex items-center gap-2.5 whitespace-nowrap
               ${activeTab === 'unlocked' 
-                ? 'bg-neutral-950 text-white shadow-[3px_3px_0px_0px_rgba(16,185,129,1)]' 
-                : 'bg-white hover:bg-neutral-50 text-neutral-700'}`}
+                ? 'bg-slate-900 text-white font-bold shadow-xs' 
+                : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200/80'}`}
           >
-            <Unlock className="w-4 h-4 flex-shrink-0" />
+            <Unlock className="w-4 h-4 flex-shrink-0 text-emerald-400" />
             <span>Unlocked ({unlockedProfiles.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('interviews')}
-            className={`flex-1 lg:flex-initial py-3.5 px-4 text-xs font-black rounded-none text-left transition duration-150 cursor-pointer flex items-center gap-2.5 whitespace-nowrap uppercase tracking-widest border-2 border-neutral-950
+            className={`flex-1 lg:flex-initial py-2.5 px-3.5 text-xs font-semibold rounded-xl text-left transition duration-150 cursor-pointer flex items-center gap-2.5 whitespace-nowrap
               ${activeTab === 'interviews' 
-                ? 'bg-neutral-950 text-white shadow-[3px_3px_0px_0px_rgba(16,185,129,1)]' 
-                : 'bg-white hover:bg-neutral-50 text-neutral-700'}`}
+                ? 'bg-slate-900 text-white font-bold shadow-xs' 
+                : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200/80'}`}
           >
-            <Clock className="w-4 h-4 flex-shrink-0" />
+            <Clock className="w-4 h-4 flex-shrink-0 text-emerald-400" />
             <span>Interviews ({interviews.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('notes')}
-            className={`flex-1 lg:flex-initial py-3.5 px-4 text-xs font-black rounded-none text-left transition duration-150 cursor-pointer flex items-center gap-2.5 whitespace-nowrap uppercase tracking-widest border-2 border-neutral-950
+            className={`flex-1 lg:flex-initial py-2.5 px-3.5 text-xs font-semibold rounded-xl text-left transition duration-150 cursor-pointer flex items-center gap-2.5 whitespace-nowrap
               ${activeTab === 'notes' 
-                ? 'bg-neutral-950 text-white shadow-[3px_3px_0px_0px_rgba(16,185,129,1)]' 
-                : 'bg-white hover:bg-neutral-50 text-neutral-700'}`}
+                ? 'bg-slate-900 text-white font-bold shadow-xs' 
+                : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200/80'}`}
           >
-            <Bookmark className="w-4 h-4 flex-shrink-0" />
+            <Bookmark className="w-4 h-4 flex-shrink-0 text-emerald-400" />
             <span>Notes ({allNotes.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('settings')}
-            className={`flex-1 lg:flex-initial py-3.5 px-4 text-xs font-black rounded-none text-left transition duration-150 cursor-pointer flex items-center gap-2.5 whitespace-nowrap uppercase tracking-widest border-2 border-neutral-950
+            className={`flex-1 lg:flex-initial py-2.5 px-3.5 text-xs font-semibold rounded-xl text-left transition duration-150 cursor-pointer flex items-center gap-2.5 whitespace-nowrap
               ${activeTab === 'settings' 
-                ? 'bg-neutral-950 text-white shadow-[3px_3px_0px_0px_rgba(16,185,129,1)]' 
-                : 'bg-white hover:bg-neutral-50 text-neutral-700'}`}
+                ? 'bg-slate-900 text-white font-bold shadow-xs' 
+                : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200/80'}`}
           >
-            <Settings className="w-4 h-4 flex-shrink-0" />
-            <span>Settings</span>
+            <Settings className="w-4 h-4 flex-shrink-0 text-emerald-400" />
+            <span>Company Preferences</span>
           </button>
         </div>
 
         {/* Right Side: Tab Contents (Width: 9) */}
-        <div className="lg:col-span-9 bg-white border-4 border-neutral-950 rounded-none p-6 sm:p-8 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] text-left animate-fadeIn">
+        <div className="lg:col-span-9 bg-white border border-slate-200/80 rounded-2xl p-6 sm:p-7 shadow-xs text-left">
           
           <AnimatePresence mode="wait">
             
@@ -243,49 +249,53 @@ export default function EmployerWorkspace({
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -5 }}
-                className="space-y-6 animate-fadeIn"
+                className="space-y-6"
               >
-                <div className="border-b-2 border-neutral-950 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                   <div>
-                    <h3 className="font-display font-black text-lg text-neutral-950 uppercase tracking-tight">Unlocked Candidiate Portfolios</h3>
-                    <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mt-1">Full authentication parameters opened via active subscription slot balance.</p>
+                    <h3 className="font-display font-bold text-lg text-slate-900">Unlocked Candidate Portfolios</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">Full contact parameters opened via your sourcing slot balance.</p>
                   </div>
-                  <span className="text-[10px] font-mono font-black text-neutral-500 bg-neutral-100 border border-neutral-300 px-2 py-0.5 uppercase">UNLOCKED: {unlockedProfiles.length}</span>
+                  <span className="text-xs font-mono font-medium text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                    {unlockedProfiles.length} Unlocked
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {unlockedProfiles.map((c) => (
-                    <div key={c.id} className="border-2 border-neutral-950 rounded-none p-5 bg-white hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all flex flex-col justify-between">
+                    <div key={c.id} className="border border-slate-200 rounded-2xl p-5 bg-white hover:border-emerald-500/40 hover:shadow-xs transition flex flex-col justify-between space-y-4">
                       <div className="space-y-3">
-                        <div className="flex gap-3">
-                          <img src={c.avatarUrl} alt={c.name} className="w-12 h-12 rounded-none object-cover border-2 border-neutral-950" referrerPolicy="no-referrer" />
+                        <div className="flex items-center gap-3">
+                          <img src={c.avatarUrl} alt={c.name} className="w-11 h-11 rounded-xl object-cover border border-slate-200" referrerPolicy="no-referrer" />
                           <div>
-                            <h4 className="font-black text-neutral-950 uppercase text-sm leading-tight">{c.name}</h4>
-                            <p className="text-[10px] text-emerald-800 font-mono font-black uppercase mt-1">{c.role}</p>
+                            <h4 className="font-bold text-slate-900 text-sm">{c.name}</h4>
+                            <p className="text-xs text-emerald-700 font-semibold">{c.role}</p>
                           </div>
                         </div>
 
-                        <div className="bg-neutral-50 p-3 rounded-none space-y-1.5 font-mono text-[10px] border-2 border-neutral-950">
+                        <div className="bg-slate-50 p-3 rounded-xl space-y-1 font-mono text-xs border border-slate-200">
                           <p className="flex justify-between">
-                            <span className="text-neutral-500 uppercase">EMAIL:</span>
-                            <span className="text-neutral-950 font-black select-all">{c.email}</span>
+                            <span className="text-slate-500">Email:</span>
+                            <span className="text-slate-900 font-bold select-all">{c.email}</span>
                           </p>
                           <p className="flex justify-between">
-                            <span className="text-neutral-500 uppercase">PHONE:</span>
-                            <span className="text-neutral-950 font-black select-all">{c.phone}</span>
+                            <span className="text-slate-500">Phone:</span>
+                            <span className="text-slate-900 font-bold select-all">{c.phone}</span>
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between pt-4 mt-3 border-t-2 border-dashed border-neutral-200 text-xs">
+                      <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
                         <button
                           onClick={() => navigateToPage && navigateToPage('directory')}
-                          className="text-neutral-950 hover:text-emerald-800 flex items-center gap-1 font-black uppercase tracking-wider text-[10px]"
+                          className="text-slate-900 hover:text-emerald-700 flex items-center gap-1 font-semibold text-xs cursor-pointer"
                         >
-                          <span>REVIEW CONSOLE</span>
+                          <span>Review Dossier</span>
                           <ChevronRight className="w-3.5 h-3.5" />
                         </button>
-                        <span className="text-[9px] font-mono font-black text-emerald-800 bg-emerald-50 px-2.5 py-0.5 border border-emerald-950 uppercase">VETTED ACTIVE</span>
+                        <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                          Vetted Active
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -293,9 +303,9 @@ export default function EmployerWorkspace({
 
                 <button
                   onClick={() => navigateToPage && navigateToPage('directory')}
-                  className="w-full bg-neutral-950 hover:bg-neutral-900 border-2 border-neutral-950 text-center font-black text-white py-3.5 rounded-none text-xs uppercase tracking-widest shadow-[3px_3px_0px_0px_rgba(16,185,129,1)]"
+                  className="w-full bg-slate-900 hover:bg-emerald-600 text-center font-semibold text-white py-2.5 rounded-xl text-xs transition cursor-pointer shadow-2xs"
                 >
-                  BROWSE ALL SYSTEM DIGITAL TALENT
+                  Browse Full Candidate Directory
                 </button>
               </motion.div>
             )}
@@ -309,38 +319,38 @@ export default function EmployerWorkspace({
                 exit={{ opacity: 0, y: -5 }}
                 className="space-y-6"
               >
-                <div className="border-b-2 border-neutral-950 pb-4">
-                  <h3 className="font-display font-black text-lg text-neutral-950 uppercase tracking-tight">Active Pipelines</h3>
-                  <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mt-1">Synchronized interview schedules and recruitment feedback tracking.</p>
+                <div className="border-b border-slate-100 pb-4">
+                  <h3 className="font-display font-bold text-lg text-slate-900">Active Interview Pipeline</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Track and synchronize candidate interviews.</p>
                 </div>
 
                 {/* Interviews list */}
                 <div className="space-y-3">
                   {interviews.map((item) => (
-                    <div key={item.id} className="border-2 border-neutral-950 rounded-none p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-neutral-50/30">
-                      <div className="space-y-1">
-                        <h4 className="font-black text-neutral-950 uppercase text-sm flex items-center gap-2">
+                    <div key={item.id} className="border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-50/50">
+                      <div className="space-y-0.5">
+                        <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                           {item.name} 
-                          <span className="text-[9px] font-mono px-2 py-0.5 rounded-none bg-neutral-950 text-white border font-bold uppercase">{item.role}</span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-200 text-slate-800 font-medium">{item.role}</span>
                         </h4>
-                        <p className="text-xs text-neutral-600 font-mono font-black">📅 {item.date} // {item.time}</p>
+                        <p className="text-xs text-slate-500 font-mono">📅 {item.date} · {item.time}</p>
                       </div>
 
-                      <div className="flex items-center gap-3">
-                        <span className={`text-[10px] font-mono font-black px-2.5 py-1 rounded-none border-2 border-neutral-950 uppercase
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border
                           ${item.status === 'Confirmed' 
-                            ? 'bg-emerald-50 text-emerald-800' 
-                            : 'bg-amber-50 text-amber-805'}`}
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                            : 'bg-amber-50 text-amber-800 border-amber-200'}`}
                         >
                           ● {item.status}
                         </span>
 
                         <button 
                           onClick={() => deleteInterview(item.id)}
-                          className="p-1.5 rounded-none border-2 border-neutral-950 text-neutral-400 hover:text-red-700 hover:bg-neutral-50 transition cursor-pointer"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-slate-100 transition cursor-pointer"
                           title="Remove Entry"
                         >
-                          <Trash2 className="w-4 h-4 text-neutral-950" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
@@ -348,8 +358,10 @@ export default function EmployerWorkspace({
                 </div>
 
                 {/* Schedule Quick Form */}
-                <form onSubmit={handleAddInterview} className="bg-white border-2 border-neutral-950 p-5 rounded-none space-y-4 pt-5 mt-5">
-                  <h4 className="font-mono font-black text-[11px] text-[#047857] uppercase tracking-widest">SCHEDULE PIPELINE CONSOLE</h4>
+                <form onSubmit={handleAddInterview} className="bg-slate-50 border border-slate-200/90 p-5 rounded-2xl space-y-4 pt-4">
+                  <h4 className="font-mono font-bold text-xs text-emerald-800 uppercase tracking-wider">
+                    Schedule Candidate Interview
+                  </h4>
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <input
@@ -358,30 +370,30 @@ export default function EmployerWorkspace({
                       placeholder="Candidate Name"
                       value={newInterview.candidateName}
                       onChange={(e) => setNewInterview({ ...newInterview, candidateName: e.target.value })}
-                      className="border-2 border-neutral-950 rounded-none p-2.5 bg-white text-xs text-neutral-950 font-bold uppercase tracking-wider"
+                      className="border border-slate-200 rounded-xl p-2.5 bg-white text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                     />
                     <input
                       type="text"
                       required
-                      placeholder="e.g. July 18th"
+                      placeholder="Date (e.g. July 18th)"
                       value={newInterview.date}
                       onChange={(e) => setNewInterview({ ...newInterview, date: e.target.value })}
-                      className="border-2 border-neutral-950 rounded-none p-2.5 bg-white text-xs text-neutral-950 font-bold uppercase tracking-wider"
+                      className="border border-slate-200 rounded-xl p-2.5 bg-white text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                     />
                     <input
                       type="text"
-                      placeholder="e.g. 10:00 AM UTC"
+                      placeholder="Time (e.g. 10:00 AM UTC)"
                       value={newInterview.time}
                       onChange={(e) => setNewInterview({ ...newInterview, time: e.target.value })}
-                      className="border-2 border-neutral-950 rounded-none p-2.5 bg-white text-xs text-neutral-950 font-bold uppercase tracking-wider"
+                      className="border border-slate-200 rounded-xl p-2.5 bg-white text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full bg-neutral-950 hover:bg-neutral-900 border-2 border-neutral-950 text-white font-black py-2.5 rounded-none text-xs uppercase tracking-widest shadow-[3px_3px_0px_0px_rgba(16,185,129,1)]"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-xs cursor-pointer shadow-xs transition"
                   >
-                    LOCK PIPELINE SELECTION
+                    Add Interview Entry
                   </button>
                 </form>
               </motion.div>
@@ -396,20 +408,20 @@ export default function EmployerWorkspace({
                 exit={{ opacity: 0, y: -5 }}
                 className="space-y-6"
               >
-                <div className="border-b-2 border-neutral-950 pb-4">
-                  <h3 className="font-display font-black text-lg text-neutral-950 uppercase tracking-tight">Sourcing Dossier Notes</h3>
-                  <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mt-1">These insights are cached securely in your active session structure. Inspect any profile in the directory to log notes.</p>
+                <div className="border-b border-slate-100 pb-4">
+                  <h3 className="font-display font-bold text-lg text-slate-900">Private Sourcing Notes</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Notes you've attached to candidate dossiers for internal review.</p>
                 </div>
 
                 {allNotes.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {allNotes.map((note) => (
-                      <div key={note.id} className="border-2 border-neutral-950 bg-neutral-50/50 p-5 rounded-none space-y-3 relative shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
-                        <div className="flex items-center justify-between border-b-2 border-dashed pb-1.5 border-neutral-250">
-                          <h4 className="font-black text-neutral-950 uppercase text-xs">{note.name}</h4>
-                          <span className="text-[10px] font-mono text-neutral-400">UID: {note.id}</span>
+                      <div key={note.id} className="border border-slate-200 bg-slate-50/60 p-5 rounded-2xl space-y-2.5 relative">
+                        <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
+                          <h4 className="font-bold text-slate-900 text-xs">{note.name}</h4>
+                          <span className="text-[10px] font-mono text-slate-400">UID: {note.id}</span>
                         </div>
-                        <p className="text-xs text-neutral-800 uppercase font-bold tracking-wider leading-relaxed italic">
+                        <p className="text-xs text-slate-700 leading-relaxed italic">
                           "{note.text}"
                         </p>
                         
@@ -417,24 +429,24 @@ export default function EmployerWorkspace({
                           onClick={() => {
                             if (navigateToPage) navigateToPage('directory');
                           }}
-                          className="mt-2 text-[10px] font-black uppercase text-emerald-800 hover:text-emerald-950 flex items-center gap-1"
+                          className="mt-2 text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
                         >
-                          <span>MUTATE NOTES DIRECTLY</span>
+                          <span>Open Candidate in Directory</span>
                           <ExternalLink className="w-3 h-3" />
                         </button>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="bg-white rounded-none border-4 border-dashed border-neutral-300 p-12 text-center">
-                    <Bookmark className="w-10 h-10 text-neutral-400 mx-auto mb-3" />
-                    <p className="text-neutral-950 font-black uppercase text-xs">No active dossier feedback logged.</p>
-                    <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mt-1">Open individual system cards to cache private interview review insights.</p>
+                  <div className="bg-slate-50 rounded-2xl border border-slate-200 p-10 text-center space-y-2">
+                    <Bookmark className="w-8 h-8 text-slate-400 mx-auto" />
+                    <p className="text-slate-900 font-bold text-xs">No candidate notes saved yet.</p>
+                    <p className="text-xs text-slate-500">Open individual profiles in the talent directory to record private review notes.</p>
                     <button
                       onClick={() => navigateToPage && navigateToPage('directory')}
-                      className="mt-4 bg-neutral-950 hover:bg-neutral-900 text-white font-black py-2.5 px-5 rounded-none text-xs uppercase tracking-widest shadow-[3px_3px_0px_0px_rgba(16,185,129,1)]"
+                      className="mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-xl text-xs cursor-pointer shadow-xs"
                     >
-                      BROWSE SOURCING CATALOG
+                      Browse Talent Directory
                     </button>
                   </div>
                 )}
@@ -450,35 +462,35 @@ export default function EmployerWorkspace({
                 exit={{ opacity: 0, y: -5 }}
                 className="space-y-6"
               >
-                <div className="border-b-2 border-neutral-950 pb-4">
-                  <h3 className="font-display font-black text-lg text-neutral-950 uppercase tracking-tight flex items-center gap-2">
-                    <Building className="w-5 h-5 text-[#00A86B]" />
-                    <span>Company Preferences & Settings</span>
+                <div className="border-b border-slate-100 pb-4">
+                  <h3 className="font-display font-bold text-lg text-slate-900 flex items-center gap-2">
+                    <Building className="w-5 h-5 text-emerald-600" />
+                    <span>Company Preferences & Hiring Needs</span>
                   </h3>
-                  <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mt-1">
-                    Manage corporate branding parameters, hiring specialties, and preferred candidate pathways saved directly to Supabase.
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Update organization specifications to receive optimized candidate recommendations.
                   </p>
                 </div>
 
-                <form onSubmit={handleSavePreferences} className="space-y-5 max-w-2xl bg-neutral-50 border-2 border-neutral-950 p-6 rounded-none">
+                <form onSubmit={handleSavePreferences} className="space-y-5 max-w-xl bg-slate-50 border border-slate-200 p-6 rounded-2xl">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono font-black text-neutral-500 uppercase tracking-wider block">ORGANIZATION DISPLAY NAME</label>
+                      <label className="text-xs font-semibold text-slate-700 block">Organization Name</label>
                       <input
                         type="text"
                         required
                         value={orgName}
                         onChange={(e) => setOrgName(e.target.value)}
-                        className="w-full border-2 border-neutral-950 py-2 px-3 text-xs font-bold text-neutral-900 focus:outline-none"
+                        className="w-full border border-slate-200 bg-white rounded-xl py-2 px-3 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                       />
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono font-black text-neutral-500 uppercase tracking-wider block">ORGANIZATION SIZE</label>
+                      <label className="text-xs font-semibold text-slate-700 block">Team Size</label>
                       <select
                         value={orgSize}
                         onChange={(e) => setOrgSize(e.target.value)}
-                        className="w-full border-2 border-neutral-950 bg-white py-2 px-3 text-xs font-bold text-neutral-900 focus:outline-none"
+                        className="w-full border border-slate-200 bg-white rounded-xl py-2 px-3 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                       >
                         <option value="1-10 Employees">1-10 Employees (Seed/Startup)</option>
                         <option value="11-50 Employees">11-50 Employees (Mid-Scale)</option>
@@ -490,11 +502,11 @@ export default function EmployerWorkspace({
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono font-black text-neutral-500 uppercase tracking-wider block">INDUSTRY VERTICAL</label>
+                      <label className="text-xs font-semibold text-slate-700 block">Industry Vertical</label>
                       <select
                         value={industry}
                         onChange={(e) => setIndustry(e.target.value)}
-                        className="w-full border-2 border-neutral-950 bg-white py-2 px-3 text-xs font-bold text-neutral-900 focus:outline-none"
+                        className="w-full border border-slate-200 bg-white rounded-xl py-2 px-3 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                       >
                         <option value="Digital Marketing">Digital Growth Marketing</option>
                         <option value="E-Commerce Operations">E-Commerce Operations</option>
@@ -505,11 +517,11 @@ export default function EmployerWorkspace({
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-mono font-black text-neutral-500 uppercase tracking-wider block">NEEDED TALENT ROLE</label>
+                      <label className="text-xs font-semibold text-slate-700 block">Target Role Type</label>
                       <select
                         value={neededRole}
                         onChange={(e) => setNeededRole(e.target.value)}
-                        className="w-full border-2 border-neutral-950 bg-white py-2 px-3 text-xs font-bold text-neutral-900 focus:outline-none"
+                        className="w-full border border-slate-200 bg-white rounded-xl py-2 px-3 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                       >
                         <option value="Interns">Remote Interns Pathways</option>
                         <option value="Project Freelancers">Project Freelancers (Contracts)</option>
@@ -519,23 +531,23 @@ export default function EmployerWorkspace({
                   </div>
 
                   {settingsSuccess && (
-                    <div className="p-2 bg-emerald-50 border-2 border-emerald-900 text-emerald-800 text-[10px] font-mono font-black uppercase text-center animate-fadeIn flex items-center justify-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>CLOUDS PREFERENCES COORDINATED & SAVED IN SUPABASE</span>
+                    <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium rounded-xl text-center flex items-center justify-center gap-1.5 animate-fadeIn">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>Company preferences successfully synchronized!</span>
                     </div>
                   )}
 
                   <button
                     type="submit"
                     disabled={savingSettings}
-                    className="w-full bg-[#00A86B] hover:bg-emerald-700 text-white font-black py-3 rounded-none text-xs uppercase tracking-widest transition-all shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-none flex items-center justify-center gap-1.5 border-2 border-neutral-950"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer shadow-xs flex items-center justify-center gap-1.5"
                   >
                     {savingSettings ? (
-                      <span>SAVING CLOUD DOSSIER CONSOLE...</span>
+                      <span>Saving preferences...</span>
                     ) : (
                       <>
                         <Save className="w-4 h-4 text-white" />
-                        <span>SAVE COMPANY PREFERENCES</span>
+                        <span>Save Company Preferences</span>
                       </>
                     )}
                   </button>

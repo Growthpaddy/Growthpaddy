@@ -19,7 +19,13 @@ import {
   ChevronRight,
   TrendingUp,
   Building2,
-  FileText
+  FileText,
+  Star,
+  Layers,
+  Code,
+  Cpu,
+  BarChart3,
+  Search
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -43,15 +49,16 @@ interface CandidatePreview {
 export default function HomeOverview({ navigateToPage, openHireModal, openTalentModal }: HomeOverviewProps) {
   const [candidates, setCandidates] = useState<CandidatePreview[]>([]);
   const [loadingCandidates, setLoadingCandidates] = useState<boolean>(true);
+  const [activeCategoryTab, setActiveCategoryTab] = useState<string>('all');
 
-  // Curated fallback candidates if Supabase returns 0 or connects offline
+  // Curated candidates pool
   const FALLBACK_CANDIDATES: CandidatePreview[] = [
     {
       id: 'preview-1',
       name: 'Marcus Vance',
       role: 'AI Automation Operations Architect',
       specialty: 'AI Automation',
-      vettingStatus: '100% Vetted',
+      vettingStatus: '100% Verified',
       skills: ['Zapier', 'Make.com', 'Python', 'OpenAI API'],
       score: 98,
       avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300'
@@ -61,7 +68,7 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
       name: 'Elena Rostova',
       role: 'Senior Full-Stack Developer',
       specialty: 'Full-Stack Engineering',
-      vettingStatus: '100% Vetted',
+      vettingStatus: '100% Verified',
       skills: ['React', 'TypeScript', 'Node.js', 'PostgreSQL'],
       score: 96,
       avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300'
@@ -71,7 +78,7 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
       name: 'David K. Osei',
       role: 'Growth Marketing & PPC Lead',
       specialty: 'Growth Marketing',
-      vettingStatus: '100% Vetted',
+      vettingStatus: '100% Verified',
       skills: ['Meta Ads', 'Google Ads', 'GA4', 'Funnel CRO'],
       score: 95,
       avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300'
@@ -81,7 +88,7 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
       name: 'Sarah Jenkins',
       role: 'Programmatic SEO & Content Architect',
       specialty: 'SEO Strategy',
-      vettingStatus: '100% Vetted',
+      vettingStatus: '100% Verified',
       skills: ['Ahrefs', 'Next.js', 'Schema.org', 'Data Pipelines'],
       score: 97,
       avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=300'
@@ -93,7 +100,7 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
     const fetchTalentPreview = async () => {
       setLoadingCandidates(true);
       try {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('talent_profiles')
           .select('id, full_name, specialty, skills, vetting_status, phase_1_score')
           .eq('phase_1_quiz_passed', true)
@@ -105,7 +112,7 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
             name: item.full_name || `Vetted Specialist #${idx + 1}`,
             role: item.specialty ? `${item.specialty} Specialist` : 'Digital Growth Specialist',
             specialty: item.specialty || 'Tech Operations',
-            vettingStatus: '100% Vetted',
+            vettingStatus: '100% Verified',
             skills: item.skills && item.skills.length > 0 ? item.skills.slice(0, 4) : ['TypeScript', 'AI Tools', 'APIs', 'Workflow Ops'],
             score: item.phase_1_score || 95,
             avatarUrl: FALLBACK_CANDIDATES[idx % FALLBACK_CANDIDATES.length].avatarUrl
@@ -125,84 +132,101 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
     fetchTalentPreview();
   }, []);
 
+  const categories = [
+    { id: 'all', label: 'All Roles', count: '1,420+' },
+    { id: 'ai', label: 'AI Automation & Agents', count: '380+' },
+    { id: 'fullstack', label: 'Full-Stack Developers', count: '520+' },
+    { id: 'growth', label: 'Growth & Performance', count: '290+' },
+    { id: 'seo', label: 'SEO & Content Engineers', count: '230+' },
+  ];
+
+  const filteredCandidates = activeCategoryTab === 'all' 
+    ? candidates 
+    : candidates.filter(c => {
+        if (activeCategoryTab === 'ai') return c.specialty.toLowerCase().includes('ai') || c.role.toLowerCase().includes('automation');
+        if (activeCategoryTab === 'fullstack') return c.specialty.toLowerCase().includes('stack') || c.specialty.toLowerCase().includes('develop');
+        if (activeCategoryTab === 'growth') return c.specialty.toLowerCase().includes('growth') || c.specialty.toLowerCase().includes('market');
+        if (activeCategoryTab === 'seo') return c.specialty.toLowerCase().includes('seo') || c.specialty.toLowerCase().includes('content');
+        return true;
+      });
+
   return (
-    <div className="bg-[#fafbfc] text-neutral-900 pb-16 text-left selection:bg-emerald-500/30">
+    <div className="bg-slate-50/60 text-slate-900 text-left selection:bg-emerald-500/20 selection:text-emerald-900">
       
       {/* ==========================================
-          1. HERO SECTION (High Impact & Conversion)
+          1. HERO SECTION (Modern SaaS Layout)
           ========================================== */}
-      <section className="relative pt-12 md:pt-20 pb-16 px-4 sm:px-6 lg:px-8 bg-white border-b-4 border-neutral-950 overflow-hidden text-left">
-        <div className="absolute inset-0 bg-[radial-gradient(#00A86B_1px,transparent_1px)] [background-size:24px_24px] opacity-10 pointer-events-none" />
-
+      <section className="relative pt-12 sm:pt-20 pb-16 sm:pb-24 px-4 sm:px-6 lg:px-8 border-b border-slate-200/80 bg-gradient-to-b from-white via-slate-50/50 to-slate-50 overflow-hidden">
+        {/* Subtle decorative mesh background */}
+        <div className="absolute inset-0 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:32px_32px] opacity-[0.04] pointer-events-none" />
+        
         <div className="max-w-7xl mx-auto space-y-8 relative z-10">
           
-          {/* Urgent Badge */}
-          <div className="inline-flex items-center gap-2 bg-neutral-950 text-white px-3.5 py-1.5 rounded-none border-l-4 border-[#00A86B] shadow-[2px_2px_0px_0px_rgba(0,168,107,1)]">
-            <span className="w-2 h-2 rounded-full bg-[#00A86B] animate-ping" />
-            <span className="text-[11px] font-mono font-black uppercase tracking-wider">
-              ⚡ Pre-Vetted Talent Deployed in Under 48 Hours
+          {/* Live Status Pill */}
+          <div className="inline-flex items-center gap-2.5 bg-emerald-50/90 text-emerald-800 border border-emerald-200/80 px-3.5 py-1.5 rounded-full text-xs font-semibold shadow-xs">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="font-mono text-[11px] uppercase tracking-wide font-bold">
+              1,420+ Pre-Vetted Specialists Ready for Immediate Placement
             </span>
           </div>
 
-          {/* Main Headline & Subheadline */}
-          <div className="max-w-4xl space-y-4">
-            <h1 className="font-display font-black text-4xl sm:text-6xl md:text-7xl text-neutral-950 uppercase tracking-tight leading-[1.02]">
-              Hire Top 3% Vetted Talent. <br className="hidden sm:inline" />
-              <span className="text-[#00A86B]">Cut Hiring Time by 80%</span> & Eliminate Agency Fees.
+          {/* Main Headline & Subtitle */}
+          <div className="max-w-4xl space-y-5">
+            <h1 className="font-display font-extrabold text-4xl sm:text-6xl lg:text-7xl text-slate-900 tracking-tight leading-[1.08]">
+              Hire verified digital talent with <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500">audited proof of work.</span>
             </h1>
             
-            <p className="text-base sm:text-lg text-neutral-700 font-bold max-w-2xl uppercase tracking-wide leading-relaxed border-l-4 border-neutral-950 pl-4">
-              Skip the endless screening rounds. Access battle-tested AI Automation Engineers, Full-Stack Developers, Digital & Growth Marketers, and Tech Talent ready to produce results from Day 1.
+            <p className="text-base sm:text-xl text-slate-600 font-normal max-w-2xl leading-relaxed">
+              Skip the 6-week screening queue. Access pre-vetted AI engineers, full-stack developers, and growth specialists evaluated on real execution—with zero percent salary markups.
             </p>
           </div>
 
-          {/* Primary Dual CTAs */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-2">
-            {/* CTA 1 (Primary - Recruiter/Business Owner) */}
+          {/* Primary Action Buttons */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 pt-2">
             <button
               onClick={() => navigateToPage('directory')}
-              className="bg-[#00A86B] hover:bg-emerald-600 text-white font-black py-4 px-8 rounded-none text-sm uppercase tracking-wider border-2 border-neutral-950 flex items-center justify-center gap-3 cursor-pointer shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 px-6 sm:px-8 rounded-xl text-sm flex items-center justify-center gap-2.5 cursor-pointer shadow-sm hover:shadow-md transition-all duration-150"
+              id="hero-explore-talent-btn"
             >
-              <Briefcase className="w-5 h-5 text-white" />
-              <span>Browse Talent Pool (Instant Access)</span>
-              <ArrowRight className="w-5 h-5 text-white" />
+              <Briefcase className="w-4 h-4 text-emerald-100" />
+              <span>Explore Talent Directory</span>
+              <ArrowRight className="w-4 h-4 text-emerald-100" />
             </button>
 
-            {/* CTA 2 (Secondary - Talent) */}
             <button
               onClick={openTalentModal}
-              className="bg-white hover:bg-neutral-100 text-neutral-950 font-black py-4 px-8 rounded-none text-sm uppercase tracking-wider border-2 border-neutral-950 flex items-center justify-center gap-3 cursor-pointer shadow-[5px_5px_0px_0px_rgba(0,168,107,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
+              className="bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 font-semibold py-3.5 px-6 sm:px-8 rounded-xl text-sm border border-slate-300/90 flex items-center justify-center gap-2.5 cursor-pointer shadow-xs hover:shadow-sm transition-all duration-150"
+              id="hero-apply-talent-btn"
             >
-              <Zap className="w-5 h-5 text-[#00A86B]" />
+              <Zap className="w-4 h-4 text-emerald-600" />
               <span>Apply as Vetted Talent</span>
             </button>
           </div>
 
-          {/* Trust Badges Bar */}
-          <div className="pt-8 border-t-2 border-dashed border-neutral-200 space-y-4">
-            <p className="text-xs font-mono font-black uppercase text-neutral-500 tracking-wider">
-              🛡️ Vetted for technical competency, communication, and immediate project deployment.
-            </p>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-neutral-50 border-2 border-neutral-950 p-3.5 text-left">
-                <span className="text-base font-black font-mono text-[#00A86B] block">&lt; 48 HOURS</span>
-                <span className="text-[10px] font-bold uppercase text-neutral-600 block mt-0.5">Average Time-To-Deploy</span>
+          {/* Quick Metrics Strip */}
+          <div className="pt-8 border-t border-slate-200/80">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
+              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs text-left">
+                <span className="text-2xl font-extrabold font-mono text-emerald-600 block">&lt; 48 Hours</span>
+                <span className="text-xs text-slate-500 font-medium block mt-1">Average Matching Time</span>
               </div>
 
-              <div className="bg-neutral-50 border-2 border-neutral-950 p-3.5 text-left">
-                <span className="text-base font-black font-mono text-neutral-950 block">TOP 3% ACCEPTANCE</span>
-                <span className="text-[10px] font-bold uppercase text-neutral-600 block mt-0.5">Rigorous AI + Panel Vetting</span>
+              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs text-left">
+                <span className="text-2xl font-extrabold font-mono text-slate-900 block">Top 3%</span>
+                <span className="text-xs text-slate-500 font-medium block mt-1">Acceptance Rate</span>
               </div>
 
-              <div className="bg-neutral-50 border-2 border-neutral-950 p-3.5 text-left">
-                <span className="text-base font-black font-mono text-[#00A86B] block">0% AGENCY FEES</span>
-                <span className="text-[10px] font-bold uppercase text-neutral-600 block mt-0.5">Zero Salary Commissions</span>
+              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs text-left">
+                <span className="text-2xl font-extrabold font-mono text-emerald-600 block">0% Markups</span>
+                <span className="text-xs text-slate-500 font-medium block mt-1">Direct Salary Billing</span>
               </div>
 
-              <div className="bg-neutral-50 border-2 border-neutral-950 p-3.5 text-left">
-                <span className="text-base font-black font-mono text-neutral-950 block">100% PRE-SCREENED</span>
-                <span className="text-[10px] font-bold uppercase text-neutral-600 block mt-0.5">Audited Project Evidence</span>
+              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs text-left">
+                <span className="text-2xl font-extrabold font-mono text-slate-900 block">100% Practical</span>
+                <span className="text-xs text-slate-500 font-medium block mt-1">Audited Project Output</span>
               </div>
             </div>
           </div>
@@ -211,74 +235,78 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
       </section>
 
       {/* ==========================================
-          2. THE BUSINESS VALUE TRIPLE-THREAT (3 Core Value Pillars)
+          2. CORE VALUE PILLARS (Why Digital Campux)
           ========================================== */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-10">
-        <div className="text-left space-y-2 border-l-4 border-[#00A86B] pl-4">
-          <span className="text-xs font-mono font-black uppercase text-[#00A86B] tracking-widest block">
-            THE BUSINESS VALUE TRIPLE-THREAT
-          </span>
-          <h2 className="font-display font-black text-3xl sm:text-5xl uppercase tracking-tight text-neutral-950">
-            WHY FOUNDERS & HIRING MANAGERS SWITCH TO GROWTHPADDY
+      <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-12">
+        <div className="max-w-2xl space-y-3">
+          <div className="inline-flex items-center gap-2 text-xs font-mono font-semibold text-emerald-700 uppercase tracking-wider">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Built for Modern Hiring Teams</span>
+          </div>
+          <h2 className="font-display font-bold text-3xl sm:text-4xl text-slate-900 tracking-tight">
+            Why high-growth founders and hiring managers switch to Digital Campux
           </h2>
-          <p className="text-xs sm:text-sm text-neutral-600 font-bold uppercase tracking-wide max-w-2xl">
-            Designed from the ground up for speed, efficiency, and zero agency overhead.
+          <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+            Eliminate traditional recruiting friction with verified technical accreditation and direct talent connections.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
           
-          {/* Pillar 1: 48-Hour Deployment */}
-          <div className="bg-white border-4 border-neutral-950 p-6 sm:p-8 rounded-none shadow-[6px_6px_0px_0px_rgba(0,168,107,1)] flex flex-col justify-between space-y-4 text-left">
-            <div className="space-y-3">
-              <div className="w-12 h-12 bg-emerald-50 border-2 border-neutral-950 flex items-center justify-center">
-                <Clock className="w-6 h-6 text-[#00A86B]" />
+          {/* Pillar 1: 48-Hour Rapid Matchmaking */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-7 sm:p-8 shadow-xs hover:shadow-md hover:border-emerald-500/40 transition-all duration-200 flex flex-col justify-between space-y-6">
+            <div className="space-y-4">
+              <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <Clock className="w-6 h-6" />
               </div>
-              <h3 className="font-display font-black text-xl uppercase text-neutral-950">
-                🚀 48-Hour Deployment
+              <h3 className="font-display font-bold text-xl text-slate-900">
+                48-Hour Rapid Deployment
               </h3>
-              <p className="text-xs text-neutral-600 font-medium uppercase leading-relaxed tracking-wide">
-                Don't let open roles stall your pipeline. Our candidates have already passed rigorous AI scenario assessments and live panel interviews. Interview today, onboard tomorrow.
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Candidates have already passed rigorous diagnostic tests and technical scenario evaluations. Review audited portfolios today, start onboarding tomorrow.
               </p>
             </div>
-            <div className="pt-3 border-t border-dashed border-neutral-200">
-              <span className="text-[10px] font-mono font-black text-[#00A86B] uppercase">SPEED & ACCELERATION</span>
+            <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-mono font-semibold text-emerald-700">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>Zero screening backlog</span>
             </div>
           </div>
 
           {/* Pillar 2: 120+ Hours Saved */}
-          <div className="bg-white border-4 border-neutral-950 p-6 sm:p-8 rounded-none shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] flex flex-col justify-between space-y-4 text-left">
-            <div className="space-y-3">
-              <div className="w-12 h-12 bg-neutral-100 border-2 border-neutral-950 flex items-center justify-center">
-                <ShieldCheck className="w-6 h-6 text-neutral-950" />
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-7 sm:p-8 shadow-xs hover:shadow-md hover:border-emerald-500/40 transition-all duration-200 flex flex-col justify-between space-y-6">
+            <div className="space-y-4">
+              <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                <ShieldCheck className="w-6 h-6" />
               </div>
-              <h3 className="font-display font-black text-xl uppercase text-neutral-950">
-                ⏳ 120+ Hours Saved Per Hire
+              <h3 className="font-display font-bold text-xl text-slate-900">
+                120+ Hours Saved Per Hire
               </h3>
-              <p className="text-xs text-neutral-600 font-medium uppercase leading-relaxed tracking-wide">
-                Stop reading hundreds of unqualified resumes. We reject 97% of applicants before they ever reach your screen, delivering only shortlist-ready talent.
+              <p className="text-sm text-slate-600 leading-relaxed">
+                We eliminate unqualified resumes before they ever reach your inbox. Only candidates who prove real-world execution ability appear in the directory.
               </p>
             </div>
-            <div className="pt-3 border-t border-dashed border-neutral-200">
-              <span className="text-[10px] font-mono font-black text-neutral-950 uppercase">TIME-SAVING EFFICIENCY</span>
+            <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-mono font-semibold text-blue-700">
+              <CheckCircle2 className="w-4 h-4 text-blue-600" />
+              <span>Pre-evaluated work samples</span>
             </div>
           </div>
 
           {/* Pillar 3: 0% Ongoing Commission */}
-          <div className="bg-white border-4 border-neutral-950 p-6 sm:p-8 rounded-none shadow-[6px_6px_0px_0px_rgba(0,168,107,1)] flex flex-col justify-between space-y-4 text-left">
-            <div className="space-y-3">
-              <div className="w-12 h-12 bg-emerald-50 border-2 border-neutral-950 flex items-center justify-center">
-                <DollarSign className="w-6 h-6 text-[#00A86B]" />
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-7 sm:p-8 shadow-xs hover:shadow-md hover:border-emerald-500/40 transition-all duration-200 flex flex-col justify-between space-y-6">
+            <div className="space-y-4">
+              <div className="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
+                <DollarSign className="w-6 h-6" />
               </div>
-              <h3 className="font-display font-black text-xl uppercase text-neutral-950">
-                💰 0% Ongoing Commission Fees
+              <h3 className="font-display font-bold text-xl text-slate-900">
+                0% Recurring Markup
               </h3>
-              <p className="text-xs text-neutral-600 font-medium uppercase leading-relaxed tracking-wide">
-                Traditional recruiting agencies charge 15%–25% cut on every salary forever. GrowthPaddy operates on a transparent model with ZERO recurring markups. Pay your talent directly.
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Legacy headhunters take 15% to 25% of annual compensation forever. Digital Campux charges transparent one-time access slots. You pay your talent directly.
               </p>
             </div>
-            <div className="pt-3 border-t border-dashed border-neutral-200">
-              <span className="text-[10px] font-mono font-black text-[#00A86B] uppercase">COST-CUTTING TRANSPARENCY</span>
+            <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-mono font-semibold text-teal-700">
+              <CheckCircle2 className="w-4 h-4 text-teal-600" />
+              <span>Direct compensation control</span>
             </div>
           </div>
 
@@ -286,76 +314,94 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
       </section>
 
       {/* ==========================================
-          3. INTERACTIVE TALENT POOL PREVIEW (Conversion Magnet)
+          3. INTERACTIVE TALENT POOL SPOTLIGHT
           ========================================== */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-neutral-950 text-white border-y-4 border-neutral-950 space-y-10 text-left">
+      <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8 bg-slate-900 text-white space-y-10">
         <div className="max-w-7xl mx-auto space-y-8">
           
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b-2 border-neutral-800 pb-6">
-            <div>
-              <div className="inline-flex items-center gap-2 bg-[#00A86B] text-white px-2.5 py-1 text-[10px] font-mono font-black uppercase mb-2">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-6 border-b border-slate-800">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-2 text-emerald-400 text-xs font-mono uppercase tracking-wider font-semibold">
                 <Users className="w-3.5 h-3.5" />
-                <span>LIVE CANDIDATE STREAM</span>
+                <span>Live Candidate Stream</span>
               </div>
-              <h2 className="font-display font-black text-3xl sm:text-5xl uppercase tracking-tight text-white">
-                EXPLORE FEATURED PRE-VETTED TALENT
+              <h2 className="font-display font-bold text-3xl sm:text-4xl text-white tracking-tight">
+                Featured Pre-Vetted Specialists
               </h2>
-              <p className="text-xs text-neutral-400 font-mono uppercase tracking-wider mt-1">
-                Real candidates actively open for immediate placement. Audited skills, verified project portfolios.
+              <p className="text-sm text-slate-400 max-w-xl leading-relaxed">
+                Discover verified professionals actively available for immediate contract or full-time roles.
               </p>
             </div>
 
             <button
               onClick={() => navigateToPage('directory')}
-              className="bg-white hover:bg-neutral-100 text-neutral-950 font-black py-3 px-6 rounded-none text-xs uppercase tracking-wider border-2 border-white flex items-center gap-2 cursor-pointer transition-all self-start sm:self-auto"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-5 rounded-xl text-xs flex items-center gap-2 cursor-pointer transition shadow-xs self-start sm:self-auto"
             >
-              <span>View All Available Candidates</span>
-              <ChevronRight className="w-4 h-4 text-emerald-600" />
+              <span>Explore All Candidates</span>
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
+          {/* Role Category Tabs */}
+          <div className="flex flex-wrap gap-2">
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategoryTab(cat.id)}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-2 ${
+                  activeCategoryTab === cat.id
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 border border-slate-700/60'
+                }`}
+              >
+                <span>{cat.label}</span>
+                <span className="text-[10px] font-mono text-slate-400">{cat.count}</span>
+              </button>
+            ))}
+          </div>
+
           {/* Candidate Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {candidates.map((candidate) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {filteredCandidates.map((candidate) => (
               <div 
                 key={candidate.id}
-                className="bg-neutral-900 border-2 border-neutral-700 p-5 rounded-none flex flex-col justify-between space-y-4 hover:border-[#00A86B] transition-all group"
+                className="bg-slate-800/80 border border-slate-700/80 hover:border-emerald-500/60 rounded-2xl p-5 flex flex-col justify-between space-y-4 transition-all duration-200 group"
               >
-                <div className="space-y-3">
-                  {/* Header info */}
+                <div className="space-y-3.5">
+                  {/* Avatar & Specialty */}
                   <div className="flex items-center gap-3">
                     <img 
                       src={candidate.avatarUrl} 
                       alt={candidate.name}
-                      className="w-12 h-12 rounded-none object-cover border border-neutral-600 grayscale group-hover:grayscale-0 transition-all"
+                      className="w-11 h-11 rounded-xl object-cover border border-slate-600"
                       referrerPolicy="no-referrer"
                     />
                     <div>
-                      <h4 className="font-display font-black text-sm uppercase text-white group-hover:text-[#00A86B] transition-colors">
+                      <h4 className="font-semibold text-sm text-white group-hover:text-emerald-400 transition-colors">
                         {candidate.name}
                       </h4>
-                      <p className="text-[10px] font-mono font-bold text-[#00A86B] uppercase">
+                      <p className="text-xs text-emerald-400 font-medium">
                         {candidate.specialty}
                       </p>
                     </div>
                   </div>
 
-                  {/* Badge & Score */}
-                  <div className="flex items-center justify-between border-y border-neutral-800 py-2">
-                    <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono text-[9px] font-black uppercase px-2 py-0.5">
+                  {/* Vetting Score Badge */}
+                  <div className="flex items-center justify-between py-2 border-y border-slate-700/60 text-xs">
+                    <span className="text-emerald-400 bg-emerald-950/60 border border-emerald-800/80 font-mono text-[10px] font-semibold px-2 py-0.5 rounded-full">
                       ✓ {candidate.vettingStatus}
                     </span>
-                    <span className="text-[10px] font-mono font-extrabold text-neutral-300">
-                      Score: <strong className="text-[#00A86B]">{candidate.score}%</strong>
+                    <span className="font-mono text-slate-300 text-xs font-semibold">
+                      Score: <strong className="text-emerald-400">{candidate.score}%</strong>
                     </span>
                   </div>
 
-                  {/* Skill tags */}
-                  <div className="flex flex-wrap gap-1">
+                  {/* Skill Badges */}
+                  <div className="flex flex-wrap gap-1.5">
                     {candidate.skills.map((skill, sIdx) => (
                       <span 
                         key={sIdx}
-                        className="text-[9px] font-mono font-bold bg-neutral-800 text-neutral-300 px-2 py-0.5 border border-neutral-700 uppercase"
+                        className="text-[10px] font-mono font-medium bg-slate-900/80 text-slate-300 px-2 py-0.5 rounded-md border border-slate-700"
                       >
                         {skill}
                       </span>
@@ -363,85 +409,76 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
                   </div>
                 </div>
 
-                {/* Hire Request Button */}
+                {/* Card Action */}
                 <button
                   onClick={() => navigateToPage('directory')}
-                  className="w-full bg-neutral-950 hover:bg-[#00A86B] text-white font-black py-2.5 px-3 rounded-none text-[11px] uppercase tracking-wider border border-neutral-700 hover:border-[#00A86B] transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  className="w-full bg-slate-900 hover:bg-emerald-600 text-slate-200 hover:text-white font-medium py-2 px-3 rounded-xl text-xs border border-slate-700 hover:border-emerald-500 transition-all cursor-pointer flex items-center justify-center gap-1.5"
                 >
-                  <span>View Profile & Request Hire</span>
-                  <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400 group-hover:text-white" />
+                  <span>View Candidate Profile</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             ))}
           </div>
 
-          {/* Bottom CTA */}
-          <div className="text-center pt-4">
-            <button
-              onClick={() => navigateToPage('directory')}
-              className="bg-[#00A86B] hover:bg-emerald-600 text-white font-black py-4 px-8 rounded-none text-xs uppercase tracking-wider border-2 border-white cursor-pointer shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:shadow-none transition-all inline-flex items-center gap-2"
-            >
-              <span>View All Available Candidates in Talent Pool →</span>
-            </button>
-          </div>
-
         </div>
       </section>
 
       {/* ==========================================
-          4. HOW IT WORKS (3-Step Fast Track for Employers)
+          4. 3-STEP ACCREDITATION WORKFLOW
           ========================================== */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-10 text-left">
-        <div className="space-y-2 border-l-4 border-neutral-950 pl-4">
-          <span className="text-xs font-mono font-black uppercase text-neutral-500 tracking-widest block">
-            STREAMLINED HIRING WORKFLOW
-          </span>
-          <h2 className="font-display font-black text-3xl sm:text-5xl uppercase tracking-tight text-neutral-950">
-            HOW IT WORKS: 3-STEP FAST TRACK
+      <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-12 text-left">
+        <div className="max-w-2xl space-y-3">
+          <div className="inline-flex items-center gap-2 text-xs font-mono font-semibold text-emerald-700 uppercase tracking-wider">
+            <Layers className="w-3.5 h-3.5" />
+            <span>Structured Verification Engine</span>
+          </div>
+          <h2 className="font-display font-bold text-3xl sm:text-4xl text-slate-900 tracking-tight">
+            How candidates earn the Digital Campux accreditation stamp
           </h2>
-          <p className="text-xs sm:text-sm text-neutral-600 font-bold uppercase tracking-wide max-w-2xl">
-            From talent browsing to active onboarding in under 48 hours.
+          <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+            A 3-step quality gateway that replaces traditional resume guesswork with verified execution data.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
           
           {/* Step 1 */}
-          <div className="bg-white border-4 border-neutral-950 p-6 sm:p-8 space-y-4 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] relative">
-            <div className="inline-block bg-neutral-950 text-white font-mono font-black text-xs px-3 py-1 uppercase">
-              STEP 01
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-7 sm:p-8 space-y-4 shadow-xs">
+            <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 font-mono font-bold text-xs flex items-center justify-center">
+              01
             </div>
-            <h3 className="font-display font-black text-xl uppercase text-neutral-950">
-              Filter & Select
+            <h3 className="font-display font-bold text-lg text-slate-900">
+              Diagnostic Skill Gateway
             </h3>
-            <p className="text-xs text-neutral-600 font-medium uppercase leading-relaxed tracking-wide">
-              Browse pre-vetted candidate cards filtered by skill, specialty, and experience.
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Every applicant completes an intensive diagnostic assessing core algorithmic, architectural, and growth fundamentals under strict anti-cheat conditions.
             </p>
           </div>
 
           {/* Step 2 */}
-          <div className="bg-white border-4 border-neutral-950 p-6 sm:p-8 space-y-4 shadow-[6px_6px_0px_0px_rgba(0,168,107,1)] relative">
-            <div className="inline-block bg-[#00A86B] text-white font-mono font-black text-xs px-3 py-1 uppercase">
-              STEP 02
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-7 sm:p-8 space-y-4 shadow-xs">
+            <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 font-mono font-bold text-xs flex items-center justify-center">
+              02
             </div>
-            <h3 className="font-display font-black text-xl uppercase text-neutral-950">
-              Review Vetting Scorecard
+            <h3 className="font-display font-bold text-lg text-slate-900">
+              Practical Scenario Gauntlet
             </h3>
-            <p className="text-xs text-neutral-600 font-medium uppercase leading-relaxed tracking-wide">
-              See their exact AI diagnostic quiz scores, panel interview approvals, and verified portfolio links.
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Candidates build real-world systems: full-stack integrations, complex marketing pipelines, and automated agent workflows audited for code quality and execution.
             </p>
           </div>
 
           {/* Step 3 */}
-          <div className="bg-white border-4 border-neutral-950 p-6 sm:p-8 space-y-4 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] relative">
-            <div className="inline-block bg-neutral-950 text-white font-mono font-black text-xs px-3 py-1 uppercase">
-              STEP 03
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-7 sm:p-8 space-y-4 shadow-xs">
+            <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 font-mono font-bold text-xs flex items-center justify-center">
+              03
             </div>
-            <h3 className="font-display font-black text-xl uppercase text-neutral-950">
-              Direct Hire
+            <h3 className="font-display font-bold text-lg text-slate-900">
+              KYC & Direct Discovery
             </h3>
-            <p className="text-xs text-neutral-600 font-medium uppercase leading-relaxed tracking-wide">
-              Connect immediately with the candidate and start working with zero platform markup.
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Identity-verified specialists are published to the live directory with public portfolios and instant direct connection for employers.
             </p>
           </div>
 
@@ -449,73 +486,70 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
       </section>
 
       {/* ==========================================
-          5. COMPARISON TABLE: GrowthPaddy vs Others
+          5. COMPARISON MATRIX (SaaS Table)
           ========================================== */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-10 text-left">
-        <div className="space-y-2 border-l-4 border-[#00A86B] pl-4">
-          <span className="text-xs font-mono font-black uppercase text-[#00A86B] tracking-widest block">
-            CLEAR ADVANTAGE
-          </span>
-          <h2 className="font-display font-black text-3xl sm:text-5xl uppercase tracking-tight text-neutral-950">
-            GROWTHPADDY VS. TRADITIONAL ALTERNATIVES
+      <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-10 text-left">
+        <div className="max-w-2xl space-y-3">
+          <div className="inline-flex items-center gap-2 text-xs font-mono font-semibold text-emerald-700 uppercase tracking-wider">
+            <TrendingUp className="w-3.5 h-3.5" />
+            <span>Platform Comparison</span>
+          </div>
+          <h2 className="font-display font-bold text-3xl sm:text-4xl text-slate-900 tracking-tight">
+            Digital Campux vs. Traditional Alternatives
           </h2>
-          <p className="text-xs sm:text-sm text-neutral-600 font-bold uppercase tracking-wide max-w-2xl">
-            See why high-growth companies are abandoning legacy recruiters and freelance platforms.
+          <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+            See why leading companies are moving away from legacy recruiting agencies and freelance marketplaces.
           </p>
         </div>
 
-        <div className="overflow-x-auto border-4 border-neutral-950 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
           <table className="w-full text-left border-collapse min-w-[650px]">
             <thead>
-              <tr className="bg-neutral-950 text-white font-mono text-xs uppercase">
-                <th className="p-4 border-b-2 border-r-2 border-neutral-950 font-black">METRIC / FEATURE</th>
-                <th className="p-4 border-b-2 border-r-2 border-neutral-950 font-black bg-[#00A86B] text-white">
-                  ⚡ GROWTHPADDY
+              <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500">
+                <th className="py-4 px-6">Feature / Capability</th>
+                <th className="py-4 px-6 text-emerald-800 bg-emerald-50/70 font-bold">
+                  ⚡ Digital Campux
                 </th>
-                <th className="p-4 border-b-2 border-r-2 border-neutral-950 font-black">TRADITIONAL AGENCIES</th>
-                <th className="p-4 border-b-2 font-black">FREELANCE MARKETPLACES</th>
+                <th className="py-4 px-6">Traditional Agencies</th>
+                <th className="py-4 px-6">Freelance Marketplaces</th>
               </tr>
             </thead>
-            <tbody className="divide-y-2 divide-neutral-200 text-xs uppercase font-bold text-neutral-800">
+            <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
               
-              {/* Row 1 */}
-              <tr className="hover:bg-neutral-50">
-                <td className="p-4 font-black border-r-2 border-neutral-950 bg-neutral-50">Time-to-Hire</td>
-                <td className="p-4 border-r-2 border-neutral-950 bg-emerald-50 text-[#00A86B] font-black font-mono">
+              <tr className="hover:bg-slate-50/60 transition-colors">
+                <td className="py-4 px-6 font-semibold text-slate-900">Time-to-Hire</td>
+                <td className="py-4 px-6 bg-emerald-50/40 text-emerald-700 font-bold font-mono">
                   &lt; 48 Hours
                 </td>
-                <td className="p-4 border-r-2 border-neutral-950 text-neutral-600">4 to 8 Weeks</td>
-                <td className="p-4 text-neutral-600">Days to Weeks</td>
+                <td className="py-4 px-6 text-slate-500">4 to 8 Weeks</td>
+                <td className="py-4 px-6 text-slate-500">Days to Weeks (Variable)</td>
               </tr>
 
-              {/* Row 2 */}
-              <tr className="hover:bg-neutral-50">
-                <td className="p-4 font-black border-r-2 border-neutral-950 bg-neutral-50">Vetting Process</td>
-                <td className="p-4 border-r-2 border-neutral-950 bg-emerald-50 text-emerald-900 font-black">
-                  Multi-Stage AI + Panel Vetted
+              <tr className="hover:bg-slate-50/60 transition-colors">
+                <td className="py-4 px-6 font-semibold text-slate-900">Vetting Process</td>
+                <td className="py-4 px-6 bg-emerald-50/40 text-emerald-700 font-bold">
+                  Audited Practical Scenarios
                 </td>
-                <td className="p-4 border-r-2 border-neutral-950 text-neutral-600">Manual / Hit-or-Miss</td>
-                <td className="p-4 text-neutral-600">Unvetted / Self-Reported</td>
+                <td className="py-4 px-6 text-slate-500">Resume Screening (Unproven)</td>
+                <td className="py-4 px-6 text-slate-500">Self-Reported / Review Spam</td>
               </tr>
 
-              {/* Row 3 */}
-              <tr className="hover:bg-neutral-50">
-                <td className="p-4 font-black border-r-2 border-neutral-950 bg-neutral-50">Pricing Model</td>
-                <td className="p-4 border-r-2 border-neutral-950 bg-emerald-50 text-[#00A86B] font-black font-mono">
-                  0% Salary Commission
+              <tr className="hover:bg-slate-50/60 transition-colors">
+                <td className="py-4 px-6 font-semibold text-slate-900">Fee Structure</td>
+                <td className="py-4 px-6 bg-emerald-50/40 text-emerald-700 font-bold font-mono">
+                  0% Ongoing Commission
                 </td>
-                <td className="p-4 border-r-2 border-neutral-950 text-neutral-600">15%–25% Salary Cut</td>
-                <td className="p-4 text-neutral-600">Ongoing Platform Fees</td>
+                <td className="py-4 px-6 text-slate-500">15%–25% Salary Cut</td>
+                <td className="py-4 px-6 text-slate-500">10%–20% Platform Fee</td>
               </tr>
 
-              {/* Row 4 */}
-              <tr className="hover:bg-neutral-50">
-                <td className="p-4 font-black border-r-2 border-neutral-950 bg-neutral-50">Quality Guarantee</td>
-                <td className="p-4 border-r-2 border-neutral-950 bg-emerald-50 text-emerald-900 font-black">
-                  Pre-Screened Top 3%
+              <tr className="hover:bg-slate-50/60 transition-colors">
+                <td className="py-4 px-6 font-semibold text-slate-900">Proof of Work</td>
+                <td className="py-4 px-6 bg-emerald-50/40 text-emerald-700 font-bold">
+                  Live Portfolio & Code Artifacts
                 </td>
-                <td className="p-4 border-r-2 border-neutral-950 text-neutral-600">Variable</td>
-                <td className="p-4 text-neutral-600">Risky / Low Retention</td>
+                <td className="py-4 px-6 text-slate-500">Text Resumes Only</td>
+                <td className="py-4 px-6 text-slate-500">Subjective Star Ratings</td>
               </tr>
 
             </tbody>
@@ -524,89 +558,42 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
       </section>
 
       {/* ==========================================
-          6. FINAL HIGH-INTENT CALL TO ACTION (CTA Banner)
+          6. CONVERSION CTA BANNER (High-End SaaS Style)
           ========================================== */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto text-center">
-        <div className="bg-white border-4 border-neutral-950 p-8 sm:p-14 rounded-none shadow-[10px_10px_0px_0px_rgba(0,168,107,1)] space-y-6 text-center relative overflow-hidden">
+      <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto text-center">
+        <div className="bg-gradient-to-tr from-slate-900 via-slate-800 to-slate-900 text-white rounded-3xl p-8 sm:p-14 shadow-xl border border-slate-800 space-y-6 relative overflow-hidden">
           
-          <div className="inline-flex items-center gap-2 bg-neutral-950 text-white px-3 py-1 font-mono text-xs uppercase font-black">
-            <Zap className="w-4 h-4 text-[#00A86B]" />
-            <span>ACCELERATE YOUR HIRING TODAY</span>
+          <div className="inline-flex items-center gap-2 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3.5 py-1.5 rounded-full text-xs font-semibold">
+            <Zap className="w-3.5 h-3.5" />
+            <span>Accelerate Your Tech Team Today</span>
           </div>
 
-          <h2 className="font-display font-black text-3xl sm:text-5xl uppercase tracking-tight text-neutral-950 max-w-3xl mx-auto">
-            Ready to scale your business with pre-vetted talent?
+          <h2 className="font-display font-bold text-3xl sm:text-4xl text-white max-w-2xl mx-auto tracking-tight">
+            Ready to hire pre-vetted specialists with verified proof of work?
           </h2>
 
-          <p className="text-xs sm:text-sm text-neutral-600 font-bold uppercase tracking-wider max-w-xl mx-auto leading-relaxed">
-            Join forward-thinking business owners saving time and cutting hiring overhead today.
+          <p className="text-sm sm:text-base text-slate-400 max-w-lg mx-auto leading-relaxed">
+            Join hundreds of forward-thinking founders and hiring managers saving time and hiring proven talent directly.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-4">
             <button
               onClick={() => navigateToPage('directory')}
-              className="w-full sm:w-auto bg-[#00A86B] hover:bg-emerald-600 text-white font-black py-4 px-8 rounded-none text-xs uppercase tracking-wider border-2 border-neutral-950 cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all"
+              className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3.5 px-7 rounded-xl text-xs uppercase tracking-wider cursor-pointer shadow-sm hover:shadow-md transition"
             >
-              Browse Talent Pool Now
+              Browse Talent Directory Now
             </button>
 
             <button
               onClick={openTalentModal}
-              className="w-full sm:w-auto bg-white hover:bg-neutral-100 text-neutral-950 font-black py-4 px-8 rounded-none text-xs uppercase tracking-wider border-2 border-neutral-950 cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,168,107,1)] hover:shadow-none transition-all"
+              className="w-full sm:w-auto bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-semibold py-3.5 px-7 rounded-xl text-xs uppercase tracking-wider border border-slate-700 cursor-pointer transition"
             >
-              Apply as Talent
+              Apply as Vetted Talent
             </button>
           </div>
 
         </div>
       </section>
-
-      {/* ==========================================
-          7. FOOTER SECTION
-          ========================================== */}
-      <footer className="bg-neutral-950 text-neutral-400 py-12 px-4 sm:px-6 lg:px-8 border-t-4 border-neutral-950 text-left font-mono text-xs">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-          
-          <div className="space-y-1 text-center md:text-left">
-            <span className="font-display font-black text-white text-lg tracking-tight uppercase block">
-              GROWTHPADDY
-            </span>
-            <p className="text-[10px] uppercase font-bold text-neutral-500">
-              © {new Date().getFullYear()} GrowthPaddy Inc. Pre-Vetted Talent Operations Network.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-6 text-[10px] uppercase font-bold">
-            <button 
-              onClick={() => navigateToPage('directory')}
-              className="hover:text-white transition cursor-pointer"
-            >
-              Talent Pool Directory
-            </button>
-            <button 
-              onClick={() => navigateToPage('pricing')}
-              className="hover:text-white transition cursor-pointer"
-            >
-              Pricing Plans
-            </button>
-            <button 
-              onClick={() => navigateToPage('assessment')}
-              className="hover:text-white transition cursor-pointer"
-            >
-              Self Diagnostic
-            </button>
-            
-            {/* Subtle Admin Link at bottom right */}
-            <button
-              onClick={() => navigateToPage('admin-login')}
-              className="text-neutral-600 hover:text-neutral-300 transition cursor-pointer text-[9px] border border-neutral-800 px-2 py-1"
-            >
-              Admin Sign In
-            </button>
-          </div>
-
-        </div>
-      </footer>
 
     </div>
   );

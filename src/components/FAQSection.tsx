@@ -13,8 +13,8 @@ const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'f1',
     category: 'candidates',
-    question: 'How does the DSP Talent Hub assessment and verification process work?',
-    answer: 'Unlike generic multiple-choice resume filters, our skill verification program involves rigorous professional assessments. We evaluate actual outputs—such as configuring live marketing databases, executing search performance audits, or setting up automation triggers. Only candidates who demonstrate verified competence and cross our scoring thresholds earn the DSP Professional Verification badges.'
+    question: 'How does the Digital Campux assessment and verification process work?',
+    answer: 'Unlike generic multiple-choice resume filters, our skill verification program involves rigorous professional assessments. We evaluate actual outputs—such as configuring live marketing databases, executing search performance audits, or setting up automation triggers. Only candidates who demonstrate verified competence and cross our scoring thresholds earn the Digital Campux Professional Verification badges.'
   },
   {
     id: 'f2',

@@ -49,6 +49,7 @@ interface TalentDashboardProps {
     email?: string;
     profilePictureUrl?: string;
     slug?: string;
+    vettingStatus?: string;
   };
   onProfileUpdated?: (updatedData: { profile_picture_url?: string; full_name?: string; specialty?: string; slug?: string }) => void;
 }
@@ -739,7 +740,7 @@ export default function TalentDashboard({
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="space-y-0.5">
                   <p className="text-xs font-mono font-bold text-white break-all">
-                    {window.location.origin}/p/{slug || userName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}
+                    {window.location.origin}/#/p/{slug || userName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}
                   </p>
                   <p className="text-[9.5px] font-mono text-neutral-400">
                     Share this unique slug link with recruiters & hiring managers.
@@ -953,7 +954,7 @@ export default function TalentDashboard({
                 </label>
                 <div className="flex items-center">
                   <span className="bg-neutral-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-mono text-xs px-3 py-2.5 border-2 border-r-0 border-neutral-300 dark:border-slate-700 font-bold shrink-0">
-                    growthpaddy.com/p/
+                    digitalcampux.com/p/
                   </span>
                   <input
                     type="text"

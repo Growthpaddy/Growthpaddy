@@ -39,7 +39,7 @@ const PILAR_STAGES = [
     icon: ShieldCheck,
     color: 'emerald',
     description: 'Identity & Score Audited',
-    detailedInfo: 'We perform robust identity verification (KYC), verify credential source legitimacy, and audit exam logs to append the official DSP Talent Hub stamp.'
+    detailedInfo: 'We perform robust identity verification (KYC), verify credential source legitimacy, and audit exam logs to append the official Digital Campux stamp.'
   },
   {
     id: 'internship',
@@ -142,7 +142,7 @@ export function HeroInteractivePipeline() {
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
               <p className="font-mono text-xs uppercase tracking-widest font-semibold text-brand-700">
-                DSP Talent Hub Pillar Breakdown
+                Digital Campux Pillar Breakdown
               </p>
             </div>
             <h4 className="font-display font-semibold text-lg text-neutral-900">
@@ -197,7 +197,7 @@ const STEPS: StepInfo[] = [
     title: 'Get Verified',
     subtitle: 'Robust Quality & Identity Seal',
     description: 'Candidates who pass the high-bar assessments undergo robust audits. We execute secure KYC identity matching, ensure compliance logs, and cross-reference background certificates before branding them as Verified.',
-    badge: 'DSP Talent Verified Stamp',
+    badge: 'Digital Campux Verified Stamp',
     details: [
       'Secure government KYC checks',
       'Anti-cheat assessment logs verification',
@@ -220,7 +220,7 @@ const STEPS: StepInfo[] = [
     step: 5,
     title: 'Get Discovered',
     subtitle: 'Live Intelligence Employer Sourcing',
-    description: 'High-intent employers unlock search tools on the DSP Talent Hub Directory to recruit verified, proven specialists directly. Say goodbye to spam candidates and slow recruiting pipelines.',
+    description: 'High-intent employers unlock search tools on the Digital Campux Directory to recruit verified, proven specialists directly. Say goodbye to spam candidates and slow recruiting pipelines.',
     badge: 'Instant Direct Connection',
     details: [
       'Direct interview requests features',
@@ -367,7 +367,7 @@ export function FiveStepVisualizer() {
                         <ShieldCheck className="w-6 h-6" />
                       </div>
                       <div className="space-y-1">
-                        <h5 className="font-display font-bold text-neutral-900 text-base">DSP Talent Verification Approved</h5>
+                        <h5 className="font-display font-bold text-neutral-900 text-base">Digital Campux Verification Approved</h5>
                         <p className="text-xs text-neutral-400">KYC Verified · Credentials Audited · Account Activated</p>
                       </div>
                       <div className="grid grid-cols-3 gap-2 border-t border-neutral-100 pt-3">
@@ -377,7 +377,7 @@ export function FiveStepVisualizer() {
                         </div>
                         <div>
                           <span className="text-[10px] text-neutral-400 block uppercase">Audited By</span>
-                          <span className="text-xs font-bold font-mono text-neutral-800 font-bold">DSP AI</span>
+                          <span className="text-xs font-bold font-mono text-neutral-800 font-bold">Campux AI</span>
                         </div>
                         <div>
                           <span className="text-[10px] text-neutral-400 block uppercase">Status</span>

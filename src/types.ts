@@ -31,7 +31,7 @@ export interface TalentCandidate {
   name: string;
   avatarUrl: string;
   role: string;
-  specialization: 'SEO' | 'Social Media' | 'Email Marketing' | 'Growth Marketing' | 'PPC' | 'AI Automation';
+  specialization: 'SEO' | 'Social Media' | 'Email Marketing' | 'Growth Marketing' | 'PPC' | 'AI Automation' | 'Full-Stack Developer' | string;
   verificationBadge: 'Verified Intern' | 'Verified Professional' | 'Internship Graduate' | 'Top Performer';
   skills: string[];
   availability: 'Available Immediately' | 'Interviews Open' | 'Onboard in 1 Week' | 'In Placement';

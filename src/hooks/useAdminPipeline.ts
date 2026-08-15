@@ -56,7 +56,7 @@ export function useAdminPipeline() {
         const mapped: TalentProfile[] = data.map((t: any, idx: number) => ({
           id: t.id,
           full_name: t.full_name || t.fullName || t.name || `Candidate #${idx + 1}`,
-          email: t.email || `talent${idx + 1}@growthpaddy.com`,
+          email: t.email || `talent${idx + 1}@digitalcampux.com`,
           specialty: t.specialty || t.specialization || 'Growth Marketing & CRO',
           career_goal: t.career_goal || t.role || 'Full-Time Remote Job',
           created_at: t.created_at || new Date().toISOString(),
@@ -97,7 +97,7 @@ export function useAdminPipeline() {
         const mapped: RecruiterProfile[] = data.map((r: any, idx: number) => ({
           id: r.id || `R${idx + 1}`,
           orgName: r.company_name || r.organization_name || r.orgName || 'Enterprise Partner',
-          email: r.email || r.company_email || 'recruiter@growthpaddy.com',
+          email: r.email || r.company_email || 'recruiter@digitalcampux.com',
           size: r.company_size || r.organization_size || r.size || '11-50',
           industry: r.industry || r.industry_vertical || 'SaaS / B2B',
           neededRole: r.target_talent_type || r.needed_talent_role || r.neededRole || 'Full-Time Dedicated Talent',

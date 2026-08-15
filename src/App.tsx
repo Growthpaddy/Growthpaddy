@@ -383,26 +383,29 @@ export default function App() {
         <AnimatePresence mode="wait">
           <motion.div
             key={currentPage}
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
           >
             
             {/* View 1: Home/Overview Landing Page */}
             {currentPage === 'home' && (
               <div>
                 {onboardingData && (
-                  <div className="bg-[#00A86B] text-white p-3 text-center text-xs font-black uppercase tracking-wider flex flex-col sm:flex-row items-center justify-between px-6 sm:px-12 gap-2 border-b-2 border-neutral-950">
-                    <span>⚡ ACTIVE WORKSPACE: ADDRESSING YOU AS {onboardingData.userName.toUpperCase()} ({onboardingData.userType === 'talent' ? 'VETTED TALENT PIPELINE' : onboardingData.userType === 'recruiter' ? 'RECRUITER PORTAL' : 'GUEST EXPLORER'})</span>
+                  <div className="bg-emerald-50/90 text-emerald-900 px-4 sm:px-8 py-2.5 text-xs font-semibold flex flex-col sm:flex-row items-center justify-between gap-2 border-b border-emerald-200/80">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>Active Workspace: <strong>{onboardingData.userName}</strong> ({onboardingData.userType === 'talent' ? 'Vetted Talent' : onboardingData.userType === 'recruiter' ? 'Recruiter' : 'Guest Explorer'})</span>
+                    </div>
                     <button 
                       onClick={() => {
                         setOnboardingData(null);
                         setCurrentPage('home');
                       }}
-                      className="bg-white hover:bg-neutral-100 text-neutral-950 font-black py-1 px-3 border border-neutral-950 rounded-none text-[9px] cursor-pointer uppercase tracking-widest transition duration-150"
+                      className="bg-white hover:bg-slate-100 text-slate-700 font-semibold py-1 px-3 border border-slate-200 rounded-lg text-xs cursor-pointer transition shadow-2xs"
                     >
-                      RESET SESSION / RE-ENTER PIPELINE
+                      Reset Session
                     </button>
                   </div>
                 )}
@@ -416,21 +419,21 @@ export default function App() {
 
             {/* View 2: Find Talent (Directory Page) */}
             {currentPage === 'directory' && (
-              <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-12">
-                <div className="text-left border-b border-neutral-100 pb-6 space-y-3">
+              <section className="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-10">
+                <div className="text-left border-b border-slate-200/80 pb-6 space-y-2.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[10px] uppercase font-mono font-black text-emerald-800 bg-emerald-50 px-2.5 py-0.5 border border-emerald-950 inline-block">
+                    <span className="text-[11px] font-mono font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
                       VERIFIED DIRECTORY
                     </span>
-                    <span className="text-[10px] uppercase font-mono font-black text-neutral-500 bg-neutral-100 border border-neutral-300 px-2.5 py-0.5 inline-block">
-                      ACTIVE TALENT
+                    <span className="text-[11px] font-mono font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                      1,400+ CANDIDATES
                     </span>
                   </div>
-                  <h2 className="font-display font-black text-3xl sm:text-4xl text-neutral-950 uppercase tracking-tight leading-none">
-                    BROWSE DIGITAL TALENT & GROWTH SPECIALISTS
+                  <h2 className="font-display font-bold text-3xl sm:text-4xl text-slate-900 tracking-tight">
+                    Browse Digital Talent & Growth Specialists
                   </h2>
-                  <p className="text-xs text-neutral-500 font-bold uppercase tracking-wider">
-                    Sourced candidates must clear Phase 1-3 screening protocols before catalog inclusion. Unlock actual candidate files below.
+                  <p className="text-sm text-slate-600 max-w-2xl leading-relaxed">
+                    Every candidate has passed diagnostic testing, practical scenario evaluations, and verified work portfolio reviews. Unlock full candidate files below.
                   </p>
                 </div>
                 
@@ -508,84 +511,100 @@ export default function App() {
 
       {/* FOOTER MODAL - HIRE GENERAL FORM */}
       {isHireModalOpen && (
-        <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white border-4 border-neutral-950 max-w-md w-full p-6 sm:p-8 space-y-6 text-left relative shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-6 text-left relative shadow-2xl">
             <button 
               onClick={() => { setIsHireModalOpen(false); setHireSubmitted(false); }}
-              className="absolute top-4 right-4 text-neutral-400 hover:text-neutral-950 font-mono font-black"
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-700 w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
             >
               ✕
             </button>
-            <div className="border-b border-neutral-100 pb-3">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-805 bg-emerald-50 px-2 py-0.5">PLATFORM MATCHMAKING</span>
-              <h3 className="font-display font-black text-xl text-neutral-950 uppercase tracking-tight mt-1">Acquire Managed Growth Talent</h3>
+            <div className="border-b border-slate-100 pb-4 space-y-1">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
+                Talent Matchmaking
+              </span>
+              <h3 className="font-display font-bold text-xl text-slate-900">
+                Request Verified Talent Match
+              </h3>
+              <p className="text-xs text-slate-500">
+                Tell us your role requirements and we will route matching profiles within 24 hours.
+              </p>
             </div>
             {hireSubmitted ? (
-              <div className="text-center py-6 space-y-4">
-                <CheckCircle2 className="w-12 h-12 text-[#00A86B] mx-auto" />
-                <h4 className="font-display font-black text-sm uppercase tracking-wider text-neutral-900">ACQUISITION BRIEF FILED</h4>
-                <p className="text-xs text-neutral-500 uppercase font-semibold">Your corporate preferences have been recorded. Our partner matchmaking coordinators will review and route a matched talent pipeline within 2 hours.</p>
+              <div className="text-center py-6 space-y-3">
+                <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
+                <h4 className="font-display font-bold text-base text-slate-900">Request Received</h4>
+                <p className="text-xs text-slate-500 leading-relaxed max-w-xs mx-auto">
+                  Your requirements have been recorded. Our talent matching coordinators will connect with you shortly.
+                </p>
+                <button
+                  onClick={() => { setIsHireModalOpen(false); setHireSubmitted(false); }}
+                  className="mt-2 bg-emerald-600 text-white text-xs font-semibold py-2 px-4 rounded-xl cursor-pointer"
+                >
+                  Done
+                </button>
               </div>
             ) : (
               <form 
                 onSubmit={(e) => { e.preventDefault(); setHireSubmitted(true); }}
-                className="space-y-4 text-xs font-sans"
+                className="space-y-4 text-xs"
               >
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[9px] font-mono text-neutral-400 font-bold uppercase block">Your Name</label>
+                    <label className="text-[11px] font-semibold text-slate-700 block">Your Name</label>
                     <input 
                       type="text" 
                       required 
                       value={hireForm.name} 
                       onChange={(e) => setHireForm({ ...hireForm, name: e.target.value })}
-                      placeholder="e.g. Sterling" 
-                      className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/50 focus:bg-white text-xs text-neutral-800"
+                      placeholder="e.g. Alex Smith" 
+                      className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-slate-50/50 focus:bg-white text-xs text-slate-800"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[9px] font-mono text-neutral-400 font-bold uppercase block">Company Name</label>
+                    <label className="text-[11px] font-semibold text-slate-700 block">Company Name</label>
                     <input 
                       type="text" 
                       required 
                       value={hireForm.company} 
                       onChange={(e) => setHireForm({ ...hireForm, company: e.target.value })}
                       placeholder="e.g. Acme Corp" 
-                      className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/50 focus:bg-white text-xs text-neutral-800"
+                      className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-slate-50/50 focus:bg-white text-xs text-slate-800"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[9px] font-mono text-neutral-400 font-bold uppercase block">Specialization Required</label>
+                  <label className="text-[11px] font-semibold text-slate-700 block">Specialization Needed</label>
                   <select 
                     value={hireForm.roleNeeded}
                     onChange={(e) => setHireForm({ ...hireForm, roleNeeded: e.target.value })}
-                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/50 text-xs text-neutral-800"
+                    className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-slate-50/50 text-xs text-slate-800 cursor-pointer"
                   >
-                    <option value="AI Automation">AI Automation operations</option>
-                    <option value="SEO">SEO (Organic/Programmatic)</option>
+                    <option value="AI Automation">AI Automation Operations</option>
+                    <option value="Full-Stack Developer">Full-Stack Developer</option>
+                    <option value="SEO">SEO & Content Architecture</option>
                     <option value="Growth Marketing">Paid Media & CRO Growth Marketing</option>
                   </select>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[9px] font-mono text-neutral-400 font-bold uppercase block">Brief Campaign Details / Requirements</label>
+                  <label className="text-[11px] font-semibold text-slate-700 block">Brief Campaign Details / Requirements</label>
                   <textarea 
                     rows={3} 
                     required 
                     value={hireForm.message} 
                     onChange={(e) => setHireForm({ ...hireForm, message: e.target.value })}
-                    placeholder="Describe the campaign parameters, budget constraints, or toolsets integrations required..." 
-                    className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-neutral-50/50 focus:bg-white text-xs text-neutral-800"
+                    placeholder="Describe specific tech stack, timezone, or project scope requirements..." 
+                    className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-slate-50/50 focus:bg-white text-xs text-slate-800"
                   />
                 </div>
 
                 <button 
                   type="submit" 
-                  className="w-full bg-[#0a1b10] hover:bg-neutral-900 text-white font-bold py-3.5 px-4 rounded-xl text-xs uppercase cursor-pointer"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-4 rounded-xl text-xs cursor-pointer shadow-xs hover:shadow-sm transition"
                 >
-                  File Campaign Brief
+                  Submit Hiring Brief
                 </button>
               </form>
             )}
@@ -595,11 +614,11 @@ export default function App() {
 
       {/* TALENT SIGNUP MODAL */}
       {isTalentModalOpen && (
-        <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto animate-fadeIn">
           <div className="relative w-full max-w-md my-auto">
             <button 
               onClick={() => setIsTalentModalOpen(false)}
-              className="absolute top-3 right-3 text-neutral-400 hover:text-neutral-950 font-mono font-black z-20 bg-white border border-neutral-300 w-8 h-8 flex items-center justify-center rounded-none cursor-pointer"
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 z-20 bg-white/90 border border-slate-200 w-8 h-8 flex items-center justify-center rounded-full cursor-pointer shadow-2xs"
               aria-label="Close modal"
             >
               ✕
@@ -627,27 +646,27 @@ export default function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-neutral-950/80 backdrop-blur-xs flex items-center justify-center z-50 p-4"
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4"
           >
             <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              initial={{ opacity: 0, scale: 0.96, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              transition={{ duration: 0.22, ease: "easeOut" }}
-              className="bg-white border-4 border-neutral-950 max-w-md w-full p-6 sm:p-8 space-y-6 text-left relative shadow-[8px_8px_0px_0px_rgba(0,168,107,1)]"
+              exit={{ opacity: 0, scale: 0.96, y: 10 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-6 text-left relative shadow-2xl"
             >
               
-              <div className="flex items-start justify-between border-b-2 border-dashed border-neutral-200 pb-4">
-                <div>
-                  <span className="text-[9px] uppercase font-mono font-black text-emerald-700 bg-emerald-50 border border-emerald-150 px-2 py-0.5">
-                    SECURE ENTRY GATEWAY
+              <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-0.5 rounded-full">
+                    Authentication
                   </span>
-                  <h3 className="font-display font-black text-xl text-neutral-950 uppercase tracking-tight mt-2 leading-none">
-                    Sign In to Workspace
+                  <h3 className="font-display font-bold text-xl text-slate-900 leading-tight">
+                    Sign In to Account
                   </h3>
-                  <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mt-1.5">
-                    Enter your verified credentials to access your dashboard.
+                  <p className="text-xs text-slate-500">
+                    Select your portal and enter your credentials.
                   </p>
                 </div>
                 <button 
@@ -660,16 +679,16 @@ export default function App() {
                     setShowPassword(false);
                   }}
                   disabled={isSecureLoggingIn}
-                  className="text-neutral-400 hover:text-neutral-950 p-1.5 transition cursor-pointer font-black text-lg border-2 border-transparent hover:border-neutral-950 disabled:opacity-50"
+                  className="text-slate-400 hover:text-slate-700 w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center transition cursor-pointer"
                 >
                   ✕
                 </button>
               </div>
 
               {/* Multi-Track Tabs: Talent, Recruiter & Admin */}
-              <div className="space-y-2">
-                <span className="text-[9px] font-mono text-neutral-400 font-extrabold uppercase block tracking-wider">SELECT GATEWAY TRACK</span>
-                <div className="grid grid-cols-3 border-2 border-neutral-950 bg-neutral-100 p-0.5 relative">
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Account Type</span>
+                <div className="grid grid-cols-3 bg-slate-100 p-1 rounded-xl">
                   {(['talent', 'recruiter', 'admin'] as const).map((role) => (
                     <button
                       key={role}
@@ -682,24 +701,15 @@ export default function App() {
                         setSecureLoginError(null);
                         setSignInError('');
                       }}
-                      className={`relative py-3.5 px-1 font-display font-black text-[9px] sm:text-[10px] uppercase tracking-wider transition-colors cursor-pointer text-center disabled:opacity-50 ${
+                      className={`py-2 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer text-center disabled:opacity-50 ${
                         signInRole === role
-                          ? 'text-white'
-                          : 'text-neutral-600 hover:text-neutral-950 hover:bg-neutral-200/50'
+                          ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                          : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      {signInRole === role && (
-                        <motion.div
-                          layoutId="activeRoleTab"
-                          className="absolute inset-0 bg-neutral-950 border-t-4 border-t-[#00A86B] z-0"
-                          transition={{ type: "spring", stiffness: 450, damping: 32 }}
-                        />
-                      )}
-                      <span className="relative z-10">
-                        {role === 'talent' && 'Talent'}
-                        {role === 'recruiter' && 'Recruiter'}
-                        {role === 'admin' && 'Admin'}
-                      </span>
+                      {role === 'talent' && 'Talent'}
+                      {role === 'recruiter' && 'Recruiter'}
+                      {role === 'admin' && 'Admin'}
                     </button>
                   ))}
                 </div>
@@ -709,26 +719,15 @@ export default function App() {
               <AnimatePresence mode="wait">
                 <motion.form 
                   key={signInRole}
-                  initial={{ opacity: 0, x: 12 }}
+                  initial={{ opacity: 0, x: 8 }}
                   animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -12 }}
-                  transition={{ duration: 0.18, ease: "easeInOut" }}
+                  exit={{ opacity: 0, x: -8 }}
+                  transition={{ duration: 0.15 }}
                   onSubmit={handleSignInSubmit} 
                   className="space-y-4"
                 >
-                  <div className="p-2.5 bg-neutral-50 border border-neutral-200 flex items-center justify-between">
-                    <span className="text-[9px] font-mono font-black text-neutral-600 uppercase tracking-wider">
-                      {signInRole === 'talent' && 'TALENT ACCESS PORTAL'}
-                      {signInRole === 'recruiter' && 'RECRUITER WORKSPACE'}
-                      {signInRole === 'admin' && 'ADMIN COMMAND VAULT'}
-                    </span>
-                    <span className="text-[8px] font-mono font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 uppercase">
-                      READY
-                    </span>
-                  </div>
-
                   <div className="space-y-1">
-                    <label className="text-[9px] font-mono text-neutral-400 font-extrabold uppercase block tracking-wider">EMAIL ADDRESS</label>
+                    <label className="text-[11px] font-semibold text-slate-700 block">Email Address</label>
                     <input 
                       type="email" 
                       required 
@@ -736,16 +735,16 @@ export default function App() {
                       value={signInEmail}
                       onChange={(e) => setSignInEmail(e.target.value)}
                       placeholder={
-                        signInRole === 'talent' ? 'talent@domain.com' :
-                        signInRole === 'recruiter' ? 'recruiter@dsp.com' :
-                        'admin@dsp.com'
+                        signInRole === 'talent' ? 'talent@digitalcampux.com' :
+                        signInRole === 'recruiter' ? 'recruiter@digitalcampux.com' :
+                        'admin@digitalcampux.com'
                       } 
-                      className="w-full border-2 border-neutral-300 rounded-none px-4 py-3 focus:outline-none focus:border-emerald-600 bg-neutral-50 focus:bg-white text-xs font-bold text-neutral-900 tracking-wide disabled:opacity-50"
+                      className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-slate-50/50 focus:bg-white text-xs font-medium text-slate-900 disabled:opacity-50"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[9px] font-mono text-neutral-400 font-extrabold uppercase block tracking-wider">PASSWORD</label>
+                    <label className="text-[11px] font-semibold text-slate-700 block">Password</label>
                     <div className="relative">
                       <input 
                         type={showPassword ? "text" : "password"} 
@@ -754,7 +753,7 @@ export default function App() {
                         value={signInPassword}
                         onChange={(e) => setSignInPassword(e.target.value)}
                         placeholder="••••••••" 
-                        className="w-full border-2 border-neutral-300 rounded-none pl-4 pr-11 py-3 focus:outline-none focus:border-emerald-600 bg-neutral-50 focus:bg-white text-xs font-bold text-neutral-900 tracking-wide disabled:opacity-50"
+                        className="w-full border border-slate-300 rounded-xl pl-3.5 pr-10 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-slate-50/50 focus:bg-white text-xs font-medium text-slate-900 disabled:opacity-50"
                       />
                       <button
                         id="toggle-password-visibility-btn"
@@ -762,7 +761,7 @@ export default function App() {
                         onClick={() => setShowPassword(!showPassword)}
                         disabled={isSecureLoggingIn}
                         aria-label={showPassword ? "Hide password" : "Show password"}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-neutral-400 hover:text-neutral-700 transition-all rounded-none border border-transparent hover:border-neutral-200 bg-transparent disabled:opacity-50 focus:outline-none cursor-pointer"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer"
                       >
                         {showPassword ? (
                           <EyeOff className="w-4 h-4" />
@@ -773,13 +772,13 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Dynamic Slate/Red Error Panel */}
+                  {/* Error Notification */}
                   {(secureLoginError || signInError) && (
-                    <div className="p-3.5 bg-neutral-900 border-l-4 border-rose-500 text-neutral-100 text-xs font-semibold rounded-none space-y-1 animate-shake">
-                      <div className="text-rose-400 font-mono text-[9px] uppercase tracking-wider font-extrabold flex items-center gap-1">
-                        ⚠️ ACCESS DENIED / GATEWAY EXCLUSION
+                    <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl space-y-0.5">
+                      <div className="font-semibold text-rose-900">
+                        Authentication Failed
                       </div>
-                      <div className="leading-relaxed font-sans text-[11px]">
+                      <div className="text-rose-700 text-[11px]">
                         {secureLoginError || signInError}
                       </div>
                     </div>
@@ -788,7 +787,7 @@ export default function App() {
                   <button 
                     type="submit" 
                     disabled={isSecureLoggingIn}
-                    className={`w-full bg-neutral-950 hover:bg-neutral-900 text-white font-black py-3 px-4 rounded-none text-xs uppercase tracking-widest transition cursor-pointer flex items-center justify-center gap-1.5 border-2 border-neutral-950 shadow-[4px_4px_0px_0px_rgba(0,168,107,1)] hover:shadow-none ${
+                    className={`w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-4 rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-2 shadow-xs ${
                       isSecureLoggingIn ? 'opacity-70 cursor-not-allowed' : ''
                     }`}
                   >
@@ -798,32 +797,31 @@ export default function App() {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        <span>VERIFYING PROFILE SECTOR...</span>
+                        <span>Authenticating...</span>
                       </>
                     ) : (
                       <>
-                        <Lock className="w-3.5 h-3.5 text-[#00A86B]" />
-                        <span>SECURE ACCESS LOG IN ({signInRole.toUpperCase()})</span>
+                        <Lock className="w-3.5 h-3.5 text-emerald-100" />
+                        <span>Sign In as {signInRole.charAt(0).toUpperCase() + signInRole.slice(1)}</span>
                       </>
                     )}
                   </button>
                 </motion.form>
               </AnimatePresence>
 
-              <div className="text-center pt-2 border-t border-dashed border-neutral-200">
-                <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">
-                  New to the platform?{' '}
+              <div className="text-center pt-2 border-t border-slate-100">
+                <span className="text-xs text-slate-500">
+                  Need a candidate account?{' '}
                 </span>
                 <button
                   onClick={() => {
                     setIsSignInModalOpen(false);
-                    setOnboardingData(null);
-                    setCurrentPage('home');
+                    setIsTalentModalOpen(true);
                   }}
                   disabled={isSecureLoggingIn}
-                  className="text-[10px] uppercase font-black text-[#00A86B] hover:text-emerald-800 hover:underline tracking-wider cursor-pointer disabled:opacity-50"
+                  className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:underline cursor-pointer"
                 >
-                  Start Onboarding to Register
+                  Apply as Vetted Talent
                 </button>
               </div>
 
