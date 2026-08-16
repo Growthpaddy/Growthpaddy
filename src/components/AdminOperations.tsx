@@ -2123,6 +2123,43 @@ export default function AdminOperations({
               </select>
             </div>
 
+            {/* Marketplace Availability Status Switcher */}
+            <div className="space-y-1.5 bg-neutral-100 border-2 border-neutral-950 p-3">
+              <label className="block text-[10px] font-mono font-black text-neutral-700 uppercase">
+                Marketplace Availability Status:
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setSelectedTalentModal((prev: any) => ({ ...prev, availability_status: 'available' }));
+                    await updateTalentStatus(selectedTalentModal.id, { availability_status: 'available' });
+                  }}
+                  className={`flex-1 py-2 px-3 font-mono text-xs font-black uppercase border-2 cursor-pointer transition ${
+                    (selectedTalentModal.availability_status === 'available' || !selectedTalentModal.availability_status)
+                      ? 'bg-[#00A86B] text-white border-neutral-950'
+                      : 'bg-white text-neutral-700 border-neutral-300'
+                  }`}
+                >
+                  🟢 AVAILABLE FOR HIRE
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setSelectedTalentModal((prev: any) => ({ ...prev, availability_status: 'hired' }));
+                    await updateTalentStatus(selectedTalentModal.id, { availability_status: 'hired' });
+                  }}
+                  className={`flex-1 py-2 px-3 font-mono text-xs font-black uppercase border-2 cursor-pointer transition ${
+                    selectedTalentModal.availability_status === 'hired'
+                      ? 'bg-neutral-900 text-white border-neutral-950'
+                      : 'bg-white text-neutral-700 border-neutral-300'
+                  }`}
+                >
+                  🔒 CURRENTLY HIRED
+                </button>
+              </div>
+            </div>
+
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-2 pt-2">
               <button

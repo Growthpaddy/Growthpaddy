@@ -31,7 +31,9 @@ import {
   UserX,
   UserPlus,
   SlidersHorizontal,
-  GraduationCap
+  GraduationCap,
+  Share2,
+  Copy
 } from 'lucide-react';
 import { TalentCandidate } from '../types';
 import { supabase } from '../lib/supabaseClient';
@@ -40,6 +42,9 @@ interface TalentDirectoryProps {
   employerSlots?: number;
   setEmployerSlots?: React.Dispatch<React.SetStateAction<number>>;
   navigateToPricing?: () => void;
+  selectedSlug?: string;
+  onSelectCandidateSlug?: (slug: string) => void;
+  onCloseProfileModal?: () => void;
   onboardingData?: {
     userType?: 'talent' | 'recruiter' | null;
     userName?: string;
@@ -102,6 +107,9 @@ export default function TalentDirectory({
   employerSlots = 1, 
   setEmployerSlots, 
   navigateToPricing,
+  selectedSlug,
+  onSelectCandidateSlug,
+  onCloseProfileModal,
   onboardingData
 }: TalentDirectoryProps) {
   const [candidatesList, setCandidatesList] = useState<TalentCandidate[]>([]);
@@ -129,32 +137,7 @@ export default function TalentDirectory({
         setFetchError(error.message);
       }
 
-      let allTalentRows = dbData || [];
-
-      // Check for any local fallback candidates saved during offline session registration
-      try {
-        const localCandidates: any[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && key.startsWith('mock_talent_profiles_')) {
-            const itemStr = localStorage.getItem(key);
-            if (itemStr) {
-              const parsed = JSON.parse(itemStr);
-              if (parsed && (parsed.full_name || parsed.userName || parsed.name || parsed.email)) {
-                // If not already in db results by ID, append
-                if (!allTalentRows.some(row => row.id === parsed.id)) {
-                  localCandidates.push(parsed);
-                }
-              }
-            }
-          }
-        }
-        if (localCandidates.length > 0) {
-          allTalentRows = [...allTalentRows, ...localCandidates];
-        }
-      } catch (storageErr) {
-        console.warn('Local storage check warning:', storageErr);
-      }
+      const allTalentRows = dbData || [];
 
       if (allTalentRows && allTalentRows.length > 0) {
         const parsedCandidates: TalentCandidate[] = allTalentRows.map((item: any, idx: number) => {
@@ -164,11 +147,11 @@ export default function TalentDirectory({
           
           let parsedSkills: string[] = [];
           if (Array.isArray(rawSkills) && rawSkills.length > 0) {
-            parsedSkills = rawSkills;
+            parsedSkills = rawSkills.filter(Boolean);
           } else if (typeof rawSkills === 'string' && rawSkills.trim().length > 0) {
             try {
               const jsonParsed = JSON.parse(rawSkills);
-              if (Array.isArray(jsonParsed)) parsedSkills = jsonParsed;
+              if (Array.isArray(jsonParsed)) parsedSkills = jsonParsed.filter(Boolean);
               else parsedSkills = rawSkills.split(',').map(s => s.trim()).filter(Boolean);
             } catch {
               parsedSkills = rawSkills.split(',').map(s => s.trim()).filter(Boolean);
@@ -203,6 +186,7 @@ export default function TalentDirectory({
           const avatar = item.profile_picture_url || item.avatar_url || item.profilePictureUrl || DEFAULT_AVATARS[idx % DEFAULT_AVATARS.length];
           const expLevel = item.experience_level || 'Mid-Level';
           const expYears = (expLevel === 'Senior' || expLevel === 'Seasoned Professional' || expLevel === '5+ years') ? 5 : (expLevel === 'Mid-Level' || expLevel === '3-5 years') ? 3 : 2;
+          const computedSlug = item.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
           return {
             id: item.id || `talent-${idx}`,
@@ -221,7 +205,8 @@ export default function TalentDirectory({
             email: item.email || 'matchmaker@digitalcampux.com',
             phone: item.phone || '+234 816 966 4607',
             about: item.career_goal ? `Career Goal: ${item.career_goal}` : (item.bio || 'Vetted talent candidate active in Digital Campux pool.'),
-            slug: item.slug || (name ? name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : undefined),
+            slug: computedSlug,
+            portfolioUrl: item.portfolio_url || '',
             profilePictureUrl: avatar,
             featuredProject: {
               title: item.portfolio_url ? 'Audited Portfolio & Codebase' : 'Digital Campux Diagnostic Evaluation',
@@ -271,6 +256,21 @@ export default function TalentDirectory({
       supabase.removeChannel(channel);
     };
   }, []);
+
+  // Handle auto-selection when selectedSlug is supplied
+  useEffect(() => {
+    if (selectedSlug && candidatesList.length > 0) {
+      const match = candidatesList.find(c => 
+        c.slug === selectedSlug.toLowerCase() ||
+        c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') === selectedSlug.toLowerCase() ||
+        c.name.toLowerCase() === selectedSlug.toLowerCase().replace(/-/g, ' ')
+      );
+      if (match) {
+        setSelectedCandidate(match);
+        setIsProfileModalOpen(true);
+      }
+    }
+  }, [selectedSlug, candidatesList]);
 
   // Prefilter based on onboarding recruiter role
   useEffect(() => {
@@ -328,8 +328,18 @@ export default function TalentDirectory({
   };
 
   const handleOpenFullProfile = (talent: TalentCandidate) => {
+    const candidateSlug = talent.slug || talent.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    window.history.pushState(null, '', `/${candidateSlug}`);
     setSelectedCandidate(talent);
     setIsProfileModalOpen(true);
+    onSelectCandidateSlug?.(candidateSlug);
+  };
+
+  const handleCloseProfileModal = () => {
+    setIsProfileModalOpen(false);
+    setSelectedCandidate(null);
+    window.history.pushState(null, '', '/directory');
+    onCloseProfileModal?.();
   };
 
   return (
@@ -497,7 +507,8 @@ export default function TalentDirectory({
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  className="bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-emerald-500/40 transition-all duration-200 flex flex-col justify-between space-y-5 text-left group"
+                  onClick={() => handleOpenFullProfile(candidate)}
+                  className="bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-emerald-500/40 transition-all duration-200 flex flex-col justify-between space-y-5 text-left group cursor-pointer"
                 >
                   {/* Header: Name, Specialty Badge & Avatar */}
                   <div className="space-y-4">
@@ -662,7 +673,7 @@ export default function TalentDirectory({
               </div>
 
               <button 
-                onClick={() => setIsProfileModalOpen(false)}
+                onClick={handleCloseProfileModal}
                 className="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 w-8 h-8 rounded-full flex items-center justify-center transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -672,6 +683,47 @@ export default function TalentDirectory({
             {/* Modal Body */}
             <div className="p-6 sm:p-8 space-y-6 max-h-[70vh] overflow-y-auto">
               
+              {/* Shareable Unique Link Bar */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200/90 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
+                <div className="flex items-center gap-2.5">
+                  <Share2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <div>
+                    <span className="text-[10px] font-mono text-slate-500 uppercase font-semibold block">
+                      Direct Profile URL
+                    </span>
+                    <span className="text-xs font-mono font-bold text-slate-800 break-all">
+                      {window.location.origin}/{selectedCandidate.slug || selectedCandidate.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => {
+                      const url = `${window.location.origin}/${selectedCandidate.slug || selectedCandidate.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+                      navigator.clipboard.writeText(url);
+                      alert('Profile URL copied to clipboard!');
+                    }}
+                    className="bg-slate-900 hover:bg-emerald-600 text-white font-semibold px-3 py-1.5 text-xs rounded-xl flex items-center gap-1.5 cursor-pointer transition shadow-2xs"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy Link</span>
+                  </button>
+
+                  {selectedCandidate.portfolioUrl && (
+                    <a
+                      href={selectedCandidate.portfolioUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3 py-1.5 text-xs rounded-xl flex items-center gap-1.5 cursor-pointer transition shadow-2xs"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Live Portfolio</span>
+                    </a>
+                  )}
+                </div>
+              </div>
+
               {/* Career Goal & Bio */}
               <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 space-y-2">
                 <h5 className="font-mono text-xs font-semibold text-emerald-700 uppercase tracking-wider flex items-center gap-2">

@@ -57,31 +57,7 @@ export const FeaturedSpecialists: React.FC<FeaturedSpecialistsProps> = ({
           .from('talent_profiles')
           .select('*');
 
-        let candidateRows = allTalents || [];
-
-        // Check local storage mock entries if any were created during current session
-        try {
-          const localCandidates: any[] = [];
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && (key.startsWith('mock_talent_profiles_') || key.startsWith('digitalcampux_talent_profile_'))) {
-              const itemStr = localStorage.getItem(key);
-              if (itemStr) {
-                const parsed = JSON.parse(itemStr);
-                if (parsed && (parsed.full_name || parsed.userName || parsed.name || parsed.email)) {
-                  if (!candidateRows.some((row: any) => row.id === parsed.id)) {
-                    localCandidates.push(parsed);
-                  }
-                }
-              }
-            }
-          }
-          if (localCandidates.length > 0) {
-            candidateRows = [...candidateRows, ...localCandidates];
-          }
-        } catch (storageErr) {
-          console.warn('Storage check notice:', storageErr);
-        }
+        const candidateRows = allTalents || [];
 
         if (error) {
           console.error("Error fetching featured specialists:", error);

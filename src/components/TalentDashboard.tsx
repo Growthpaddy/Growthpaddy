@@ -255,8 +255,8 @@ export default function TalentDashboard({
   ];
 
   const handleCopyPublicLink = () => {
-    const currentSlug = slug || userName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const shareUrl = `${window.location.origin}/#/p/${currentSlug}`;
+    const currentSlug = slug || userName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const shareUrl = `${window.location.origin}/${currentSlug}`;
     navigator.clipboard.writeText(shareUrl);
     setCopiedSlugLink(true);
     setTimeout(() => setCopiedSlugLink(false), 2500);
@@ -1236,8 +1236,8 @@ export default function TalentDashboard({
                   </div>
                 </div>
 
-                {/* Candidate Badge Tag */}
-                <div className="text-right shrink-0">
+                {/* Candidate Badge Tag & Availability */}
+                <div className="text-right shrink-0 flex flex-col items-end gap-1">
                   {isVerifiedByAdmin ? (
                     <span className="inline-flex items-center gap-1 bg-emerald-500 text-white text-[9px] font-mono font-black px-2 py-0.5 border border-neutral-950 uppercase">
                       🏆 VERIFIED SKILLS
@@ -1245,6 +1245,21 @@ export default function TalentDashboard({
                   ) : (
                     <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 text-[8.5px] font-mono font-bold px-2 py-0.5 border border-amber-300 dark:border-amber-700 uppercase">
                       UNVERIFIED SKILLS
+                    </span>
+                  )}
+
+                  {availabilityStatus === 'available' || !availabilityStatus ? (
+                    <span className="inline-flex items-center gap-1 text-[8.5px] font-mono font-black px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 uppercase">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                      </span>
+                      AVAILABLE FOR HIRE
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[8.5px] font-mono font-black px-2 py-0.5 bg-slate-800 text-slate-300 border border-slate-700 uppercase">
+                      <Lock className="w-2.5 h-2.5 text-slate-400" />
+                      CURRENTLY HIRED
                     </span>
                   )}
                 </div>

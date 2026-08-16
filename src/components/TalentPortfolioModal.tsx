@@ -48,46 +48,107 @@ export default function TalentPortfolioModal({
   onboardingData
 }: TalentPortfolioModalProps) {
   const [copiedLink, setCopiedLink] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [fetchedData, setFetchedData] = useState<{
     userName?: string;
     specialty?: string;
     experienceLevel?: string;
     careerGoal?: string;
+    bio?: string;
     email?: string;
+    phone?: string;
+    location?: string;
     portfolioUrl?: string;
     profilePictureUrl?: string;
     slug?: string;
     availability_status?: 'available' | 'hired';
+    vetting_status?: string;
+    score?: number;
+    skills?: string[];
   } | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
 
-    const targetSlug = publicSlug || onboardingData?.slug;
-    if (targetSlug && publicSlug) {
+    const targetSlug = (publicSlug || onboardingData?.slug || '').trim();
+    if (targetSlug) {
       const fetchBySlug = async () => {
+        setLoading(true);
         try {
-          const { data } = await supabase
+          // 1. Try exact slug match
+          let { data } = await supabase
             .from('talent_profiles')
             .select('*')
-            .eq('slug', targetSlug)
+            .eq('slug', targetSlug.toLowerCase())
             .maybeSingle();
 
+          // 2. Fallback to name search if slug not matched
+          if (!data) {
+            const nameGuess = targetSlug.replace(/-/g, ' ');
+            const { data: nameMatch } = await supabase
+              .from('talent_profiles')
+              .select('*')
+              .ilike('full_name', `%${nameGuess}%`)
+              .maybeSingle();
+            if (nameMatch) data = nameMatch;
+          }
+
+          // 3. Fallback to slug partial match
+          if (!data) {
+            const { data: slugPartial } = await supabase
+              .from('talent_profiles')
+              .select('*')
+              .ilike('slug', `%${targetSlug}%`)
+              .maybeSingle();
+            if (slugPartial) data = slugPartial;
+          }
+
+          // 4. Fallback to id match if UUID format
+          if (!data && targetSlug.length > 20) {
+            const { data: idMatch } = await supabase
+              .from('talent_profiles')
+              .select('*')
+              .eq('id', targetSlug)
+              .maybeSingle();
+            if (idMatch) data = idMatch;
+          }
+
           if (data) {
+            let parsedSkills: string[] = [];
+            if (Array.isArray(data.skills)) {
+              parsedSkills = data.skills.filter(Boolean);
+            } else if (typeof data.skills === 'string' && data.skills.trim()) {
+              try {
+                const parsed = JSON.parse(data.skills);
+                if (Array.isArray(parsed)) parsedSkills = parsed;
+                else parsedSkills = data.skills.split(',').map((s: string) => s.trim()).filter(Boolean);
+              } catch {
+                parsedSkills = data.skills.split(',').map((s: string) => s.trim()).filter(Boolean);
+              }
+            }
+
             setFetchedData({
               userName: data.full_name || 'Verified Talent',
               specialty: data.specialty || 'AI Automation & Growth Specialist',
               experienceLevel: data.experience_level || 'Seasoned Professional',
-              careerGoal: data.career_goal || 'Building automated growth systems',
+              careerGoal: data.career_goal || data.bio || 'Building automated growth systems and scalable workflows.',
+              bio: data.bio || data.career_goal,
               email: data.email || 'talent@digitalcampux.com',
+              phone: data.phone || '+234 816 966 4607',
+              location: data.location || 'Lagos, Nigeria (Remote)',
               portfolioUrl: data.portfolio_url || '',
               profilePictureUrl: data.profile_picture_url || '',
               slug: data.slug || targetSlug,
-              availability_status: data.availability_status || 'available'
+              availability_status: data.availability_status === 'hired' ? 'hired' : 'available',
+              vetting_status: data.vetting_status || 'verified',
+              score: typeof data.phase_1_score === 'number' ? data.phase_1_score : 100,
+              skills: parsedSkills
             });
           }
         } catch (err) {
           console.warn('Error fetching candidate profile by slug:', err);
+        } finally {
+          setLoading(false);
         }
       };
       fetchBySlug();
@@ -105,9 +166,9 @@ export default function TalentPortfolioModal({
   const email = displayData?.email || 'talent@digitalcampux.com';
   const portfolioUrl = displayData?.portfolioUrl || '';
   const profilePictureUrl = displayData?.profilePictureUrl || '';
-  const slug = displayData?.slug || candidateName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const slug = displayData?.slug || candidateName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   const availabilityStatus: 'available' | 'hired' = displayData?.availability_status === 'hired' ? 'hired' : 'available';
-  const shareableUrl = `${window.location.origin}/#/p/${slug}`;
+  const shareableUrl = `${window.location.origin}/${slug}`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(shareableUrl);
@@ -115,10 +176,12 @@ export default function TalentPortfolioModal({
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
-  const defaultSkills = [
-    'TypeScript', 'Workflow Automation', 'Cloud APIs', 'Python', 
-    'Make.com', 'Zapier', 'GA4 Analytics', 'LLM Prompts', 'Data Pipelines'
-  ];
+  const candidateSkills = (fetchedData?.skills && fetchedData.skills.length > 0)
+    ? fetchedData.skills
+    : [
+        'TypeScript', 'Workflow Automation', 'Cloud APIs', 'Python', 
+        'Make.com', 'Zapier', 'GA4 Analytics', 'LLM Prompts', 'Data Pipelines'
+      ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto animate-fadeIn">
@@ -278,7 +341,7 @@ export default function TalentPortfolioModal({
             </div>
 
             <div className="flex flex-wrap gap-1.5">
-              {defaultSkills.map((skill, idx) => (
+              {candidateSkills.map((skill, idx) => (
                 <span
                   key={idx}
                   className="text-[11px] font-mono font-semibold px-2.5 py-1 bg-slate-100 text-slate-800 rounded-lg border border-slate-200"

@@ -85,7 +85,7 @@ export default function App() {
   const getRouteFromLocation = (): { page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login'; slug?: string } => {
     let rawPath = window.location.pathname;
 
-    // Check if user entered via a hash URL (e.g., /#/directory, /#/p/marcus-vance, or #directory)
+    // Check if user entered via a hash URL (e.g., /#/directory, /#/marcus-vance, /#/p/marcus-vance, or #directory)
     if (window.location.hash) {
       const hashContent = window.location.hash.replace(/^#\/?/, '/');
       if (hashContent) {
@@ -93,21 +93,29 @@ export default function App() {
       }
     }
 
-    const cleaned = rawPath.replace(/\/$/, '').toLowerCase();
+    let cleaned = decodeURIComponent(rawPath.replace(/\/$/, '')).trim();
 
     // Direct candidate profile link: /p/some-slug
     if (cleaned.startsWith('/p/')) {
-      const slug = cleaned.replace('/p/', '');
+      const slug = cleaned.replace('/p/', '').trim();
       return { page: 'directory', slug };
     }
 
-    if (cleaned === '/directory') return { page: 'directory' };
-    if (cleaned === '/recruiter-profile' || cleaned === '/employer') return { page: 'employer' };
-    if (cleaned === '/talent-profile' || cleaned === '/talent') return { page: 'talent' };
-    if (cleaned === '/assessment') return { page: 'assessment' };
-    if (cleaned === '/pricing') return { page: 'pricing' };
-    if (cleaned === '/admin-profile' || cleaned === '/admin') return { page: 'admin' };
-    if (cleaned === '/admin-login') return { page: 'admin-login' };
+    const lower = cleaned.toLowerCase();
+    if (lower === '' || lower === '/') return { page: 'home' };
+    if (lower === '/directory') return { page: 'directory' };
+    if (lower === '/recruiter-profile' || lower === '/employer') return { page: 'employer' };
+    if (lower === '/talent-profile' || lower === '/talent') return { page: 'talent' };
+    if (lower === '/assessment') return { page: 'assessment' };
+    if (lower === '/pricing') return { page: 'pricing' };
+    if (lower === '/admin-profile' || lower === '/admin') return { page: 'admin' };
+    if (lower === '/admin-login') return { page: 'admin-login' };
+
+    // Direct candidate slug / name route: /[talent-name] or /[talent-slug]
+    const candidateIdentifier = cleaned.replace(/^\//, '').trim();
+    if (candidateIdentifier && candidateIdentifier !== '') {
+      return { page: 'directory', slug: candidateIdentifier };
+    }
 
     return { page: 'home' };
   };
@@ -447,6 +455,9 @@ export default function App() {
                   employerSlots={employerSlots} 
                   setEmployerSlots={setEmployerSlots}
                   navigateToPricing={() => navigateToPage('pricing')}
+                  selectedSlug={selectedPublicSlug}
+                  onSelectCandidateSlug={(slug) => setSelectedPublicSlug(slug)}
+                  onCloseProfileModal={() => setSelectedPublicSlug(undefined)}
                   onboardingData={onboardingData as any}
                 />
               </section>
