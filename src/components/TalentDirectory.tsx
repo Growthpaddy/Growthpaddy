@@ -213,6 +213,7 @@ export default function TalentDirectory({
             verificationBadge: verificationBadge,
             skills: parsedSkills,
             availability: item.availability || 'Available Immediately',
+            availability_status: item.availability_status === 'hired' ? 'hired' : 'available',
             portfolioScore: score,
             experienceCount: expYears,
             bio: item.bio || item.about || (item.career_goal ? `Career Focus: ${item.career_goal}. Evaluated through Digital Campux vetting pipeline.` : 'Evaluated through Digital Campux technical vetting pipeline.'),
@@ -500,25 +501,45 @@ export default function TalentDirectory({
                 >
                   {/* Header: Name, Specialty Badge & Avatar */}
                   <div className="space-y-4">
-                    <div className="flex items-start gap-3.5">
-                      <img 
-                        src={candidate.avatarUrl} 
-                        alt={candidate.name}
-                        className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="space-y-0.5">
-                        <h4 className="font-display font-bold text-base text-slate-900 group-hover:text-emerald-600 transition-colors">
-                          {candidate.name}
-                        </h4>
-                        <p className="text-xs text-emerald-700 font-semibold">
-                          {candidate.role}
-                        </p>
-                        <p className="text-[11px] text-slate-400 flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-slate-400" />
-                          <span>{candidate.location}</span>
-                        </p>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3.5">
+                        <img 
+                          src={candidate.avatarUrl} 
+                          alt={candidate.name}
+                          className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="space-y-0.5">
+                          <h4 className="font-display font-bold text-base text-slate-900 group-hover:text-emerald-600 transition-colors">
+                            {candidate.name}
+                          </h4>
+                          <p className="text-xs text-emerald-700 font-semibold">
+                            {candidate.role}
+                          </p>
+                          <p className="text-[11px] text-slate-400 flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-slate-400" />
+                            <span>{candidate.location}</span>
+                          </p>
+                        </div>
                       </div>
+                    </div>
+
+                    {/* Availability Status Badge */}
+                    <div>
+                      {candidate.availability_status === 'available' || !candidate.availability_status ? (
+                        <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-full font-mono font-bold text-[10px] tracking-wide uppercase">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                          </span>
+                          AVAILABLE FOR HIRE
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-1 rounded-full font-mono font-bold text-[10px] tracking-wide uppercase">
+                          <Lock className="w-3 h-3 text-slate-400" />
+                          CURRENTLY HIRED
+                        </span>
+                      )}
                     </div>
 
                     {/* Score & Vetting Tags */}
@@ -615,6 +636,20 @@ export default function TalentDirectory({
                     <span className="bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
                       ✓ {selectedCandidate.verificationBadge}
                     </span>
+                    {selectedCandidate.availability_status === 'available' || !selectedCandidate.availability_status ? (
+                      <span className="inline-flex items-center gap-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-mono font-bold text-[10px] tracking-wide uppercase">
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                        </span>
+                        AVAILABLE FOR HIRE
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-0.5 rounded-full font-mono font-bold text-[10px] tracking-wide uppercase">
+                        <Lock className="w-3 h-3 text-slate-400" />
+                        CURRENTLY HIRED
+                      </span>
+                    )}
                   </div>
                   <p className="text-emerald-400 text-xs font-semibold">
                     {selectedCandidate.role}

@@ -41,6 +41,8 @@ interface TalentDashboardProps {
   isTalentPaid?: boolean;
   setIsTalentPaid?: React.Dispatch<React.SetStateAction<boolean>>;
   navigateToPage?: (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing') => void;
+  availabilityStatus?: 'available' | 'hired';
+  onStatusChange?: (status: 'available' | 'hired') => void;
   onboardingData?: {
     userName?: string;
     experienceLevel?: string;
@@ -50,6 +52,7 @@ interface TalentDashboardProps {
     profilePictureUrl?: string;
     slug?: string;
     vettingStatus?: string;
+    availability_status?: 'available' | 'hired';
   };
   onProfileUpdated?: (updatedData: { profile_picture_url?: string; full_name?: string; specialty?: string; slug?: string }) => void;
 }
@@ -152,6 +155,8 @@ export default function TalentDashboard({
   isTalentPaid = false, 
   setIsTalentPaid,
   navigateToPage,
+  availabilityStatus = 'available',
+  onStatusChange,
   onboardingData,
   onProfileUpdated
 }: TalentDashboardProps) {
@@ -723,6 +728,68 @@ export default function TalentDashboard({
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase leading-snug mt-1">
                 Fill out your details to immediately appear in recruiter searches. (Tagged as <span className="font-bold text-amber-600 dark:text-amber-400">"UNVERIFIED SKILLS"</span> until verified by an Admin).
               </p>
+            </div>
+
+            {/* Availability Status Card & Switcher */}
+            <div className="bg-white dark:bg-slate-900 border-2 border-neutral-900 dark:border-slate-800 p-4 space-y-3 shadow-[3px_3px_0px_0px_rgba(0,168,107,1)]">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-neutral-200 dark:border-slate-800 pb-2">
+                <span className="text-[9px] font-mono font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5 text-[#00A86B]" />
+                  RECRUITER VISIBILITY & HIRING STATUS
+                </span>
+                <div>
+                  {availabilityStatus === 'available' ? (
+                    <span className="inline-flex items-center gap-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-mono font-bold text-[10px] uppercase tracking-wide">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                      AVAILABLE FOR HIRE
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-0.5 rounded-full font-mono font-bold text-[10px] uppercase tracking-wide">
+                      <Lock className="w-3 h-3 text-slate-400" />
+                      CURRENTLY HIRED
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
+                <p className="text-xs text-slate-600 dark:text-slate-400">
+                  Switch your availability status to notify recruiters when you are actively interviewing or currently under contract.
+                </p>
+
+                {onStatusChange && (
+                  <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => onStatusChange('available')}
+                      className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg font-mono text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer border ${
+                        availabilityStatus === 'available'
+                          ? 'bg-emerald-500 text-white border-emerald-600 shadow-xs'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:border-emerald-500'
+                      }`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-300"></span>
+                      <span>Available</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => onStatusChange('hired')}
+                      className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg font-mono text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer border ${
+                        availabilityStatus === 'hired'
+                          ? 'bg-slate-700 text-white border-slate-600 shadow-xs'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:border-slate-500'
+                      }`}
+                    >
+                      <Lock className="w-3 h-3 text-slate-400" />
+                      <span>Hired</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Public Portfolio & Unique Shareable Link Card */}

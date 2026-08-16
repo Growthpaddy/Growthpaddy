@@ -18,7 +18,8 @@ import {
   Copy,
   Check,
   Share2,
-  FolderKanban
+  FolderKanban,
+  Lock
 } from 'lucide-react';
 
 interface TalentPortfolioModalProps {
@@ -35,6 +36,7 @@ interface TalentPortfolioModalProps {
     portfolioUrl?: string;
     profilePictureUrl?: string;
     slug?: string;
+    availability_status?: 'available' | 'hired';
   } | null;
 }
 
@@ -55,6 +57,7 @@ export default function TalentPortfolioModal({
     portfolioUrl?: string;
     profilePictureUrl?: string;
     slug?: string;
+    availability_status?: 'available' | 'hired';
   } | null>(null);
 
   useEffect(() => {
@@ -79,7 +82,8 @@ export default function TalentPortfolioModal({
               email: data.email || 'talent@digitalcampux.com',
               portfolioUrl: data.portfolio_url || '',
               profilePictureUrl: data.profile_picture_url || '',
-              slug: data.slug || targetSlug
+              slug: data.slug || targetSlug,
+              availability_status: data.availability_status || 'available'
             });
           }
         } catch (err) {
@@ -102,6 +106,7 @@ export default function TalentPortfolioModal({
   const portfolioUrl = displayData?.portfolioUrl || '';
   const profilePictureUrl = displayData?.profilePictureUrl || '';
   const slug = displayData?.slug || candidateName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const availabilityStatus: 'available' | 'hired' = displayData?.availability_status === 'hired' ? 'hired' : 'available';
   const shareableUrl = `${window.location.origin}/#/p/${slug}`;
 
   const handleCopyLink = () => {
@@ -171,6 +176,22 @@ export default function TalentPortfolioModal({
                     <span className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
                       ✓ Verified Skills
                     </span>
+
+                    {/* BOLD AVAILABILITY STATUS BADGE */}
+                    {availabilityStatus === 'available' ? (
+                      <span className="inline-flex items-center gap-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-full font-bold text-xs tracking-wide uppercase">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        AVAILABLE FOR HIRE
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 bg-slate-800 text-slate-300 border border-slate-700 px-3 py-1 rounded-full font-bold text-xs tracking-wide uppercase">
+                        <Lock className="w-3.5 h-3.5 text-slate-400" />
+                        CURRENTLY HIRED
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-emerald-400 font-semibold mt-0.5">
                     {specialty} · {experienceTier}

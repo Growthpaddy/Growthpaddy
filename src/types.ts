@@ -35,6 +35,7 @@ export interface TalentCandidate {
   verificationBadge: 'Verified Intern' | 'Verified Professional' | 'Internship Graduate' | 'Top Performer';
   skills: string[];
   availability: 'Available Immediately' | 'Interviews Open' | 'Onboard in 1 Week' | 'In Placement';
+  availability_status?: 'available' | 'hired';
   portfolioScore: number;
   featuredProject: {
     title: string;

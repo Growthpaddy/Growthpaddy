@@ -8,7 +8,8 @@ import {
   UserCheck, 
   AlertCircle,
   Clock,
-  Briefcase
+  Briefcase,
+  Lock
 } from 'lucide-react';
 
 interface FeaturedSpecialist {
@@ -18,6 +19,7 @@ interface FeaturedSpecialist {
   specialty: string;
   isApproved: boolean;
   vettingStatus: string;
+  availability_status: 'available' | 'hired';
   skills: string[];
   score: number;
   avatarUrl: string;
@@ -122,6 +124,7 @@ export const FeaturedSpecialists: React.FC<FeaturedSpecialistsProps> = ({
             // Default Unverified Status Display:
             // Only 'approved' is verified. Everything else is unverified.
             const isApproved = item.vetting_status === 'approved';
+            const availability_status = item.availability_status === 'hired' ? 'hired' : 'available';
 
             const score = typeof item.phase_1_score === 'number'
               ? item.phase_1_score
@@ -140,6 +143,7 @@ export const FeaturedSpecialists: React.FC<FeaturedSpecialistsProps> = ({
               specialty: rawSpecialty,
               isApproved,
               vettingStatus: item.vetting_status || 'unverified',
+              availability_status,
               skills: parsedSkills.slice(0, 3),
               score,
               avatarUrl: avatar,
@@ -254,21 +258,41 @@ export const FeaturedSpecialists: React.FC<FeaturedSpecialistsProps> = ({
               >
                 <div className="space-y-4">
                   {/* Avatar, Name & Specialty */}
-                  <div className="flex items-center gap-3.5">
-                    <img 
-                      src={candidate.avatarUrl} 
-                      alt={candidate.name}
-                      className="w-12 h-12 rounded-xl object-cover border border-slate-600 shrink-0"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-bold text-sm text-white group-hover:text-emerald-400 transition-colors truncate">
-                        {candidate.name}
-                      </h4>
-                      <p className="text-xs text-emerald-400 font-medium truncate">
-                        {candidate.specialty}
-                      </p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <img 
+                        src={candidate.avatarUrl} 
+                        alt={candidate.name}
+                        className="w-12 h-12 rounded-xl object-cover border border-slate-600 shrink-0"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-bold text-sm text-white group-hover:text-emerald-400 transition-colors truncate">
+                          {candidate.name}
+                        </h4>
+                        <p className="text-xs text-emerald-400 font-medium truncate">
+                          {candidate.specialty}
+                        </p>
+                      </div>
                     </div>
+                  </div>
+
+                  {/* Availability Badge */}
+                  <div>
+                    {candidate.availability_status === 'available' ? (
+                      <span className="inline-flex items-center gap-1.5 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full font-mono font-bold text-[10px] tracking-wide uppercase">
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                        </span>
+                        AVAILABLE FOR HIRE
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 bg-slate-900 text-slate-400 border border-slate-700 px-2.5 py-1 rounded-full font-mono font-bold text-[10px] tracking-wide uppercase">
+                        <Lock className="w-3 h-3 text-slate-400" />
+                        CURRENTLY HIRED
+                      </span>
+                    )}
                   </div>
 
                   {/* Vetting Status Badge: Approved vs Open / Unverified */}
