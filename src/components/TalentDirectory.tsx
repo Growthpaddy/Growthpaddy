@@ -168,15 +168,24 @@ export default function TalentDirectory({
             else parsedSkills = ['Klaviyo', 'Lifecycle Automation', 'Segmentation', 'SMS Marketing'];
           }
 
-          const score = typeof item.phase_1_score === 'number' 
-            ? item.phase_1_score 
-            : typeof item.latest_quiz_score === 'number'
-            ? item.latest_quiz_score
-            : item.phase_1_quiz_passed 
-            ? 96 
-            : 88;
+          let score = 0;
+          if (typeof item.score === 'number' && !isNaN(item.score)) {
+            score = item.score;
+          } else if (typeof item.latest_quiz_score === 'number' && !isNaN(item.latest_quiz_score)) {
+            score = item.latest_quiz_score;
+          } else if (typeof item.phase_1_score === 'number' && !isNaN(item.phase_1_score)) {
+            score = item.phase_1_score;
+          } else if (item.phase_1_quiz_passed && item.phase_2_interview_passed && (item.phase_3_fee_paid || item.vetting_status === 'approved' || item.vetting_status === 'verified')) {
+            score = 100;
+          } else if (item.phase_1_quiz_passed && item.phase_2_interview_passed) {
+            score = 85;
+          } else if (item.phase_1_quiz_passed) {
+            score = 75;
+          } else {
+            score = 0;
+          }
 
-          const isVerified = item.vetting_status === 'approved' || item.vetting_status === 'verified' || item.phase_3_fee_paid || item.phase_4_portfolio_submitted;
+          const isVerified = item.vetting_status === 'approved' || item.vetting_status === 'verified' || (item.phase_1_quiz_passed && item.phase_2_interview_passed && item.phase_3_fee_paid);
           const verificationBadge: 'Verified Professional' | 'Top Performer' | 'Verified Intern' = isVerified
             ? 'Verified Professional'
             : item.phase_1_quiz_passed
@@ -195,6 +204,7 @@ export default function TalentDirectory({
             role: item.specialty || `${normalizedSpec} Specialist`,
             specialization: normalizedSpec,
             verificationBadge: verificationBadge,
+            isVerified: isVerified,
             skills: parsedSkills,
             availability: item.availability || 'Available Immediately',
             availability_status: item.availability_status === 'hired' ? 'hired' : 'available',
@@ -508,65 +518,88 @@ export default function TalentDirectory({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   onClick={() => handleOpenFullProfile(candidate)}
-                  className="bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-emerald-500/40 transition-all duration-200 flex flex-col justify-between space-y-5 text-left group cursor-pointer"
+                  className="bg-white border border-slate-200/90 hover:border-slate-300 hover:shadow-lg rounded-2xl p-5 sm:p-6 transition-all duration-200 flex flex-col justify-between space-y-4 text-left group cursor-pointer relative"
                 >
-                  {/* Header: Name, Specialty Badge & Avatar */}
                   <div className="space-y-4">
+                    {/* Header: Avatar, Name, Role, Location and Badges */}
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-start gap-3.5">
-                        <img 
-                          src={candidate.avatarUrl} 
-                          alt={candidate.name}
-                          className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0"
-                          referrerPolicy="no-referrer"
-                        />
-                        <div className="space-y-0.5">
-                          <h4 className="font-display font-bold text-base text-slate-900 group-hover:text-emerald-600 transition-colors">
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <div className="relative shrink-0">
+                          <img 
+                            src={candidate.avatarUrl} 
+                            alt={candidate.name}
+                            className="w-12 h-12 rounded-xl object-cover border border-slate-200/80 shadow-2xs"
+                            referrerPolicy="no-referrer"
+                          />
+                          {candidate.availability_status === 'available' || !candidate.availability_status ? (
+                            <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white ring-2 ring-white">
+                              <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+                            </span>
+                          ) : (
+                            <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-900 ring-2 ring-white">
+                              <span className="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <h4 className="font-display font-bold text-sm sm:text-base text-slate-900 group-hover:text-emerald-600 transition-colors truncate">
                             {candidate.name}
                           </h4>
-                          <p className="text-xs text-emerald-700 font-semibold">
+                          <p className="text-xs text-emerald-700 font-medium truncate">
                             {candidate.role}
                           </p>
-                          <p className="text-[11px] text-slate-400 flex items-center gap-1">
-                            <MapPin className="w-3 h-3 text-slate-400" />
+                          <p className="text-[11px] text-slate-400 flex items-center gap-1 truncate">
+                            <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
                             <span>{candidate.location}</span>
                           </p>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Availability Status Badge */}
-                    <div>
-                      {candidate.availability_status === 'available' || !candidate.availability_status ? (
-                        <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-full font-mono font-bold text-[10px] tracking-wide uppercase">
-                          <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      {/* Status Badges */}
+                      <div className="flex flex-col items-end gap-1.5 shrink-0">
+                        {/* Verified vs Unverified Badge */}
+                        {candidate.isVerified ? (
+                          <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200/90 text-[11px] font-semibold px-2 py-0.5 rounded-md shadow-2xs">
+                            <Check className="w-3 h-3 text-emerald-600" />
+                            <span>Verified</span>
                           </span>
-                          AVAILABLE FOR HIRE
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-1 rounded-full font-mono font-bold text-[10px] tracking-wide uppercase">
-                          <Lock className="w-3 h-3 text-slate-400" />
-                          CURRENTLY HIRED
-                        </span>
-                      )}
+                        ) : (
+                          <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-semibold px-2 py-0.5 rounded-md">
+                            <Clock className="w-3 h-3 text-slate-400" />
+                            <span>Unverified</span>
+                          </span>
+                        )}
+
+                        {/* Availability Indicator */}
+                        {candidate.availability_status === 'available' || !candidate.availability_status ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                            <span>Available</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-500">
+                            <Lock className="w-2.5 h-2.5 text-slate-400" />
+                            <span>Hired</span>
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Score & Vetting Tags */}
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="bg-emerald-50 text-emerald-800 border border-emerald-200/80 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                        <span>{candidate.verificationBadge}</span>
-                      </span>
-
-                      <span className="bg-amber-50 text-amber-800 border border-amber-200/80 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">
-                        Score: {candidate.portfolioScore}%
-                      </span>
-
-                      <span className="bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-mono font-medium px-2 py-0.5 rounded-full">
-                        {candidate.experienceCount >= 5 ? 'Senior' : 'Mid-Level'}
-                      </span>
+                    {/* Metric / Meta Strip */}
+                    <div className="grid grid-cols-3 gap-2 py-2 px-3 bg-slate-50 border border-slate-100 rounded-xl text-center">
+                      <div>
+                        <span className="block text-[10px] uppercase font-mono font-medium text-slate-400">Score</span>
+                        <span className="text-xs font-bold text-slate-800">{candidate.portfolioScore}/100</span>
+                      </div>
+                      <div className="border-x border-slate-200/60">
+                        <span className="block text-[10px] uppercase font-mono font-medium text-slate-400">Exp</span>
+                        <span className="text-xs font-bold text-slate-800">{candidate.experienceCount >= 5 ? 'Senior' : 'Mid-Level'}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] uppercase font-mono font-medium text-slate-400">Track</span>
+                        <span className="text-xs font-bold text-slate-800 truncate block px-1">{candidate.specialization}</span>
+                      </div>
                     </div>
 
                     {/* Bio / Summary */}
@@ -575,19 +608,22 @@ export default function TalentDirectory({
                     </p>
 
                     {/* Core Skill Tags */}
-                    <div className="flex flex-wrap gap-1.5 pt-1">
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
                       {candidate.skills.slice(0, 4).map((skill, idx) => (
                         <button
                           key={idx}
-                          onClick={() => setSearchQuery(skill)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSearchQuery(skill);
+                          }}
                           title={`Filter by ${skill}`}
-                          className="text-[10px] font-mono font-medium bg-slate-50 hover:bg-emerald-50 hover:text-emerald-800 text-slate-700 px-2 py-0.5 border border-slate-200 rounded-md transition cursor-pointer"
+                          className="text-[11px] font-medium bg-white hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-200 text-slate-700 px-2.5 py-0.5 border border-slate-200 rounded-md transition cursor-pointer shadow-2xs"
                         >
                           {skill}
                         </button>
                       ))}
                       {candidate.skills.length > 4 && (
-                        <span className="text-[10px] font-mono font-medium text-slate-400 px-1 py-0.5">
+                        <span className="text-[10px] font-mono font-medium text-slate-400 self-center px-1">
                           +{candidate.skills.length - 4}
                         </span>
                       )}
@@ -597,11 +633,11 @@ export default function TalentDirectory({
                   {/* Primary CTA Button */}
                   <button
                     onClick={() => handleOpenFullProfile(candidate)}
-                    className="w-full bg-slate-900 hover:bg-emerald-600 text-white font-semibold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer transition shadow-2xs hover:shadow-xs"
+                    className="w-full bg-slate-900 group-hover:bg-emerald-600 text-white font-medium py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer transition shadow-2xs group-hover:shadow-xs"
                   >
-                    <Eye className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>View Full Profile</span>
-                    <ArrowRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100" />
+                    <Eye className="w-3.5 h-3.5 text-emerald-400 group-hover:text-white transition-colors" />
+                    <span>View Candidate Profile</span>
+                    <ArrowRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
                   </button>
                 </motion.div>
               ))
@@ -644,9 +680,17 @@ export default function TalentDirectory({
                     <h3 className="font-display font-bold text-xl sm:text-2xl text-white">
                       {selectedCandidate.name}
                     </h3>
-                    <span className="bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
-                      ✓ {selectedCandidate.verificationBadge}
-                    </span>
+                    {selectedCandidate.isVerified ? (
+                      <span className="bg-emerald-500/20 text-emerald-300 font-medium text-xs px-2.5 py-0.5 rounded-md border border-emerald-500/30 flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Verified</span>
+                      </span>
+                    ) : (
+                      <span className="bg-slate-700/60 text-slate-300 font-medium text-xs px-2.5 py-0.5 rounded-md border border-slate-600 flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Unverified</span>
+                      </span>
+                    )}
                     {selectedCandidate.availability_status === 'available' || !selectedCandidate.availability_status ? (
                       <span className="inline-flex items-center gap-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-mono font-bold text-[10px] tracking-wide uppercase">
                         <span className="relative flex h-1.5 w-1.5">
@@ -734,14 +778,16 @@ export default function TalentDirectory({
                     <span>Digital Campux Technical Audit</span>
                   </h5>
                   <span className="font-mono font-bold text-emerald-800 text-xs bg-emerald-100 px-2.5 py-0.5 rounded-full">
-                    {selectedCandidate.portfolioScore}/100 PASSED
+                    {selectedCandidate.portfolioScore > 0 ? `${selectedCandidate.portfolioScore}/100 PASSED` : '0/100 PENDING AUDIT'}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                   <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
                     <span className="text-[10px] font-mono text-slate-500 block">DIAGNOSTIC TEST</span>
-                    <span className="text-xs font-bold text-emerald-700">Passed ({selectedCandidate.portfolioScore}%)</span>
+                    <span className="text-xs font-bold text-emerald-700">
+                      {selectedCandidate.portfolioScore > 0 ? `Passed (${selectedCandidate.portfolioScore}%)` : 'Pending (0/100)'}
+                    </span>
                   </div>
                   <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
                     <span className="text-[10px] font-mono text-slate-500 block">IDENTITY / KYC</span>

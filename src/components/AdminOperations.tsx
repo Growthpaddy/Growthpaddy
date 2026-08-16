@@ -2102,6 +2102,54 @@ export default function AdminOperations({
               </div>
             </div>
 
+            {/* Manual Candidate Score Assignment */}
+            <div className="space-y-2 bg-neutral-100 border-2 border-neutral-950 p-3.5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-[10px] font-mono font-black text-neutral-900 uppercase">
+                    Assigned Candidate Score (0 - 100):
+                  </label>
+                  <p className="text-[10px] font-mono text-neutral-500">
+                    Default is 0/100. Updated manually or when passing 3 phases.
+                  </p>
+                </div>
+                <span className="text-sm font-mono font-black text-[#00A86B] bg-white border border-neutral-950 px-2 py-0.5">
+                  {selectedTalentModal.latest_quiz_score ?? selectedTalentModal.score ?? 0}/100
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={selectedTalentModal.latest_quiz_score ?? selectedTalentModal.score ?? 0}
+                  onChange={async (e) => {
+                    const parsed = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                    setSelectedTalentModal((prev: any) => ({ ...prev, latest_quiz_score: parsed, phase_1_score: parsed, score: parsed }));
+                    await updateTalentStatus(selectedTalentModal.id, { latest_quiz_score: parsed, phase_1_score: parsed, score: parsed });
+                  }}
+                  className="w-24 bg-white border-2 border-neutral-950 px-2.5 py-1.5 font-mono text-xs font-bold text-center focus:outline-none"
+                />
+
+                <div className="flex flex-wrap gap-1 flex-1">
+                  {[0, 75, 85, 95, 100].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={async () => {
+                        setSelectedTalentModal((prev: any) => ({ ...prev, latest_quiz_score: preset, phase_1_score: preset, score: preset }));
+                        await updateTalentStatus(selectedTalentModal.id, { latest_quiz_score: preset, phase_1_score: preset, score: preset });
+                      }}
+                      className="px-2 py-1 text-[10px] font-mono font-bold bg-white border border-neutral-950 hover:bg-emerald-50 hover:text-emerald-800 transition cursor-pointer"
+                    >
+                      {preset}/100
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             {/* Overall Vetting Status Selector */}
             <div className="space-y-1.5 bg-neutral-100 border-2 border-neutral-950 p-3">
               <label className="block text-[10px] font-mono font-black text-neutral-700 uppercase">

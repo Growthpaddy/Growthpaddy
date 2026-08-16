@@ -33,6 +33,7 @@ export interface TalentCandidate {
   role: string;
   specialization: 'SEO' | 'Social Media' | 'Email Marketing' | 'Growth Marketing' | 'PPC' | 'AI Automation' | 'Full-Stack Developer' | string;
   verificationBadge: 'Verified Intern' | 'Verified Professional' | 'Internship Graduate' | 'Top Performer';
+  isVerified?: boolean;
   skills: string[];
   availability: 'Available Immediately' | 'Interviews Open' | 'Onboard in 1 Week' | 'In Placement';
   availability_status?: 'available' | 'hired';

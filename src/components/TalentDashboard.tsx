@@ -377,9 +377,21 @@ export default function TalentDashboard({
           if (data.quiz_attempts_count !== undefined) setQuizAttempts(data.quiz_attempts_count);
           if (data.quiz_locked_until) setQuizLockedUntil(data.quiz_locked_until);
           
+          const rawScore = typeof data.score === 'number'
+            ? data.score
+            : typeof data.latest_quiz_score === 'number'
+            ? data.latest_quiz_score
+            : typeof data.phase_1_score === 'number'
+            ? data.phase_1_score
+            : null;
+          
+          if (rawScore !== null) {
+            setQuizScore(rawScore);
+          }
+
           if (data.phase_1_quiz_passed) {
             setQuizFinished(true);
-            setQuizScore(100);
+            if (rawScore === null) setQuizScore(75);
           }
 
           if (data.phase_2_interview_scheduled || data.vetting_status === 'interview_scheduled') {
@@ -395,7 +407,7 @@ export default function TalentDashboard({
 
           if (data.phase_3_fee_paid || data.vetting_status === 'fee_paid' || data.vetting_status === 'completed' || data.vetting_status === 'approved') {
             setQuizFinished(true);
-            setQuizScore(100);
+            if (rawScore === null) setQuizScore(100);
             setInterviewBooked(true);
             setPhase2InterviewPassed(true);
             if (setIsTalentPaid) setIsTalentPaid(true);
@@ -1219,31 +1231,48 @@ export default function TalentDashboard({
                 </div>
 
                 {/* Candidate Badge Tag & Availability */}
-                <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
                   {isVerifiedByAdmin ? (
-                    <span className="inline-flex items-center gap-1 bg-emerald-500 text-white text-[9px] font-mono font-black px-2 py-0.5 border border-neutral-950 uppercase">
-                      🏆 VERIFIED SKILLS
+                    <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 text-[11px] font-semibold px-2 py-0.5 border border-emerald-200 dark:border-emerald-800 rounded-md shadow-2xs">
+                      <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                      <span>Verified</span>
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 text-[8.5px] font-mono font-bold px-2 py-0.5 border border-amber-300 dark:border-amber-700 uppercase">
-                      UNVERIFIED SKILLS
+                    <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[11px] font-semibold px-2 py-0.5 border border-slate-200 dark:border-slate-700 rounded-md">
+                      <Clock className="w-3 h-3 text-slate-400" />
+                      <span>Unverified</span>
                     </span>
                   )}
 
                   {availabilityStatus === 'available' || !availabilityStatus ? (
-                    <span className="inline-flex items-center gap-1 text-[8.5px] font-mono font-black px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 uppercase">
-                      <span className="relative flex h-1.5 w-1.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-                      </span>
-                      AVAILABLE FOR HIRE
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                      <span>Available</span>
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 text-[8.5px] font-mono font-black px-2 py-0.5 bg-slate-800 text-slate-300 border border-slate-700 uppercase">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-500 dark:text-slate-400">
                       <Lock className="w-2.5 h-2.5 text-slate-400" />
-                      CURRENTLY HIRED
+                      <span>Hired</span>
                     </span>
                   )}
+                </div>
+              </div>
+
+              {/* Metric / Meta Strip */}
+              <div className="grid grid-cols-3 gap-2 py-2 px-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 rounded-xl text-center">
+                <div>
+                  <span className="block text-[10px] uppercase font-mono font-medium text-slate-400">Score</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    {quizScore !== null ? `${quizScore}/100` : (isVerifiedByAdmin ? '100/100' : (phase2InterviewPassed ? '85/100' : (quizFinished ? '75/100' : '0/100')))}
+                  </span>
+                </div>
+                <div className="border-x border-slate-200/60 dark:border-slate-700/60">
+                  <span className="block text-[10px] uppercase font-mono font-medium text-slate-400">Exp</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{experienceTier.includes('Senior') ? 'Senior' : 'Mid-Level'}</span>
+                </div>
+                <div>
+                  <span className="block text-[10px] uppercase font-mono font-medium text-slate-400">Track</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate block px-1">{specialty}</span>
                 </div>
               </div>
 

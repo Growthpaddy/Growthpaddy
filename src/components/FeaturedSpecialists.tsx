@@ -9,7 +9,8 @@ import {
   AlertCircle,
   Clock,
   Briefcase,
-  Lock
+  Lock,
+  Check
 } from 'lucide-react';
 
 interface FeaturedSpecialist {
@@ -97,18 +98,25 @@ export const FeaturedSpecialists: React.FC<FeaturedSpecialistsProps> = ({
               parsedSkills = ['Technical Strategy', 'Growth Ops', 'Automation'];
             }
 
-            // Default Unverified Status Display:
-            // Only 'approved' is verified. Everything else is unverified.
-            const isApproved = item.vetting_status === 'approved';
+            const isApproved = item.vetting_status === 'approved' || item.vetting_status === 'verified' || (item.phase_1_quiz_passed && item.phase_2_interview_passed && item.phase_3_fee_paid);
             const availability_status = item.availability_status === 'hired' ? 'hired' : 'available';
 
-            const score = typeof item.phase_1_score === 'number'
-              ? item.phase_1_score
-              : typeof item.latest_quiz_score === 'number'
-              ? item.latest_quiz_score
-              : item.phase_1_quiz_passed
-              ? 95
-              : 88;
+            let score = 0;
+            if (typeof item.score === 'number' && !isNaN(item.score)) {
+              score = item.score;
+            } else if (typeof item.latest_quiz_score === 'number' && !isNaN(item.latest_quiz_score)) {
+              score = item.latest_quiz_score;
+            } else if (typeof item.phase_1_score === 'number' && !isNaN(item.phase_1_score)) {
+              score = item.phase_1_score;
+            } else if (item.phase_1_quiz_passed && item.phase_2_interview_passed && (item.phase_3_fee_paid || item.vetting_status === 'approved' || item.vetting_status === 'verified')) {
+              score = 100;
+            } else if (item.phase_1_quiz_passed && item.phase_2_interview_passed) {
+              score = 85;
+            } else if (item.phase_1_quiz_passed) {
+              score = 75;
+            } else {
+              score = 0;
+            }
 
             const avatar = item.profile_picture_url || item.avatar_url || item.profilePictureUrl || DEFAULT_AVATARS[idx % DEFAULT_AVATARS.length];
 
@@ -230,19 +238,31 @@ export const FeaturedSpecialists: React.FC<FeaturedSpecialistsProps> = ({
             {featuredTalents.map((candidate) => (
               <div 
                 key={candidate.id}
-                className="bg-slate-800/85 border border-slate-700/80 hover:border-emerald-500/60 rounded-2xl p-5 flex flex-col justify-between space-y-5 transition-all duration-200 group shadow-md"
+                onClick={onNavigateToDirectory}
+                className="bg-slate-850/90 border border-slate-700/80 hover:border-slate-600 hover:shadow-xl rounded-2xl p-5 flex flex-col justify-between space-y-4 transition-all duration-200 group cursor-pointer relative"
               >
                 <div className="space-y-4">
-                  {/* Avatar, Name & Specialty */}
+                  {/* Header: Avatar, Name, Specialty & Badges */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3.5 min-w-0">
-                      <img 
-                        src={candidate.avatarUrl} 
-                        alt={candidate.name}
-                        className="w-12 h-12 rounded-xl object-cover border border-slate-600 shrink-0"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="min-w-0 flex-1">
+                      <div className="relative shrink-0">
+                        <img 
+                          src={candidate.avatarUrl} 
+                          alt={candidate.name}
+                          className="w-12 h-12 rounded-xl object-cover border border-slate-700 shadow-2xs"
+                          referrerPolicy="no-referrer"
+                        />
+                        {candidate.availability_status === 'available' ? (
+                          <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-900 ring-2 ring-slate-800">
+                            <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
+                          </span>
+                        ) : (
+                          <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-900 ring-2 ring-slate-800">
+                            <span className="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1 space-y-0.5">
                         <h4 className="font-bold text-sm text-white group-hover:text-emerald-400 transition-colors truncate">
                           {candidate.name}
                         </h4>
@@ -251,50 +271,53 @@ export const FeaturedSpecialists: React.FC<FeaturedSpecialistsProps> = ({
                         </p>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Availability Badge */}
-                  <div>
-                    {candidate.availability_status === 'available' ? (
-                      <span className="inline-flex items-center gap-1.5 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full font-mono font-bold text-[10px] tracking-wide uppercase">
-                        <span className="relative flex h-1.5 w-1.5">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                    {/* Status Badges */}
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      {candidate.isApproved ? (
+                        <span className="inline-flex items-center gap-1 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[11px] font-semibold px-2 py-0.5 rounded-md shadow-2xs">
+                          <Check className="w-3 h-3 text-emerald-400" />
+                          <span>Verified</span>
                         </span>
-                        AVAILABLE FOR HIRE
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 bg-slate-900 text-slate-400 border border-slate-700 px-2.5 py-1 rounded-full font-mono font-bold text-[10px] tracking-wide uppercase">
-                        <Lock className="w-3 h-3 text-slate-400" />
-                        CURRENTLY HIRED
-                      </span>
-                    )}
+                      ) : (
+                        <span className="inline-flex items-center gap-1 bg-slate-800/90 text-slate-400 border border-slate-700 text-[11px] font-semibold px-2 py-0.5 rounded-md">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          <span>Unverified</span>
+                        </span>
+                      )}
+
+                      {candidate.availability_status === 'available' ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+                          <span>Available</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400">
+                          <Lock className="w-2.5 h-2.5 text-slate-400" />
+                          <span>Hired</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Vetting Status Badge: Approved vs Open / Unverified */}
-                  <div className="pt-2 pb-1 border-t border-slate-700/60 flex items-center justify-between gap-2 text-xs">
-                    {candidate.isApproved ? (
-                      <span className="inline-flex items-center gap-1.5 text-amber-300 bg-amber-950/70 border border-amber-500/50 font-mono text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-xs">
-                        <span>🏆 Digital Campux Verified</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 text-slate-300 bg-slate-700/70 border border-slate-600 font-mono text-[10px] font-semibold px-2.5 py-1 rounded-lg">
-                        <Clock className="w-3 h-3 text-slate-400" />
-                        <span>Open Candidate / Unverified</span>
-                      </span>
-                    )}
-
-                    <span className="font-mono text-slate-400 text-xs shrink-0">
-                      Score: <strong className="text-emerald-400">{candidate.score}%</strong>
-                    </span>
+                  {/* Metric Strip */}
+                  <div className="grid grid-cols-2 gap-2 py-2 px-3 bg-slate-900/80 border border-slate-800 rounded-xl text-center">
+                    <div>
+                      <span className="block text-[10px] uppercase font-mono font-medium text-slate-400">Score</span>
+                      <span className="text-xs font-bold text-emerald-400">{candidate.score}/100</span>
+                    </div>
+                    <div className="border-l border-slate-800">
+                      <span className="block text-[10px] uppercase font-mono font-medium text-slate-400">Track</span>
+                      <span className="text-xs font-bold text-slate-300 truncate block px-1">{candidate.specialty}</span>
+                    </div>
                   </div>
 
                   {/* Skill Badges */}
-                  <div className="flex flex-wrap gap-1.5 pt-1">
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
                     {candidate.skills.map((skill, sIdx) => (
                       <span 
                         key={sIdx}
-                        className="text-[10px] font-mono font-medium bg-slate-900/90 text-slate-300 px-2 py-0.5 rounded-md border border-slate-700/80"
+                        className="text-[11px] font-medium bg-slate-900/90 text-slate-300 px-2.5 py-0.5 rounded-md border border-slate-700/80"
                       >
                         {skill}
                       </span>
@@ -305,10 +328,10 @@ export const FeaturedSpecialists: React.FC<FeaturedSpecialistsProps> = ({
                 {/* Card Action */}
                 <button
                   onClick={onNavigateToDirectory}
-                  className="w-full bg-slate-900 hover:bg-emerald-600 text-slate-200 hover:text-white font-medium py-2.5 px-3 rounded-xl text-xs border border-slate-700 hover:border-emerald-500 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  className="w-full bg-slate-900 group-hover:bg-emerald-600 text-slate-200 group-hover:text-white font-medium py-2.5 px-3 rounded-xl text-xs border border-slate-700/80 group-hover:border-emerald-500 transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
                 >
                   <span>View Candidate Profile</span>
-                  <ArrowUpRight className="w-3.5 h-3.5" />
+                  <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                 </button>
               </div>
             ))}
