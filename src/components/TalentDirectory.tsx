@@ -704,23 +704,11 @@ export default function TalentDirectory({
                       navigator.clipboard.writeText(url);
                       alert('Profile URL copied to clipboard!');
                     }}
-                    className="bg-slate-900 hover:bg-emerald-600 text-white font-semibold px-3 py-1.5 text-xs rounded-xl flex items-center gap-1.5 cursor-pointer transition shadow-2xs"
+                    className="bg-slate-900 hover:bg-emerald-600 text-white font-semibold px-3.5 py-2 text-xs rounded-xl flex items-center gap-1.5 cursor-pointer transition shadow-2xs"
                   >
                     <Copy className="w-3.5 h-3.5" />
-                    <span>Copy Link</span>
+                    <span>Copy Profile Link</span>
                   </button>
-
-                  {selectedCandidate.portfolioUrl && (
-                    <a
-                      href={selectedCandidate.portfolioUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3 py-1.5 text-xs rounded-xl flex items-center gap-1.5 cursor-pointer transition shadow-2xs"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>Live Portfolio</span>
-                    </a>
-                  )}
                 </div>
               </div>
 

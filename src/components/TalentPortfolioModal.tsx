@@ -264,30 +264,6 @@ export default function TalentPortfolioModal({
                   </p>
                 </div>
               </div>
-
-              {/* Action Link to External Portfolio if configured */}
-              {portfolioUrl ? (
-                <a
-                  href={portfolioUrl.startsWith('http') ? portfolioUrl : `https://${portfolioUrl}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2 text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs transition"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Open Live Portfolio</span>
-                </a>
-              ) : (
-                <button
-                  onClick={() => {
-                    onClose();
-                    onNavigateToDashboard();
-                  }}
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold px-3.5 py-2 text-xs rounded-xl border border-slate-700 flex items-center gap-1.5 cursor-pointer shrink-0 transition"
-                >
-                  <Globe className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Add Portfolio Link</span>
-                </button>
-              )}
             </div>
 
             {/* Candidate Bio Statement */}

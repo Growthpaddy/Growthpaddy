@@ -1145,24 +1145,6 @@ export default function TalentDashboard({
                 </div>
               </div>
 
-              {/* Portfolio & Proof Links */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-mono font-black text-slate-700 dark:text-slate-300 uppercase block tracking-wider">
-                  Portfolio & Proof URL (GitHub, Website, Behance)
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
-                    <Globe className="w-4 h-4" />
-                  </span>
-                  <input
-                    type="url"
-                    placeholder="https://github.com/myusername or https://myportfolio.com"
-                    value={portfolioUrl}
-                    onChange={(e) => setPortfolioUrl(e.target.value)}
-                    className="w-full border-2 border-neutral-300 dark:border-slate-700 bg-neutral-50 dark:bg-slate-800 pl-10 pr-4 py-2.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-[#00A86B]"
-                  />
-                </div>
-              </div>
 
               {/* Career Goal & Bio */}
               <div className="space-y-1.5">
@@ -1269,19 +1251,6 @@ export default function TalentDashboard({
               <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
                 "{careerGoal || 'Specializing in automation and full-stack execution.'}"
               </p>
-
-              {/* Portfolio Link indicator */}
-              {portfolioUrl && (
-                <a
-                  href={portfolioUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold text-[#00A86B] hover:underline uppercase"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  <span>View Verified Portfolio / Code Repository</span>
-                </a>
-              )}
 
               {/* Skill Tags */}
               <div className="flex flex-wrap gap-1 pt-2 border-t border-dashed border-slate-200 dark:border-slate-800">
