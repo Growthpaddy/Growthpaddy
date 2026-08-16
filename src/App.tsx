@@ -37,6 +37,7 @@ import { useSecureLogin } from './hooks/useSecureLogin';
 import ProtectedRoute from './components/ProtectedRoute';
 import TalentProfile from './components/TalentProfile';
 import TalentPortfolioModal from './components/TalentPortfolioModal';
+import PublicPortfolio from './components/PublicPortfolio';
 import { Preloader } from './components/Preloader';
 
 export default function App() {

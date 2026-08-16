@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { TalentCandidate } from '../types';
 import { supabase } from '../lib/supabaseClient';
+import PublicPortfolio from './PublicPortfolio';
 
 interface TalentDirectoryProps {
   employerSlots?: number;
@@ -659,224 +660,53 @@ export default function TalentDirectory({
 
       {/* 5. Full Candidate Profile Modal Drawer */}
       {isProfileModalOpen && selectedCandidate && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto animate-fadeIn">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto animate-fadeIn">
           <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 10 }}
+            initial={{ opacity: 0, scale: 0.97, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96 }}
-            className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-3xl w-full my-8 overflow-hidden text-left relative"
+            exit={{ opacity: 0, scale: 0.97 }}
+            className="bg-slate-950 border border-slate-800 rounded-3xl shadow-2xl max-w-5xl w-full my-4 overflow-hidden text-left relative flex flex-col max-h-[92vh]"
           >
-            {/* Modal Header */}
-            <div className="bg-slate-900 text-white p-6 sm:p-7 flex items-start justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <img 
-                  src={selectedCandidate.avatarUrl} 
-                  alt={selectedCandidate.name} 
-                  className="w-16 h-16 rounded-2xl object-cover border-2 border-slate-700 shrink-0"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-display font-bold text-xl sm:text-2xl text-white">
-                      {selectedCandidate.name}
-                    </h3>
-                    {selectedCandidate.isVerified ? (
-                      <span className="bg-emerald-500/20 text-emerald-300 font-medium text-xs px-2.5 py-0.5 rounded-md border border-emerald-500/30 flex items-center gap-1">
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Verified</span>
-                      </span>
-                    ) : (
-                      <span className="bg-slate-700/60 text-slate-300 font-medium text-xs px-2.5 py-0.5 rounded-md border border-slate-600 flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-slate-400" />
-                        <span>Unverified</span>
-                      </span>
-                    )}
-                    {selectedCandidate.availability_status === 'available' || !selectedCandidate.availability_status ? (
-                      <span className="inline-flex items-center gap-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-mono font-bold text-[10px] tracking-wide uppercase">
-                        <span className="relative flex h-1.5 w-1.5">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-                        </span>
-                        AVAILABLE FOR HIRE
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-0.5 rounded-full font-mono font-bold text-[10px] tracking-wide uppercase">
-                        <Lock className="w-3 h-3 text-slate-400" />
-                        CURRENTLY HIRED
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-emerald-400 text-xs font-semibold">
-                    {selectedCandidate.role}
-                  </p>
-                  <p className="text-xs text-slate-400 flex items-center gap-1">
-                    <MapPin className="w-3 h-3 text-slate-400" />
-                    <span>{selectedCandidate.location}</span>
-                  </p>
-                </div>
+            {/* Modal Navigation Topbar */}
+            <div className="bg-slate-900/90 border-b border-slate-800 p-4 sm:px-6 flex items-center justify-between gap-4 shrink-0">
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
+                  Executive Candidate File
+                </span>
+                <span className="text-xs text-slate-400 font-mono hidden sm:inline">
+                  /{selectedCandidate.slug || selectedCandidate.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}
+                </span>
               </div>
 
-              <button 
-                onClick={handleCloseProfileModal}
-                className="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 w-8 h-8 rounded-full flex items-center justify-center transition cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => {
+                    const url = `${window.location.origin}/#/${selectedCandidate.slug || selectedCandidate.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+                    navigator.clipboard.writeText(url);
+                    alert('Profile link copied to clipboard!');
+                  }}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-mono text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copy Link</span>
+                </button>
+
+                <button 
+                  onClick={handleCloseProfileModal}
+                  className="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 w-8 h-8 rounded-full flex items-center justify-center transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
-            {/* Modal Body */}
-            <div className="p-6 sm:p-8 space-y-6 max-h-[70vh] overflow-y-auto">
-              
-              {/* Shareable Unique Link Bar */}
-              <div className="p-3.5 bg-slate-50 border border-slate-200/90 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
-                <div className="flex items-center gap-2.5">
-                  <Share2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <div>
-                    <span className="text-[10px] font-mono text-slate-500 uppercase font-semibold block">
-                      Direct Profile URL
-                    </span>
-                    <span className="text-xs font-mono font-bold text-slate-800 break-all">
-                      {window.location.origin}/{selectedCandidate.slug || selectedCandidate.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => {
-                      const url = `${window.location.origin}/${selectedCandidate.slug || selectedCandidate.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
-                      navigator.clipboard.writeText(url);
-                      alert('Profile URL copied to clipboard!');
-                    }}
-                    className="bg-slate-900 hover:bg-emerald-600 text-white font-semibold px-3.5 py-2 text-xs rounded-xl flex items-center gap-1.5 cursor-pointer transition shadow-2xs"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Copy Profile Link</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Career Goal & Bio */}
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 space-y-2">
-                <h5 className="font-mono text-xs font-semibold text-emerald-700 uppercase tracking-wider flex items-center gap-2">
-                  <UserCheck className="w-4 h-4" />
-                  <span>Career Profile & Summary</span>
-                </h5>
-                <p className="text-xs text-slate-800 font-medium leading-relaxed">
-                  {selectedCandidate.about}
-                </p>
-                <p className="text-xs text-slate-600 leading-relaxed pt-1">
-                  {selectedCandidate.bio}
-                </p>
-              </div>
-
-              {/* Vetting Scorecard */}
-              <div className="border border-emerald-200 rounded-2xl p-5 space-y-3 bg-emerald-50/40">
-                <div className="flex items-center justify-between border-b border-emerald-200/70 pb-2.5">
-                  <h5 className="font-display font-bold text-sm text-slate-900 flex items-center gap-2">
-                    <Award className="w-4 h-4 text-emerald-600" />
-                    <span>Digital Campux Technical Audit</span>
-                  </h5>
-                  <span className="font-mono font-bold text-emerald-800 text-xs bg-emerald-100 px-2.5 py-0.5 rounded-full">
-                    {selectedCandidate.portfolioScore > 0 ? `${selectedCandidate.portfolioScore}/100 PASSED` : '0/100 PENDING AUDIT'}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                  <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-                    <span className="text-[10px] font-mono text-slate-500 block">DIAGNOSTIC TEST</span>
-                    <span className="text-xs font-bold text-emerald-700">
-                      {selectedCandidate.portfolioScore > 0 ? `Passed (${selectedCandidate.portfolioScore}%)` : 'Pending (0/100)'}
-                    </span>
-                  </div>
-                  <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-                    <span className="text-[10px] font-mono text-slate-500 block">IDENTITY / KYC</span>
-                    <span className="text-xs font-bold text-emerald-700">{selectedCandidate.verificationBadge}</span>
-                  </div>
-                  <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-                    <span className="text-[10px] font-mono text-slate-500 block">AVAILABILITY</span>
-                    <span className="text-xs font-bold text-emerald-700">{selectedCandidate.availability}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Portfolio & Verified Projects */}
-              <div className="space-y-3">
-                <h5 className="font-display font-bold text-sm text-slate-900 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-emerald-600" />
-                  <span>Audited Project Work</span>
-                </h5>
-
-                {selectedCandidate.projects && selectedCandidate.projects.length > 0 ? (
-                  <div className="space-y-3">
-                    {selectedCandidate.projects.map((proj, pIdx) => (
-                      <div key={pIdx} className="border border-slate-200 rounded-2xl p-4 space-y-2 bg-white shadow-2xs">
-                        <div className="flex items-center justify-between">
-                          <h6 className="font-bold text-xs text-slate-900">{proj.title}</h6>
-                          <span className="text-[10px] font-mono text-slate-400">{proj.year}</span>
-                        </div>
-                        <p className="text-xs text-slate-600">{proj.description}</p>
-                        <div className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-mono font-semibold px-2.5 py-0.5 rounded-full inline-block">
-                          Impact: {proj.metrics}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="border border-slate-200 rounded-2xl p-4 space-y-2 bg-white shadow-2xs">
-                    <h6 className="font-bold text-xs text-slate-900">{selectedCandidate.featuredProject.title}</h6>
-                    <p className="text-xs text-slate-600">Verified diagnostic assessment completed through Digital Campux platform.</p>
-                    <div className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-mono font-semibold px-2.5 py-0.5 rounded-full inline-block">
-                      Impact: {selectedCandidate.featuredProject.metrics}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Skills List */}
-              <div className="space-y-2">
-                <h5 className="font-mono text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                  Verified Technical Skills
-                </h5>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedCandidate.skills.map((s, idx) => (
-                    <span key={idx} className="bg-slate-100 text-slate-800 font-mono text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-slate-200">
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Direct Hire Call To Action */}
-              <div className="rounded-2xl bg-gradient-to-tr from-slate-900 via-slate-800 to-slate-900 text-white p-6 space-y-4 text-center shadow-lg">
-                <h5 className="font-display font-bold text-base sm:text-lg text-white">
-                  Ready to connect with {selectedCandidate.name}?
-                </h5>
-                <p className="text-xs text-slate-300 max-w-md mx-auto leading-relaxed">
-                  Direct introduction with 0% ongoing salary commission. Connect with our talent matchmaking team to schedule an interview today.
-                </p>
-
-                <div className="flex flex-col sm:flex-row gap-2.5 justify-center pt-2">
-                  <a 
-                    href={`https://wa.me/2348169664607?text=${encodeURIComponent(`Hello Digital Campux Matchmaker, I am interested in interviewing and hiring ${selectedCandidate.name} (${selectedCandidate.role}). Please connect us.`)}`}
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-5 rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer shadow-xs transition"
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    <span>WhatsApp Matchmaker</span>
-                  </a>
-
-                  <a 
-                    href={`mailto:matchmaker@digitalcampux.com?subject=Hire Request: ${selectedCandidate.name}&body=Hi Digital Campux Team, I want to interview/hire ${selectedCandidate.name} (${selectedCandidate.role}).`}
-                    className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2.5 px-5 rounded-xl text-xs flex items-center justify-center gap-2 border border-slate-700 cursor-pointer transition"
-                  >
-                    <Mail className="w-4 h-4" />
-                    <span>Email Matchmaker</span>
-                  </a>
-                </div>
-              </div>
-
+            {/* Modal Body Container with PublicPortfolio */}
+            <div className="flex-1 overflow-y-auto bg-slate-950">
+              <PublicPortfolio 
+                candidateSlug={selectedCandidate.slug || selectedCandidate.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}
+                onClose={handleCloseProfileModal}
+                isEmbedded={true}
+              />
             </div>
           </motion.div>
         </div>

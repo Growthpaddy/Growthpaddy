@@ -26,6 +26,41 @@ export interface Recommendation {
   text: string;
 }
 
+export interface CaseStudyItem {
+  id?: string;
+  title: string;
+  metric?: string;
+  metrics?: string;
+  description: string;
+  techStack?: string[];
+  tools?: string[];
+  link?: string;
+}
+
+export interface WorkHistoryItem {
+  id?: string;
+  title: string;
+  company: string;
+  dates: string;
+  location?: string;
+  highlights: string[];
+}
+
+export interface EducationItem {
+  id?: string;
+  degree: string;
+  institution: string;
+  year: string;
+  details?: string;
+}
+
+export interface CertificationItem {
+  id?: string;
+  name: string;
+  issuer?: string;
+  year?: string;
+}
+
 export interface TalentCandidate {
   id: string;
   name: string;
@@ -35,6 +70,10 @@ export interface TalentCandidate {
   verificationBadge: 'Verified Intern' | 'Verified Professional' | 'Internship Graduate' | 'Top Performer';
   isVerified?: boolean;
   skills: string[];
+  aiTools?: string[];
+  headline?: string;
+  hourlyRate?: string | number;
+  monthlyRetainer?: string | number;
   availability: 'Available Immediately' | 'Interviews Open' | 'Onboard in 1 Week' | 'In Placement';
   availability_status?: 'available' | 'hired';
   portfolioScore: number;
@@ -52,8 +91,15 @@ export interface TalentCandidate {
   profilePictureUrl?: string;
   projects?: ProjectData[];
   caseStudies?: CaseStudy[];
+  case_studies?: CaseStudyItem[];
+  work_history?: WorkHistoryItem[];
+  education?: EducationItem[];
   certifications?: string[];
   recommendations?: Recommendation[];
+  linkedinUrl?: string;
+  githubUrl?: string;
+  portfolioUrl?: string;
+  twitterUrl?: string;
 }
 
 export interface BadgeExplanation {
