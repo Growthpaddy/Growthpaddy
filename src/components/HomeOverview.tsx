@@ -55,18 +55,18 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
             <span className="font-mono text-[8.5px] min-[360px]:text-[9.5px] min-[420px]:text-[11px] sm:text-xs uppercase tracking-tight min-[380px]:tracking-wide font-bold whitespace-nowrap overflow-hidden text-ellipsis">
-              ⚡ Speed-First Recruitment • Save up to 60% on Talent Sourcing
+              ⚡ Speed-First Talent Network • Pre-Vetted AI & Growth Marketers
             </span>
           </div>
 
           {/* Main Headline & Subtitle */}
           <div className="max-w-4xl space-y-5">
             <h1 className="font-display font-extrabold text-4xl sm:text-6xl lg:text-7xl text-slate-900 tracking-tight leading-[1.08]">
-              Hire Top 1% Digital Talent in 48 Hours — <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500">At 60% Less Cost.</span>
+              Accelerate Your Hiring Velocity with Pre-Vetted AI & Growth Marketers — <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500">At 60% Less Cost.</span>
             </h1>
             
-            <p className="text-base sm:text-xl text-slate-600 font-normal max-w-2xl leading-relaxed">
-              Stop wasting weeks on unverified resumes. Digital Campux connects fast-growing teams with pre-vetted AI, Engineering, and Growth specialists backed by audited proof of work. Zero hiring risk. Guaranteed speed.
+            <p className="text-base sm:text-xl text-slate-600 font-normal max-w-3xl leading-relaxed">
+              Cut sourcing cycles by 80%. Access elite digital and Growth Marketing Professionals equipped with modern AI workflows—Vetted for instant deployment and day-one performance.
             </p>
           </div>
 
@@ -78,7 +78,7 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
               id="hero-explore-talent-btn"
             >
               <Briefcase className="w-4 h-4 text-emerald-100" />
-              <span>Hire Vetted Talent in 48 hrs →</span>
+              <span>Deploy Vetted Talent in 48 Hours →</span>
               <ArrowRight className="w-4 h-4 text-emerald-100" />
             </button>
 
@@ -121,7 +121,7 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
       </section>
 
       {/* ==========================================
-          2. CORE VALUE PILLARS (Why Digital Campux)
+          2. CORE VALUE PILLARS & FEATURE GRID (4-Card Execution Theme)
           ========================================== */}
       <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-12">
         <div className="max-w-2xl space-y-3">
@@ -137,62 +137,81 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           
-          {/* Pillar 1: 80% Faster Sourcing Cycles */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-7 sm:p-8 shadow-xs hover:shadow-md hover:border-emerald-500/40 transition-all duration-200 flex flex-col justify-between space-y-6">
-            <div className="space-y-4">
-              <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                <Clock className="w-6 h-6" />
+          {/* Card 1: 80% Sourcing Acceleration */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-7 shadow-xs hover:shadow-md hover:border-emerald-500/40 transition-all duration-200 flex flex-col justify-between space-y-5">
+            <div className="space-y-3.5">
+              <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <Clock className="w-5 h-5" />
               </div>
-              <h3 className="font-display font-bold text-xl text-slate-900">
-                80% Faster Sourcing Cycles
+              <h3 className="font-display font-bold text-lg text-slate-900 leading-snug">
+                80% Sourcing Acceleration
               </h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Bypass weeks of manual resume screening. Our automated assessment pipelines deliver candidate shortlists in under 48 hours.
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Bypass traditional 6-week hiring delays. Our automated diagnostic pipelines deliver curated shortlists of high-performing growth talent within 48 hours.
               </p>
             </div>
-            <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-mono font-semibold text-emerald-700">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <div className="pt-3.5 border-t border-slate-100 flex items-center gap-1.5 text-[11px] font-mono font-semibold text-emerald-700">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span>Under 48h shortlists</span>
             </div>
           </div>
 
-          {/* Pillar 2: Cut Hiring Costs by Up to 60% */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-7 sm:p-8 shadow-xs hover:shadow-md hover:border-emerald-500/40 transition-all duration-200 flex flex-col justify-between space-y-6">
-            <div className="space-y-4">
-              <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                <DollarSign className="w-6 h-6" />
+          {/* Card 2: 60% Sourcing Cost Savings */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-7 shadow-xs hover:shadow-md hover:border-emerald-500/40 transition-all duration-200 flex flex-col justify-between space-y-5">
+            <div className="space-y-3.5">
+              <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                <DollarSign className="w-5 h-5" />
               </div>
-              <h3 className="font-display font-bold text-xl text-slate-900">
-                Cut Hiring Costs by Up to 60%
+              <h3 className="font-display font-bold text-lg text-slate-900 leading-snug">
+                60% Sourcing Cost Savings
               </h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Eliminate expensive recruitment agency overheads while accessing top-tier digital specialists on flexible terms.
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Eliminate massive recruitment agency markups and costly mis-hires with transparent, direct access to audited remote digital operators.
               </p>
             </div>
-            <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-mono font-semibold text-blue-700">
-              <CheckCircle2 className="w-4 h-4 text-blue-600" />
-              <span>0% recurring agency fees</span>
+            <div className="pt-3.5 border-t border-slate-100 flex items-center gap-1.5 text-[11px] font-mono font-semibold text-blue-700">
+              <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span>0% recurring markups</span>
             </div>
           </div>
 
-          {/* Pillar 3: Audited Proof of Work (Zero Mis-Hire Risk) */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-7 sm:p-8 shadow-xs hover:shadow-md hover:border-emerald-500/40 transition-all duration-200 flex flex-col justify-between space-y-6">
-            <div className="space-y-4">
-              <div className="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
-                <ShieldCheck className="w-6 h-6" />
+          {/* Card 3: AI-Workflow Integration */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-7 shadow-xs hover:shadow-md hover:border-emerald-500/40 transition-all duration-200 flex flex-col justify-between space-y-5">
+            <div className="space-y-3.5">
+              <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <Cpu className="w-5 h-5" />
               </div>
-              <h3 className="font-display font-bold text-xl text-slate-900">
-                Audited Proof of Work (Zero Mis-Hire Risk)
+              <h3 className="font-display font-bold text-lg text-slate-900 leading-snug">
+                AI-Workflow Integration
               </h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Every candidate undergoes real-world scenario testing, technical panel audits, and portfolio checks before placement.
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Our growth specialists leverage modern AI automation, predictive tools, and automated workflows to deliver 3x faster campaign execution and operational throughput.
               </p>
             </div>
-            <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-mono font-semibold text-teal-700">
-              <CheckCircle2 className="w-4 h-4 text-teal-600" />
-              <span>Verified performance output</span>
+            <div className="pt-3.5 border-t border-slate-100 flex items-center gap-1.5 text-[11px] font-mono font-semibold text-indigo-700">
+              <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+              <span>3x campaign execution</span>
+            </div>
+          </div>
+
+          {/* Card 4: Audited Proof of Work */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-7 shadow-xs hover:shadow-md hover:border-emerald-500/40 transition-all duration-200 flex flex-col justify-between space-y-5">
+            <div className="space-y-3.5">
+              <div className="w-11 h-11 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <h3 className="font-display font-bold text-lg text-slate-900 leading-snug">
+                Audited Proof of Work
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Every candidate completes real-world scenario tests and technical panel audits before earning their GrowthPaddy Verified badge—ensuring zero mis-hire risk.
+              </p>
+            </div>
+            <div className="pt-3.5 border-t border-slate-100 flex items-center gap-1.5 text-[11px] font-mono font-semibold text-teal-700">
+              <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+              <span>Zero mis-hire risk</span>
             </div>
           </div>
 
@@ -352,11 +371,11 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
           </div>
 
           <h2 className="font-display font-bold text-3xl sm:text-4xl text-white max-w-2xl mx-auto tracking-tight">
-            Accelerate Your Growth Without Overpaying for Talent
+            Accelerate Your Growth. Cut Sourcing Costs. Zero Risk.
           </h2>
 
           <p className="text-sm sm:text-base text-slate-400 max-w-lg mx-auto leading-relaxed">
-            Get matched with audited specialists today and start shipping results immediately.
+            Get matched with audited AI-native growth talent today and start scaling immediately.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-4">

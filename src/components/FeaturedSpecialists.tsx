@@ -174,10 +174,10 @@ export const FeaturedSpecialists: React.FC<FeaturedSpecialistsProps> = ({
               <span>Live Candidate Stream</span>
             </div>
             <h2 className="font-display font-bold text-3xl sm:text-4xl text-white tracking-tight">
-              High-Impact Specialists Ready to Deploy
+              Battle-Tested AI & Growth Specialists Ready to Deploy
             </h2>
             <p className="text-sm text-slate-400 max-w-xl leading-relaxed">
-              Handpicked, performance-audited digital talent available for immediate onboarding.
+              Handpicked, performance-audited digital operators available for immediate onboarding.
             </p>
           </div>
 
