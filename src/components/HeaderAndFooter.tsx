@@ -21,7 +21,9 @@ import {
   ExternalLink,
   CheckCircle2,
   Layers,
-  Award
+  Award,
+  Users,
+  DollarSign
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -53,10 +55,11 @@ export function Header({
   userName = '',
   userType = null
 }: HeaderProps) {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const handleNavClick = (id: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login') => {
+    setIsMenuOpen(false);
     if (setCurrentPage) {
       setCurrentPage(id);
     }
@@ -66,21 +69,23 @@ export function Header({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Close dropdown when clicking outside
+  // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
+    if (isMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, []);
+  }, [isMenuOpen]);
 
   const handleDashboardClick = () => {
-    setIsDropdownOpen(false);
+    setIsMenuOpen(false);
     if (onVisitDashboard) {
       onVisitDashboard();
     } else if (setCurrentPage) {
@@ -90,7 +95,7 @@ export function Header({
   };
 
   const handlePortfolioClick = () => {
-    setIsDropdownOpen(false);
+    setIsMenuOpen(false);
     if (onVisitPortfolio) {
       onVisitPortfolio();
     } else if (setCurrentPage) {
@@ -100,18 +105,33 @@ export function Header({
   };
 
   const handleSignOut = () => {
-    setIsDropdownOpen(false);
+    setIsMenuOpen(false);
     if (onSignOutClick) {
       onSignOutClick();
     }
   };
 
   const handleHireTalentClick = () => {
+    setIsMenuOpen(false);
     handleNavClick('directory');
   };
 
+  const handleSignInClick = () => {
+    setIsMenuOpen(false);
+    if (onSignInClick) {
+      onSignInClick();
+    }
+  };
+
+  const handleApplyTalentClick = () => {
+    setIsMenuOpen(false);
+    if (openTalentModal) {
+      openTalentModal();
+    }
+  };
+
   return (
-    <header className="sticky top-0 z-50 w-full bg-white/90 backdrop-blur-md border-b border-slate-200/80 transition-all shadow-xs">
+    <header className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-slate-200/80 transition-all shadow-xs">
       <div className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 h-16">
         
         {/* Brand Logo & Name */}
@@ -133,70 +153,113 @@ export function Header({
           </div>
         </button>
 
-        {/* Right Action Buttons: Sign In and Hire Talent */}
-        <div className="flex items-center gap-2.5 sm:gap-3">
-          {isLoggedIn ? (
-            <div className="flex items-center gap-2.5 sm:gap-3" ref={dropdownRef}>
-              
-              {/* Hire Talent button */}
-              <button
-                onClick={handleHireTalentClick}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs py-2 px-3 sm:px-4 rounded-xl flex items-center gap-1.5 transition-all duration-150 cursor-pointer shadow-xs hover:shadow-sm"
-                id="header-hire-btn"
-              >
-                <span>Hire Talent</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+        {/* Right Section: Hamburger Icon Button for Desktop & Mobile */}
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className={`flex items-center gap-2 py-2 px-3 sm:px-3.5 rounded-xl border transition-all duration-150 cursor-pointer shadow-2xs ${
+              isMenuOpen 
+                ? 'bg-slate-900 text-white border-slate-900 shadow-sm' 
+                : 'bg-slate-50 hover:bg-slate-100/90 text-slate-800 border-slate-200/90 hover:border-slate-300'
+            }`}
+            id="global-hamburger-btn"
+            aria-expanded={isMenuOpen}
+            aria-label="Toggle navigation menu"
+          >
+            {isMenuOpen ? (
+              <X className="w-5 h-5" />
+            ) : (
+              <Menu className="w-5 h-5" />
+            )}
+            <span className="text-xs font-semibold tracking-tight hidden sm:inline">
+              {isMenuOpen ? 'Close' : 'Menu'}
+            </span>
+            {isLoggedIn && (
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            )}
+          </button>
 
-              {/* User Dropdown Button */}
-              <div className="relative">
+          {/* Neat Dropdown / Flyout Menu */}
+          {isMenuOpen && (
+            <div className="absolute right-0 mt-2.5 w-[290px] sm:w-[320px] bg-white border border-slate-200/90 rounded-2xl shadow-2xl z-50 py-2 animate-fadeIn text-left overflow-hidden divide-y divide-slate-100">
+              
+              {/* User Identity / Welcome Header */}
+              {isLoggedIn ? (
+                <div className="px-4 py-3 bg-slate-50/80">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                      Active Account
+                    </span>
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      {userType === 'recruiter' ? 'Recruiter' : userType === 'admin' ? 'Admin' : 'Vetted Talent'}
+                    </span>
+                  </div>
+                  <p className="text-xs font-bold text-slate-900 truncate mt-1">
+                    {userName || 'Active Specialist'}
+                  </p>
+                </div>
+              ) : (
+                <div className="px-4 py-3 bg-gradient-to-r from-emerald-50/70 via-slate-50/60 to-slate-50/40">
+                  <div className="flex items-center gap-1.5 text-emerald-700 text-[11px] font-mono font-bold">
+                    <Zap className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Speed-First Recruitment</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Pre-vetted digital talent in 48 hours.
+                  </p>
+                </div>
+              )}
+
+              {/* Core Highlight Actions (Hire Talent & Sign In) */}
+              <div className="p-2 space-y-2">
+                {/* 1. Hire Talent Primary CTA */}
                 <button
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200/70 text-slate-800 border border-slate-200/90 py-1.5 px-3 rounded-xl text-xs font-semibold cursor-pointer transition-all shadow-xs"
-                  id="header-user-dropdown-btn"
-                  aria-expanded={isDropdownOpen}
+                  onClick={handleHireTalentClick}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-3.5 rounded-xl text-xs flex items-center justify-between transition-all duration-150 cursor-pointer shadow-xs group"
+                  id="menu-hire-talent-btn"
                 >
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="max-w-[100px] sm:max-w-[160px] truncate">
-                    {userName || (userType === 'recruiter' ? 'Recruiter' : userType === 'talent' ? 'Talent' : 'Account')}
-                  </span>
-                  <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="w-4 h-4 text-emerald-100" />
+                    <span>Hire Talent in 48 hrs</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-emerald-200 group-hover:translate-x-0.5 transition-transform" />
                 </button>
 
-                {/* Dropdown Menu */}
-                {isDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 py-1.5 animate-fadeIn text-left overflow-hidden">
-                    
-                    {/* Header Info */}
-                    <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/70">
-                      <span className="text-[10px] font-mono font-semibold text-slate-400 uppercase block tracking-wider">
-                        Signed In User
-                      </span>
-                      <span className="text-xs font-bold text-slate-900 truncate block mt-0.5">
-                        {userName || 'Active Candidate'}
-                      </span>
+                {/* 2. Sign In or Workspace Dashboard CTA */}
+                {!isLoggedIn ? (
+                  <button
+                    onClick={handleSignInClick}
+                    className="w-full bg-slate-100 hover:bg-slate-200/80 text-slate-800 font-semibold py-2.5 px-3.5 rounded-xl text-xs flex items-center justify-between border border-slate-200/80 transition-colors cursor-pointer"
+                    id="menu-signin-btn"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Lock className="w-4 h-4 text-slate-600" />
+                      <span>Sign In to Account</span>
                     </div>
+                    <ArrowUpRight className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+                ) : (
+                  <div className="space-y-1.5 pt-1">
+                    <button
+                      onClick={handleDashboardClick}
+                      className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2.5 px-3.5 rounded-xl text-xs flex items-center justify-between transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <LayoutDashboard className="w-4 h-4 text-emerald-400" />
+                        <span>Workspace Dashboard</span>
+                      </div>
+                      <ChevronDown className="w-3.5 h-3.5 -rotate-90 text-slate-400" />
+                    </button>
 
-                    {/* Options */}
-                    <div className="p-1 space-y-0.5">
-                      <button
-                        onClick={handleDashboardClick}
-                        className="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/70 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer"
-                      >
-                        <LayoutDashboard className="w-4 h-4 text-emerald-600" />
-                        <span>Open Workspace Dashboard</span>
-                      </button>
+                    <button
+                      onClick={handlePortfolioClick}
+                      className="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <FolderKanban className="w-4 h-4 text-emerald-600" />
+                      <span>Audited Portfolio Showcase</span>
+                    </button>
 
-                      <button
-                        onClick={handlePortfolioClick}
-                        className="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/70 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer"
-                      >
-                        <FolderKanban className="w-4 h-4 text-emerald-600" />
-                        <span>View Portfolio Showcase</span>
-                      </button>
-                    </div>
-
-                    <div className="border-t border-slate-100 p-1">
+                    <div className="pt-1 border-t border-slate-100">
                       <button
                         onClick={handleSignOut}
                         className="w-full text-left px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer"
@@ -205,29 +268,10 @@ export function Header({
                         <span>Sign Out</span>
                       </button>
                     </div>
-
                   </div>
                 )}
               </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 sm:gap-3">
-              <button 
-                onClick={onSignInClick}
-                className="text-xs font-semibold text-slate-700 hover:text-slate-900 px-3 py-2 rounded-xl transition cursor-pointer hover:bg-slate-100/80"
-                id="header-signin-btn"
-              >
-                Sign In
-              </button>
 
-              <button
-                onClick={handleHireTalentClick}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs py-2 px-3.5 sm:px-4 rounded-xl flex items-center gap-1.5 transition-all duration-150 cursor-pointer shadow-xs hover:shadow-sm"
-                id="header-hire-btn"
-              >
-                <span>Hire Talent</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
             </div>
           )}
         </div>

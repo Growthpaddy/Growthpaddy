@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { motion } from 'motion/react';
 import { 
   ArrowRight, 
@@ -27,7 +27,7 @@ import {
   BarChart3,
   Search
 } from 'lucide-react';
-import { supabase } from '../lib/supabaseClient';
+import { FeaturedSpecialists } from './FeaturedSpecialists';
 
 interface HomeOverviewProps {
   navigateToPage: (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login') => void;
@@ -35,121 +35,7 @@ interface HomeOverviewProps {
   openTalentModal: () => void;
 }
 
-interface CandidatePreview {
-  id: string;
-  name: string;
-  role: string;
-  specialty: string;
-  vettingStatus: string;
-  skills: string[];
-  score: number;
-  avatarUrl: string;
-}
-
 export default function HomeOverview({ navigateToPage, openHireModal, openTalentModal }: HomeOverviewProps) {
-  const [candidates, setCandidates] = useState<CandidatePreview[]>([]);
-  const [loadingCandidates, setLoadingCandidates] = useState<boolean>(true);
-  const [activeCategoryTab, setActiveCategoryTab] = useState<string>('all');
-
-  // Curated candidates pool
-  const FALLBACK_CANDIDATES: CandidatePreview[] = [
-    {
-      id: 'preview-1',
-      name: 'Marcus Vance',
-      role: 'AI Automation Operations Architect',
-      specialty: 'AI Automation',
-      vettingStatus: '100% Verified',
-      skills: ['Zapier', 'Make.com', 'Python', 'OpenAI API'],
-      score: 98,
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300'
-    },
-    {
-      id: 'preview-2',
-      name: 'Elena Rostova',
-      role: 'Senior Full-Stack Developer',
-      specialty: 'Full-Stack Engineering',
-      vettingStatus: '100% Verified',
-      skills: ['React', 'TypeScript', 'Node.js', 'Cloud Architecture'],
-      score: 96,
-      avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300'
-    },
-    {
-      id: 'preview-3',
-      name: 'David K. Osei',
-      role: 'Growth Marketing & PPC Lead',
-      specialty: 'Growth Marketing',
-      vettingStatus: '100% Verified',
-      skills: ['Meta Ads', 'Google Ads', 'GA4', 'Funnel CRO'],
-      score: 95,
-      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300'
-    },
-    {
-      id: 'preview-4',
-      name: 'Sarah Jenkins',
-      role: 'Programmatic SEO & Content Architect',
-      specialty: 'SEO Strategy',
-      vettingStatus: '100% Verified',
-      skills: ['Ahrefs', 'Next.js', 'Schema.org', 'Data Pipelines'],
-      score: 97,
-      avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=300'
-    }
-  ];
-
-  // Fetch real candidate profiles from Supabase where phase_1_quiz_passed is true
-  useEffect(() => {
-    const fetchTalentPreview = async () => {
-      setLoadingCandidates(true);
-      try {
-        const { data } = await supabase
-          .from('talent_profiles')
-          .select('id, full_name, specialty, skills, vetting_status, phase_1_score')
-          .eq('phase_1_quiz_passed', true)
-          .limit(4);
-
-        if (data && data.length > 0) {
-          const fetched: CandidatePreview[] = data.map((item: any, idx: number) => ({
-            id: item.id || `db-${idx}`,
-            name: item.full_name || `Vetted Specialist #${idx + 1}`,
-            role: item.specialty ? `${item.specialty} Specialist` : 'Digital Growth Specialist',
-            specialty: item.specialty || 'Tech Operations',
-            vettingStatus: '100% Verified',
-            skills: item.skills && item.skills.length > 0 ? item.skills.slice(0, 4) : ['TypeScript', 'AI Tools', 'APIs', 'Workflow Ops'],
-            score: item.phase_1_score || 95,
-            avatarUrl: FALLBACK_CANDIDATES[idx % FALLBACK_CANDIDATES.length].avatarUrl
-          }));
-          setCandidates(fetched);
-        } else {
-          setCandidates(FALLBACK_CANDIDATES);
-        }
-      } catch (err) {
-        console.warn('Live talent preview sync notice, using curated pool fallback:', err);
-        setCandidates(FALLBACK_CANDIDATES);
-      } finally {
-        setLoadingCandidates(false);
-      }
-    };
-
-    fetchTalentPreview();
-  }, []);
-
-  const categories = [
-    { id: 'all', label: 'All Roles', count: '1,420+' },
-    { id: 'ai', label: 'AI Automation & Agents', count: '380+' },
-    { id: 'fullstack', label: 'Full-Stack Developers', count: '520+' },
-    { id: 'growth', label: 'Growth & Performance', count: '290+' },
-    { id: 'seo', label: 'SEO & Content Engineers', count: '230+' },
-  ];
-
-  const filteredCandidates = activeCategoryTab === 'all' 
-    ? candidates 
-    : candidates.filter(c => {
-        if (activeCategoryTab === 'ai') return c.specialty.toLowerCase().includes('ai') || c.role.toLowerCase().includes('automation');
-        if (activeCategoryTab === 'fullstack') return c.specialty.toLowerCase().includes('stack') || c.specialty.toLowerCase().includes('develop');
-        if (activeCategoryTab === 'growth') return c.specialty.toLowerCase().includes('growth') || c.specialty.toLowerCase().includes('market');
-        if (activeCategoryTab === 'seo') return c.specialty.toLowerCase().includes('seo') || c.specialty.toLowerCase().includes('content');
-        return true;
-      });
-
   return (
     <div className="bg-slate-50/60 text-slate-900 text-left selection:bg-emerald-500/20 selection:text-emerald-900">
       
@@ -163,24 +49,24 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
         <div className="max-w-7xl mx-auto space-y-8 relative z-10">
           
           {/* Live Status Pill */}
-          <div className="inline-flex items-center gap-2.5 bg-emerald-50/90 text-emerald-800 border border-emerald-200/80 px-3.5 py-1.5 rounded-full text-xs font-semibold shadow-xs">
-            <span className="relative flex h-2 w-2">
+          <div className="inline-flex items-center gap-1.5 sm:gap-2.5 bg-emerald-50/90 text-emerald-800 border border-emerald-200/80 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-semibold shadow-xs max-w-full">
+            <span className="relative flex h-2 w-2 shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span className="font-mono text-[11px] uppercase tracking-wide font-bold">
-              1,420+ Pre-Vetted Specialists Ready for Immediate Placement
+            <span className="font-mono text-[8.5px] min-[360px]:text-[9.5px] min-[420px]:text-[11px] sm:text-xs uppercase tracking-tight min-[380px]:tracking-wide font-bold whitespace-nowrap overflow-hidden text-ellipsis">
+              ⚡ Speed-First Recruitment • Save up to 60% on Talent Sourcing
             </span>
           </div>
 
           {/* Main Headline & Subtitle */}
           <div className="max-w-4xl space-y-5">
             <h1 className="font-display font-extrabold text-4xl sm:text-6xl lg:text-7xl text-slate-900 tracking-tight leading-[1.08]">
-              Hire verified digital talent with <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500">audited proof of work.</span>
+              Hire Top 1% Digital Talent in 48 Hours — <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500">At 60% Less Cost.</span>
             </h1>
             
             <p className="text-base sm:text-xl text-slate-600 font-normal max-w-2xl leading-relaxed">
-              Skip the 6-week screening queue. Access pre-vetted AI engineers, full-stack developers, and growth specialists evaluated on real execution—with zero percent salary markups.
+              Stop wasting weeks on unverified resumes. Digital Campux connects fast-growing teams with pre-vetted AI, Engineering, and Growth specialists backed by audited proof of work. Zero hiring risk. Guaranteed speed.
             </p>
           </div>
 
@@ -192,7 +78,7 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
               id="hero-explore-talent-btn"
             >
               <Briefcase className="w-4 h-4 text-emerald-100" />
-              <span>Explore Talent Directory</span>
+              <span>Hire Vetted Talent in 48 hrs →</span>
               <ArrowRight className="w-4 h-4 text-emerald-100" />
             </button>
 
@@ -202,7 +88,7 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
               id="hero-apply-talent-btn"
             >
               <Zap className="w-4 h-4 text-emerald-600" />
-              <span>Apply as Vetted Talent</span>
+              <span>Apply as a Specialist →</span>
             </button>
           </div>
 
@@ -241,7 +127,7 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
         <div className="max-w-2xl space-y-3">
           <div className="inline-flex items-center gap-2 text-xs font-mono font-semibold text-emerald-700 uppercase tracking-wider">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Built for Modern Hiring Teams</span>
+            <span>Built for High-Velocity Teams</span>
           </div>
           <h2 className="font-display font-bold text-3xl sm:text-4xl text-slate-900 tracking-tight">
             Why high-growth founders and hiring managers switch to Digital Campux
@@ -253,60 +139,60 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
           
-          {/* Pillar 1: 48-Hour Rapid Matchmaking */}
+          {/* Pillar 1: 80% Faster Sourcing Cycles */}
           <div className="bg-white rounded-2xl border border-slate-200/80 p-7 sm:p-8 shadow-xs hover:shadow-md hover:border-emerald-500/40 transition-all duration-200 flex flex-col justify-between space-y-6">
             <div className="space-y-4">
               <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
                 <Clock className="w-6 h-6" />
               </div>
               <h3 className="font-display font-bold text-xl text-slate-900">
-                48-Hour Rapid Deployment
+                80% Faster Sourcing Cycles
               </h3>
               <p className="text-sm text-slate-600 leading-relaxed">
-                Candidates have already passed rigorous diagnostic tests and technical scenario evaluations. Review audited portfolios today, start onboarding tomorrow.
+                Bypass weeks of manual resume screening. Our automated assessment pipelines deliver candidate shortlists in under 48 hours.
               </p>
             </div>
             <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-mono font-semibold text-emerald-700">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span>Zero screening backlog</span>
+              <span>Under 48h shortlists</span>
             </div>
           </div>
 
-          {/* Pillar 2: 120+ Hours Saved */}
+          {/* Pillar 2: Cut Hiring Costs by Up to 60% */}
           <div className="bg-white rounded-2xl border border-slate-200/80 p-7 sm:p-8 shadow-xs hover:shadow-md hover:border-emerald-500/40 transition-all duration-200 flex flex-col justify-between space-y-6">
             <div className="space-y-4">
               <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                <ShieldCheck className="w-6 h-6" />
+                <DollarSign className="w-6 h-6" />
               </div>
               <h3 className="font-display font-bold text-xl text-slate-900">
-                120+ Hours Saved Per Hire
+                Cut Hiring Costs by Up to 60%
               </h3>
               <p className="text-sm text-slate-600 leading-relaxed">
-                We eliminate unqualified resumes before they ever reach your inbox. Only candidates who prove real-world execution ability appear in the directory.
+                Eliminate expensive recruitment agency overheads while accessing top-tier digital specialists on flexible terms.
               </p>
             </div>
             <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-mono font-semibold text-blue-700">
               <CheckCircle2 className="w-4 h-4 text-blue-600" />
-              <span>Pre-evaluated work samples</span>
+              <span>0% recurring agency fees</span>
             </div>
           </div>
 
-          {/* Pillar 3: 0% Ongoing Commission */}
+          {/* Pillar 3: Audited Proof of Work (Zero Mis-Hire Risk) */}
           <div className="bg-white rounded-2xl border border-slate-200/80 p-7 sm:p-8 shadow-xs hover:shadow-md hover:border-emerald-500/40 transition-all duration-200 flex flex-col justify-between space-y-6">
             <div className="space-y-4">
               <div className="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
-                <DollarSign className="w-6 h-6" />
+                <ShieldCheck className="w-6 h-6" />
               </div>
               <h3 className="font-display font-bold text-xl text-slate-900">
-                0% Recurring Markup
+                Audited Proof of Work (Zero Mis-Hire Risk)
               </h3>
               <p className="text-sm text-slate-600 leading-relaxed">
-                Legacy headhunters take 15% to 25% of annual compensation forever. Digital Campux charges transparent one-time access slots. You pay your talent directly.
+                Every candidate undergoes real-world scenario testing, technical panel audits, and portfolio checks before placement.
               </p>
             </div>
             <div className="pt-4 border-t border-slate-100 flex items-center gap-2 text-xs font-mono font-semibold text-teal-700">
               <CheckCircle2 className="w-4 h-4 text-teal-600" />
-              <span>Direct compensation control</span>
+              <span>Verified performance output</span>
             </div>
           </div>
 
@@ -314,115 +200,12 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
       </section>
 
       {/* ==========================================
-          3. INTERACTIVE TALENT POOL SPOTLIGHT
+          3. FEATURED PRE-VETTED SPECIALISTS
           ========================================== */}
-      <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8 bg-slate-900 text-white space-y-10">
-        <div className="max-w-7xl mx-auto space-y-8">
-          
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-6 border-b border-slate-800">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 text-emerald-400 text-xs font-mono uppercase tracking-wider font-semibold">
-                <Users className="w-3.5 h-3.5" />
-                <span>Live Candidate Stream</span>
-              </div>
-              <h2 className="font-display font-bold text-3xl sm:text-4xl text-white tracking-tight">
-                Featured Pre-Vetted Specialists
-              </h2>
-              <p className="text-sm text-slate-400 max-w-xl leading-relaxed">
-                Discover verified professionals actively available for immediate contract or full-time roles.
-              </p>
-            </div>
-
-            <button
-              onClick={() => navigateToPage('directory')}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-5 rounded-xl text-xs flex items-center gap-2 cursor-pointer transition shadow-xs self-start sm:self-auto"
-            >
-              <span>Explore All Candidates</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Role Category Tabs */}
-          <div className="flex flex-wrap gap-2">
-            {categories.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setActiveCategoryTab(cat.id)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-2 ${
-                  activeCategoryTab === cat.id
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 border border-slate-700/60'
-                }`}
-              >
-                <span>{cat.label}</span>
-                <span className="text-[10px] font-mono text-slate-400">{cat.count}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Candidate Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {filteredCandidates.map((candidate) => (
-              <div 
-                key={candidate.id}
-                className="bg-slate-800/80 border border-slate-700/80 hover:border-emerald-500/60 rounded-2xl p-5 flex flex-col justify-between space-y-4 transition-all duration-200 group"
-              >
-                <div className="space-y-3.5">
-                  {/* Avatar & Specialty */}
-                  <div className="flex items-center gap-3">
-                    <img 
-                      src={candidate.avatarUrl} 
-                      alt={candidate.name}
-                      className="w-11 h-11 rounded-xl object-cover border border-slate-600"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div>
-                      <h4 className="font-semibold text-sm text-white group-hover:text-emerald-400 transition-colors">
-                        {candidate.name}
-                      </h4>
-                      <p className="text-xs text-emerald-400 font-medium">
-                        {candidate.specialty}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Vetting Score Badge */}
-                  <div className="flex items-center justify-between py-2 border-y border-slate-700/60 text-xs">
-                    <span className="text-emerald-400 bg-emerald-950/60 border border-emerald-800/80 font-mono text-[10px] font-semibold px-2 py-0.5 rounded-full">
-                      ✓ {candidate.vettingStatus}
-                    </span>
-                    <span className="font-mono text-slate-300 text-xs font-semibold">
-                      Score: <strong className="text-emerald-400">{candidate.score}%</strong>
-                    </span>
-                  </div>
-
-                  {/* Skill Badges */}
-                  <div className="flex flex-wrap gap-1.5">
-                    {candidate.skills.map((skill, sIdx) => (
-                      <span 
-                        key={sIdx}
-                        className="text-[10px] font-mono font-medium bg-slate-900/80 text-slate-300 px-2 py-0.5 rounded-md border border-slate-700"
-                      >
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Card Action */}
-                <button
-                  onClick={() => navigateToPage('directory')}
-                  className="w-full bg-slate-900 hover:bg-emerald-600 text-slate-200 hover:text-white font-medium py-2 px-3 rounded-xl text-xs border border-slate-700 hover:border-emerald-500 transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <span>View Candidate Profile</span>
-                  <ArrowUpRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-
-        </div>
-      </section>
+      <FeaturedSpecialists 
+        onNavigateToDirectory={() => navigateToPage('directory')}
+        onOpenTalentModal={openTalentModal}
+      />
 
       {/* ==========================================
           4. 3-STEP ACCREDITATION WORKFLOW
@@ -565,30 +348,30 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
           
           <div className="inline-flex items-center gap-2 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3.5 py-1.5 rounded-full text-xs font-semibold">
             <Zap className="w-3.5 h-3.5" />
-            <span>Accelerate Your Tech Team Today</span>
+            <span>Guaranteed Speed & Cost Efficiency</span>
           </div>
 
           <h2 className="font-display font-bold text-3xl sm:text-4xl text-white max-w-2xl mx-auto tracking-tight">
-            Ready to hire pre-vetted specialists with verified proof of work?
+            Accelerate Your Growth Without Overpaying for Talent
           </h2>
 
           <p className="text-sm sm:text-base text-slate-400 max-w-lg mx-auto leading-relaxed">
-            Join hundreds of forward-thinking founders and hiring managers saving time and hiring proven talent directly.
+            Get matched with audited specialists today and start shipping results immediately.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-4">
             <button
               onClick={() => navigateToPage('directory')}
-              className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3.5 px-7 rounded-xl text-xs uppercase tracking-wider cursor-pointer shadow-sm hover:shadow-md transition"
+              className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3.5 px-7 rounded-xl text-sm flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:shadow-md transition"
             >
-              Browse Talent Directory Now
+              <span>Browse Available Talent →</span>
             </button>
 
             <button
               onClick={openTalentModal}
-              className="w-full sm:w-auto bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-semibold py-3.5 px-7 rounded-xl text-xs uppercase tracking-wider border border-slate-700 cursor-pointer transition"
+              className="w-full sm:w-auto bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-semibold py-3.5 px-7 rounded-xl text-sm border border-slate-700 flex items-center justify-center gap-2 cursor-pointer transition"
             >
-              Apply as Vetted Talent
+              <span>Apply as a Specialist →</span>
             </button>
           </div>
 

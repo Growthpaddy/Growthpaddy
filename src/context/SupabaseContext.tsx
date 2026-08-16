@@ -111,7 +111,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
     const sanitizeVendorText = (text: string): string => {
       let cleaned = text
-        .replace(/supabase/gi, 'GrowthPaddy Network')
+        .replace(/supabase/gi, 'Digital Campux Network')
         .replace(/postgres(ql)?/gi, 'Database')
         .replace(/talent_profiles/gi, 'talent directory')
         .replace(/recruiter_profiles/gi, 'recruiter directory')

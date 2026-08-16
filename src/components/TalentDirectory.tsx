@@ -457,7 +457,7 @@ export default function TalentDirectory({
               No Candidates Found Yet
             </h4>
             <p className="text-xs text-slate-500 leading-relaxed max-w-md mx-auto">
-              The talent directory connects directly to the GrowthPaddy vetted talent network. As new candidates complete registration and pass diagnostic assessments, their profiles will populate here automatically.
+              The talent directory connects directly to the Digital Campux vetted talent network. As new candidates complete registration and pass diagnostic assessments, their profiles will populate here automatically.
             </p>
           </div>
 

@@ -957,7 +957,7 @@ export default function AdminOperations({
             <div className="fixed top-6 right-6 z-50 bg-neutral-950 text-white border-2 border-emerald-500 p-4 shadow-[6px_6px_0px_0px_rgba(0,168,107,1)] flex items-center gap-3 animate-fadeIn">
               <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
               <div>
-                <p className="font-mono text-xs font-black uppercase text-emerald-400">GROWTHPADDY LIVE UPDATE</p>
+                <p className="font-mono text-xs font-black uppercase text-emerald-400">DIGITAL CAMPUX LIVE UPDATE</p>
                 <p className="text-xs font-extrabold text-neutral-200">{toastMsg}</p>
               </div>
               <button onClick={() => setToastMsg(null)} className="ml-2 text-neutral-400 hover:text-white font-mono text-xs cursor-pointer">✕</button>
