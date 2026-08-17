@@ -32,6 +32,7 @@ export interface CaseStudyItem {
   metric?: string;
   metrics?: string;
   description: string;
+  tech_stack?: string[];
   techStack?: string[];
   tools?: string[];
   link?: string;
@@ -39,11 +40,15 @@ export interface CaseStudyItem {
 
 export interface WorkHistoryItem {
   id?: string;
-  title: string;
+  role?: string;
+  title?: string;
   company: string;
-  dates: string;
+  startDate?: string;
+  endDate?: string;
+  dates?: string;
   location?: string;
-  highlights: string[];
+  bullets?: string[];
+  highlights?: string[];
 }
 
 export interface EducationItem {
@@ -51,6 +56,7 @@ export interface EducationItem {
   degree: string;
   institution: string;
   year: string;
+  honors?: string;
   details?: string;
 }
 

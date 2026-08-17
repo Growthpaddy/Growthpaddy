@@ -6,22 +6,17 @@ import TalentResumeEditor from './TalentResumeEditor';
 import TalentPortfolioModal from './TalentPortfolioModal';
 import { Preloader } from './Preloader';
 import { 
-  ShieldCheck, 
   LogOut, 
   Sparkles, 
-  Sun, 
-  Moon, 
   UserCheck, 
   RefreshCw, 
-  CheckCircle2, 
   AlertCircle,
-  Briefcase,
-  Lock,
   CheckCircle,
   FileText,
   Award,
   Eye,
-  ArrowUpRight
+  ArrowUpRight,
+  Lock
 } from 'lucide-react';
 
 interface TalentProfileProps {
@@ -61,22 +56,36 @@ export default function TalentProfile({ onSignOut, navigateToPage }: TalentProfi
         .eq('id', user.id)
         .maybeSingle();
 
-      // 2. SELF-HEALING: If no profile row exists, create it live on the fly
+      // 2. SELF-HEALING: If no profile row exists, create it live on the fly with schema-aligned defaults
       if (!profileData) {
         console.log("Profile missing in talent_profiles table. Creating live profile row...");
         
+        const candidateName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Talent Candidate';
+        const defaultSlug = candidateName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
         const newProfile = {
           id: user.id,
           email: user.email,
-          full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Talent Candidate',
-          headline: 'Senior AI Automation Engineer & Growth Lead',
+          full_name: candidateName,
+          headline: '',
+          bio: '',
+          years_experience: 0,
+          hourly_rate: '',
+          skills: [],
+          ai_tools: [],
+          certifications: [],
+          work_history: [],
+          case_studies: [],
+          education: [],
+          linkedin_url: '',
+          github_url: '',
+          portfolio_url: '',
+          slug: defaultSlug,
           specialty: user.user_metadata?.specialty || 'AI Automation Engineer',
           experience_level: 'Seasoned Professional',
           vetting_status: 'pending',
           availability_status: 'available',
-          hourly_rate: '$65/hr',
-          monthly_retainer: '$4,500/mo',
-          location: 'Lagos, Nigeria • Remote Global',
+          location: 'Remote Global',
           phase_1_quiz_passed: false,
           phase_2_interview_passed: false,
           phase_2_interview_scheduled: false,
