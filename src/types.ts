@@ -141,3 +141,15 @@ export type PageType =
   | 'recruiter-login'
   | 'recruiter-dashboard';
 
+export type AdminRole = 'super_admin' | 'admin';
+
+export interface AdminProfileRecord {
+  id: string;
+  user_id: string;
+  full_name: string;
+  email: string;
+  role: AdminRole;
+  is_active: boolean;
+  created_at: string;
+}
+

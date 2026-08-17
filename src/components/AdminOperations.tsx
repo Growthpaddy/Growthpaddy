@@ -29,6 +29,8 @@ import { supabase } from '../lib/supabaseClient';
 import { useSupabase } from '../context/SupabaseContext';
 import { useAdminPipeline } from '../hooks/useAdminPipeline';
 import { TalentCandidate } from '../types';
+import AdminAuthModal from './AdminAuthModal';
+import SuperAdminApprovalsPage from '../../app/admin/approvals/page';
 
 interface AdminOperationsProps {
   onBackToMain: () => void;
@@ -66,6 +68,7 @@ export default function AdminOperations({
   // Auth state controls
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
   const [authView, setAuthView] = useState<'signin' | 'signup'>('signin');
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   
   // Form input states
   const [email, setEmail] = useState('');
@@ -105,7 +108,7 @@ export default function AdminOperations({
   const [slotStatusMsg, setSlotStatusMsg] = useState<string | null>(null);
 
   // Quiz Audits states
-  const [activeTab, setActiveTab] = useState<'registry' | 'audits' | 'recruiters' | 'slots'>('registry');
+  const [activeTab, setActiveTab] = useState<'registry' | 'audits' | 'recruiters' | 'slots' | 'approvals'>('registry');
   const [quizAttemptsLog, setQuizAttemptsLog] = useState<any[]>([]);
   const [loadingAttempts, setLoadingAttempts] = useState<boolean>(false);
   const [selectedAuditAttempt, setSelectedAuditAttempt] = useState<any | null>(null);
@@ -792,8 +795,18 @@ export default function AdminOperations({
               </form>
             )}
 
-            {/* Subtle Gate Toggle */}
+            {/* Modern Glassmorphism AdminAuthModal Trigger */}
             <div className="mt-6 pt-4 border-t border-neutral-200 text-center flex flex-col items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowAuthModal(true)}
+                className="w-full bg-slate-900 hover:bg-slate-800 text-emerald-400 font-mono text-xs font-bold py-2.5 px-4 rounded-xl border border-slate-700 flex items-center justify-center gap-2 transition cursor-pointer shadow-sm group"
+                id="open-admin-auth-modal-btn"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400 group-hover:rotate-12 transition-transform" />
+                <span>Launch Modern Admin Auth Modal</span>
+              </button>
+
               {authView === 'signin' ? (
                 <>
                   <p className="text-[11px] font-bold uppercase text-neutral-400">
@@ -820,6 +833,28 @@ export default function AdminOperations({
                 </>
               )}
             </div>
+
+            {/* Render AdminAuthModal */}
+            {showAuthModal && (
+              <AdminAuthModal 
+                isOpen={showAuthModal}
+                onClose={() => setShowAuthModal(false)}
+                onSuccess={(profile) => {
+                  const adminUser = {
+                    email: profile.email,
+                    fullName: profile.full_name,
+                    role: profile.role
+                  };
+                  localStorage.setItem('dsp_simulated_admin', JSON.stringify(adminUser));
+                  setIsAdminAuthenticated(true);
+                  setCurrentAdmin(adminUser);
+                  setShowAuthModal(false);
+                  if (onLoginSuccess) {
+                    onLoginSuccess();
+                  }
+                }}
+              />
+            )}
 
 
 
@@ -970,7 +1005,8 @@ export default function AdminOperations({
               { id: 'registry', label: 'Talent Registry', count: talentList.length },
               { id: 'audits', label: 'Gemini Quiz Audits' },
               { id: 'recruiters', label: 'Recruiter Placements', count: recruiters.length },
-              { id: 'slots', label: 'Vetting Slots Manager', count: slotsList.length }
+              { id: 'slots', label: 'Vetting Slots Manager', count: slotsList.length },
+              { id: 'approvals', label: 'Admin Access Approvals' }
             ].map((tb) => {
               const isActive = activeTab === tb.id;
               return (
@@ -1713,6 +1749,12 @@ export default function AdminOperations({
             </div>
 
           </div>
+          )}
+
+          {activeTab === 'approvals' && (
+            <div className="rounded-2xl overflow-hidden border-4 border-neutral-950 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+              <SuperAdminApprovalsPage />
+            </div>
           )}
 
         </div>
