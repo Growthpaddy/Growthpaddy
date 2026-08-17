@@ -1077,8 +1077,10 @@ export default function PublicPortfolio({
                   type="button"
                   onClick={() => {
                     setShowRecruiterPricingModal(false);
+                    if (onClose) onClose();
                     window.history.pushState({}, '', '/recruiter/signup?package=starter_tier');
                     window.dispatchEvent(new Event('popstate'));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   className="w-full bg-slate-900 hover:bg-emerald-600 text-white font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs"
                 >
@@ -1120,8 +1122,10 @@ export default function PublicPortfolio({
                   type="button"
                   onClick={() => {
                     setShowRecruiterPricingModal(false);
+                    if (onClose) onClose();
                     window.history.pushState({}, '', '/recruiter/signup?package=annual_unlimited');
                     window.dispatchEvent(new Event('popstate'));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer shadow-md"
                 >
@@ -1140,8 +1144,10 @@ export default function PublicPortfolio({
                   type="button"
                   onClick={() => {
                     setShowRecruiterPricingModal(false);
+                    if (onClose) onClose();
                     window.history.pushState({}, '', '/recruiter/login');
                     window.dispatchEvent(new Event('popstate'));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   className="font-bold text-emerald-700 hover:underline cursor-pointer"
                 >

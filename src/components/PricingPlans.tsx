@@ -17,7 +17,7 @@ import {
 interface PricingPlansProps {
   setEmployerSlots?: React.Dispatch<React.SetStateAction<number>>;
   setFeedbackMsg?: (msg: string) => void;
-  navigateToPage?: (page: any) => void;
+  navigateToPage?: (page: any, extraParams?: any) => void;
 }
 
 export default function PricingPlans({ 
@@ -28,8 +28,21 @@ export default function PricingPlans({
   const [activeTier, setActiveTier] = useState<'employers' | 'talent'>('employers');
 
   const handleSelectPackage = (pkg: 'starter_tier' | 'annual_unlimited') => {
-    window.history.pushState({}, '', `/recruiter/signup?package=${pkg}`);
-    window.dispatchEvent(new Event('popstate'));
+    if (navigateToPage) {
+      navigateToPage('recruiter-signup', { package: pkg });
+    } else {
+      window.history.pushState({}, '', `/recruiter/signup?package=${pkg}`);
+      window.dispatchEvent(new Event('popstate'));
+    }
+  };
+
+  const handleRecruiterLogin = () => {
+    if (navigateToPage) {
+      navigateToPage('recruiter-login');
+    } else {
+      window.history.pushState({}, '', '/recruiter/login');
+      window.dispatchEvent(new Event('popstate'));
+    }
   };
 
   return (
@@ -199,6 +212,20 @@ export default function PricingPlans({
                 </button>
               </div>
 
+            </div>
+
+            {/* Already registered employer link */}
+            <div className="text-center pt-2">
+              <p className="text-xs text-slate-500">
+                Already registered as an employer?{' '}
+                <button
+                  type="button"
+                  onClick={handleRecruiterLogin}
+                  className="font-bold text-emerald-700 hover:underline cursor-pointer"
+                >
+                  Sign In to Recruiter Portal
+                </button>
+              </p>
             </div>
           </div>
         )}

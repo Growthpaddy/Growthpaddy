@@ -38,7 +38,11 @@ import ProtectedRoute from './components/ProtectedRoute';
 import TalentProfile from './components/TalentProfile';
 import TalentPortfolioModal from './components/TalentPortfolioModal';
 import PublicPortfolio from './components/PublicPortfolio';
+import RecruiterSignup from './components/RecruiterSignup';
+import RecruiterLogin from './components/RecruiterLogin';
+import RecruiterDashboard from './components/RecruiterDashboard';
 import { Preloader } from './components/Preloader';
+import { PageType } from './types';
 
 export default function App() {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -61,18 +65,22 @@ export default function App() {
   const [signInRole, setSignInRole] = useState<'talent' | 'recruiter' | 'admin'>('talent');
 
   // Navigation State
-  const [currentPage, setCurrentPage] = useState<'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login'>('home');
+  const [currentPage, setCurrentPage] = useState<PageType>('home');
+  const [signupPackage, setSignupPackage] = useState<'starter_tier' | 'annual_unlimited'>('starter_tier');
 
   // Dedicated Portfolio Modal State
   const [isPortfolioModalOpen, setIsPortfolioModalOpen] = useState(false);
   const [selectedPublicSlug, setSelectedPublicSlug] = useState<string | undefined>(undefined);
 
   // Helper to map currentPage to pathname
-  const pageToPath = (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login') => {
+  const pageToPath = (page: PageType) => {
     switch (page) {
       case 'home': return '/';
       case 'directory': return '/directory';
-      case 'employer': return '/recruiter-profile';
+      case 'employer': return '/employer';
+      case 'recruiter-signup': return '/recruiter/signup';
+      case 'recruiter-login': return '/recruiter/login';
+      case 'recruiter-dashboard': return '/recruiter/dashboard';
       case 'talent': return '/talent-profile';
       case 'assessment': return '/assessment';
       case 'pricing': return '/pricing';
@@ -83,18 +91,37 @@ export default function App() {
   };
 
   // Helper to map pathname or hash to currentPage and optional candidate slug
-  const getRouteFromLocation = (): { page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login'; slug?: string } => {
+  const getRouteFromLocation = (): { 
+    page: PageType; 
+    slug?: string; 
+    packageType?: 'starter_tier' | 'annual_unlimited' 
+  } => {
     let rawPath = window.location.pathname;
 
-    // Check if user entered via a hash URL (e.g., /#/directory, /#/marcus-vance, /#/p/marcus-vance, or #directory)
-    if (window.location.hash) {
-      const hashContent = window.location.hash.replace(/^#\/?/, '/');
+    // Check if user entered via a hash URL (e.g., /#/directory, /#/marcus-vance, /#/p/marcus-vance, /#/recruiter/signup, or #directory)
+    let rawHash = window.location.hash || '';
+    if (rawHash) {
+      const hashContent = rawHash.replace(/^#\/?/, '/');
       if (hashContent) {
         rawPath = hashContent.startsWith('/') ? hashContent : '/' + hashContent;
       }
     }
 
-    let cleaned = decodeURIComponent(rawPath.replace(/\/$/, '')).trim();
+    // Also parse search params from both pathname and hash
+    let searchStr = window.location.search;
+    if (rawHash.includes('?')) {
+      searchStr = rawHash.substring(rawHash.indexOf('?'));
+    }
+    const urlParams = new URLSearchParams(searchStr);
+    const pkgParam = urlParams.get('package');
+    const packageType: 'starter_tier' | 'annual_unlimited' = 
+      (pkgParam === 'annual_unlimited' || pkgParam === 'annual') 
+        ? 'annual_unlimited' 
+        : 'starter_tier';
+
+    // Strip query string and trailing slashes for clean route path matching
+    let pathWithoutQuery = rawPath.split('?')[0];
+    let cleaned = decodeURIComponent(pathWithoutQuery.replace(/\/$/, '')).trim();
 
     // Direct candidate profile link: /p/some-slug
     if (cleaned.startsWith('/p/')) {
@@ -105,6 +132,15 @@ export default function App() {
     const lower = cleaned.toLowerCase();
     if (lower === '' || lower === '/') return { page: 'home' };
     if (lower === '/directory') return { page: 'directory' };
+    if (lower === '/recruiter/signup' || lower === '/recruiter-signup' || lower === '/employer/signup' || lower === '/signup/recruiter') {
+      return { page: 'recruiter-signup', packageType };
+    }
+    if (lower === '/recruiter/login' || lower === '/recruiter-login' || lower === '/employer/login' || lower === '/login/recruiter') {
+      return { page: 'recruiter-login' };
+    }
+    if (lower === '/recruiter/dashboard' || lower === '/recruiter-dashboard') {
+      return { page: 'recruiter-dashboard' };
+    }
     if (lower === '/recruiter-profile' || lower === '/employer') return { page: 'employer' };
     if (lower === '/talent-profile' || lower === '/talent') return { page: 'talent' };
     if (lower === '/assessment') return { page: 'assessment' };
@@ -114,7 +150,7 @@ export default function App() {
 
     // Direct candidate slug / name route: /[talent-name] or /[talent-slug]
     const candidateIdentifier = cleaned.replace(/^\//, '').trim();
-    if (candidateIdentifier && candidateIdentifier !== '') {
+    if (candidateIdentifier && candidateIdentifier !== '' && !candidateIdentifier.includes('/')) {
       return { page: 'directory', slug: candidateIdentifier };
     }
 
@@ -131,9 +167,20 @@ export default function App() {
         window.history.replaceState(null, '', `/#/p/${route.slug}`);
         setSelectedPublicSlug(route.slug);
         setIsPortfolioModalOpen(true);
-      } else if (window.location.hash && !window.location.hash.includes('/p/')) {
-        const targetPath = pageToPath(route.page);
-        window.history.replaceState(null, '', targetPath);
+      } else {
+        // Ensure modal is closed when visiting any non-profile route
+        setSelectedPublicSlug(undefined);
+        setIsPortfolioModalOpen(false);
+
+        if (route.packageType) {
+          setSignupPackage(route.packageType);
+        }
+
+        if (window.location.hash && !window.location.hash.includes('/p/')) {
+          const targetPath = pageToPath(route.page);
+          const currentFull = route.packageType ? `${targetPath}?package=${route.packageType}` : targetPath;
+          window.history.replaceState(null, '', currentFull);
+        }
       }
 
       setCurrentPage(route.page);
@@ -154,9 +201,12 @@ export default function App() {
     const currentPath = window.location.pathname;
     const targetPath = pageToPath(currentPage);
     if (currentPath !== targetPath && !currentPath.startsWith('/p/')) {
-      window.history.pushState(null, '', targetPath);
+      const fullTarget = (currentPage === 'recruiter-signup' && signupPackage) 
+        ? `${targetPath}?package=${signupPackage}` 
+        : targetPath;
+      window.history.pushState(null, '', fullTarget);
     }
-  }, [currentPage]);
+  }, [currentPage, signupPackage]);
 
   // Confetti Success States
   const [showConfetti, setShowConfetti] = useState(false);
@@ -346,8 +396,19 @@ export default function App() {
     }
   };
 
-  const navigateToPage = (pageName: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login') => {
+  const navigateToPage = (
+    pageName: PageType, 
+    extraParams?: { package?: 'starter_tier' | 'annual_unlimited'; slug?: string }
+  ) => {
+    setIsPortfolioModalOpen(false);
+    setSelectedPublicSlug(undefined);
+    if (extraParams?.package) {
+      setSignupPackage(extraParams.package);
+    }
     setCurrentPage(pageName);
+    const basePath = pageToPath(pageName);
+    const fullPath = extraParams?.package ? `${basePath}?package=${extraParams.package}` : basePath;
+    window.history.pushState(null, '', fullPath);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -520,6 +581,36 @@ export default function App() {
                 mode="login" 
                 onBackToMain={() => navigateToPage('home')} 
                 onLoginSuccess={() => navigateToPage('admin')} 
+              />
+            )}
+
+            {/* View 9: Recruiter Registration & Sourcing Package Purchase (/recruiter/signup) */}
+            {currentPage === 'recruiter-signup' && (
+              <RecruiterSignup 
+                initialPackage={signupPackage}
+                onNavigateToLogin={() => navigateToPage('recruiter-login')}
+                onNavigateToHome={() => navigateToPage('home')}
+              />
+            )}
+
+            {/* View 10: Recruiter Portal Login (/recruiter/login) */}
+            {currentPage === 'recruiter-login' && (
+              <RecruiterLogin 
+                onNavigateToDashboard={() => navigateToPage('recruiter-dashboard')}
+                onNavigateToSignup={() => navigateToPage('recruiter-signup')}
+                onNavigateToHome={() => navigateToPage('home')}
+              />
+            )}
+
+            {/* View 11: Recruiter Direct Sourcing Dashboard (/recruiter/dashboard) */}
+            {currentPage === 'recruiter-dashboard' && (
+              <RecruiterDashboard 
+                onSignOut={() => {
+                  setOnboardingData(null);
+                  navigateToPage('home');
+                }}
+                onNavigateToDirectory={() => navigateToPage('directory')}
+                onNavigateToPricing={() => navigateToPage('pricing')}
               />
             )}
 

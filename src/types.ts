@@ -127,3 +127,17 @@ export interface StepInfo {
   badge: string;
   details: string[];
 }
+
+export type PageType = 
+  | 'home' 
+  | 'directory' 
+  | 'employer' 
+  | 'talent' 
+  | 'assessment' 
+  | 'pricing' 
+  | 'admin' 
+  | 'admin-login'
+  | 'recruiter-signup'
+  | 'recruiter-login'
+  | 'recruiter-dashboard';
+

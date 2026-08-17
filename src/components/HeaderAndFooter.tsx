@@ -25,10 +25,11 @@ import {
   Users,
   DollarSign
 } from 'lucide-react';
+import { PageType } from '../types';
 
 interface HeaderProps {
-  currentPage?: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login';
-  setCurrentPage?: (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login') => void;
+  currentPage?: PageType;
+  setCurrentPage?: (page: PageType) => void;
   openHireModal?: () => void;
   openTalentModal?: () => void;
   employerSlots?: number;
@@ -58,7 +59,7 @@ export function Header({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const handleNavClick = (id: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login') => {
+  const handleNavClick = (id: PageType) => {
     setIsMenuOpen(false);
     if (setCurrentPage) {
       setCurrentPage(id);
@@ -282,13 +283,13 @@ export function Header({
 }
 
 interface FooterProps {
-  setCurrentPage?: (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login') => void;
+  setCurrentPage?: (page: PageType) => void;
 }
 
 export function Footer({ setCurrentPage }: FooterProps) {
   const currentYear = new Date().getFullYear();
 
-  const handleLink = (e: React.MouseEvent, page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login') => {
+  const handleLink = (e: React.MouseEvent, page: PageType) => {
     if (setCurrentPage) {
       e.preventDefault();
       setCurrentPage(page);

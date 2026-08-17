@@ -42,6 +42,18 @@ export default function RecruiterSignup({
     return initialPackage;
   });
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const pkg = params.get('package');
+    if (pkg === 'annual_unlimited' || pkg === 'annual') {
+      setSelectedPackage('annual_unlimited');
+    } else if (pkg === 'starter_tier' || pkg === 'starter') {
+      setSelectedPackage('starter_tier');
+    } else if (initialPackage) {
+      setSelectedPackage(initialPackage);
+    }
+  }, [initialPackage]);
+
   const [companyName, setCompanyName] = useState('');
   const [contactPerson, setContactPerson] = useState('');
   const [businessEmail, setBusinessEmail] = useState('');
