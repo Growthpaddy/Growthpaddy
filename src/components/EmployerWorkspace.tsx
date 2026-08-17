@@ -14,7 +14,10 @@ import {
   Calendar,
   User,
   Sparkles,
-  Plus
+  Plus,
+  LogOut,
+  Building2,
+  Users
 } from 'lucide-react';
 import { MOCK_TALENT } from '../data/mockTalent';
 import { useSupabase } from '../context/SupabaseContext';
@@ -23,13 +26,17 @@ import { supabase } from '../lib/supabaseClient';
 interface EmployerWorkspaceProps {
   employerSlots?: number;
   setEmployerSlots?: React.Dispatch<React.SetStateAction<number>>;
-  navigateToPage?: (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing') => void;
+  navigateToPage?: (page: any) => void;
+  onSignOut?: () => void;
+  onNavigateToDirectory?: () => void;
 }
 
 export default function EmployerWorkspace({ 
   employerSlots = 1, 
   setEmployerSlots, 
-  navigateToPage 
+  navigateToPage,
+  onSignOut,
+  onNavigateToDirectory
 }: EmployerWorkspaceProps) {
   
   const { user, updateProfileData } = useSupabase();
@@ -147,8 +154,70 @@ export default function EmployerWorkspace({
   };
 
   return (
-    <div className="space-y-8 text-left max-w-7xl mx-auto">
+    <div className="space-y-6 text-left max-w-7xl mx-auto pb-16">
       
+      {/* Employer Workspace Topbar */}
+      <header className="bg-white border border-slate-200/80 rounded-2xl px-5 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xs">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="bg-slate-900 text-white p-2 rounded-xl flex items-center justify-center font-bold">
+            <Building2 className="w-4 h-4 text-emerald-400" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-display font-black text-sm tracking-tight text-slate-900">
+                {orgName || 'Employer Workspace'}
+              </span>
+              <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-full">
+                Recruiter Portal
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 font-medium">
+              Sourcing Console · {user?.email || 'Logged In'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+          <button
+            onClick={() => {
+              if (onNavigateToDirectory) onNavigateToDirectory();
+              else if (navigateToPage) navigateToPage('directory');
+            }}
+            className="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-mono text-xs font-bold px-3 py-1.5 rounded-xl transition cursor-pointer shadow-2xs"
+          >
+            <Users className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Browse Talent Pool</span>
+          </button>
+
+          <button
+            onClick={() => {
+              if (navigateToPage) navigateToPage('pricing');
+            }}
+            className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono text-xs font-bold px-3 py-1.5 rounded-xl transition cursor-pointer shadow-2xs"
+          >
+            <Unlock className="w-3.5 h-3.5 text-emerald-600" />
+            <span>{employerSlots} Slots</span>
+          </button>
+
+          <button
+            onClick={async () => {
+              try {
+                await supabase.auth.signOut();
+              } catch (e) {
+                // Ignore
+              }
+              if (onSignOut) onSignOut();
+              else if (navigateToPage) navigateToPage('home');
+            }}
+            className="flex items-center gap-1.5 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-700 font-mono text-xs font-bold px-3 py-1.5 rounded-xl transition cursor-pointer shadow-2xs"
+            title="Sign out of workspace"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </header>
+
       {/* 1. Header Banner & Stats */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6 bg-white p-6 sm:p-7 border border-slate-200/80 rounded-2xl shadow-xs">
         <div className="space-y-1.5 max-w-xl">

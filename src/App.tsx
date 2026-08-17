@@ -212,6 +212,9 @@ export default function App() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [confettiMessage, setConfettiMessage] = useState('SUCCESSFULLY REGISTERED!');
 
+  // Check if current view is a dedicated authenticated/operations dashboard
+  const isDashboardPage = ['talent', 'employer', 'recruiter-dashboard', 'admin'].includes(currentPage);
+
   // Shared Global States
   const [employerSlots, setEmployerSlots] = useState<number>(1);
   const [isTalentPaid, setIsTalentPaid] = useState<boolean>(false);
@@ -419,8 +422,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-white text-neutral-850 font-sans antialiased selection:bg-emerald-500/30 selection:text-neutral-900">
       
-      {/* GLOBAL HEADER (Hidden on isolated talent-profile portal) */}
-      {currentPage !== 'talent' && (
+      {/* GLOBAL HEADER (Hidden on isolated dashboards: Talent, Recruiter, Employer, and Admin) */}
+      {!isDashboardPage && (
         <Header 
           currentPage={currentPage} 
           setCurrentPage={setCurrentPage} 
@@ -440,7 +443,7 @@ export default function App() {
           }}
           onVisitDashboard={() => {
             if (onboardingData?.userType === 'recruiter') {
-              setCurrentPage('employer');
+              setCurrentPage('recruiter-dashboard');
             } else if (onboardingData?.userType === 'admin') {
               setCurrentPage('admin');
             } else {
@@ -532,6 +535,11 @@ export default function App() {
                   employerSlots={employerSlots}
                   setEmployerSlots={setEmployerSlots}
                   navigateToPage={navigateToPage}
+                  onSignOut={() => {
+                    setOnboardingData(null);
+                    navigateToPage('home');
+                  }}
+                  onNavigateToDirectory={() => navigateToPage('directory')}
                 />
               </section>
             )}
@@ -939,8 +947,8 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* GLOBAL FOOTER (Hidden on isolated talent-profile portal) */}
-      {currentPage !== 'talent' && (
+      {/* GLOBAL FOOTER (Hidden on isolated dashboard views) */}
+      {!isDashboardPage && (
         <Footer setCurrentPage={setCurrentPage} />
       )}
 
