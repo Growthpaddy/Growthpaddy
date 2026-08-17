@@ -33,6 +33,8 @@ import ConfettiSuccess from './components/ConfettiSuccess';
 import { useSupabase } from './context/SupabaseContext';
 import { supabase } from './lib/supabaseClient';
 import AdminOperations from './components/AdminOperations';
+import AdminGuard from './components/AdminGuard';
+import SuperAdminApprovalsPage from '../app/admin/approvals/page';
 import { useSecureLogin } from './hooks/useSecureLogin';
 import ProtectedRoute from './components/ProtectedRoute';
 import TalentProfile from './components/TalentProfile';
@@ -84,8 +86,9 @@ export default function App() {
       case 'talent': return '/talent-profile';
       case 'assessment': return '/assessment';
       case 'pricing': return '/pricing';
-      case 'admin': return '/admin-profile';
-      case 'admin-login': return '/admin-login';
+      case 'admin': return '/admin';
+      case 'admin-login': return '/admin/login';
+      case 'admin-approvals': return '/admin/approvals';
       default: return '/';
     }
   };
@@ -145,8 +148,9 @@ export default function App() {
     if (lower === '/talent-profile' || lower === '/talent') return { page: 'talent' };
     if (lower === '/assessment') return { page: 'assessment' };
     if (lower === '/pricing') return { page: 'pricing' };
-    if (lower === '/admin-profile' || lower === '/admin') return { page: 'admin' };
-    if (lower === '/admin-login') return { page: 'admin-login' };
+    if (lower === '/admin/approvals' || lower === '/admin-approvals') return { page: 'admin-approvals' };
+    if (lower === '/admin/login' || lower === '/admin-login') return { page: 'admin-login' };
+    if (lower === '/admin' || lower === '/admin-profile') return { page: 'admin' };
 
     // Direct candidate slug / name route: /[talent-name] or /[talent-slug]
     const candidateIdentifier = cleaned.replace(/^\//, '').trim();
@@ -213,7 +217,7 @@ export default function App() {
   const [confettiMessage, setConfettiMessage] = useState('SUCCESSFULLY REGISTERED!');
 
   // Check if current view is a dedicated authenticated/operations dashboard
-  const isDashboardPage = ['talent', 'employer', 'recruiter-dashboard', 'admin'].includes(currentPage);
+  const isDashboardPage = ['talent', 'employer', 'recruiter-dashboard', 'admin', 'admin-approvals'].includes(currentPage);
 
   // Shared Global States
   const [employerSlots, setEmployerSlots] = useState<number>(1);
@@ -579,22 +583,31 @@ export default function App() {
               </section>
             )}
 
-            {/* View 7: Staff/Admin Operations Command Center Dashboard (/admin-profile) */}
-            {currentPage === 'admin' && (
-              <AdminOperations 
-                mode="dashboard" 
-                onBackToMain={() => navigateToPage('home')} 
-                onRedirectToLogin={() => navigateToPage('admin-login')} 
-              />
-            )}
-
-            {/* View 8: Staff/Admin Login Portal (/admin-login) */}
+            {/* View 7: Staff/Admin Login Portal (/admin/login) - PUBLIC OUTSIDE GUARD */}
             {currentPage === 'admin-login' && (
               <AdminOperations 
                 mode="login" 
                 onBackToMain={() => navigateToPage('home')} 
                 onLoginSuccess={() => navigateToPage('admin')} 
               />
+            )}
+
+            {/* View 8: Staff/Admin Operations Command Center Dashboard (/admin) - GUARDED */}
+            {currentPage === 'admin' && (
+              <AdminGuard>
+                <AdminOperations 
+                  mode="dashboard" 
+                  onBackToMain={() => navigateToPage('home')} 
+                  onRedirectToLogin={() => navigateToPage('admin-login')} 
+                />
+              </AdminGuard>
+            )}
+
+            {/* View 9: Super Admin Approvals Gateway (/admin/approvals) - SUPER ADMIN ONLY GUARD */}
+            {currentPage === 'admin-approvals' && (
+              <AdminGuard superAdminOnly={true}>
+                <SuperAdminApprovalsPage />
+              </AdminGuard>
             )}
 
             {/* View 9: Recruiter Registration & Sourcing Package Purchase (/recruiter/signup) */}
