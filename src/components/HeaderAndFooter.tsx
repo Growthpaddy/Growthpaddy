@@ -39,6 +39,7 @@ interface HeaderProps {
   onVisitPortfolio?: () => void;
   isLoggedIn?: boolean;
   userName?: string;
+  userEmail?: string;
   userType?: 'talent' | 'recruiter' | 'admin' | null;
 }
 
@@ -54,13 +55,17 @@ export function Header({
   onVisitPortfolio,
   isLoggedIn = false,
   userName = '',
+  userEmail = '',
   userType = null
 }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isAvatarOpen, setIsAvatarOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const avatarRef = useRef<HTMLDivElement>(null);
 
   const handleNavClick = (id: PageType) => {
     setIsMenuOpen(false);
+    setIsAvatarOpen(false);
     if (setCurrentPage) {
       setCurrentPage(id);
     }
@@ -70,23 +75,27 @@ export function Header({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Close menu when clicking outside
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsMenuOpen(false);
       }
+      if (avatarRef.current && !avatarRef.current.contains(event.target as Node)) {
+        setIsAvatarOpen(false);
+      }
     };
-    if (isMenuOpen) {
+    if (isMenuOpen || isAvatarOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isMenuOpen]);
+  }, [isMenuOpen, isAvatarOpen]);
 
   const handleDashboardClick = () => {
     setIsMenuOpen(false);
+    setIsAvatarOpen(false);
     if (onVisitDashboard) {
       onVisitDashboard();
     } else if (setCurrentPage) {
@@ -97,6 +106,7 @@ export function Header({
 
   const handlePortfolioClick = () => {
     setIsMenuOpen(false);
+    setIsAvatarOpen(false);
     if (onVisitPortfolio) {
       onVisitPortfolio();
     } else if (setCurrentPage) {
@@ -107,29 +117,66 @@ export function Header({
 
   const handleSignOut = () => {
     setIsMenuOpen(false);
+    setIsAvatarOpen(false);
     if (onSignOutClick) {
       onSignOutClick();
+    } else {
+      if (setCurrentPage) {
+        setCurrentPage('home');
+      }
+      window.history.pushState({}, '', '/');
+      window.dispatchEvent(new Event('popstate'));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const handleHireTalentClick = () => {
     setIsMenuOpen(false);
+    setIsAvatarOpen(false);
     handleNavClick('directory');
   };
 
   const handleSignInClick = () => {
     setIsMenuOpen(false);
+    setIsAvatarOpen(false);
     if (onSignInClick) {
       onSignInClick();
     }
   };
 
-  const handleApplyTalentClick = () => {
-    setIsMenuOpen(false);
-    if (openTalentModal) {
-      openTalentModal();
+  const getInitials = (name?: string) => {
+    if (!name) return 'U';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
     }
+    return name.slice(0, 2).toUpperCase();
   };
+
+  const getRoleInfo = () => {
+    if (userType === 'recruiter') {
+      return {
+        label: 'Recruiter Dashboard',
+        badge: 'Recruiter',
+        badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200'
+      };
+    }
+    if (userType === 'admin') {
+      return {
+        label: 'Admin Command Center',
+        badge: 'Admin',
+        badgeClass: 'bg-purple-100 text-purple-800 border-purple-200'
+      };
+    }
+    return {
+      label: 'Talent Dashboard',
+      badge: 'Vetted Talent',
+      badgeClass: 'bg-blue-100 text-blue-800 border-blue-200'
+    };
+  };
+
+  const roleInfo = getRoleInfo();
+  const displayName = userName || (userType === 'recruiter' ? 'Recruiter' : userType === 'admin' ? 'Admin Staff' : 'Talent Specialist');
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-slate-200/80 transition-all shadow-xs">
@@ -154,52 +201,143 @@ export function Header({
           </div>
         </button>
 
-        {/* Right Section: Hamburger Icon Button for Desktop & Mobile */}
-        <div className="relative" ref={menuRef}>
-          <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className={`flex items-center gap-2 py-2 px-3 sm:px-3.5 rounded-xl border transition-all duration-150 cursor-pointer shadow-2xs ${
-              isMenuOpen 
-                ? 'bg-slate-900 text-white border-slate-900 shadow-sm' 
-                : 'bg-slate-50 hover:bg-slate-100/90 text-slate-800 border-slate-200/90 hover:border-slate-300'
-            }`}
-            id="global-hamburger-btn"
-            aria-expanded={isMenuOpen}
-            aria-label="Toggle navigation menu"
-          >
-            {isMenuOpen ? (
-              <X className="w-5 h-5" />
-            ) : (
-              <Menu className="w-5 h-5" />
-            )}
-            <span className="text-xs font-semibold tracking-tight hidden sm:inline">
-              {isMenuOpen ? 'Close' : 'Menu'}
-            </span>
-            {isLoggedIn && (
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-            )}
-          </button>
-
-          {/* Neat Dropdown / Flyout Menu */}
-          {isMenuOpen && (
-            <div className="absolute right-0 mt-2.5 w-[290px] sm:w-[320px] bg-white border border-slate-200/90 rounded-2xl shadow-2xl z-50 py-2 animate-fadeIn text-left overflow-hidden divide-y divide-slate-100">
-              
-              {/* User Identity / Welcome Header */}
-              {isLoggedIn ? (
-                <div className="px-4 py-3 bg-slate-50/80">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
-                      Active Account
-                    </span>
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
-                      {userType === 'recruiter' ? 'Recruiter' : userType === 'admin' ? 'Admin' : 'Vetted Talent'}
-                    </span>
-                  </div>
-                  <p className="text-xs font-bold text-slate-900 truncate mt-1">
-                    {userName || 'Active Specialist'}
-                  </p>
+        {/* Right Section: Avatar Icon (When Logged In) + Hamburger Menu */}
+        <div className="flex items-center gap-2.5">
+          
+          {/* User Avatar & Dropdown (When Logged In) */}
+          {isLoggedIn && (
+            <div className="relative" ref={avatarRef}>
+              <button
+                onClick={() => {
+                  setIsAvatarOpen(!isAvatarOpen);
+                  setIsMenuOpen(false);
+                }}
+                className={`flex items-center gap-2 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border transition-all duration-150 cursor-pointer shadow-2xs group ${
+                  isAvatarOpen 
+                    ? 'border-emerald-600 bg-emerald-50/70 text-emerald-950 shadow-xs' 
+                    : 'border-slate-200/90 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-800'
+                }`}
+                id="header-user-avatar-btn"
+                aria-expanded={isAvatarOpen}
+                aria-label="User profile menu"
+              >
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-tr from-emerald-600 to-teal-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0 ring-1 ring-emerald-500/20">
+                  {getInitials(displayName)}
                 </div>
+                <div className="hidden sm:flex flex-col text-left">
+                  <span className="text-xs font-bold text-slate-900 tracking-tight leading-tight truncate max-w-[110px]">
+                    {displayName}
+                  </span>
+                  <span className="text-[10px] font-mono font-medium text-emerald-700 leading-none capitalize">
+                    {roleInfo.badge}
+                  </span>
+                </div>
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform duration-150 ${isAvatarOpen ? 'rotate-180 text-emerald-600' : ''}`} />
+              </button>
+
+              {/* Avatar Dropdown Menu */}
+              {isAvatarOpen && (
+                <div className="absolute right-0 mt-2.5 w-[250px] sm:w-[270px] bg-white border border-slate-200/90 rounded-2xl shadow-2xl z-50 py-2 animate-fadeIn text-left overflow-hidden divide-y divide-slate-100">
+                  {/* Account Snapshot */}
+                  <div className="px-4 py-3 bg-slate-50/80">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                        {getInitials(displayName)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-slate-900 truncate">
+                          {displayName}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase ${roleInfo.badgeClass}`}>
+                            {roleInfo.badge}
+                          </span>
+                          {userEmail && (
+                            <span className="text-[10px] text-slate-400 truncate max-w-[100px]">
+                              {userEmail}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dropdown Action: Role-Specific Dashboard */}
+                  <div className="p-1.5 space-y-1">
+                    <button
+                      onClick={handleDashboardClick}
+                      className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-900 hover:bg-emerald-50 hover:text-emerald-950 rounded-xl flex items-center justify-between transition-colors cursor-pointer group"
+                      id="avatar-menu-dashboard-btn"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                          <LayoutDashboard className="w-3.5 h-3.5" />
+                        </div>
+                        <span>Dashboard</span>
+                      </div>
+                      <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-transform" />
+                    </button>
+
+                    {userType === 'talent' && onVisitPortfolio && (
+                      <button
+                        onClick={handlePortfolioClick}
+                        className="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                      >
+                        <FolderKanban className="w-3.5 h-3.5 text-slate-500" />
+                        <span>My Audited Portfolio</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Dropdown Action: Logout (Redirects immediately to home) */}
+                  <div className="p-1.5">
+                    <button
+                      onClick={handleSignOut}
+                      className="w-full text-left px-3 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
+                      id="avatar-menu-logout-btn"
+                    >
+                      <div className="p-1.5 rounded-lg bg-rose-100 text-rose-600">
+                        <LogOut className="w-3.5 h-3.5" />
+                      </div>
+                      <span>Logout</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Hamburger Icon Button for Desktop & Mobile */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => {
+                setIsMenuOpen(!isMenuOpen);
+                setIsAvatarOpen(false);
+              }}
+              className={`flex items-center gap-2 py-2 px-3 sm:px-3.5 rounded-xl border transition-all duration-150 cursor-pointer shadow-2xs ${
+                isMenuOpen 
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-sm' 
+                  : 'bg-slate-50 hover:bg-slate-100/90 text-slate-800 border-slate-200/90 hover:border-slate-300'
+              }`}
+              id="global-hamburger-btn"
+              aria-expanded={isMenuOpen}
+              aria-label="Toggle navigation menu"
+            >
+              {isMenuOpen ? (
+                <X className="w-5 h-5" />
               ) : (
+                <Menu className="w-5 h-5" />
+              )}
+              <span className="text-xs font-semibold tracking-tight hidden sm:inline">
+                {isMenuOpen ? 'Close' : 'Menu'}
+              </span>
+            </button>
+
+            {/* Main Navigation Dropdown */}
+            {isMenuOpen && (
+              <div className="absolute right-0 mt-2.5 w-[280px] sm:w-[300px] bg-white border border-slate-200/90 rounded-2xl shadow-2xl z-50 py-2 animate-fadeIn text-left overflow-hidden divide-y divide-slate-100">
+                
+                {/* Header info */}
                 <div className="px-4 py-3 bg-gradient-to-r from-emerald-50/70 via-slate-50/60 to-slate-50/40">
                   <div className="flex items-center gap-1.5 text-emerald-700 text-[11px] font-mono font-bold">
                     <Zap className="w-3.5 h-3.5 text-emerald-600" />
@@ -209,72 +347,82 @@ export function Header({
                     Pre-vetted digital talent in 48 hours.
                   </p>
                 </div>
-              )}
 
-              {/* Core Highlight Actions (Hire Talent & Sign In) */}
-              <div className="p-2 space-y-2">
-                {/* 1. Hire Talent Primary CTA */}
-                <button
-                  onClick={handleHireTalentClick}
-                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-3.5 rounded-xl text-xs flex items-center justify-between transition-all duration-150 cursor-pointer shadow-xs group"
-                  id="menu-hire-talent-btn"
-                >
-                  <div className="flex items-center gap-2">
-                    <Briefcase className="w-4 h-4 text-emerald-100" />
-                    <span>Hire Talent in 48 hrs</span>
-                  </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-emerald-200 group-hover:translate-x-0.5 transition-transform" />
-                </button>
-
-                {/* 2. Sign In or Workspace Dashboard CTA */}
-                {!isLoggedIn ? (
+                {/* Primary CTA button */}
+                <div className="p-2">
                   <button
-                    onClick={handleSignInClick}
-                    className="w-full bg-slate-100 hover:bg-slate-200/80 text-slate-800 font-semibold py-2.5 px-3.5 rounded-xl text-xs flex items-center justify-between border border-slate-200/80 transition-colors cursor-pointer"
-                    id="menu-signin-btn"
+                    onClick={handleHireTalentClick}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-3.5 rounded-xl text-xs flex items-center justify-between transition-all duration-150 cursor-pointer shadow-xs group"
+                    id="menu-hire-talent-btn"
                   >
                     <div className="flex items-center gap-2">
-                      <Lock className="w-4 h-4 text-slate-600" />
-                      <span>Sign In to Account</span>
+                      <Briefcase className="w-4 h-4 text-emerald-100" />
+                      <span>Hire Talent in 48 hrs</span>
                     </div>
-                    <ArrowUpRight className="w-3.5 h-3.5 text-slate-400" />
+                    <ArrowRight className="w-3.5 h-3.5 text-emerald-200 group-hover:translate-x-0.5 transition-transform" />
                   </button>
-                ) : (
-                  <div className="space-y-1.5 pt-1">
+                </div>
+
+                {/* Navigation Links */}
+                <div className="p-2 space-y-1">
+                  <button
+                    onClick={() => handleNavClick('directory')}
+                    className={`w-full text-left px-3 py-2 text-xs font-medium rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
+                      currentPage === 'directory' ? 'bg-emerald-50 text-emerald-800 font-bold' : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-slate-500" />
+                      <span>Browse Talent Pool</span>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => handleNavClick('pricing')}
+                    className={`w-full text-left px-3 py-2 text-xs font-medium rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
+                      currentPage === 'pricing' ? 'bg-emerald-50 text-emerald-800 font-bold' : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-slate-500" />
+                      <span>Sourcing & Pricing</span>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => handleNavClick('assessment')}
+                    className={`w-full text-left px-3 py-2 text-xs font-medium rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
+                      currentPage === 'assessment' ? 'bg-emerald-50 text-emerald-800 font-bold' : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Award className="w-4 h-4 text-slate-500" />
+                      <span>Practice Assessment</span>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Sign In CTA when not logged in */}
+                {!isLoggedIn && (
+                  <div className="p-2">
                     <button
-                      onClick={handleDashboardClick}
-                      className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2.5 px-3.5 rounded-xl text-xs flex items-center justify-between transition-colors cursor-pointer"
+                      onClick={handleSignInClick}
+                      className="w-full bg-slate-100 hover:bg-slate-200/80 text-slate-800 font-semibold py-2.5 px-3.5 rounded-xl text-xs flex items-center justify-between border border-slate-200/80 transition-colors cursor-pointer"
+                      id="menu-signin-btn"
                     >
                       <div className="flex items-center gap-2">
-                        <LayoutDashboard className="w-4 h-4 text-emerald-400" />
-                        <span>Workspace Dashboard</span>
+                        <Lock className="w-4 h-4 text-slate-600" />
+                        <span>Sign In to Account</span>
                       </div>
-                      <ChevronDown className="w-3.5 h-3.5 -rotate-90 text-slate-400" />
+                      <ArrowUpRight className="w-3.5 h-3.5 text-slate-400" />
                     </button>
-
-                    <button
-                      onClick={handlePortfolioClick}
-                      className="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer"
-                    >
-                      <FolderKanban className="w-4 h-4 text-emerald-600" />
-                      <span>Audited Portfolio Showcase</span>
-                    </button>
-
-                    <div className="pt-1 border-t border-slate-100">
-                      <button
-                        onClick={handleSignOut}
-                        className="w-full text-left px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer"
-                      >
-                        <LogOut className="w-4 h-4 text-rose-500" />
-                        <span>Sign Out</span>
-                      </button>
-                    </div>
                   </div>
                 )}
-              </div>
 
-            </div>
-          )}
+              </div>
+            )}
+          </div>
+
         </div>
 
       </div>

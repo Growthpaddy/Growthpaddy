@@ -430,26 +430,31 @@ export default function App() {
           openHireModal={() => setIsHireModalOpen(true)}
           openTalentModal={() => setIsTalentModalOpen(true)}
           employerSlots={employerSlots}
-          isLoggedIn={onboardingData !== null}
-          userName={onboardingData?.userName || ''}
-          userType={onboardingData?.userType || null}
+          isLoggedIn={Boolean(onboardingData !== null || user !== null)}
+          userName={onboardingData?.userName || (user?.user_metadata?.name as string) || (user?.email ? user.email.split('@')[0] : '')}
+          userEmail={onboardingData?.email || user?.email || ''}
+          userType={onboardingData?.userType || (user?.user_metadata?.role as any) || (user?.user_metadata?.userType as any) || 'talent'}
           onSignInClick={() => {
             setSignInError('');
             setIsSignInModalOpen(true);
           }}
-          onSignOutClick={() => {
+          onSignOutClick={async () => {
+            try {
+              await supabase.auth.signOut();
+            } catch (e) {
+              // Ignore
+            }
             setOnboardingData(null);
-            setCurrentPage('home');
+            navigateToPage('home');
           }}
           onVisitDashboard={() => {
             if (onboardingData?.userType === 'recruiter') {
-              setCurrentPage('recruiter-dashboard');
+              navigateToPage('recruiter-dashboard');
             } else if (onboardingData?.userType === 'admin') {
-              setCurrentPage('admin');
+              navigateToPage('admin');
             } else {
-              setCurrentPage('talent');
+              navigateToPage('talent');
             }
-            window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           onVisitPortfolio={() => {
             setIsPortfolioModalOpen(true);
