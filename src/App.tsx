@@ -64,14 +64,6 @@ export default function App() {
   // Role toggle for sign-in gateway
   const [signInRole, setSignInRole] = useState<'talent' | 'recruiter' | 'admin'>('talent');
 
-  // Navigation State
-  const [currentPage, setCurrentPage] = useState<PageType>('home');
-  const [signupPackage, setSignupPackage] = useState<'starter_tier' | 'annual_unlimited'>('starter_tier');
-
-  // Dedicated Portfolio Modal State
-  const [isPortfolioModalOpen, setIsPortfolioModalOpen] = useState(false);
-  const [selectedPublicSlug, setSelectedPublicSlug] = useState<string | undefined>(undefined);
-
   // Helper to map currentPage to pathname
   const pageToPath = (page: PageType) => {
     switch (page) {
@@ -97,10 +89,10 @@ export default function App() {
     slug?: string; 
     packageType?: 'starter_tier' | 'annual_unlimited' 
   } => {
-    let rawPath = window.location.pathname;
+    let rawPath = typeof window !== 'undefined' ? window.location.pathname : '/';
 
     // Check if user entered via a hash URL (e.g., /#/directory, /#/marcus-vance, /#/p/marcus-vance, /#/recruiter/signup, or #directory)
-    let rawHash = window.location.hash || '';
+    let rawHash = typeof window !== 'undefined' ? (window.location.hash || '') : '';
     if (rawHash) {
       const hashContent = rawHash.replace(/^#\/?/, '/');
       if (hashContent) {
@@ -109,7 +101,7 @@ export default function App() {
     }
 
     // Also parse search params from both pathname and hash
-    let searchStr = window.location.search;
+    let searchStr = typeof window !== 'undefined' ? window.location.search : '';
     if (rawHash.includes('?')) {
       searchStr = rawHash.substring(rawHash.indexOf('?'));
     }
@@ -131,7 +123,7 @@ export default function App() {
     }
 
     const lower = cleaned.toLowerCase();
-    if (lower === '' || lower === '/') return { page: 'home' };
+    if (lower === '' || lower === '/' || lower === '/index.html' || lower === '/index') return { page: 'home' };
     if (lower === '/directory') return { page: 'directory' };
     if (lower === '/recruiter/signup' || lower === '/recruiter-signup' || lower === '/employer/signup' || lower === '/signup/recruiter') {
       return { page: 'recruiter-signup', packageType };
@@ -150,14 +142,46 @@ export default function App() {
     if (lower === '/admin/login' || lower === '/admin-login') return { page: 'admin-login' };
     if (lower === '/admin' || lower === '/admin-profile') return { page: 'admin' };
 
+    // Reserved keywords and static assets that should NEVER be treated as candidate slugs
+    const reservedSlugs = [
+      'index.html', 'index', 'favicon.ico', 'assets', 'api', 'manifest.json', 
+      'robots.txt', 'sitemap.xml', 'home', 'login', 'signup', 'dashboard'
+    ];
+
     // Direct candidate slug / name route: /[talent-name] or /[talent-slug]
     const candidateIdentifier = cleaned.replace(/^\//, '').trim();
-    if (candidateIdentifier && candidateIdentifier !== '' && !candidateIdentifier.includes('/')) {
+    if (
+      candidateIdentifier && 
+      candidateIdentifier !== '' && 
+      !candidateIdentifier.includes('/') && 
+      !reservedSlugs.includes(candidateIdentifier.toLowerCase()) &&
+      !candidateIdentifier.includes('.')
+    ) {
       return { page: 'directory', slug: candidateIdentifier };
     }
 
     return { page: 'home' };
   };
+
+  // Navigation State initialized from current location
+  const [currentPage, setCurrentPage] = useState<PageType>(() => {
+    try {
+      return getRouteFromLocation().page;
+    } catch {
+      return 'home';
+    }
+  });
+  const [signupPackage, setSignupPackage] = useState<'starter_tier' | 'annual_unlimited'>('starter_tier');
+
+  // Dedicated Portfolio Modal State
+  const [isPortfolioModalOpen, setIsPortfolioModalOpen] = useState(false);
+  const [selectedPublicSlug, setSelectedPublicSlug] = useState<string | undefined>(() => {
+    try {
+      return getRouteFromLocation().slug;
+    } catch {
+      return undefined;
+    }
+  });
 
   // 1. Initial Load and popstate/hashchange listener
   useEffect(() => {
