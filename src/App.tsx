@@ -43,11 +43,9 @@ import PublicPortfolio from './components/PublicPortfolio';
 import RecruiterSignup from './components/RecruiterSignup';
 import RecruiterLogin from './components/RecruiterLogin';
 import RecruiterDashboard from './components/RecruiterDashboard';
-import { Preloader } from './components/Preloader';
 import { PageType } from './types';
 
 export default function App() {
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const { 
     user, 
     signIn, 
@@ -419,10 +417,6 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  if (isInitialLoading) {
-    return <Preloader onComplete={() => setIsInitialLoading(false)} />;
-  }
-
   return (
     <div className="min-h-screen bg-white text-neutral-850 font-sans antialiased selection:bg-emerald-500/30 selection:text-neutral-900">
       
@@ -471,7 +465,7 @@ export default function App() {
         <AnimatePresence mode="wait">
           <motion.div
             key={currentPage}
-            initial={{ opacity: 0, y: 10 }}
+            initial={false}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
