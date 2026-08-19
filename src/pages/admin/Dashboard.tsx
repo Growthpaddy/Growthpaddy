@@ -26,12 +26,14 @@ import {
   Phone,
   Calendar,
   Eye,
-  GraduationCap
+  GraduationCap,
+  Key
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { TalentCandidate } from '../../types';
 import { QuizControlPanel } from '../../components/admin/QuizControlPanel';
+import { UnlockedContactsTable } from '../../components/admin/UnlockedContactsTable';
 
 interface TalentRecord {
   id: string;
@@ -84,7 +86,7 @@ export const AdminDashboard: React.FC<DashboardProps> = ({
   const { user, profile, signOut, refreshProfile } = useAdminAuth();
   
   // Navigation & Tab State
-  const [activeTab, setActiveTab] = useState<'talents' | 'recruiters' | 'admins' | 'quizzes'>('talents');
+  const [activeTab, setActiveTab] = useState<'talents' | 'recruiters' | 'admins' | 'quizzes' | 'unlocked_contacts'>('talents');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'pending'>('all');
 
@@ -462,6 +464,24 @@ export const AdminDashboard: React.FC<DashboardProps> = ({
               </div>
               <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 font-semibold border border-purple-500/30">
                 Phase 1/2
+              </span>
+            </button>
+
+            {/* Tab 5: Unlocked Contacts Audit Ledger */}
+            <button
+              onClick={() => setActiveTab('unlocked_contacts')}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                activeTab === 'unlocked_contacts'
+                  ? 'bg-slate-800 text-white shadow-sm border border-slate-700/60'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Key className="w-4 h-4 text-emerald-400" />
+                <span>Unlocked Contacts</span>
+              </div>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">
+                Audit
               </span>
             </button>
 
@@ -1111,6 +1131,13 @@ export const AdminDashboard: React.FC<DashboardProps> = ({
         {/* ========================================================================= */}
         {activeTab === 'quizzes' && (
           <QuizControlPanel />
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 5: UNLOCKED CONTACTS AUDIT LEDGER */}
+        {/* ========================================================================= */}
+        {activeTab === 'unlocked_contacts' && (
+          <UnlockedContactsTable />
         )}
 
       </main>
