@@ -141,24 +141,24 @@ export default function AdminGuard({ children, superAdminOnly = false }: AdminGu
     };
   }, [location.pathname, location.search, superAdminOnly]);
 
-  // Loading State - Clean Spinner
+  // Loading State - Clean Light Spinner
   if (isLoading) {
     return (
       <div 
         id="admin-guard-loading" 
-        className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center space-y-4"
+        className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center space-y-4"
       >
         <div className="relative">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
-            <Loader2 className="w-6 h-6 text-emerald-400 animate-spin" />
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shadow-xs">
+            <Loader2 className="w-6 h-6 text-emerald-600 animate-spin" />
           </div>
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 absolute -bottom-1 -right-1" />
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 absolute -bottom-1 -right-1" />
         </div>
         <div className="space-y-1">
-          <p className="text-xs font-mono font-bold uppercase tracking-widest text-slate-200">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-800">
             Verifying Admin Authorization
           </p>
-          <p className="text-[11px] font-mono text-slate-500">
+          <p className="text-[11px] text-slate-500 font-medium">
             Evaluating session credentials & PostgreSQL RLS policies...
           </p>
         </div>

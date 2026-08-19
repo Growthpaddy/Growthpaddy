@@ -30,6 +30,7 @@ import { useSupabase } from '../context/SupabaseContext';
 import { useAdminPipeline } from '../hooks/useAdminPipeline';
 import { TalentCandidate } from '../types';
 import AdminAuthModal from './AdminAuthModal';
+import AdminSignInForm, { AdminProfileRecord } from './AdminSignInForm';
 import SuperAdminApprovalsPage from '../../app/admin/approvals/page';
 
 interface AdminOperationsProps {
@@ -582,61 +583,54 @@ export default function AdminOperations({
       </div>
 
       {mode === 'dashboard' && !isAdminAuthenticated ? (
-        /* Restricted Access Guard for /admin-profile when not authenticated */
-        <div className="flex-1 flex items-center justify-center p-4 sm:p-12">
-          <div className="bg-white border-4 border-neutral-950 p-6 sm:p-10 max-w-md w-full text-center relative shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] space-y-6">
-            <div className="w-16 h-16 bg-rose-950 text-rose-400 border-2 border-neutral-950 flex items-center justify-center mx-auto">
-              <Lock className="w-8 h-8 stroke-[2.5]" />
-            </div>
-            <div className="space-y-2">
-              <h1 className="font-display font-black text-2xl uppercase tracking-tighter text-neutral-950 leading-none">
-                ACCESS RESTRICTED
-              </h1>
-              <p className="text-xs font-mono font-bold text-neutral-600 uppercase tracking-wider">
-                STAFF AUTHENTICATION REQUIRED FOR DASHBOARD (/ADMIN-PROFILE)
-              </p>
-            </div>
-            <p className="text-xs text-neutral-500 font-semibold leading-relaxed">
-              You must log in with valid administrative credentials at <code className="bg-neutral-100 text-neutral-900 px-1.5 py-0.5 font-mono font-bold">/admin-login</code> to view staff metrics, vetting pipelines, and corporate accounts.
-            </p>
-            <div className="pt-2">
-              <button 
-                onClick={onRedirectToLogin}
-                className="w-full bg-neutral-950 hover:bg-neutral-800 text-white font-black py-3 px-6 uppercase tracking-widest text-xs border-2 border-neutral-950 shadow-[4px_4px_0px_0px_rgba(16,185,129,1)] transition-all cursor-pointer"
-              >
-                GO TO ADMIN LOGIN (/ADMIN-LOGIN) →
-              </button>
-            </div>
-          </div>
+        /* Unauthenticated access attempt on dashboard route - render single modern signin */
+        <div className="flex-1 flex items-center justify-center p-4 sm:p-10 bg-slate-50 min-h-[calc(100vh-100px)]">
+          <AdminSignInForm 
+            onSuccess={(profile) => {
+              const adminUser: AdminUser = {
+                email: profile.email,
+                fullName: profile.full_name,
+                role: profile.role
+              };
+              localStorage.setItem('dsp_simulated_admin', JSON.stringify(adminUser));
+              setIsAdminAuthenticated(true);
+              setCurrentAdmin(adminUser);
+              if (onLoginSuccess) {
+                onLoginSuccess();
+              }
+            }}
+            onBackToMain={onBackToMain}
+          />
         </div>
       ) : mode === 'login' && isAdminAuthenticated ? (
-        /* Notice when visiting /admin-login while already authenticated */
-        <div className="flex-1 flex items-center justify-center p-4 sm:p-12">
-          <div className="bg-white border-4 border-neutral-950 p-6 sm:p-10 max-w-md w-full text-center relative shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] space-y-6">
-            <div className="w-16 h-16 bg-emerald-950 text-emerald-400 border-2 border-neutral-950 flex items-center justify-center mx-auto">
-              <ShieldCheck className="w-8 h-8 stroke-[2.5]" />
+        /* Notice when visiting /admin/login while already authenticated */
+        <div className="flex-1 flex items-center justify-center p-4 sm:p-12 bg-slate-50 min-h-[calc(100vh-100px)]">
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-6 sm:p-8 max-w-md w-full text-center shadow-sm space-y-6">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
+              <ShieldCheck className="w-7 h-7" />
             </div>
             <div className="space-y-2">
-              <h1 className="font-display font-black text-2xl uppercase tracking-tighter text-neutral-950 leading-none">
-                STAFF SESSION ACTIVE
+              <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+                Staff Session Active
               </h1>
-              <p className="text-xs font-mono font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 border border-emerald-950 inline-block uppercase">
+              <p className="text-xs font-medium text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200 inline-block">
                 {currentAdmin?.fullName || currentAdmin?.email || 'System Administrator'}
               </p>
             </div>
-            <p className="text-xs text-neutral-500 font-semibold leading-relaxed">
-              You are currently authenticated as an administrative staff member. Proceed to the Command Dashboard at <code className="bg-neutral-100 text-neutral-900 px-1.5 py-0.5 font-mono font-bold">/admin-profile</code>.
+            <p className="text-xs text-slate-500 leading-relaxed">
+              You are currently authenticated as an administrative staff member. Proceed directly to the Operations Command Dashboard.
             </p>
             <div className="pt-2 space-y-3">
               <button 
                 onClick={onLoginSuccess}
-                className="w-full bg-[#00A86B] hover:bg-emerald-600 text-white font-black py-3 px-6 uppercase tracking-widest text-xs border-2 border-neutral-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-3 px-6 rounded-xl text-xs shadow-xs transition cursor-pointer flex items-center justify-center gap-2"
               >
-                OPEN ADMIN DASHBOARD (/ADMIN-PROFILE) →
+                <span>Open Admin Dashboard</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
               <button 
                 onClick={handleAdminSignOut}
-                className="w-full bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold py-2 px-4 uppercase tracking-wider text-[10px] border border-neutral-400 cursor-pointer"
+                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2.5 px-4 rounded-xl text-xs transition cursor-pointer"
               >
                 Sign Out Admin Session
               </button>
@@ -644,221 +638,24 @@ export default function AdminOperations({
           </div>
         </div>
       ) : !isAdminAuthenticated ? (
-        /* =================== 1. THE SUBTLY ACCESSED ADMIN GATE =================== */
-        <div className="flex-1 flex items-center justify-center p-4 sm:p-12">
-          <div className="bg-white border-4 border-neutral-950 p-6 sm:p-10 max-w-md w-full relative shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] transition-all duration-300">
-            
-            {/* Design Icon and Title */}
-            <div className="text-center space-y-3 pb-6 border-b-2 border-dashed border-neutral-200">
-              <div className="w-14 h-14 bg-neutral-950 text-emerald-400 border-2 border-neutral-950 flex items-center justify-center mx-auto rounded-none">
-                <Lock className="w-7 h-7 stroke-[2.5]" />
-              </div>
-              <h1 className="font-display font-black text-2xl uppercase tracking-tighter text-neutral-950 leading-none">
-                STAFF CREDENTIALS REQUIRED
-              </h1>
-              <p className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest font-black">
-                PROPRIETARY DATA MATRIX PORTAL
-              </p>
-            </div>
-
-            {/* Error & Success Messages */}
-            {authError && (
-              <div className="mt-4 p-3.5 bg-rose-50 border-2 border-rose-600 text-rose-700 text-xs font-bold uppercase tracking-wider flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-700" />
-                <span>{authError}</span>
-              </div>
-            )}
-            {authSuccessMsg && (
-              <div className="mt-4 p-3.5 bg-emerald-50 border-2 border-[#00A86B] text-emerald-800 text-xs font-bold uppercase tracking-wider flex items-start gap-2">
-                <CheckCircle className="w-4 h-4 shrink-0 mt-0.5 text-[#00A86B]" />
-                <span>{authSuccessMsg}</span>
-              </div>
-            )}
-
-            {/* Main Auth Forms */}
-            {authView === 'signin' ? (
-              <form onSubmit={handleAdminSignInSubmit} className="mt-6 space-y-4">
-                <div className="space-y-1.5 text-left">
-                  <label className="text-[10px] font-mono font-black text-neutral-400 uppercase tracking-wider">
-                    Staff Email Address
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-3.5 text-neutral-400">
-                      <Mail className="w-4 h-4" />
-                    </span>
-                    <input 
-                      type="email"
-                      required
-                      placeholder="e.g. staff@dsptalenthub.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full border-2 border-neutral-300 rounded-none pl-10 pr-4 py-3 focus:outline-none focus:border-[#00A86B] bg-neutral-50 focus:bg-white text-xs font-bold text-neutral-900 uppercase"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5 text-left">
-                  <label className="text-[10px] font-mono font-black text-neutral-400 uppercase tracking-wider">
-                    Administrative Password
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-3.5 text-neutral-400">
-                      <Key className="w-4 h-4" />
-                    </span>
-                    <input 
-                      type="password"
-                      required
-                      placeholder="••••••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full border-2 border-neutral-300 rounded-none pl-10 pr-4 py-3 focus:outline-none focus:border-[#00A86B] bg-neutral-50 focus:bg-white text-xs font-bold text-neutral-900"
-                    />
-                  </div>
-                </div>
-
-                <button 
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-neutral-950 hover:bg-neutral-900 text-white font-black py-4 px-6 rounded-none text-xs uppercase tracking-widest transition cursor-pointer flex items-center justify-center gap-2 border-2 border-neutral-950 shadow-[5px_5px_0px_0px_rgba(0,168,107,1)] hover:shadow-none disabled:opacity-50"
-                >
-                  <Lock className="w-4 h-4 text-emerald-400" />
-                  <span>{loading ? 'VALIDATING OPERATIONS...' : 'AUTHENTICATE SESSION'}</span>
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleAdminSignUpSubmit} className="mt-6 space-y-4">
-                <div className="space-y-1.5 text-left">
-                  <label className="text-[10px] font-mono font-black text-neutral-400 uppercase tracking-wider">
-                    Full Professional Name
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-3.5 text-neutral-400">
-                      <User className="w-4 h-4" />
-                    </span>
-                    <input 
-                      type="text"
-                      required
-                      placeholder="e.g. Director Elizabeth Vance"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="w-full border-2 border-neutral-300 rounded-none pl-10 pr-4 py-3 focus:outline-none focus:border-[#00A86B] bg-neutral-50 focus:bg-white text-xs font-bold text-neutral-900"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5 text-left">
-                  <label className="text-[10px] font-mono font-black text-neutral-400 uppercase tracking-wider">
-                    Professional Staff Email
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-3.5 text-neutral-400">
-                      <Mail className="w-4 h-4" />
-                    </span>
-                    <input 
-                      type="email"
-                      required
-                      placeholder="you@dsptalenthub.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full border-2 border-neutral-300 rounded-none pl-10 pr-4 py-3 focus:outline-none focus:border-[#00A86B] bg-neutral-50 focus:bg-white text-xs font-bold text-neutral-900"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5 text-left">
-                  <label className="text-[10px] font-mono font-black text-neutral-400 uppercase tracking-wider">
-                    Secure Staff Password
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-3.5 text-neutral-400">
-                      <Key className="w-4 h-4" />
-                    </span>
-                    <input 
-                      type="password"
-                      required
-                      placeholder="Min 6 characters"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full border-2 border-neutral-300 rounded-none pl-10 pr-4 py-3 focus:outline-none focus:border-[#00A86B] bg-neutral-50 focus:bg-white text-xs font-bold text-neutral-900"
-                    />
-                  </div>
-                </div>
-
-                <button 
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-neutral-950 hover:bg-neutral-900 text-white font-black py-4 px-6 rounded-none text-xs uppercase tracking-widest transition cursor-pointer flex items-center justify-center gap-2 border-2 border-neutral-950 shadow-[5px_5px_0px_0px_rgba(0,168,107,1)] hover:shadow-none disabled:opacity-50"
-                >
-                  <User className="w-4 h-4 text-emerald-400" />
-                  <span>{loading ? 'CREATING PROFILE...' : 'REGISTER STAFF NODE'}</span>
-                </button>
-              </form>
-            )}
-
-            {/* Modern Glassmorphism AdminAuthModal Trigger */}
-            <div className="mt-6 pt-4 border-t border-neutral-200 text-center flex flex-col items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setShowAuthModal(true)}
-                className="w-full bg-slate-900 hover:bg-slate-800 text-emerald-400 font-mono text-xs font-bold py-2.5 px-4 rounded-xl border border-slate-700 flex items-center justify-center gap-2 transition cursor-pointer shadow-sm group"
-                id="open-admin-auth-modal-btn"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-emerald-400 group-hover:rotate-12 transition-transform" />
-                <span>Launch Modern Admin Auth Modal</span>
-              </button>
-
-              {authView === 'signin' ? (
-                <>
-                  <p className="text-[11px] font-bold uppercase text-neutral-400">
-                    No authorized console node?
-                  </p>
-                  <button 
-                    onClick={() => { setAuthView('signup'); setAuthError(null); }}
-                    className="text-xs font-black text-[#00A86B] hover:text-emerald-800 uppercase tracking-widest cursor-pointer underline decoration-2 underline-offset-2"
-                  >
-                    Create Staff Account
-                  </button>
-                </>
-              ) : (
-                <>
-                  <p className="text-[11px] font-bold uppercase text-neutral-400">
-                    Already possess staff credentials?
-                  </p>
-                  <button 
-                    onClick={() => { setAuthView('signin'); setAuthError(null); }}
-                    className="text-xs font-black text-[#00A86B] hover:text-emerald-800 uppercase tracking-widest cursor-pointer underline decoration-2 underline-offset-2"
-                  >
-                    Return to Sign In Portal
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Render AdminAuthModal */}
-            {showAuthModal && (
-              <AdminAuthModal 
-                isOpen={showAuthModal}
-                onClose={() => setShowAuthModal(false)}
-                onSuccess={(profile) => {
-                  const adminUser = {
-                    email: profile.email,
-                    fullName: profile.full_name,
-                    role: profile.role
-                  };
-                  localStorage.setItem('dsp_simulated_admin', JSON.stringify(adminUser));
-                  setIsAdminAuthenticated(true);
-                  setCurrentAdmin(adminUser);
-                  setShowAuthModal(false);
-                  if (onLoginSuccess) {
-                    onLoginSuccess();
-                  }
-                }}
-              />
-            )}
-
-
-
-          </div>
+        /* =================== 1. THE SINGLE UNIFIED MODERN ADMIN GATE =================== */
+        <div className="flex-1 flex items-center justify-center p-4 sm:p-10 bg-slate-50 min-h-[calc(100vh-100px)]">
+          <AdminSignInForm 
+            onSuccess={(profile) => {
+              const adminUser: AdminUser = {
+                email: profile.email,
+                fullName: profile.full_name,
+                role: profile.role
+              };
+              localStorage.setItem('dsp_simulated_admin', JSON.stringify(adminUser));
+              setIsAdminAuthenticated(true);
+              setCurrentAdmin(adminUser);
+              if (onLoginSuccess) {
+                onLoginSuccess();
+              }
+            }}
+            onBackToMain={onBackToMain}
+          />
         </div>
       ) : (
         /* =================== 2. THE COMPREHENSIVE ADMIN OPERATIONS CONTROL CENTER =================== */
