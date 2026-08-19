@@ -34,6 +34,7 @@ import {
   Upload
 } from 'lucide-react';
 import { PaymentPhase } from './PaymentPhase';
+import { TalentQuizBanner } from './talent/TalentQuizBanner';
 import { useSupabase } from '../context/SupabaseContext';
 import { supabase } from '../lib/supabaseClient';
 
@@ -1349,6 +1350,21 @@ export default function TalentDashboard({
               </p>
             </div>
           )}
+
+          {/* Dynamic Talent Quiz & Cooldown Accreditation Banner */}
+          <TalentQuizBanner
+            phase1Status={isPhase1Passed ? 'passed' : (quizLockedUntil ? 'cooldown' : 'pending')}
+            phase2Unlocked={isPhase1Passed || phase2InterviewPassed || isVerifiedByAdmin}
+            nextRetryDate={quizLockedUntil}
+            score={quizScore}
+            onStartAssessment={() => {
+              setActivePhase(1);
+              if (!quizActive && (!quizLockedUntil || Date.now() >= new Date(quizLockedUntil).getTime())) {
+                handleStartQuiz();
+              }
+            }}
+            onNavigateToPhase2={() => setActivePhase(2)}
+          />
 
           {/* 3-PHASE STEPPER CONTROLS */}
           <div className="bg-white dark:bg-slate-900 border-2 border-neutral-900 dark:border-slate-800 p-6 sm:p-7 rounded-none shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] space-y-6">

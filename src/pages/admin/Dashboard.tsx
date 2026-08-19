@@ -25,11 +25,13 @@ import {
   Mail,
   Phone,
   Calendar,
-  Eye
+  Eye,
+  GraduationCap
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { TalentCandidate } from '../../types';
+import { QuizControlPanel } from '../../components/admin/QuizControlPanel';
 
 interface TalentRecord {
   id: string;
@@ -82,7 +84,7 @@ export const AdminDashboard: React.FC<DashboardProps> = ({
   const { user, profile, signOut, refreshProfile } = useAdminAuth();
   
   // Navigation & Tab State
-  const [activeTab, setActiveTab] = useState<'talents' | 'recruiters' | 'admins'>('talents');
+  const [activeTab, setActiveTab] = useState<'talents' | 'recruiters' | 'admins' | 'quizzes'>('talents');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'pending'>('all');
 
@@ -443,6 +445,24 @@ export const AdminDashboard: React.FC<DashboardProps> = ({
                   {pendingAdminApprovals}
                 </span>
               )}
+            </button>
+
+            {/* Tab 4: Quiz & Accreditation Control Panel */}
+            <button
+              onClick={() => setActiveTab('quizzes')}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                activeTab === 'quizzes'
+                  ? 'bg-slate-800 text-white shadow-sm border border-slate-700/60'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <GraduationCap className="w-4 h-4 text-purple-400" />
+                <span>Quiz & Accreditation</span>
+              </div>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 font-semibold border border-purple-500/30">
+                Phase 1/2
+              </span>
             </button>
 
             {/* Public Platform Link */}
@@ -1084,6 +1104,13 @@ export const AdminDashboard: React.FC<DashboardProps> = ({
               </div>
             )}
           </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 4: QUIZ & ACCREDITATION ENGINE CONTROL PANEL */}
+        {/* ========================================================================= */}
+        {activeTab === 'quizzes' && (
+          <QuizControlPanel />
         )}
 
       </main>

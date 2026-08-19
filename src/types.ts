@@ -156,3 +156,42 @@ export interface AdminProfileRecord {
   created_at: string;
 }
 
+export interface QuizSettings {
+  id?: number;
+  passing_grade: number;
+  max_attempts: number;
+  cooldown_days: number;
+  course_url: string;
+  updated_at?: string;
+}
+
+export interface QuizQuestionOption {
+  id: string;
+  text: string;
+}
+
+export interface QuizQuestion {
+  id?: number;
+  skill_category: string;
+  question_text: string;
+  options: QuizQuestionOption[];
+  correct_option_id: string;
+  is_active: boolean;
+  created_at?: string;
+}
+
+export interface TalentProfileQuizRecord {
+  id: string;
+  user_id?: string;
+  full_name: string;
+  email: string;
+  role?: string;
+  specialization?: string;
+  phase_1_status: 'pending' | 'passed' | 'cooldown' | string;
+  phase_2_unlocked: boolean;
+  next_retry_date?: string | null;
+  quiz_score?: number | null;
+  created_at?: string;
+}
+
+
