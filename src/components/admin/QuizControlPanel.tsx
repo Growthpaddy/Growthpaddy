@@ -30,13 +30,10 @@ import {
   DEFAULT_QUIZ_SETTINGS,
   getQuizSettings, 
   updateQuizSettings, 
-  getQuizQuestions, 
-  createQuizQuestion, 
-  deleteQuizQuestion, 
-  toggleQuizQuestionStatus, 
   getTalentProfilesForQuiz, 
   unlockPhaseTwo 
 } from '../../lib/quizAdmin';
+import { QuestionBank } from './QuestionBank';
 import { QuizReportingDashboard } from './QuizReportingDashboard';
 
 export const QuizControlPanel: React.FC = () => {
@@ -49,22 +46,6 @@ export const QuizControlPanel: React.FC = () => {
   const [savingSettings, setSavingSettings] = useState<boolean>(false);
   const [settingsSuccessMsg, setSettingsSuccessMsg] = useState<string | null>(null);
 
-  // --- 2. Questions State & Accordion States ---
-  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
-  const [questionsLoading, setQuestionsLoading] = useState<boolean>(true);
-  const [isAddingQuestion, setIsAddingQuestion] = useState<boolean>(false);
-  const [expandedQuestionIds, setExpandedQuestionIds] = useState<Record<number, boolean>>({});
-  
-  const [newCategory, setNewCategory] = useState<string>('Growth Marketing');
-  const [newQuestionText, setNewQuestionText] = useState<string>('');
-  const [optA, setOptA] = useState<string>('');
-  const [optB, setOptB] = useState<string>('');
-  const [optC, setOptC] = useState<string>('');
-  const [optD, setOptD] = useState<string>('');
-  const [correctOpt, setCorrectOpt] = useState<'A' | 'B' | 'C' | 'D'>('A');
-  const [questionError, setQuestionError] = useState<string | null>(null);
-  const [creatingQuestion, setCreatingQuestion] = useState<boolean>(false);
-
   // --- 3. Talent Phase Manager State ---
   const [talents, setTalents] = useState<TalentProfileQuizRecord[]>([]);
   const [talentsLoading, setTalentsLoading] = useState<boolean>(true);
@@ -76,7 +57,6 @@ export const QuizControlPanel: React.FC = () => {
   // Initial Data Load
   useEffect(() => {
     loadSettings();
-    loadQuestions();
     loadTalents();
   }, []);
 
@@ -92,24 +72,6 @@ export const QuizControlPanel: React.FC = () => {
     }
   };
 
-  const loadQuestions = async () => {
-    setQuestionsLoading(true);
-    try {
-      const data = await getQuizQuestions();
-      setQuestions(data);
-      // Default first 3 questions expanded
-      const initialExpanded: Record<number, boolean> = {};
-      data.slice(0, 3).forEach(q => {
-        if (q.id) initialExpanded[q.id] = true;
-      });
-      setExpandedQuestionIds(initialExpanded);
-    } catch (err) {
-      console.error('Error loading questions:', err);
-    } finally {
-      setQuestionsLoading(false);
-    }
-  };
-
   const loadTalents = async () => {
     setTalentsLoading(true);
     try {
@@ -120,24 +82,6 @@ export const QuizControlPanel: React.FC = () => {
     } finally {
       setTalentsLoading(false);
     }
-  };
-
-  // Toggle individual question accordion
-  const toggleQuestionAccordion = (id: number) => {
-    setExpandedQuestionIds(prev => ({
-      ...prev,
-      [id]: !prev[id]
-    }));
-  };
-
-  // Expand / Collapse all questions
-  const handleToggleExpandAll = () => {
-    const allExpanded = questions.every(q => q.id && expandedQuestionIds[q.id]);
-    const nextState: Record<number, boolean> = {};
-    questions.forEach(q => {
-      if (q.id) nextState[q.id] = !allExpanded;
-    });
-    setExpandedQuestionIds(nextState);
   };
 
   // 1. Save Settings Handler
@@ -157,71 +101,7 @@ export const QuizControlPanel: React.FC = () => {
     }
   };
 
-  // 2. Create Question Handler
-  const handleCreateQuestion = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setQuestionError(null);
-
-    if (!newQuestionText.trim() || !optA.trim() || !optB.trim() || !optC.trim() || !optD.trim()) {
-      setQuestionError('Please fill in the question text and all 4 answer options.');
-      return;
-    }
-
-    setCreatingQuestion(true);
-    try {
-      const newQuestionPayload = {
-        skill_category: newCategory.trim(),
-        question_text: newQuestionText.trim(),
-        options: [
-          { id: 'A', text: optA.trim() },
-          { id: 'B', text: optB.trim() },
-          { id: 'C', text: optC.trim() },
-          { id: 'D', text: optD.trim() }
-        ],
-        correct_option_id: correctOpt,
-        is_active: true
-      };
-
-      const res = await createQuizQuestion(newQuestionPayload);
-      if (res) {
-        setQuestions(prev => [res, ...prev]);
-        if (res.id) {
-          setExpandedQuestionIds(prev => ({ ...prev, [res.id!]: true }));
-        }
-        // Reset form
-        setNewQuestionText('');
-        setOptA('');
-        setOptB('');
-        setOptC('');
-        setOptD('');
-        setCorrectOpt('A');
-        setIsAddingQuestion(false);
-      }
-    } catch (err: any) {
-      setQuestionError(err.message || 'Failed to save question.');
-    } finally {
-      setCreatingQuestion(false);
-    }
-  };
-
-  // Delete Question Handler
-  const handleDeleteQuestion = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this question?')) return;
-    const ok = await deleteQuizQuestion(id);
-    if (ok) {
-      setQuestions(prev => prev.filter(q => q.id !== id));
-    }
-  };
-
-  // Toggle Question Active Status
-  const handleToggleQuestion = async (id: number, currentStatus: boolean) => {
-    const ok = await toggleQuizQuestionStatus(id, !currentStatus);
-    if (ok) {
-      setQuestions(prev => prev.map(q => q.id === id ? { ...q, is_active: !currentStatus } : q));
-    }
-  };
-
-  // 3. Manual Unlock Phase 2 Handler
+  // 2. Manual Unlock Phase 2 Handler
   const handleUnlockPhaseTwo = async (talentId: string, talentName: string) => {
     setUnlockingId(talentId);
     setTalentSuccessMsg(null);
@@ -303,7 +183,7 @@ export const QuizControlPanel: React.FC = () => {
             }`}
           >
             <HelpCircle className="w-4 h-4" />
-            <span>Question Bank ({questions.length})</span>
+            <span>Question Bank</span>
           </button>
           <button
             onClick={() => setActiveTab('talents')}
@@ -485,405 +365,10 @@ export const QuizControlPanel: React.FC = () => {
       )}
 
       {/* =========================================================================
-          TAB 2: QUESTION BUILDER WITH FRAMER-MOTION ACCORDIONS (`quiz_questions`)
+          TAB 2: QUESTION BANK & BUILDER (`quiz_questions`)
          ========================================================================= */}
       {activeTab === 'questions' && (
-        <div className="space-y-6">
-          {/* Create Question Header / Toggle */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <HelpCircle className="w-5 h-5 text-emerald-600" />
-                Assessment Question Bank & Builder
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Author and manage verified multi-choice questions with animated accordion previews.
-              </p>
-            </div>
-            
-            <div className="flex items-center gap-2 self-start sm:self-auto">
-              <button
-                onClick={handleToggleExpandAll}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2 px-3 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer"
-              >
-                <Layers className="w-3.5 h-3.5" />
-                <span>Toggle Accordions</span>
-              </button>
-
-              <button
-                onClick={() => setIsAddingQuestion(!isAddingQuestion)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-xl text-xs flex items-center gap-2 shadow-xs transition cursor-pointer"
-              >
-                {isAddingQuestion ? (
-                  <>
-                    <XCircle className="w-4 h-4" />
-                    <span>Close Builder</span>
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-4 h-4" />
-                    <span>Create New Question</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* QUESTION BUILDER FORM WITH FRAMER-MOTION SMOOTH EXPANSION */}
-          <AnimatePresence>
-            {isAddingQuestion && (
-              <motion.div
-                initial={{ opacity: 0, height: 0, scale: 0.98 }}
-                animate={{ opacity: 1, height: 'auto', scale: 1 }}
-                exit={{ opacity: 0, height: 0, scale: 0.98 }}
-                transition={{ duration: 0.3, ease: 'easeInOut' }}
-                className="overflow-hidden"
-              >
-                <div className="bg-emerald-50/60 border-2 border-emerald-300 rounded-2xl p-6 sm:p-8 space-y-6 shadow-sm">
-                  <div className="flex items-center justify-between border-b border-emerald-200/60 pb-3">
-                    <div className="flex items-center gap-2">
-                      <Plus className="w-4 h-4 text-emerald-700" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-emerald-900">
-                        Interactive Question Builder Form
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-slate-500">Provide 4 choices and assign the correct answer ID</span>
-                  </div>
-
-                  {questionError && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center gap-2"
-                    >
-                      <AlertCircle className="w-4 h-4 shrink-0" />
-                      <span>{questionError}</span>
-                    </motion.div>
-                  )}
-
-                  <form onSubmit={handleCreateQuestion} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="md:col-span-1 space-y-1.5">
-                        <label className="text-xs font-semibold text-slate-800">Skill Category</label>
-                        <select
-                          value={newCategory}
-                          onChange={(e) => setNewCategory(e.target.value)}
-                          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
-                        >
-                          <option value="Growth Marketing">Growth Marketing & Strategy</option>
-                          <option value="Paid Media & PPC">Paid Media & PPC Advertising</option>
-                          <option value="SEO & Organic">SEO & Organic Visibility</option>
-                          <option value="Conversion Optimization">CRO & A/B Testing</option>
-                          <option value="Email & Lifecycle">Email & Lifecycle Automation</option>
-                          <option value="Analytics & Attribution">Analytics & Attribution</option>
-                          <option value="General Digital">General Digital Strategy</option>
-                        </select>
-                      </div>
-
-                      <div className="md:col-span-2 space-y-1.5">
-                        <label className="text-xs font-semibold text-slate-800">Question Text</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. Which metric best evaluates bottom-of-funnel conversion efficiency for retargeting campaigns?"
-                          value={newQuestionText}
-                          onChange={(e) => setNewQuestionText(e.target.value)}
-                          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
-                        />
-                      </div>
-                    </div>
-
-                    {/* 4 Choices */}
-                    <div className="space-y-3 pt-2">
-                      <label className="text-xs font-bold text-slate-900 block">Answer Choices & Correct Option</label>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {/* Option A */}
-                        <div className={`p-3 rounded-xl border flex items-center gap-3 transition ${
-                          correctOpt === 'A' ? 'bg-emerald-100/80 border-emerald-400 shadow-2xs' : 'bg-white border-slate-200'
-                        }`}>
-                          <input
-                            type="radio"
-                            id="optA_radio"
-                            name="correctOption"
-                            checked={correctOpt === 'A'}
-                            onChange={() => setCorrectOpt('A')}
-                            className="text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                          />
-                          <span className="font-mono text-xs font-bold text-slate-700">A.</span>
-                          <input
-                            type="text"
-                            required
-                            placeholder="Choice A description..."
-                            value={optA}
-                            onChange={(e) => setOptA(e.target.value)}
-                            className="flex-1 bg-transparent text-xs text-slate-900 focus:outline-none border-b border-dashed border-slate-300 focus:border-emerald-600 py-1"
-                          />
-                        </div>
-
-                        {/* Option B */}
-                        <div className={`p-3 rounded-xl border flex items-center gap-3 transition ${
-                          correctOpt === 'B' ? 'bg-emerald-100/80 border-emerald-400 shadow-2xs' : 'bg-white border-slate-200'
-                        }`}>
-                          <input
-                            type="radio"
-                            id="optB_radio"
-                            name="correctOption"
-                            checked={correctOpt === 'B'}
-                            onChange={() => setCorrectOpt('B')}
-                            className="text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                          />
-                          <span className="font-mono text-xs font-bold text-slate-700">B.</span>
-                          <input
-                            type="text"
-                            required
-                            placeholder="Choice B description..."
-                            value={optB}
-                            onChange={(e) => setOptB(e.target.value)}
-                            className="flex-1 bg-transparent text-xs text-slate-900 focus:outline-none border-b border-dashed border-slate-300 focus:border-emerald-600 py-1"
-                          />
-                        </div>
-
-                        {/* Option C */}
-                        <div className={`p-3 rounded-xl border flex items-center gap-3 transition ${
-                          correctOpt === 'C' ? 'bg-emerald-100/80 border-emerald-400 shadow-2xs' : 'bg-white border-slate-200'
-                        }`}>
-                          <input
-                            type="radio"
-                            id="optC_radio"
-                            name="correctOption"
-                            checked={correctOpt === 'C'}
-                            onChange={() => setCorrectOpt('C')}
-                            className="text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                          />
-                          <span className="font-mono text-xs font-bold text-slate-700">C.</span>
-                          <input
-                            type="text"
-                            required
-                            placeholder="Choice C description..."
-                            value={optC}
-                            onChange={(e) => setOptC(e.target.value)}
-                            className="flex-1 bg-transparent text-xs text-slate-900 focus:outline-none border-b border-dashed border-slate-300 focus:border-emerald-600 py-1"
-                          />
-                        </div>
-
-                        {/* Option D */}
-                        <div className={`p-3 rounded-xl border flex items-center gap-3 transition ${
-                          correctOpt === 'D' ? 'bg-emerald-100/80 border-emerald-400 shadow-2xs' : 'bg-white border-slate-200'
-                        }`}>
-                          <input
-                            type="radio"
-                            id="optD_radio"
-                            name="correctOption"
-                            checked={correctOpt === 'D'}
-                            onChange={() => setCorrectOpt('D')}
-                            className="text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                          />
-                          <span className="font-mono text-xs font-bold text-slate-700">D.</span>
-                          <input
-                            type="text"
-                            required
-                            placeholder="Choice D description..."
-                            value={optD}
-                            onChange={(e) => setOptD(e.target.value)}
-                            className="flex-1 bg-transparent text-xs text-slate-900 focus:outline-none border-b border-dashed border-slate-300 focus:border-emerald-600 py-1"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-end gap-3 pt-4 border-t border-emerald-200/60">
-                      <button
-                        type="button"
-                        onClick={() => setIsAddingQuestion(false)}
-                        className="px-4 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={creatingQuestion}
-                        className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold py-2 px-5 rounded-xl text-xs flex items-center gap-2 shadow-xs transition cursor-pointer"
-                      >
-                        {creatingQuestion ? (
-                          <>
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                            <span>Publishing Question...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Publish Question to Bank</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* QUESTIONS LIST WITH FRAMER-MOTION ACCORDIONS */}
-          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
-            <div className="p-4 bg-slate-50/70 border-b border-slate-200 flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-800">
-                Active Assessment Questions ({questions.length})
-              </span>
-              <button 
-                onClick={loadQuestions}
-                className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1 transition"
-              >
-                <RefreshCw className="w-3 h-3" />
-                Reload Questions
-              </button>
-            </div>
-
-            {questionsLoading ? (
-              <div className="p-12 text-center text-slate-400 text-xs">
-                <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-emerald-600" />
-                Loading question repository...
-              </div>
-            ) : questions.length === 0 ? (
-              <div className="p-12 text-center space-y-3">
-                <HelpCircle className="w-10 h-10 text-slate-300 mx-auto" />
-                <h4 className="text-sm font-bold text-slate-700">No Assessment Questions Found</h4>
-                <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                  Get started by authoring assessment questions using the Question Builder button above.
-                </p>
-              </div>
-            ) : (
-              <motion.div layout className="divide-y divide-slate-100">
-                <AnimatePresence>
-                  {questions.map((q, idx) => {
-                    const isExpanded = Boolean(q.id && expandedQuestionIds[q.id]);
-                    return (
-                      <motion.div
-                        layout
-                        key={q.id || idx}
-                        initial={{ opacity: 0, y: 15 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ duration: 0.25 }}
-                        className="hover:bg-slate-50/60 transition group"
-                      >
-                        {/* Question Item Header Accordion Trigger */}
-                        <div 
-                          onClick={() => q.id && toggleQuestionAccordion(q.id)}
-                          className="p-4 sm:p-5 flex items-start justify-between gap-4 cursor-pointer select-none"
-                        >
-                          <div className="flex items-start gap-3 flex-1">
-                            <button
-                              type="button"
-                              className="mt-0.5 w-6 h-6 rounded-lg bg-slate-100 group-hover:bg-emerald-50 text-slate-500 group-hover:text-emerald-700 flex items-center justify-center transition shrink-0"
-                            >
-                              {isExpanded ? (
-                                <ChevronUp className="w-3.5 h-3.5" />
-                              ) : (
-                                <ChevronDown className="w-3.5 h-3.5" />
-                              )}
-                            </button>
-
-                            <div className="space-y-1 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 rounded-md">
-                                  {q.skill_category}
-                                </span>
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                  q.is_active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'
-                                }`}>
-                                  {q.is_active ? 'Active' : 'Disabled'}
-                                </span>
-                                <span className="text-[10px] font-mono text-slate-400">
-                                  Correct Choice: {q.correct_option_id}
-                                </span>
-                              </div>
-                              <h4 className="text-xs font-bold text-slate-900 group-hover:text-emerald-950 transition">
-                                {idx + 1}. {q.question_text}
-                              </h4>
-                            </div>
-                          </div>
-
-                          {/* Controls (Stop Propagation so clicking actions doesn't toggle accordion) */}
-                          <div 
-                            className="flex items-center gap-2 shrink-0" 
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              onClick={() => q.id && handleToggleQuestion(q.id, q.is_active)}
-                              className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition cursor-pointer ${
-                                q.is_active 
-                                  ? 'border-slate-200 hover:bg-slate-100 text-slate-600' 
-                                  : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                              }`}
-                            >
-                              {q.is_active ? 'Deactivate' : 'Activate'}
-                            </button>
-                            <button
-                              onClick={() => q.id && handleDeleteQuestion(q.id)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
-                              title="Delete question"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* ACCORDION CONTENT EXPANSION */}
-                        <AnimatePresence>
-                          {isExpanded && (
-                            <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: 'auto' }}
-                              exit={{ opacity: 0, height: 0 }}
-                              transition={{ duration: 0.25, ease: 'easeInOut' }}
-                              className="overflow-hidden px-5 pb-5 pt-0"
-                            >
-                              <div className="pl-9 space-y-3 pt-1 border-t border-dashed border-slate-200/80">
-                                <span className="text-[11px] font-semibold text-slate-500 block">
-                                  Multiple Choice Options & Verified Answer Key:
-                                </span>
-                                
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                                  {q.options.map((opt) => {
-                                    const isCorrect = opt.id === q.correct_option_id;
-                                    return (
-                                      <div 
-                                        key={opt.id} 
-                                        className={`p-2.5 rounded-xl border flex items-center gap-2.5 transition ${
-                                          isCorrect 
-                                            ? 'bg-emerald-50/90 border-emerald-400 font-semibold text-emerald-950 shadow-2xs' 
-                                            : 'bg-slate-50/60 border-slate-200 text-slate-700'
-                                        }`}
-                                      >
-                                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                                          isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'
-                                        }`}>
-                                          {opt.id}
-                                        </span>
-                                        <span className="flex-1 text-xs">{opt.text}</span>
-                                        {isCorrect && (
-                                          <span className="inline-flex items-center gap-1 text-[10px] uppercase font-bold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.5 rounded shrink-0">
-                                            <Check className="w-3 h-3" />
-                                            Correct
-                                          </span>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </motion.div>
-            )}
-          </div>
-        </div>
+        <QuestionBank />
       )}
 
       {/* =========================================================================
