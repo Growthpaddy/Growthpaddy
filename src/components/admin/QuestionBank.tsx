@@ -15,7 +15,11 @@ import {
   ChevronUp,
   FolderX,
   XCircle,
-  Tag
+  Tag,
+  Gauge,
+  Database,
+  Copy,
+  Code
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { QuizQuestion, fetchAdminQuestions, createQuizQuestion, deleteQuizQuestion, toggleQuestionStatus } from '../../lib/quizQuestions';
@@ -25,11 +29,15 @@ export const QuestionBank: React.FC = () => {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   // Form State
   const [isAdding, setIsAdding] = useState<boolean>(false);
+  const [showSqlMigration, setShowSqlMigration] = useState<boolean>(false);
+  const [copiedSql, setCopiedSql] = useState<boolean>(false);
   const [category, setCategory] = useState<string>('Growth Marketing Strategy');
+  const [difficulty, setDifficulty] = useState<string>('beginner');
   const [questionPrompt, setQuestionPrompt] = useState<string>('');
   const [optA, setOptA] = useState<string>('');
   const [optB, setOptB] = useState<string>('');
@@ -55,6 +63,21 @@ export const QuestionBank: React.FC = () => {
     'Digital Marketing General',
     'AI & Automation Strategy'
   ];
+
+  const sqlMigrationCode = `-- Run this in your Supabase SQL Editor to support 'beginner', 'intermediate', and 'advanced'
+-- 1. Add new enum values to the existing 'experience_level_type' Postgres enum:
+ALTER TYPE experience_level_type ADD VALUE IF NOT EXISTS 'beginner';
+ALTER TYPE experience_level_type ADD VALUE IF NOT EXISTS 'intermediate';
+ALTER TYPE experience_level_type ADD VALUE IF NOT EXISTS 'advanced';
+
+-- 2. (Optional) Ensure the 'difficulty' column is present on quiz_questions:
+ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS difficulty text DEFAULT 'intermediate';`;
+
+  const copySqlToClipboard = () => {
+    navigator.clipboard.writeText(sqlMigrationCode);
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 3000);
+  };
 
   // Auto-dismiss notification after 4s
   useEffect(() => {
@@ -91,7 +114,7 @@ export const QuestionBank: React.FC = () => {
     loadQuestions();
   }, []);
 
-  // 2. Form Submission Handler (Live Supabase insert)
+  // 2. Form Submission Handler (Live Supabase insert with required difficulty)
   const handleSaveQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -107,6 +130,7 @@ export const QuestionBank: React.FC = () => {
     try {
       const payload: Omit<QuizQuestion, 'id'> = {
         skill_category: category.trim(),
+        difficulty: difficulty.toLowerCase().trim(),
         question_text: questionPrompt.trim(),
         options: [
           { id: 'a', text: optA.trim() },
@@ -118,7 +142,7 @@ export const QuestionBank: React.FC = () => {
         is_active: true
       };
 
-      // Direct async insert call to Supabase
+      // Direct async insert call to Supabase with multi-strategy fallback
       const newQuestion = await createQuizQuestion(payload);
 
       // Prepend to questions list
@@ -130,11 +154,12 @@ export const QuestionBank: React.FC = () => {
       // Success notification
       setNotification({
         type: 'success',
-        message: `Question successfully saved to Supabase live database under "${category}".`
+        message: `Question with difficulty "${difficulty}" successfully saved to Supabase live database.`
       });
 
       // Reset form
       setQuestionPrompt('');
+      setDifficulty('beginner');
       setOptA('');
       setOptB('');
       setOptC('');
@@ -152,9 +177,9 @@ export const QuestionBank: React.FC = () => {
     }
   };
 
-  // 3. Delete Question Handler (Live Supabase delete)
+  // 3. Delete Question Handler (Direct Supabase delete)
   const handleDelete = async (id: string | number) => {
-    if (!window.confirm('Are you sure you want to permanently delete this question from the live database?')) {
+    if (!window.confirm('Are you sure you want to permanently delete this assessment question from the live database?')) {
       return;
     }
 
@@ -170,16 +195,16 @@ export const QuestionBank: React.FC = () => {
       console.error('Error deleting question:', err);
       setNotification({
         type: 'error',
-        message: 'Failed to delete question from live database.'
+        message: err.message || 'Failed to delete question from Supabase.'
       });
     } finally {
       setDeletingId(null);
     }
   };
 
-  // 4. Toggle Active Status (Live Supabase update)
-  const handleToggleStatus = async (id: string | number, currentStatus?: boolean) => {
-    const nextStatus = currentStatus === false ? true : false;
+  // 4. Toggle Active Status Handler (Direct Supabase update)
+  const handleToggleStatus = async (id: string | number, currentActive?: boolean) => {
+    const nextStatus = currentActive === false ? true : false;
     setTogglingId(id);
     try {
       await toggleQuestionStatus(id, nextStatus);
@@ -192,7 +217,7 @@ export const QuestionBank: React.FC = () => {
       console.error('Error toggling question status:', err);
       setNotification({
         type: 'error',
-        message: 'Failed to update question status in Supabase.'
+        message: err.message || 'Failed to update question status.'
       });
     } finally {
       setTogglingId(null);
@@ -207,28 +232,45 @@ export const QuestionBank: React.FC = () => {
     }));
   };
 
+  // Toggle All Accordions
+  const handleToggleAll = () => {
+    const allExpanded = filteredQuestions.every(q => q.id !== undefined && expandedIds[q.id]);
+    const nextState: Record<string | number, boolean> = {};
+    filteredQuestions.forEach(q => {
+      if (q.id !== undefined) nextState[q.id] = !allExpanded;
+    });
+    setExpandedIds(nextState);
+  };
+
   // Filter and Search Logic
   const filteredQuestions = useMemo(() => {
     return questions.filter(q => {
       const matchesCat = selectedCategory === 'all' || q.skill_category === selectedCategory;
+      const matchesDiff = selectedDifficulty === 'all' || (q.difficulty || 'intermediate').toLowerCase() === selectedDifficulty.toLowerCase();
       const term = searchTerm.toLowerCase().trim();
       const matchesSearch = !term || 
         q.question_text.toLowerCase().includes(term) || 
         q.skill_category.toLowerCase().includes(term) ||
+        (q.difficulty && q.difficulty.toLowerCase().includes(term)) ||
         q.options.some(opt => opt.text.toLowerCase().includes(term));
 
-      return matchesCat && matchesSearch;
+      return matchesCat && matchesDiff && matchesSearch;
     });
-  }, [questions, selectedCategory, searchTerm]);
+  }, [questions, selectedCategory, selectedDifficulty, searchTerm]);
 
-  // Distinct categories from existing questions
-  const activeCategoriesInDb = useMemo(() => {
-    const set = new Set<string>();
-    questions.forEach(q => {
-      if (q.skill_category) set.add(q.skill_category);
-    });
-    return Array.from(set);
-  }, [questions]);
+  // Helper for Difficulty styling
+  const getDifficultyBadge = (diff?: string) => {
+    const key = (diff || 'intermediate').toLowerCase();
+    switch (key) {
+      case 'beginner':
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      case 'advanced':
+        return 'bg-purple-50 text-purple-700 border-purple-200';
+      case 'intermediate':
+      default:
+        return 'bg-amber-50 text-amber-700 border-amber-200';
+    }
+  };
 
   return (
     <div id="question-bank-root" className="space-y-6 text-left">
@@ -257,7 +299,7 @@ export const QuestionBank: React.FC = () => {
         </div>
       )}
 
-      {/* Header Banner & Toggle Builder */}
+      {/* Header Banner & Action Buttons */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-emerald-600 text-xs font-mono font-bold uppercase tracking-wider mb-1">
@@ -268,21 +310,33 @@ export const QuestionBank: React.FC = () => {
             Accreditation Question Bank
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Author, categorize, and manage verified multi-choice questions connected directly to the live database.
+            Author, categorize, and manage verified multi-choice assessment questions connected directly to the live database.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          {/* SQL Migration Script Toggle */}
+          <button
+            onClick={() => setShowSqlMigration(!showSqlMigration)}
+            className="p-2 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+            title="View PostgreSQL Enum Migration Script"
+          >
+            <Database className="w-3.5 h-3.5 text-indigo-600" />
+            <span>SQL Enum Helper</span>
+          </button>
+
+          {/* Sync DB */}
           <button
             onClick={loadQuestions}
             disabled={loading}
-            className="p-2 text-slate-500 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+            className="p-2 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
             title="Reload questions from Supabase"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
             <span>Sync Live DB</span>
           </button>
 
+          {/* Author Button */}
           <button
             onClick={() => setIsAdding(!isAdding)}
             className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-xl text-xs flex items-center gap-2 shadow-xs transition cursor-pointer"
@@ -302,8 +356,43 @@ export const QuestionBank: React.FC = () => {
         </div>
       </div>
 
+      {/* SQL Migration Helper Banner */}
+      <AnimatePresence>
+        {showSqlMigration && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.22 }}
+            className="overflow-hidden"
+          >
+            <div className="bg-slate-900 text-slate-100 rounded-2xl p-5 border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-indigo-400 font-mono text-xs font-bold">
+                  <Code className="w-4 h-4" />
+                  <span>PostgreSQL Enum Migration (ALTER TYPE experience_level_type)</span>
+                </div>
+                <button
+                  onClick={copySqlToClipboard}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  {copiedSql ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedSql ? 'Copied SQL!' : 'Copy SQL Script'}</span>
+                </button>
+              </div>
+              <p className="text-xs text-slate-400">
+                To allow PostgreSQL to natively store <code className="text-emerald-400 font-mono font-bold">'beginner'</code>, <code className="text-amber-400 font-mono font-bold">'intermediate'</code>, and <code className="text-purple-400 font-mono font-bold">'advanced'</code> in the <code className="text-slate-200 font-mono">experience_level_type</code> enum, run this in your Supabase SQL Editor:
+              </p>
+              <pre className="p-3 bg-black/50 rounded-xl text-[11px] font-mono text-emerald-300 overflow-x-auto border border-slate-800">
+                {sqlMigrationCode}
+              </pre>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* =========================================================================
-          INTERACTIVE QUESTION BUILDER FORM (Live Supabase Insert)
+          INTERACTIVE QUESTION BUILDER FORM (Live Supabase Insert with Difficulty)
          ========================================================================= */}
       <AnimatePresence>
         {isAdding && (
@@ -328,10 +417,13 @@ export const QuestionBank: React.FC = () => {
               </div>
 
               <form onSubmit={handleSaveQuestion} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                   {/* Skill Category Selector */}
-                  <div className="md:col-span-1 space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-800">Skill Category</label>
+                  <div className="md:col-span-4 space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-800 flex items-center gap-1">
+                      <Tag className="w-3 h-3 text-slate-400" />
+                      <span>Skill Category</span>
+                    </label>
                     <select
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
@@ -343,8 +435,25 @@ export const QuestionBank: React.FC = () => {
                     </select>
                   </div>
 
+                  {/* Difficulty Selector */}
+                  <div className="md:col-span-3 space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-800 flex items-center gap-1">
+                      <Gauge className="w-3 h-3 text-slate-400" />
+                      <span>Difficulty Level <strong className="text-emerald-700 font-normal">(Required)</strong></span>
+                    </label>
+                    <select
+                      value={difficulty}
+                      onChange={(e) => setDifficulty(e.target.value)}
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-medium capitalize"
+                    >
+                      <option value="beginner">beginner</option>
+                      <option value="intermediate">intermediate</option>
+                      <option value="advanced">advanced</option>
+                    </select>
+                  </div>
+
                   {/* Question Prompt */}
-                  <div className="md:col-span-2 space-y-1.5">
+                  <div className="md:col-span-5 space-y-1.5">
                     <label className="text-xs font-semibold text-slate-800">Question Prompt</label>
                     <input
                       type="text"
@@ -497,14 +606,14 @@ export const QuestionBank: React.FC = () => {
       </AnimatePresence>
 
       {/* =========================================================================
-          QUESTION BANK LIST & LIVE CATEGORY FILTERING
+          QUESTION BANK LIST & LIVE CATEGORY / DIFFICULTY FILTERING
          ========================================================================= */}
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
         {/* Filter Controls Bar */}
         <div className="p-4 sm:p-5 bg-slate-50/70 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1">
             {/* Category Filter Dropdown */}
-            <div className="relative min-w-[200px]">
+            <div className="relative min-w-[190px]">
               <Filter className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
               <select
                 value={selectedCategory}
@@ -523,17 +632,39 @@ export const QuestionBank: React.FC = () => {
               </select>
             </div>
 
+            {/* Difficulty Filter Dropdown */}
+            <div className="relative min-w-[150px]">
+              <Gauge className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+              <select
+                value={selectedDifficulty}
+                onChange={(e) => setSelectedDifficulty(e.target.value)}
+                className="w-full pl-8 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white capitalize"
+              >
+                <option value="all">All Difficulties</option>
+                <option value="beginner">Beginner ({questions.filter(q => (q.difficulty || 'intermediate').toLowerCase() === 'beginner').length})</option>
+                <option value="intermediate">Intermediate ({questions.filter(q => (q.difficulty || 'intermediate').toLowerCase() === 'intermediate').length})</option>
+                <option value="advanced">Advanced ({questions.filter(q => (q.difficulty || 'intermediate').toLowerCase() === 'advanced').length})</option>
+              </select>
+            </div>
+
             {/* Keyword Search */}
             <input
               type="text"
-              placeholder="Search question text or option content..."
+              placeholder="Search question prompt, category, difficulty, or choices..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white"
             />
           </div>
 
-          <div className="flex items-center gap-2 self-start md:self-auto text-xs text-slate-500">
+          <div className="flex items-center gap-3 self-start md:self-auto text-xs text-slate-500">
+            <button
+              onClick={handleToggleAll}
+              className="hover:text-slate-900 flex items-center gap-1 font-semibold transition"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Toggle All</span>
+            </button>
             <span>Showing <strong className="text-slate-800">{filteredQuestions.length}</strong> of {questions.length} questions</span>
           </div>
         </div>
@@ -550,8 +681,8 @@ export const QuestionBank: React.FC = () => {
             <div>
               <p className="text-xs font-bold text-slate-700">No Assessment Questions Found</p>
               <p className="text-[11px] text-slate-400 max-w-sm mx-auto mt-0.5">
-                {selectedCategory !== 'all' 
-                  ? `No questions found under "${selectedCategory}". Click "Author New Question" above to add one.` 
+                {selectedCategory !== 'all' || selectedDifficulty !== 'all'
+                  ? `No questions found matching your filter criteria. Click "Author New Question" above to add one.` 
                   : 'Click "Author New Question" to add questions directly to your live Supabase database.'}
               </p>
             </div>
@@ -563,6 +694,7 @@ export const QuestionBank: React.FC = () => {
                 const isExpanded = Boolean(q.id !== undefined && expandedIds[q.id]);
                 const isDeleting = q.id !== undefined && deletingId === q.id;
                 const isToggling = q.id !== undefined && togglingId === q.id;
+                const diffKey = q.difficulty || 'intermediate';
 
                 return (
                   <motion.div
@@ -593,14 +725,24 @@ export const QuestionBank: React.FC = () => {
 
                         <div className="space-y-1.5 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
+                            {/* Skill Category */}
                             <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 rounded-md">
                               {q.skill_category}
                             </span>
+
+                            {/* Difficulty Badge */}
+                            <span className={`text-[10px] font-bold capitalize px-2 py-0.5 rounded-md border ${getDifficultyBadge(diffKey)}`}>
+                              {diffKey}
+                            </span>
+
+                            {/* Active Status */}
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                               q.is_active !== false ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'
                             }`}>
                               {q.is_active !== false ? 'Active in Rotation' : 'Disabled'}
                             </span>
+
+                            {/* Answer Key */}
                             <span className="text-[10px] font-mono text-slate-400">
                               Answer Key: Choice {q.correct_option_id?.toUpperCase()}
                             </span>
