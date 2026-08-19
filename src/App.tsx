@@ -37,6 +37,10 @@ import AdminGuard from './components/AdminGuard';
 import SuperAdminApprovalsPage from '../app/admin/approvals/page';
 import { useSecureLogin } from './hooks/useSecureLogin';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminProtectedRoute from './components/AdminProtectedRoute';
+import AdminLogin from './pages/admin/Login';
+import AdminRegister from './pages/admin/Register';
+import AdminDashboard from './pages/admin/Dashboard';
 import TalentProfile from './components/TalentProfile';
 import TalentPortfolioModal from './components/TalentPortfolioModal';
 import PublicPortfolio from './components/PublicPortfolio';
@@ -77,7 +81,9 @@ export default function App() {
       case 'assessment': return '/assessment';
       case 'pricing': return '/pricing';
       case 'admin': return '/admin';
+      case 'admin-dashboard': return '/admin/dashboard';
       case 'admin-login': return '/admin/login';
+      case 'admin-register': return '/admin/register';
       case 'admin-approvals': return '/admin/approvals';
       default: return '/';
     }
@@ -138,9 +144,18 @@ export default function App() {
     if (lower === '/talent-profile' || lower === '/talent') return { page: 'talent' };
     if (lower === '/assessment') return { page: 'assessment' };
     if (lower === '/pricing') return { page: 'pricing' };
-    if (lower === '/admin/approvals' || lower === '/admin-approvals') return { page: 'admin-approvals' };
-    if (lower === '/admin/login' || lower === '/admin-login') return { page: 'admin-login' };
-    if (lower === '/admin' || lower === '/admin-profile') return { page: 'admin' };
+    if (lower === '/admin/register' || lower === '/admin-register' || lower === '/admin/signup' || lower === '/signup/admin') {
+      return { page: 'admin-register' };
+    }
+    if (lower === '/admin/login' || lower === '/admin-login' || lower === '/login/admin') {
+      return { page: 'admin-login' };
+    }
+    if (lower === '/admin/approvals' || lower === '/admin-approvals') {
+      return { page: 'admin-approvals' };
+    }
+    if (lower === '/admin/dashboard' || lower === '/admin-dashboard' || lower === '/admin' || lower === '/admin-profile') {
+      return { page: 'admin-dashboard' };
+    }
 
     // Reserved keywords and static assets that should NEVER be treated as candidate slugs
     const reservedSlugs = [
@@ -239,7 +254,16 @@ export default function App() {
   const [confettiMessage, setConfettiMessage] = useState('SUCCESSFULLY REGISTERED!');
 
   // Check if current view is a dedicated authenticated/operations dashboard
-  const isDashboardPage = ['talent', 'employer', 'recruiter-dashboard', 'admin', 'admin-approvals'].includes(currentPage);
+  const isDashboardPage = [
+    'talent', 
+    'employer', 
+    'recruiter-dashboard', 
+    'admin', 
+    'admin-dashboard',
+    'admin-login', 
+    'admin-register', 
+    'admin-approvals'
+  ].includes(currentPage);
 
   // Shared Global States
   const [employerSlots, setEmployerSlots] = useState<number>(1);
@@ -601,31 +625,49 @@ export default function App() {
               </section>
             )}
 
-            {/* View 7: Staff/Admin Login Portal (/admin/login) - PUBLIC OUTSIDE GUARD */}
-            {currentPage === 'admin-login' && (
-              <AdminOperations 
-                mode="login" 
-                onBackToMain={() => navigateToPage('home')} 
-                onLoginSuccess={() => navigateToPage('admin')} 
+            {/* View 7: Admin Registration (/admin/register) */}
+            {currentPage === 'admin-register' && (
+              <AdminRegister 
+                onNavigateToLogin={() => navigateToPage('admin-login')} 
+                onNavigateToHome={() => navigateToPage('home')} 
               />
             )}
 
-            {/* View 8: Staff/Admin Operations Command Center Dashboard (/admin) - GUARDED */}
-            {currentPage === 'admin' && (
-              <AdminGuard>
-                <AdminOperations 
-                  mode="dashboard" 
-                  onBackToMain={() => navigateToPage('home')} 
-                  onRedirectToLogin={() => navigateToPage('admin-login')} 
-                />
-              </AdminGuard>
+            {/* View 8: Admin Login Portal (/admin/login) */}
+            {currentPage === 'admin-login' && (
+              <AdminLogin 
+                onLoginSuccess={() => navigateToPage('admin-dashboard')} 
+                onNavigateToRegister={() => navigateToPage('admin-register')} 
+                onNavigateToHome={() => navigateToPage('home')} 
+              />
             )}
 
-            {/* View 9: Super Admin Approvals Gateway (/admin/approvals) - SUPER ADMIN ONLY GUARD */}
+            {/* View 9: Production Admin Dashboard & Control Hub (/admin or /admin/dashboard) - PROTECTED */}
+            {(currentPage === 'admin-dashboard' || currentPage === 'admin') && (
+              <AdminProtectedRoute>
+                <AdminDashboard 
+                  onSignOutRedirect={() => navigateToPage('admin-login')} 
+                  onNavigateHome={() => navigateToPage('home')} 
+                  onPreviewTalentSlug={(slug) => {
+                    setSelectedPublicSlug(slug);
+                    setIsPortfolioModalOpen(true);
+                  }}
+                />
+              </AdminProtectedRoute>
+            )}
+
+            {/* View 10: Super Admin Approvals Gateway (/admin/approvals) - SUPER ADMIN ONLY */}
             {currentPage === 'admin-approvals' && (
-              <AdminGuard superAdminOnly={true}>
-                <SuperAdminApprovalsPage />
-              </AdminGuard>
+              <AdminProtectedRoute superAdminOnly={true}>
+                <AdminDashboard 
+                  onSignOutRedirect={() => navigateToPage('admin-login')} 
+                  onNavigateHome={() => navigateToPage('home')} 
+                  onPreviewTalentSlug={(slug) => {
+                    setSelectedPublicSlug(slug);
+                    setIsPortfolioModalOpen(true);
+                  }}
+                />
+              </AdminProtectedRoute>
             )}
 
             {/* View 9: Recruiter Registration & Sourcing Package Purchase (/recruiter/signup) */}

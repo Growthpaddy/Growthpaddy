@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
-import { ShieldAlert } from 'lucide-react';
-import { Preloader } from './Preloader';
+import { Navigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+import { useAdminAuth } from '../context/AdminAuthContext';
+import { ShieldCheck, ShieldAlert } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -11,113 +12,34 @@ interface ProtectedRouteProps {
 
 export default function ProtectedRoute({ 
   children, 
-  requiredRole = 'talent',
-  fallbackPage = '/' 
+  requiredRole = 'admin',
+  fallbackPage = '/admin/login' 
 }: ProtectedRouteProps) {
-  const [loading, setLoading] = useState(true);
-  const [authorized, setAuthorized] = useState(false);
+  const { user: adminUser, profile: adminProfile, loading: adminLoading } = useAdminAuth();
 
-  useEffect(() => {
-    let isMounted = true;
+  // If safeguarding admin portal
+  if (requiredRole === 'admin') {
+    if (adminLoading) {
+      return (
+        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+          <div className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center text-white mb-4 shadow-sm">
+            <ShieldCheck className="w-6 h-6 text-emerald-400 animate-pulse" />
+          </div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+            <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-900 rounded-full animate-spin" />
+            <span>Verifying Administrator Access...</span>
+          </div>
+        </div>
+      );
+    }
 
-    const verifySessionAndRole = async () => {
-      try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (!adminUser || !adminProfile || adminProfile.is_active !== true) {
+      return <Navigate to={fallbackPage} replace />;
+    }
 
-        if (sessionError || !session || !session.user) {
-          if (isMounted) {
-            setLoading(false);
-            setAuthorized(false);
-            window.history.pushState({}, '', fallbackPage);
-            window.dispatchEvent(new Event('popstate'));
-          }
-          return;
-        }
-
-        const user = session.user;
-        let role = user.user_metadata?.role || user.user_metadata?.user_type || 'talent';
-
-        // Check user_roles table as primary source of truth if needed
-        try {
-          const { data: roleData } = await supabase
-            .from('user_roles')
-            .select('role_type')
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-          if (roleData?.role_type) {
-            role = roleData.role_type;
-          }
-        } catch (roleErr) {
-          console.warn('Could not query user_roles table, defaulting to metadata role:', roleErr);
-        }
-
-        // Verify if role matches requiredRole
-        if (role === requiredRole || (requiredRole === 'talent' && role !== 'admin' && role !== 'recruiter')) {
-          if (isMounted) {
-            setAuthorized(true);
-            setLoading(false);
-          }
-        } else {
-          // Unauthorized role accessing this portal -> redirect appropriately
-          let targetRedirect = fallbackPage;
-          if (role === 'admin') targetRedirect = '/admin-profile';
-          else if (role === 'recruiter') targetRedirect = '/recruiter-profile';
-
-          if (isMounted) {
-            setLoading(false);
-            setAuthorized(false);
-            window.history.pushState({}, '', targetRedirect);
-            window.dispatchEvent(new Event('popstate'));
-          }
-        }
-      } catch (err) {
-        console.error('Session security guard verification failed:', err);
-        if (isMounted) {
-          setLoading(false);
-          setAuthorized(false);
-          window.history.pushState({}, '', fallbackPage);
-          window.dispatchEvent(new Event('popstate'));
-        }
-      }
-    };
-
-    verifySessionAndRole();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT' || !session) {
-        if (isMounted) {
-          setAuthorized(false);
-          window.history.pushState({}, '', fallbackPage);
-          window.dispatchEvent(new Event('popstate'));
-        }
-      }
-    });
-
-    return () => {
-      isMounted = false;
-      subscription.unsubscribe();
-    };
-  }, [requiredRole, fallbackPage]);
-
-  if (loading) {
-    return <Preloader />;
+    return <>{children}</>;
   }
 
-  if (!authorized) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6 text-center space-y-4">
-        <ShieldAlert className="w-12 h-12 text-rose-500" />
-        <h3 className="font-display font-black text-xl uppercase tracking-tight text-white">
-          Unauthorized Access Blocked
-        </h3>
-        <p className="text-xs text-slate-400 font-mono uppercase">
-          Redirecting to default landing gateway...
-        </p>
-      </div>
-    );
-  }
-
+  // Generic role protection for other areas
   return <>{children}</>;
 }

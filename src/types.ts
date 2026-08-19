@@ -137,6 +137,8 @@ export type PageType =
   | 'pricing' 
   | 'admin' 
   | 'admin-login'
+  | 'admin-register'
+  | 'admin-dashboard'
   | 'admin-approvals'
   | 'recruiter-signup'
   | 'recruiter-login'
