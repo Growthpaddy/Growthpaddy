@@ -43,8 +43,14 @@ import {
   TrendingUp,
   Image as ImageIcon,
   User,
-  Camera
+  Camera,
+  Play,
+  RotateCcw,
+  CheckCircle,
+  XCircle,
+  Info
 } from 'lucide-react';
+import { SKILL_QUIZ_DEFINITIONS, SkillCategoryDefinition, QuizQuestion } from '../data/quizQuestions';
 
 // ==============================================================================
 // INLINE TYPES & INTERFACES (MATCHING SUPABASE talent_profiles SCHEMA)
@@ -120,6 +126,7 @@ export interface SkillCategoryItem {
   isPassed: boolean;
   bestScore?: number;
   failCount: number;
+  attemptsCount: number;
   isLocked: boolean;
   cooldownDaysRemaining: number;
   lastAttemptDate?: string;
@@ -132,15 +139,15 @@ export interface TalentProfileProps {
 
 // 9 Standard Skill Categories
 const DEFAULT_SKILL_CATEGORIES = [
-  'Full-Stack Digital Marketing',
-  'Growth Marketing Strategy',
   'Paid Media & PPC',
   'SEO & Organic Growth',
   'CRO & Conversion Optimization',
-  'Email & Lifecycle Automation',
   'Analytics & Attribution',
-  'General Digital Marketing',
-  'AI & Automation Strategy'
+  'AI & Automation Strategy',
+  'Email & Lifecycle Automation',
+  'Growth Marketing Strategy',
+  'Full-Stack Digital Marketing',
+  'General Digital Marketing'
 ];
 
 /**
@@ -166,6 +173,23 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [imageError, setImageError] = useState<boolean>(false);
+
+  // Quiz Modal State Engine
+  const [activeQuizCategory, setActiveQuizCategory] = useState<string | null>(null);
+  const [quizModalStep, setQuizModalStep] = useState<'INSTRUCTIONS' | 'LIVE' | 'RESULTS' | null>(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
+  const [userAnswers, setUserAnswers] = useState<Record<number, number>>({});
+  const [timeRemainingSeconds, setTimeRemainingSeconds] = useState<number>(600); // 10 minutes
+  const [isSubmittingQuiz, setIsSubmittingQuiz] = useState<boolean>(false);
+  const [quizScoreResult, setQuizScoreResult] = useState<{
+    scorePercentage: number;
+    passed: boolean;
+    correctCount: number;
+    totalCount: number;
+    attemptsUsed: number;
+    isNowLocked: boolean;
+    cooldownDays: number;
+  } | null>(null);
 
   // Edit Form Buffer
   const [formData, setFormData] = useState<{
@@ -211,7 +235,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
   });
 
   // ----------------------------------------------------------------------------
-  // Helper: Aggregate Skill Matrix
+  // Helper: Aggregate Skill Matrix from Quiz Attempts
   // ----------------------------------------------------------------------------
   const buildSkillMatrix = useCallback((attempts: any[]) => {
     const now = Date.now();
@@ -227,6 +251,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
 
       const failAttempts = catAttempts.filter((a: any) => !a.passed);
       const failCount = failAttempts.length;
+      const attemptsCount = catAttempts.length;
 
       let isLocked = false;
       let cooldownDaysRemaining = 0;
@@ -243,10 +268,11 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
 
       return {
         category: catName,
-        totalQuestions: 20,
+        totalQuestions: 5,
         isPassed: hasPassed,
         bestScore,
         failCount,
+        attemptsCount,
         isLocked,
         cooldownDaysRemaining,
         lastAttemptDate: catAttempts[0]?.created_at
@@ -350,11 +376,12 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
       const matrix = buildSkillMatrix(attemptsData || []);
       setSkillMatrix(matrix);
 
-      const passedCount = matrix.filter((m) => m.isPassed).length;
+      const passedCategories = matrix.filter((m) => m.isPassed).map((m) => m.category);
+      const passedCount = passedCategories.length;
       const isPhase1Passed = passedCount >= 5 || profileData.phase_1_completed || profileData.phase_1_status === 'PASSED';
 
-      // Automatically award skill tags based on passed quizzes (Read-Only)
-      const passedSkillTitles = matrix.filter((m) => m.isPassed).map((m) => m.category);
+      // STRICT RULE: ONLY dynamically accredited skills from passed Phase 1 quizzes (up to max 5)
+      const dynamicAccreditedSkills = passedCategories.slice(0, 5);
 
       const normalizedProfile: TalentProfile = {
         ...profileData,
@@ -375,7 +402,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         case_studies: Array.isArray(profileData.case_studies) ? profileData.case_studies : [],
         ai_tools: Array.isArray(profileData.ai_tools) ? profileData.ai_tools : ['ChatGPT', 'Midjourney', 'Zapier AI'],
         certifications: Array.isArray(profileData.certifications) ? profileData.certifications : ['Google Ads Search', 'Meta Media Buyer'],
-        skills: passedSkillTitles.length > 0 ? passedSkillTitles : ['Paid Media Strategy', 'Full-Funnel Analytics', 'Conversion Rate Optimization'],
+        skills: dynamicAccreditedSkills,
         phase_1_quizzes_passed: passedCount,
         phase_1_completed: isPhase1Passed,
         phase_1_status: isPhase1Passed ? 'PASSED' : (profileData.phase_1_status || 'IN_PROGRESS'),
@@ -423,6 +450,179 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
   }, [fetchTalentProfile]);
 
   // ----------------------------------------------------------------------------
+  // Live Countdown Timer for Running Quiz
+  // ----------------------------------------------------------------------------
+  useEffect(() => {
+    let interval: any = null;
+    if (quizModalStep === 'LIVE' && timeRemainingSeconds > 0) {
+      interval = setInterval(() => {
+        setTimeRemainingSeconds((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            handleAutoSubmitQuiz();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [quizModalStep, timeRemainingSeconds]);
+
+  // ----------------------------------------------------------------------------
+  // Smooth Scroll Helper to Quiz Section
+  // ----------------------------------------------------------------------------
+  const scrollToQuizSection = () => {
+    const el = document.getElementById('quiz-section');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // ----------------------------------------------------------------------------
+  // Quiz Flow Controllers
+  // ----------------------------------------------------------------------------
+  const handleOpenQuizInstructions = (categoryName: string) => {
+    const matrixItem = skillMatrix.find((s) => s.category === categoryName);
+    if (matrixItem?.isLocked) {
+      return; // Locked category cannot be opened
+    }
+    setActiveQuizCategory(categoryName);
+    setQuizModalStep('INSTRUCTIONS');
+    setUserAnswers({});
+    setCurrentQuestionIndex(0);
+    setTimeRemainingSeconds(600); // 10 minutes
+    setQuizScoreResult(null);
+  };
+
+  const handleStartLiveQuiz = () => {
+    setUserAnswers({});
+    setCurrentQuestionIndex(0);
+    setTimeRemainingSeconds(600);
+    setQuizModalStep('LIVE');
+  };
+
+  const handleSelectAnswer = (questionIdx: number, optionIdx: number) => {
+    setUserAnswers((prev) => ({
+      ...prev,
+      [questionIdx]: optionIdx
+    }));
+  };
+
+  // Auto submit when timer runs out
+  const handleAutoSubmitQuiz = () => {
+    handleSubmitQuiz();
+  };
+
+  // Submit Quiz Logic & Grading
+  const handleSubmitQuiz = async () => {
+    if (!activeQuizCategory || !profile) return;
+    const quizDef = SKILL_QUIZ_DEFINITIONS[activeQuizCategory];
+    if (!quizDef) return;
+
+    setIsSubmittingQuiz(true);
+    try {
+      const questions = quizDef.questions;
+      let correctCount = 0;
+
+      questions.forEach((q, idx) => {
+        if (userAnswers[idx] === q.correctIdx) {
+          correctCount += 1;
+        }
+      });
+
+      const scorePercentage = Math.round((correctCount / questions.length) * 100);
+      const passed = scorePercentage >= quizDef.passingScorePercent; // >= 80%
+
+      // Fetch past attempts to determine fail count
+      const { data: existingAttempts } = await supabase
+        .from('quiz_attempts')
+        .select('*')
+        .eq('talent_id', profile.id)
+        .eq('skill_category', activeQuizCategory)
+        .order('created_at', { ascending: false });
+
+      const pastFails = (existingAttempts || []).filter((a: any) => !a.passed).length;
+      const currentFailCount = passed ? 0 : pastFails + 1;
+      const isNowLocked = !passed && currentFailCount >= 2;
+      const cooldownDays = isNowLocked ? 90 : 0;
+
+      // Save to Supabase `quiz_attempts`
+      const attemptPayload = {
+        talent_id: profile.id,
+        skill_category: activeQuizCategory,
+        score_percentage: scorePercentage,
+        passed,
+        created_at: new Date().toISOString()
+      };
+
+      await supabase.from('quiz_attempts').insert([attemptPayload]);
+
+      // Refresh attempts & update profile stats
+      const { data: allAttempts } = await supabase
+        .from('quiz_attempts')
+        .select('*')
+        .eq('talent_id', profile.id);
+
+      const updatedMatrix = buildSkillMatrix(allAttempts || []);
+      setSkillMatrix(updatedMatrix);
+
+      const newPassedCategories = updatedMatrix.filter((m) => m.isPassed).map((m) => m.category);
+      const newPassedCount = newPassedCategories.length;
+      const newPhase1Completed = newPassedCount >= 5;
+
+      // Dynamic skills list (max 5)
+      const newDynamicSkills = newPassedCategories.slice(0, 5);
+
+      const profileUpdates: Partial<TalentProfile> = {
+        phase_1_quizzes_passed: newPassedCount,
+        phase_1_completed: newPhase1Completed,
+        phase_1_status: newPhase1Completed ? 'PASSED' : 'IN_PROGRESS',
+        skills: newDynamicSkills,
+        updated_at: new Date().toISOString()
+      };
+
+      if (newPhase1Completed && (!profile.phase_2_status || profile.phase_2_status === 'LOCKED')) {
+        profileUpdates.phase_2_status = 'PENDING_SCHEDULE';
+      }
+
+      await supabase
+        .from('talent_profiles')
+        .update(profileUpdates)
+        .eq('id', profile.id);
+
+      setProfile((prev) => (prev ? { ...prev, ...profileUpdates } : null));
+
+      setQuizScoreResult({
+        scorePercentage,
+        passed,
+        correctCount,
+        totalCount: questions.length,
+        attemptsUsed: (existingAttempts?.length || 0) + 1,
+        isNowLocked,
+        cooldownDays
+      });
+
+      setQuizModalStep('RESULTS');
+    } catch (err: any) {
+      console.error('Quiz submission error:', err);
+      alert(`Submission error: ${err.message}`);
+    } finally {
+      setIsSubmittingQuiz(false);
+    }
+  };
+
+  const handleCloseQuizModal = () => {
+    setActiveQuizCategory(null);
+    setQuizModalStep(null);
+    setQuizScoreResult(null);
+    setUserAnswers({});
+    setCurrentQuestionIndex(0);
+  };
+
+  // ----------------------------------------------------------------------------
   // Save Editable Fields (Enforcing Locked vs Editable boundaries)
   // ----------------------------------------------------------------------------
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -441,7 +641,6 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         .map((s) => s.trim())
         .filter(Boolean);
 
-      // ONLY editable fields payload (Strictly exclude locked fields: is_verified_badge, vetting_phase, phase_*_status, phase_1_quizzes_passed, skills)
       const editablePayload = {
         profile_picture_url: formData.profile_picture_url.trim() || null,
         role_title: formData.role_title,
@@ -593,6 +792,14 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
   const passedQuizzesCount = profile?.phase_1_quizzes_passed || skillMatrix.filter((s) => s.isPassed).length;
   const isPhase1Done = passedQuizzesCount >= 5 || profile?.phase_1_completed;
   const initials = getInitials(profile?.full_name);
+
+  const activeDef = activeQuizCategory ? SKILL_QUIZ_DEFINITIONS[activeQuizCategory] : null;
+  const activeMatrix = activeQuizCategory ? skillMatrix.find((s) => s.category === activeQuizCategory) : null;
+
+  // Format MM:SS for countdown timer
+  const minutes = Math.floor(timeRemainingSeconds / 60);
+  const seconds = timeRemainingSeconds % 60;
+  const formattedTime = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased pb-24 selection:bg-emerald-500 selection:text-white">
@@ -832,7 +1039,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         {/* 2. 3-PHASE VERIFICATION PIPELINE (STRICTLY READ-ONLY) */}
         {/* ========================================================================= */}
         <section className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-slate-900">3-Phase Candidate Verification Pipeline</h2>
@@ -843,7 +1050,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
               </div>
               <p className="text-xs text-slate-500">Pipeline advancement, quiz credits, and verification badges are awarded through specialist audits and assessment scores.</p>
             </div>
-            <span className="text-xs font-mono font-bold px-3 py-1 bg-white border border-slate-200 rounded-full text-slate-700 shadow-2xs">
+            <span className="text-xs font-mono font-bold px-3 py-1 bg-white border border-slate-200 rounded-full text-slate-700 shadow-2xs self-start sm:self-auto">
               {profile?.is_verified_badge ? 'Phase 3/3 (Verified)' : profile?.phase_2_status === 'COMPLETED' ? 'Phase 3/3 (Payment Ready)' : isPhase1Done ? 'Phase 2/3 (Interview)' : 'Phase 1/3 (Quizzes)'}
             </span>
           </div>
@@ -894,6 +1101,16 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     <span>5 required</span>
                   </div>
                 </div>
+
+                {/* Quick Phase Quick-Link to Quizzes */}
+                <button
+                  type="button"
+                  onClick={scrollToQuizSection}
+                  className="w-full py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs"
+                >
+                  <span>Take Diagnostic Quizzes</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
               </div>
 
               <div className="pt-4 border-t border-slate-100 mt-4 text-[11px] font-medium text-slate-500 flex items-center gap-1">
@@ -1014,7 +1231,144 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         </section>
 
         {/* ========================================================================= */}
-        {/* 3. EDITABLE PORTFOLIO & RESUME MANAGEMENT FORM */}
+        {/* 3. SKILL CATEGORIES & DIAGNOSTIC QUIZZES GRID (#quiz-section) */}
+        {/* ========================================================================= */}
+        <section id="quiz-section" className="space-y-4 pt-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <div className="flex items-center gap-2">
+                <Award className="w-5 h-5 text-emerald-600" />
+                <h2 className="text-base font-bold text-slate-900">Phase 1 Skill Diagnostics Matrix</h2>
+              </div>
+              <p className="text-xs text-slate-500">
+                Complete 5 categories with 80%+ score to unlock Phase 2 Specialist Review. Each quiz has a 10-minute timer and 2 attempts before a 90-day cooldown.
+              </p>
+            </div>
+            <div className="text-xs font-mono font-bold bg-white border border-slate-200 px-3 py-1 rounded-full text-slate-700 shadow-2xs self-start sm:self-auto">
+              Passed: <span className="text-emerald-600">{passedQuizzesCount}</span> / 5 Target
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {skillMatrix.map((item) => {
+              const def = SKILL_QUIZ_DEFINITIONS[item.category];
+              return (
+                <div
+                  key={item.category}
+                  className={`bg-white border rounded-3xl p-5 shadow-xs flex flex-col justify-between transition hover:shadow-md ${
+                    item.isPassed
+                      ? 'border-emerald-300 bg-emerald-50/15 ring-1 ring-emerald-400/20'
+                      : item.isLocked
+                      ? 'border-rose-200 bg-rose-50/15'
+                      : 'border-slate-200 hover:border-emerald-300'
+                  }`}
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className={`p-2 rounded-xl flex items-center justify-center ${
+                          item.isPassed
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : item.isLocked
+                            ? 'bg-rose-100 text-rose-800'
+                            : 'bg-slate-100 text-slate-700'
+                        }`}>
+                          <Sparkles className="w-4 h-4" />
+                        </div>
+                        <h3 className="text-sm font-bold text-slate-900 leading-tight">
+                          {item.category}
+                        </h3>
+                      </div>
+
+                      {item.isPassed ? (
+                        <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Passed
+                        </span>
+                      ) : item.isLocked ? (
+                        <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full">
+                          <Lock className="w-3 h-3" />
+                          Locked
+                        </span>
+                      ) : item.attemptsCount > 0 ? (
+                        <span className="shrink-0 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                          Attempt 2/2
+                        </span>
+                      ) : (
+                        <span className="shrink-0 text-[11px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                          Available
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      {def?.shortDesc || 'Comprehensive evaluation on core industry workflows and execution standards.'}
+                    </p>
+
+                    {/* Stats details */}
+                    <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 pt-1 border-t border-slate-100">
+                      <span>Pass Mark: 80%</span>
+                      {item.bestScore !== undefined ? (
+                        <span>Best: <strong className={item.isPassed ? 'text-emerald-700' : 'text-slate-700'}>{item.bestScore}%</strong></span>
+                      ) : (
+                        <span>5 Questions</span>
+                      )}
+                    </div>
+
+                    {/* Locked 90-Day Countdown State */}
+                    {item.isLocked && (
+                      <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl space-y-2">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-rose-800">
+                          <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                          <span>Cooldown Period Active</span>
+                        </div>
+                        <p className="text-[11px] text-rose-700 leading-relaxed">
+                          2 attempts failed. Re-attempt unlocks in <strong>{item.cooldownDaysRemaining} days</strong>.
+                        </p>
+                        <a
+                          href="https://learnwithdsp.com/Grow-a-digital-and-growth-marketing-career-fast"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-900 hover:text-rose-950 bg-rose-100 hover:bg-rose-200 px-3 py-1.5 rounded-xl transition w-full justify-center"
+                        >
+                          <BookOpen className="w-3.5 h-3.5" />
+                          <span>Refresher Marketing Course</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-4 mt-2">
+                    {item.isPassed ? (
+                      <div className="w-full py-2 px-3 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold flex items-center justify-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Skill Verified & Accredited</span>
+                      </div>
+                    ) : item.isLocked ? (
+                      <div className="w-full py-2 px-3 rounded-xl bg-slate-100 text-slate-400 text-xs font-medium flex items-center justify-center gap-1.5 cursor-not-allowed">
+                        <Lock className="w-3.5 h-3.5" />
+                        <span>Locked ({item.cooldownDaysRemaining}d remaining)</span>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenQuizInstructions(item.category)}
+                        className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs"
+                      >
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                        <span>{item.attemptsCount === 1 ? 'Retake Quiz (Final Attempt)' : 'Take Diagnostic Quiz'}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* 4. EDITABLE PORTFOLIO & RESUME MANAGEMENT FORM */}
         {/* ========================================================================= */}
         {isEditing ? (
           <form onSubmit={handleSaveProfile} className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xs space-y-8 animate-fadeIn">
@@ -1471,7 +1825,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
           </form>
         ) : (
           /* ========================================================================= */
-          /* 4. READ-ONLY DISPLAY OF PORTFOLIO, CAREER & SKILLS */
+          /* 5. READ-ONLY DISPLAY OF PORTFOLIO, CAREER & DYNAMIC ACCREDITED SKILLS */
           /* ========================================================================= */
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
@@ -1556,7 +1910,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
             {/* Right Column: Skills, AI Tools, Education */}
             <div className="space-y-6">
               
-              {/* Accredited Skills (Strictly Locked / Read-Only from Quizzes) */}
+              {/* Accredited Skills (Strictly Dynamic from Passed Quizzes only - Max 5) */}
               <section className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-xs space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
                   <div className="flex items-center gap-1.5">
@@ -1565,20 +1919,38 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                   </div>
                   <span className="text-[10px] font-mono text-slate-400 font-bold flex items-center gap-1">
                     <Lock className="w-2.5 h-2.5" />
-                    Auto-Awarded
+                    Diagnostic Verified
                   </span>
                 </div>
 
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Earned dynamically by achieving 80%+ on Phase 1 diagnostic quizzes (Max 5 accredited specialties).
+                </p>
+
                 <div className="flex flex-wrap gap-1.5">
-                  {(profile?.skills || []).map((skill, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 font-semibold text-[11px] flex items-center gap-1"
-                    >
-                      <Check className="w-3 h-3 text-emerald-600" />
-                      <span>{skill}</span>
-                    </span>
-                  ))}
+                  {(profile?.skills || []).length === 0 ? (
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center w-full space-y-1">
+                      <p className="text-xs text-slate-500 font-medium">No accredited skills unlocked yet.</p>
+                      <button
+                        type="button"
+                        onClick={scrollToQuizSection}
+                        className="text-xs font-bold text-emerald-700 hover:underline inline-flex items-center gap-1"
+                      >
+                        <span>Pass your first quiz</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    (profile?.skills || []).map((skill, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 font-semibold text-[11px] flex items-center gap-1"
+                      >
+                        <Check className="w-3 h-3 text-emerald-600" />
+                        <span>{skill}</span>
+                      </span>
+                    ))
+                  )}
                 </div>
               </section>
 
@@ -1644,6 +2016,356 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         )}
 
       </main>
+
+      {/* ========================================================================= */}
+      {/* 6. INTERACTIVE QUIZ MODAL (INSTRUCTIONS / LIVE / RESULTS) */}
+      {/* ========================================================================= */}
+      {quizModalStep && activeDef && (
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="bg-white rounded-3xl border border-slate-200 max-w-2xl w-full p-6 sm:p-8 shadow-2xl space-y-6 my-8 relative">
+            
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 rounded-full uppercase">
+                    Phase 1 Diagnostic Assessment
+                  </span>
+                  {activeMatrix?.attemptsCount ? (
+                    <span className="text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-full">
+                      Attempt {activeMatrix.attemptsCount + 1} of 2
+                    </span>
+                  ) : null}
+                </div>
+                <h2 className="text-xl font-bold text-slate-900">{activeDef.category}</h2>
+              </div>
+
+              {quizModalStep !== 'LIVE' && (
+                <button
+                  type="button"
+                  onClick={handleCloseQuizModal}
+                  className="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+
+            {/* STEP A: PRE-QUIZ INSTRUCTION MODAL */}
+            {quizModalStep === 'INSTRUCTIONS' && (
+              <div className="space-y-6">
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                  {activeDef.fullDesc}
+                </p>
+
+                <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200/80 space-y-3.5">
+                  <h4 className="text-xs font-bold text-slate-900 uppercase font-mono tracking-wider flex items-center gap-1.5">
+                    <Info className="w-4 h-4 text-emerald-600" />
+                    <span>Examination & Certification Rules</span>
+                  </h4>
+
+                  <ul className="space-y-2.5 text-xs text-slate-700">
+                    <li className="flex items-start gap-2">
+                      <Clock className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+                      <span><strong>10-Minute Timed Session:</strong> You have 10 minutes to answer all 5 questions. Answers auto-submit when the timer expires.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Award className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <span><strong>80% Passing Benchmark:</strong> You must answer at least 4 out of 5 questions correctly to achieve accreditation in this skill.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <RotateCcw className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <span><strong>2 Attempts Permitted:</strong> If you fail on your 1st attempt, you may retry immediately.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Lock className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                      <span><strong>90-Day Lockout:</strong> Failing 2 consecutive attempts locks this diagnostic for 90 days. You will be provided a refresher study course.</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleCloseQuizModal}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleStartLiveQuiz}
+                    className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>I Understand — Begin Assessment</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP B: LIVE QUIZ EXECUTION */}
+            {quizModalStep === 'LIVE' && (
+              <div className="space-y-6">
+                
+                {/* Live Timer Bar & Progress */}
+                <div className="flex items-center justify-between bg-slate-900 text-white px-4 py-2.5 rounded-2xl shadow-xs">
+                  <div className="flex items-center gap-2">
+                    <Timer className={`w-4 h-4 ${timeRemainingSeconds < 120 ? 'text-rose-400 animate-pulse' : 'text-emerald-400'}`} />
+                    <span className="font-mono text-xs font-bold">
+                      Time Remaining: <span className={timeRemainingSeconds < 120 ? 'text-rose-400' : 'text-white'}>{formattedTime}</span>
+                    </span>
+                  </div>
+                  <span className="text-xs font-mono text-slate-400">
+                    Question {currentQuestionIndex + 1} of {activeDef.questions.length}
+                  </span>
+                </div>
+
+                {/* Progress Indicators */}
+                <div className="flex gap-1.5">
+                  {activeDef.questions.map((_, idx) => (
+                    <div
+                      key={idx}
+                      className={`h-1.5 flex-1 rounded-full transition ${
+                        userAnswers[idx] !== undefined
+                          ? 'bg-emerald-500'
+                          : idx === currentQuestionIndex
+                          ? 'bg-slate-900'
+                          : 'bg-slate-200'
+                      }`}
+                    />
+                  ))}
+                </div>
+
+                {/* Current Question */}
+                {activeDef.questions[currentQuestionIndex] && (
+                  <div className="space-y-4">
+                    <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-snug">
+                      {activeDef.questions[currentQuestionIndex].question}
+                    </h3>
+
+                    <div className="space-y-2.5">
+                      {activeDef.questions[currentQuestionIndex].options.map((opt, optIdx) => {
+                        const isSelected = userAnswers[currentQuestionIndex] === optIdx;
+                        return (
+                          <button
+                            key={optIdx}
+                            type="button"
+                            onClick={() => handleSelectAnswer(currentQuestionIndex, optIdx)}
+                            className={`w-full text-left p-3.5 rounded-2xl border text-xs leading-relaxed transition flex items-start gap-3 cursor-pointer ${
+                              isSelected
+                                ? 'border-emerald-500 bg-emerald-50/60 ring-2 ring-emerald-500/20 text-emerald-950 font-semibold'
+                                : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/80 text-slate-700'
+                            }`}
+                          >
+                            <span className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${
+                              isSelected ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'
+                            }`}>
+                              {String.fromCharCode(65 + optIdx)}
+                            </span>
+                            <span className="flex-1">{opt}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step Controls */}
+                <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    disabled={currentQuestionIndex === 0}
+                    onClick={() => setCurrentQuestionIndex((prev) => Math.max(0, prev - 1))}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed border border-slate-200"
+                  >
+                    Previous
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    {currentQuestionIndex < activeDef.questions.length - 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => setCurrentQuestionIndex((prev) => prev + 1)}
+                        className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>Next Question</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={isSubmittingQuiz || Object.keys(userAnswers).length < activeDef.questions.length}
+                        onClick={handleSubmitQuiz}
+                        className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs"
+                      >
+                        {isSubmittingQuiz ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <CheckCircle className="w-4 h-4" />
+                        )}
+                        <span>Submit Final Answers</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* STEP C: COMPREHENSIVE QUIZ RESULTS */}
+            {quizModalStep === 'RESULTS' && quizScoreResult && (
+              <div className="space-y-6">
+                
+                {/* Result Hero Banner */}
+                <div className={`p-6 rounded-3xl border text-center space-y-3 ${
+                  quizScoreResult.passed
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
+                    : quizScoreResult.isNowLocked
+                    ? 'bg-rose-50 border-rose-300 text-rose-950'
+                    : 'bg-amber-50 border-amber-300 text-amber-950'
+                }`}>
+                  <div className="inline-flex p-3 rounded-2xl bg-white shadow-xs">
+                    {quizScoreResult.passed ? (
+                      <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                    ) : quizScoreResult.isNowLocked ? (
+                      <Lock className="w-8 h-8 text-rose-600" />
+                    ) : (
+                      <AlertTriangle className="w-8 h-8 text-amber-600" />
+                    )}
+                  </div>
+
+                  <div>
+                    <h3 className="text-xl font-bold">
+                      {quizScoreResult.passed
+                        ? 'Diagnostic Passed & Accredited! 🎉'
+                        : quizScoreResult.isNowLocked
+                        ? 'Assessment Failed — 90-Day Cooldown'
+                        : 'Assessment Did Not Meet 80% Benchmark'}
+                    </h3>
+                    <p className="text-xs mt-1 font-medium opacity-85">
+                      {quizScoreResult.passed
+                        ? 'This skill has been added to your accredited specialties list.'
+                        : quizScoreResult.isNowLocked
+                        ? '2 consecutive attempts have been used. This category is now locked for 90 days.'
+                        : 'You scored below the 80% passing threshold. You have 1 retake attempt remaining.'}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-6 pt-2 font-mono">
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-slate-500">Score</p>
+                      <p className="text-2xl font-black">{quizScoreResult.scorePercentage}%</p>
+                    </div>
+                    <div className="h-8 w-px bg-slate-200" />
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-slate-500">Correct</p>
+                      <p className="text-2xl font-black">{quizScoreResult.correctCount} / {quizScoreResult.totalCount}</p>
+                    </div>
+                    <div className="h-8 w-px bg-slate-200" />
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-slate-500">Benchmark</p>
+                      <p className="text-2xl font-black">80%</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Question Breakdown with Detailed Explanations */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-slate-900 uppercase font-mono tracking-wider">
+                    Question Answer Explanations
+                  </h4>
+
+                  <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                    {activeDef.questions.map((q, idx) => {
+                      const userChoice = userAnswers[idx];
+                      const isCorrect = userChoice === q.correctIdx;
+
+                      return (
+                        <div key={idx} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-xs font-bold text-slate-900">
+                              {idx + 1}. {q.question}
+                            </p>
+                            {isCorrect ? (
+                              <span className="shrink-0 flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                                <Check className="w-3 h-3" /> Correct
+                              </span>
+                            ) : (
+                              <span className="shrink-0 flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full">
+                                <X className="w-3 h-3" /> Incorrect
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="text-[11px] space-y-1 text-slate-600">
+                            <p><strong>Your Answer:</strong> {userChoice !== undefined ? q.options[userChoice] : 'Not answered'}</p>
+                            {!isCorrect && (
+                              <p className="text-emerald-700 font-semibold">
+                                <strong>Correct Answer:</strong> {q.options[q.correctIdx]}
+                              </p>
+                            )}
+                            <p className="text-slate-500 italic bg-white p-2 rounded-xl border border-slate-200 mt-1">
+                              💡 <strong>Key Rationale:</strong> {q.explanation}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 90-Day Lockout Course Link */}
+                {quizScoreResult.isNowLocked && (
+                  <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl space-y-2">
+                    <p className="text-xs font-bold text-rose-900 flex items-center gap-1.5">
+                      <BookOpen className="w-4 h-4 text-rose-600" />
+                      <span>Recommended Up-Skilling Course</span>
+                    </p>
+                    <p className="text-xs text-rose-800 leading-relaxed">
+                      Reinforce your foundational knowledge with our curated masterclass before your 90-day cooldown expires:
+                    </p>
+                    <a
+                      href="https://learnwithdsp.com/Grow-a-digital-and-growth-marketing-career-fast"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 text-xs font-bold text-white bg-rose-700 hover:bg-rose-800 px-4 py-2 rounded-xl transition shadow-xs"
+                    >
+                      <span>Access Refresher Digital & Growth Marketing Course (AI Integrated)</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                )}
+
+                {/* Modal Footer Controls */}
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  {!quizScoreResult.passed && !quizScoreResult.isNowLocked && (
+                    <button
+                      type="button"
+                      onClick={handleStartLiveQuiz}
+                      className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Retake Quiz Now (Attempt 2)</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleCloseQuizModal}
+                    className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer"
+                  >
+                    Return to Profile Dossier
+                  </button>
+                </div>
+
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
