@@ -366,24 +366,24 @@ ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS difficulty text DEFAULT 'int
             transition={{ duration: 0.22 }}
             className="overflow-hidden"
           >
-            <div className="bg-slate-900 text-slate-100 rounded-2xl p-5 border border-slate-800 space-y-3">
+            <div className="bg-slate-50 text-slate-800 rounded-2xl p-5 border border-slate-200 space-y-3 shadow-xs">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-indigo-400 font-mono text-xs font-bold">
+                <div className="flex items-center gap-2 text-indigo-700 font-mono text-xs font-bold">
                   <Code className="w-4 h-4" />
                   <span>PostgreSQL Enum Migration (ALTER TYPE experience_level_type)</span>
                 </div>
                 <button
                   onClick={copySqlToClipboard}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
                 >
                   {copiedSql ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{copiedSql ? 'Copied SQL!' : 'Copy SQL Script'}</span>
                 </button>
               </div>
-              <p className="text-xs text-slate-400">
-                To allow PostgreSQL to natively store <code className="text-emerald-400 font-mono font-bold">'beginner'</code>, <code className="text-amber-400 font-mono font-bold">'intermediate'</code>, and <code className="text-purple-400 font-mono font-bold">'advanced'</code> in the <code className="text-slate-200 font-mono">experience_level_type</code> enum, run this in your Supabase SQL Editor:
+              <p className="text-xs text-slate-600">
+                To allow PostgreSQL to natively store <code className="text-emerald-700 font-mono font-bold bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">'beginner'</code>, <code className="text-amber-700 font-mono font-bold bg-amber-50 px-1 py-0.5 rounded border border-amber-200">'intermediate'</code>, and <code className="text-purple-700 font-mono font-bold bg-purple-50 px-1 py-0.5 rounded border border-purple-200">'advanced'</code> in the <code className="text-slate-800 font-mono font-semibold">experience_level_type</code> enum, run this in your Supabase SQL Editor:
               </p>
-              <pre className="p-3 bg-black/50 rounded-xl text-[11px] font-mono text-emerald-300 overflow-x-auto border border-slate-800">
+              <pre className="p-3 bg-white rounded-xl text-[11px] font-mono text-slate-800 overflow-x-auto border border-slate-200 shadow-2xs">
                 {sqlMigrationCode}
               </pre>
             </div>

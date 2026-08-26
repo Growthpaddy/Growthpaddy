@@ -15,6 +15,9 @@ import {
   Filter, 
   UserCheck, 
   ChevronRight, 
+  ChevronLeft,
+  Menu,
+  X,
   AlertCircle,
   Award,
   Briefcase,
@@ -179,6 +182,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<'talents' | 'quiz_settings' | 'question_bank' | 'unlocked_contacts' | 'recruiters' | 'admins'>('talents');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'pending'>('all');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   // React Query: Talent Roster with caching and background refetching
   const {
@@ -403,146 +408,413 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     <div className="min-h-screen bg-slate-50/50 flex flex-col md:flex-row text-slate-900 font-sans antialiased">
       
       {/* ========================================================================= */}
-      {/* 1. LEFT MODERN DARK SIDEBAR (bg-slate-900 text-white) */}
+      {/* MOBILE TOP BAR (Only visible on small/medium screens < md) */}
       {/* ========================================================================= */}
-      <aside className="w-full md:w-72 bg-slate-900 text-slate-300 flex flex-col justify-between shrink-0 border-r border-slate-800">
-        
-        {/* Brand & Workspace Identity */}
-        <div>
-          <div className="p-6 border-b border-slate-800/80 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-2xs">
-                <ShieldCheck className="w-5 h-5" />
+      <div className="md:hidden sticky top-0 z-40 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-2xs">
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer"
+            aria-label="Toggle navigation menu"
+          >
+            {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            <span className="font-bold text-slate-900 text-sm">Digital Campux</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+            Admin
+          </span>
+          <button
+            onClick={handleRefreshAll}
+            disabled={isBackgroundFetching}
+            className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
+            title="Refresh cache"
+          >
+            <RefreshCw className={`w-4 h-4 ${isBackgroundFetching ? 'animate-spin text-emerald-600' : ''}`} />
+          </button>
+        </div>
+      </div>
+
+      {/* MOBILE DRAWER BACKDROP & MENU */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex">
+          <div 
+            className="fixed inset-0 bg-slate-900/30 backdrop-blur-xs transition-opacity"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+          <div className="relative w-72 max-w-[80vw] bg-white h-full shadow-2xl flex flex-col justify-between p-5 z-10 animate-fadeIn">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-slate-900 leading-none">Digital Campux</h2>
+                    <span className="text-[10px] text-slate-400 font-medium">Admin Console</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              <div>
-                <h2 className="text-sm font-bold text-white tracking-tight leading-none">
-                  Digital Campux
-                </h2>
-                <span className="text-[11px] text-slate-400 font-medium">
-                  Admin Command Console
-                </span>
+
+              {/* Mobile Nav Tabs */}
+              <nav className="space-y-1.5">
+                <div className="px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
+                  Operations & Talent
+                </div>
+                <button
+                  onClick={() => { setActiveTab('talents'); setIsMobileMenuOpen(false); }}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
+                    activeTab === 'talents'
+                      ? 'bg-emerald-50 text-emerald-900 border border-emerald-200 shadow-2xs font-bold'
+                      : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Users className="w-4 h-4 text-emerald-600" />
+                    <span>Talent Roster</span>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                    {talents.length}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => { setActiveTab('quiz_settings'); setIsMobileMenuOpen(false); }}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
+                    activeTab === 'quiz_settings'
+                      ? 'bg-emerald-50 text-emerald-900 border border-emerald-200 shadow-2xs font-bold'
+                      : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Sliders className="w-4 h-4 text-emerald-600" />
+                    <span>Quiz & Settings Control</span>
+                  </div>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">
+                    Live
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => { setActiveTab('question_bank'); setIsMobileMenuOpen(false); }}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
+                    activeTab === 'question_bank'
+                      ? 'bg-emerald-50 text-emerald-900 border border-emerald-200 shadow-2xs font-bold'
+                      : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <HelpCircle className="w-4 h-4 text-emerald-600" />
+                    <span>Question Bank</span>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                    8 Tracks
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => { setActiveTab('unlocked_contacts'); setIsMobileMenuOpen(false); }}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
+                    activeTab === 'unlocked_contacts'
+                      ? 'bg-emerald-50 text-emerald-900 border border-emerald-200 shadow-2xs font-bold'
+                      : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Key className="w-4 h-4 text-emerald-600" />
+                    <span>Unlocked Contacts Log</span>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                    Audit
+                  </span>
+                </button>
+
+                <div className="pt-3 px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
+                  Account Management
+                </div>
+
+                <button
+                  onClick={() => { setActiveTab('recruiters'); setIsMobileMenuOpen(false); }}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
+                    activeTab === 'recruiters'
+                      ? 'bg-emerald-50 text-emerald-900 border border-emerald-200 shadow-2xs font-bold'
+                      : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Building2 className="w-4 h-4 text-emerald-600" />
+                    <span>Recruiters Directory</span>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                    {recruiters.length}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => { setActiveTab('admins'); setIsMobileMenuOpen(false); }}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
+                    activeTab === 'admins'
+                      ? 'bg-emerald-50 text-emerald-900 border border-emerald-200 shadow-2xs font-bold'
+                      : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <ShieldAlert className="w-4 h-4 text-emerald-600" />
+                    <span>Admin Permissions</span>
+                  </div>
+                  {pendingAdminApprovals > 0 && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold border border-amber-300">
+                      {pendingAdminApprovals}
+                    </span>
+                  )}
+                </button>
+              </nav>
+            </div>
+
+            {/* Mobile Footer */}
+            <div className="border-t border-slate-100 pt-4 space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center font-bold text-xs text-emerald-800 uppercase">
+                  {profile?.full_name?.charAt(0) || user?.email?.charAt(0) || 'A'}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-slate-900 truncate">
+                    {profile?.full_name || 'System Admin'}
+                  </p>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    {profile?.role === 'super_admin' ? 'Super Administrator' : 'Platform Staff'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                {onNavigateHome && (
+                  <button
+                    onClick={onNavigateHome}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition"
+                  >
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                    <span>Live Site</span>
+                  </button>
+                )}
+                <button
+                  onClick={handleSignOut}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign Out</span>
+                </button>
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 1. DESKTOP COLLAPSIBLE LIGHT SIDEBAR (bg-white text-slate-700) */}
+      {/* ========================================================================= */}
+      <aside 
+        className={`hidden md:flex flex-col justify-between shrink-0 bg-white border-r border-slate-200 transition-all duration-300 z-20 ${
+          isSidebarCollapsed ? 'w-20' : 'w-72'
+        }`}
+      >
+        {/* Brand & Workspace Identity */}
+        <div>
+          <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+            <div className={`flex items-center gap-3 overflow-hidden ${isSidebarCollapsed ? 'justify-center w-full' : ''}`}>
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-2xs shrink-0">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              {!isSidebarCollapsed && (
+                <div className="min-w-0">
+                  <h2 className="text-sm font-bold text-slate-900 tracking-tight leading-none truncate">
+                    Digital Campux
+                  </h2>
+                  <span className="text-[11px] text-slate-400 font-medium">
+                    Admin Console
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Sidebar Collapse Toggle Button */}
+            {!isSidebarCollapsed && (
+              <button
+                onClick={() => setIsSidebarCollapsed(true)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                title="Collapse sidebar"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Expand toggle when collapsed */}
+          {isSidebarCollapsed && (
+            <div className="p-2 border-b border-slate-100 flex justify-center">
+              <button
+                onClick={() => setIsSidebarCollapsed(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                title="Expand sidebar"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
           {/* Core Navigation Items */}
-          <nav className="p-4 space-y-1.5">
-            <div className="px-3 py-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">
-              Operations & Talent
-            </div>
+          <nav className="p-3 space-y-1.5">
+            {!isSidebarCollapsed && (
+              <div className="px-3 py-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
+                Operations & Talent
+              </div>
+            )}
 
             {/* Tab 1: Talent Roster */}
             <button
               onClick={() => setActiveTab('talents')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              title={isSidebarCollapsed ? `Talent Roster (${talents.length})` : undefined}
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center p-3' : 'justify-between px-3.5 py-2.5'} rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeTab === 'talents'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  ? 'bg-emerald-50 text-emerald-950 border border-emerald-200/90 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <Users className="w-4 h-4" />
-                <span>Talent Roster</span>
+                <Users className={`w-4 h-4 ${activeTab === 'talents' ? 'text-emerald-700' : 'text-slate-400'}`} />
+                {!isSidebarCollapsed && <span>Talent Roster</span>}
               </div>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                activeTab === 'talents' ? 'bg-emerald-700/80 text-emerald-100' : 'bg-slate-800 text-slate-400 border border-slate-700'
-              }`}>
-                {talents.length}
-              </span>
+              {!isSidebarCollapsed && (
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                  activeTab === 'talents' 
+                    ? 'bg-emerald-200/80 text-emerald-900 font-bold' 
+                    : 'bg-slate-100 text-slate-600 border border-slate-200'
+                }`}>
+                  {talents.length}
+                </span>
+              )}
             </button>
 
             {/* Tab 2: Quiz & Settings Control Panel */}
             <button
               onClick={() => setActiveTab('quiz_settings')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              title={isSidebarCollapsed ? 'Quiz & Settings Control' : undefined}
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center p-3' : 'justify-between px-3.5 py-2.5'} rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeTab === 'quiz_settings'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  ? 'bg-emerald-50 text-emerald-950 border border-emerald-200/90 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <Sliders className="w-4 h-4" />
-                <span>Quiz & Settings Control</span>
+                <Sliders className={`w-4 h-4 ${activeTab === 'quiz_settings' ? 'text-emerald-700' : 'text-slate-400'}`} />
+                {!isSidebarCollapsed && <span>Quiz & Settings Control</span>}
               </div>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-800/80 text-emerald-400 border border-emerald-500/20 font-mono">
-                Live
-              </span>
+              {!isSidebarCollapsed && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">
+                  Live
+                </span>
+              )}
             </button>
 
             {/* Tab 3: Question Bank */}
             <button
               onClick={() => setActiveTab('question_bank')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              title={isSidebarCollapsed ? 'Question Bank (8 Tracks)' : undefined}
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center p-3' : 'justify-between px-3.5 py-2.5'} rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeTab === 'question_bank'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  ? 'bg-emerald-50 text-emerald-950 border border-emerald-200/90 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <HelpCircle className="w-4 h-4" />
-                <span>Question Bank</span>
+                <HelpCircle className={`w-4 h-4 ${activeTab === 'question_bank' ? 'text-emerald-700' : 'text-slate-400'}`} />
+                {!isSidebarCollapsed && <span>Question Bank</span>}
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
-                8 Tracks
-              </span>
+              {!isSidebarCollapsed && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                  8 Tracks
+                </span>
+              )}
             </button>
 
             {/* Tab 4: Unlocked Contacts Log */}
             <button
               onClick={() => setActiveTab('unlocked_contacts')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              title={isSidebarCollapsed ? 'Unlocked Contacts Log' : undefined}
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center p-3' : 'justify-between px-3.5 py-2.5'} rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeTab === 'unlocked_contacts'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  ? 'bg-emerald-50 text-emerald-950 border border-emerald-200/90 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <Key className="w-4 h-4" />
-                <span>Unlocked Contacts Log</span>
+                <Key className={`w-4 h-4 ${activeTab === 'unlocked_contacts' ? 'text-emerald-700' : 'text-slate-400'}`} />
+                {!isSidebarCollapsed && <span>Unlocked Contacts Log</span>}
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
-                Audit
-              </span>
+              {!isSidebarCollapsed && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                  Audit
+                </span>
+              )}
             </button>
 
-            <div className="pt-4 px-3 py-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">
-              Account Management
-            </div>
+            {!isSidebarCollapsed && (
+              <div className="pt-4 px-3 py-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
+                Account Management
+              </div>
+            )}
 
             {/* Sub-Tab: Recruiters Management */}
             <button
               onClick={() => setActiveTab('recruiters')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              title={isSidebarCollapsed ? `Recruiters Directory (${recruiters.length})` : undefined}
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center p-3' : 'justify-between px-3.5 py-2.5'} rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeTab === 'recruiters'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  ? 'bg-emerald-50 text-emerald-950 border border-emerald-200/90 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <Building2 className="w-4 h-4" />
-                <span>Recruiters Directory</span>
+                <Building2 className={`w-4 h-4 ${activeTab === 'recruiters' ? 'text-emerald-700' : 'text-slate-400'}`} />
+                {!isSidebarCollapsed && <span>Recruiters Directory</span>}
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
-                {recruiters.length}
-              </span>
+              {!isSidebarCollapsed && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                  {recruiters.length}
+                </span>
+              )}
             </button>
 
             {/* Sub-Tab: Admin Approvals */}
             <button
               onClick={() => setActiveTab('admins')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              title={isSidebarCollapsed ? 'Admin Permissions' : undefined}
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center p-3' : 'justify-between px-3.5 py-2.5'} rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeTab === 'admins'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  ? 'bg-emerald-50 text-emerald-950 border border-emerald-200/90 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <ShieldAlert className="w-4 h-4" />
-                <span>Admin Permissions</span>
+                <ShieldAlert className={`w-4 h-4 ${activeTab === 'admins' ? 'text-emerald-700' : 'text-slate-400'}`} />
+                {!isSidebarCollapsed && <span>Admin Permissions</span>}
               </div>
               {pendingAdminApprovals > 0 && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30 animate-pulse">
-                  {pendingAdminApprovals} Pending
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800 border border-amber-300 ${isSidebarCollapsed ? 'scale-75' : ''}`}>
+                  {pendingAdminApprovals}
                 </span>
               )}
             </button>
@@ -550,37 +822,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
 
         {/* Sidebar Footer & User Profile */}
-        <div className="p-4 border-t border-slate-800/80 space-y-3">
-          <div className="flex items-center gap-3 px-2 py-1">
-            <div className="w-9 h-9 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center font-bold text-xs text-emerald-400 uppercase shrink-0">
+        <div className="p-3 border-t border-slate-100 space-y-3">
+          <div className={`flex items-center gap-2.5 px-2 py-1 ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+            <div className="w-8 h-8 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center font-bold text-xs text-emerald-800 uppercase shrink-0">
               {profile?.full_name?.charAt(0) || user?.email?.charAt(0) || 'A'}
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-white truncate">
-                {profile?.full_name || 'System Admin'}
-              </p>
-              <span className="inline-block text-[10px] font-mono font-medium text-emerald-400">
-                {profile?.role === 'super_admin' ? 'Super Administrator' : 'Platform Staff'}
-              </span>
-            </div>
+            {!isSidebarCollapsed && (
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-slate-900 truncate">
+                  {profile?.full_name || 'System Admin'}
+                </p>
+                <span className="inline-block text-[10px] font-mono font-medium text-slate-500">
+                  {profile?.role === 'super_admin' ? 'Super Administrator' : 'Platform Staff'}
+                </span>
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-2 pt-1">
+          <div className={`grid ${isSidebarCollapsed ? 'grid-cols-1' : 'grid-cols-2'} gap-2 pt-1`}>
             {onNavigateHome && (
               <button
                 onClick={onNavigateHome}
-                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800 border border-slate-700 transition cursor-pointer"
+                title="View Live Site"
+                className="w-full flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-[11px] font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition cursor-pointer"
               >
                 <ArrowUpRight className="w-3.5 h-3.5" />
-                <span>Live Site</span>
+                {!isSidebarCollapsed && <span>Live Site</span>}
               </button>
             )}
             <button
               onClick={handleSignOut}
-              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold text-rose-300 hover:text-rose-200 bg-rose-950/40 hover:bg-rose-900/50 border border-rose-900/50 transition cursor-pointer"
+              title="Sign Out"
+              className="w-full flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-[11px] font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span>Sign Out</span>
+              {!isSidebarCollapsed && <span>Sign Out</span>}
             </button>
           </div>
         </div>
@@ -618,7 +894,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               disabled={isBackgroundFetching}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 transition cursor-pointer shadow-2xs"
             >
-              <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isBackgroundFetching ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isBackgroundFetching ? 'animate-spin text-emerald-600' : ''}`} />
               <span>Refresh Cache</span>
             </button>
 
@@ -694,7 +970,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       onClick={() => setStatusFilter(filter)}
                       className={`px-3 py-1.5 rounded-xl text-xs font-medium tracking-wide transition cursor-pointer capitalize ${
                         statusFilter === filter
-                          ? 'bg-slate-900 text-white'
+                          ? 'bg-emerald-600 text-white shadow-xs font-semibold'
                           : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
                       }`}
                     >

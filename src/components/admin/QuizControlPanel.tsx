@@ -145,66 +145,66 @@ export const QuizControlPanel: React.FC = () => {
   });
 
   return (
-    <div id="quiz-control-panel-root" className="space-y-6">
+    <div id="quiz-control-panel-root" className="space-y-6 text-left">
       {/* Top Banner / Header */}
-      <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-sm border border-slate-800">
+      <div className="bg-white text-slate-900 rounded-2xl p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-xs border border-slate-200">
         <div>
-          <div className="flex items-center gap-2 text-emerald-400 text-xs font-mono font-bold uppercase tracking-wider mb-2">
+          <div className="flex items-center gap-2 text-emerald-600 text-xs font-mono font-bold uppercase tracking-wider mb-2">
             <Sparkles className="w-4 h-4" />
             <span>Accreditation Engine & Assessment Config</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
             Quiz & Assessment Control Panel
           </h2>
-          <p className="text-slate-400 text-sm mt-1 max-w-2xl">
+          <p className="text-slate-500 text-sm mt-1 max-w-2xl leading-relaxed">
             Configure passing benchmarks, author skill verification questions with animated accordions, monitor candidate cooldowns, and analyze pass/fail error trends.
           </p>
         </div>
 
         {/* Global Navigation Pills */}
-        <div className="flex flex-wrap items-center bg-slate-800/80 p-1.5 rounded-xl border border-slate-700/60 self-start md:self-auto gap-1">
+        <div className="flex flex-wrap items-center bg-slate-100 p-1.5 rounded-xl border border-slate-200 self-start md:self-auto gap-1">
           <button
             onClick={() => setActiveTab('config')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
               activeTab === 'config' 
-                ? 'bg-emerald-600 text-white shadow-xs' 
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-white text-slate-900 shadow-2xs font-bold' 
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Sliders className="w-4 h-4" />
+            <Sliders className="w-4 h-4 text-emerald-600" />
             <span>Global Rules</span>
           </button>
           <button
             onClick={() => setActiveTab('questions')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
               activeTab === 'questions' 
-                ? 'bg-emerald-600 text-white shadow-xs' 
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-white text-slate-900 shadow-2xs font-bold' 
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <HelpCircle className="w-4 h-4" />
+            <HelpCircle className="w-4 h-4 text-emerald-600" />
             <span>Question Bank</span>
           </button>
           <button
             onClick={() => setActiveTab('talents')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
               activeTab === 'talents' 
-                ? 'bg-emerald-600 text-white shadow-xs' 
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-white text-slate-900 shadow-2xs font-bold' 
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Users className="w-4 h-4" />
+            <Users className="w-4 h-4 text-emerald-600" />
             <span>Phase Manager ({talents.length})</span>
           </button>
           <button
             onClick={() => setActiveTab('reports')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
               activeTab === 'reports' 
-                ? 'bg-emerald-600 text-white shadow-xs' 
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-white text-slate-900 shadow-2xs font-bold' 
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <BarChart3 className="w-4 h-4" />
+            <BarChart3 className="w-4 h-4 text-emerald-600" />
             <span>Reporting & Analytics</span>
           </button>
         </div>

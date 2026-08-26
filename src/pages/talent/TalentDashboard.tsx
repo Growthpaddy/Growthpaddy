@@ -20,16 +20,20 @@ import {
   Layers, 
   Plus, 
   AlertCircle, 
-  AlertTriangle,
-  FileText,
-  Eye,
-  CheckCircle,
-  HelpCircle,
-  MapPin,
-  Calendar,
-  Share2,
-  Copy,
-  ChevronRight,
+  AlertTriangle, 
+  FileText, 
+  Eye, 
+  CheckCircle, 
+  HelpCircle, 
+  MapPin, 
+  Calendar, 
+  Share2, 
+  Copy, 
+  ChevronRight, 
+  ChevronDown,
+  Menu,
+  X,
+  Sliders,
   GraduationCap
 } from 'lucide-react';
 import { useSupabase } from '../../context/SupabaseContext';
@@ -124,6 +128,8 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
   const [savingProfile, setSavingProfile] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [activeTalentTab, setActiveTalentTab] = useState<'all' | 'overview' | 'skills' | 'dossier'>('all');
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   // Load candidate profile from Supabase
   useEffect(() => {
@@ -514,7 +520,7 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span className="w-2 h-2 rounded-full bg-emerald-300" />
               <span>Available for Hire</span>
             </button>
             <button
@@ -522,7 +528,7 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
               onClick={() => handleToggleAvailability('hired')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
                 availability === 'hired'
-                  ? 'bg-slate-900 text-white shadow-2xs'
+                  ? 'bg-amber-600 text-white shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -534,12 +540,59 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
       )}
 
       {/* ========================================================================= */}
+      {/* 2.5. DASHBOARD NAVIGATION TABS (Mobile / Desktop View Switcher) */}
+      {/* ========================================================================= */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 w-full sm:w-auto">
+          <button
+            onClick={() => setActiveTalentTab('all')}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer flex-1 sm:flex-initial text-center ${
+              activeTalentTab === 'all'
+                ? 'bg-emerald-50 text-emerald-900 border border-emerald-200 font-bold shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            All Sections
+          </button>
+          <button
+            onClick={() => setActiveTalentTab('skills')}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer flex-1 sm:flex-initial text-center flex items-center justify-center gap-1.5 ${
+              activeTalentTab === 'skills'
+                ? 'bg-emerald-50 text-emerald-900 border border-emerald-200 font-bold shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            <span>Skills Matrix</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 font-mono">
+              {skillsList.filter(s => s.isVerified).length}/{skillsList.length}
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTalentTab('dossier')}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer flex-1 sm:flex-initial text-center ${
+              activeTalentTab === 'dossier'
+                ? 'bg-emerald-50 text-emerald-900 border border-emerald-200 font-bold shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            Profile Dossier
+          </button>
+        </div>
+
+        <div className="hidden sm:flex items-center gap-2 pr-2 text-xs text-slate-400 font-medium">
+          <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+          <span>Accredited Portfolio Dossier</span>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
       {/* 3. CORE EDITABLE DOSSIER & VERIFIED SKILLS MATRIX */}
       {/* ========================================================================= */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Left Column (2 Cols): Verified Skills & Accreditation Matrix */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* Left Column: Verified Skills & Accreditation Matrix */}
+        {(activeTalentTab === 'all' || activeTalentTab === 'skills') && (
+        <div className={`${activeTalentTab === 'skills' ? 'lg:col-span-3' : 'lg:col-span-2'} space-y-6`}>
           
           <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
@@ -557,7 +610,7 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
             </div>
 
             {/* Skills Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className={`grid grid-cols-1 ${activeTalentTab === 'skills' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3.5`}>
               {skillsList.map((skill, index) => (
                 <div
                   key={index}
@@ -592,7 +645,7 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
                     <button
                       type="button"
                       onClick={() => handleLaunchQuiz(skill)}
-                      className="flex items-center gap-1 bg-white hover:bg-slate-900 hover:text-white text-slate-700 border border-slate-200 text-[11px] font-semibold px-2.5 py-1 rounded-lg transition cursor-pointer shrink-0 shadow-2xs"
+                      className="flex items-center gap-1 bg-white hover:bg-emerald-600 hover:text-white hover:border-emerald-600 text-slate-700 border border-slate-200 text-[11px] font-semibold px-2.5 py-1 rounded-lg transition cursor-pointer shrink-0 shadow-2xs"
                     >
                       <Lock className="w-3 h-3 text-slate-400" />
                       <span>Take Quiz</span>
@@ -613,7 +666,7 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
               />
               <button
                 type="submit"
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Skill</span>
@@ -643,9 +696,11 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
             )}
           </div>
         </div>
+        )}
 
-        {/* Right Column (1 Col): Executive Dossier Details Form */}
-        <div className="space-y-6">
+        {/* Right Column: Executive Dossier Details Form */}
+        {(activeTalentTab === 'all' || activeTalentTab === 'dossier') && (
+        <div className={`${activeTalentTab === 'dossier' ? 'lg:col-span-3 max-w-2xl mx-auto w-full' : ''} space-y-6`}>
           <form onSubmit={handleSaveProfile} className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-4">
             <div className="border-b border-slate-100 pb-3">
               <h2 className="text-base font-semibold text-slate-800">
@@ -726,6 +781,7 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
             </button>
           </form>
         </div>
+        )}
 
       </div>
 
