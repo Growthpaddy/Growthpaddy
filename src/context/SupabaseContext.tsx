@@ -910,6 +910,17 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         };
 
         try {
+          // Write to quiz_attempts table
+          await supabase
+            .from("quiz_attempts")
+            .insert([{
+              talent_id: talentId,
+              skill_category: specialty || "General Digital Marketing",
+              score_percentage: data.score,
+              passed: data.passed,
+              completed_at: new Date().toISOString()
+            }]);
+
           const { error: insertError } = await supabase
             .from("talent_quiz_attempts")
             .insert([attemptPayload]);
@@ -917,7 +928,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
             console.warn("Supabase talent_quiz_attempts write failed:", insertError);
           }
         } catch (dbErr) {
-          console.warn("Could not write to talent_quiz_attempts table, local copy saved.", dbErr);
+          console.warn("Could not write to quiz_attempts table, local copy saved.", dbErr);
         }
 
         const cachedAttempts = JSON.parse(localStorage.getItem("dsp_talent_quiz_attempts") || "[]");

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useSupabase } from '../context/SupabaseContext';
 import TalentDashboard from './TalentDashboard';
 import TalentResumeEditor from './TalentResumeEditor';
+import PortfolioEditor from './talent/PortfolioEditor';
 import TalentPortfolioModal from './TalentPortfolioModal';
 import { Preloader } from './Preloader';
 import { 
@@ -16,7 +17,8 @@ import {
   Award,
   Eye,
   ArrowUpRight,
-  Lock
+  Lock,
+  Layers
 } from 'lucide-react';
 
 interface TalentProfileProps {
@@ -33,8 +35,8 @@ export default function TalentProfile({ onSignOut, navigateToPage }: TalentProfi
   const [statusToast, setStatusToast] = useState<string | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
-  // Active view in candidate workspace: 'resume' (Executive CV Editor) or 'assessment' (3-Phase Vetting)
-  const [workspaceMode, setWorkspaceMode] = useState<'resume' | 'assessment'>('resume');
+  // Active view in candidate workspace: 'resume' (Executive CV Editor), 'portfolio' (Verified Skills & Showcase), or 'assessment' (3-Phase Vetting)
+  const [workspaceMode, setWorkspaceMode] = useState<'resume' | 'portfolio' | 'assessment'>('portfolio');
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [previewSlug, setPreviewSlug] = useState<string>('');
 
@@ -70,7 +72,6 @@ export default function TalentProfile({ onSignOut, navigateToPage }: TalentProfi
           headline: '',
           bio: '',
           years_experience: 0,
-          hourly_rate: '',
           skills: [],
           ai_tools: [],
           certifications: [],
@@ -298,9 +299,22 @@ export default function TalentProfile({ onSignOut, navigateToPage }: TalentProfi
       {/* PORTAL BODY CONTAINER */}
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 space-y-6">
         
-        {/* Workspace Mode Switcher: Resume Editor vs 3-Phase Assessment */}
+        {/* Workspace Mode Switcher: Skills & Portfolio vs Executive Resume vs 3-Phase Assessment */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setWorkspaceMode('portfolio')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-mono text-xs font-bold uppercase tracking-wider transition cursor-pointer ${
+                workspaceMode === 'portfolio'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 border border-slate-200 hover:text-slate-900 hover:bg-slate-200/60'
+              }`}
+            >
+              <Layers className="w-4 h-4" />
+              <span>Verified Skills & Portfolio</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setWorkspaceMode('resume')}
@@ -311,7 +325,7 @@ export default function TalentProfile({ onSignOut, navigateToPage }: TalentProfi
               }`}
             >
               <FileText className="w-4 h-4" />
-              <span>Executive Resume & Portfolio</span>
+              <span>Executive CV & Experience</span>
             </button>
 
             <button
@@ -324,7 +338,7 @@ export default function TalentProfile({ onSignOut, navigateToPage }: TalentProfi
               }`}
             >
               <Award className="w-4 h-4" />
-              <span>3-Phase Accreditation & Quiz</span>
+              <span>3-Phase Assessment</span>
             </button>
           </div>
 
@@ -361,6 +375,21 @@ export default function TalentProfile({ onSignOut, navigateToPage }: TalentProfi
               Retry Sync
             </button>
           </div>
+        ) : workspaceMode === 'portfolio' ? (
+          /* VERIFIED SKILLS MATRIX & PORTFOLIO EDITOR (NO HOURLY RATES) */
+          <PortfolioEditor
+            profile={profile}
+            onProfileUpdated={(updatedData) => {
+              setProfile((prev: any) => ({ ...prev, ...updatedData }));
+            }}
+            onNavigateToQuiz={(skillCategory) => {
+              if (navigateToPage) {
+                navigateToPage('quiz_runner');
+              } else {
+                setWorkspaceMode('assessment');
+              }
+            }}
+          />
         ) : workspaceMode === 'resume' ? (
           /* TABBED EXECUTIVE RESUME & PORTFOLIO EDITOR */
           <TalentResumeEditor

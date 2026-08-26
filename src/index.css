@@ -22,6 +22,46 @@
 @layer base {
   body {
     @apply font-sans bg-slate-50/70 text-slate-900 antialiased selection:bg-emerald-500/20 selection:text-emerald-900;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-sans text-slate-900 tracking-tight;
   }
 }
+
+/* Standard Typography System Classes */
+.page-title {
+  @apply text-2xl font-bold tracking-tight text-slate-900;
+}
+
+.section-header {
+  @apply text-lg font-semibold text-slate-800;
+}
+
+.subtitle-text {
+  @apply text-sm text-slate-500 leading-relaxed;
+}
+
+.micro-label {
+  @apply text-xs font-medium tracking-wide;
+}
+
+/* Interactive Hero Grid Pattern Styling */
+.hero-grid-tiled {
+  background-repeat: repeat;
+  background-position: center;
+  mix-blend-mode: color-dodge;
+  will-change: transform;
+}
+
+@keyframes pulseSlow {
+  0%, 100% { opacity: 0.12; }
+  50% { opacity: 0.18; }
+}
+
+.animate-pulse-slow {
+  animation: pulseSlow 6s ease-in-out infinite;
+}
+
 

@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { 
   Building2, 
   User, 
@@ -18,26 +19,19 @@ import {
 import { fetchUnlockedContacts, UnlockedContactRecord } from '../../lib/unlockedContacts';
 
 export const UnlockedContactsTable: React.FC = () => {
-  const [records, setRecords] = useState<UnlockedContactRecord[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [timeFilter, setTimeFilter] = useState<'all' | '7d' | '30d'>('all');
 
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const data = await fetchUnlockedContacts();
-      setRecords(data);
-    } catch (err) {
-      console.error('Error loading unlocked contact audits:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
+  const {
+    data: records = [],
+    isLoading: loading,
+    isFetching,
+    refetch
+  } = useQuery<UnlockedContactRecord[]>({
+    queryKey: ['admin', 'unlockedContacts'],
+    queryFn: fetchUnlockedContacts,
+    staleTime: 1000 * 30, // 30 seconds
+  });
 
   const filteredRecords = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
@@ -91,13 +85,13 @@ export const UnlockedContactsTable: React.FC = () => {
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
-            onClick={loadData}
-            disabled={loading}
+            onClick={() => refetch()}
+            disabled={isFetching}
             className="p-2.5 text-slate-500 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
             title="Refresh unlocked contacts ledger"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
-            <span>Refresh</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin text-emerald-600' : ''}`} />
+            <span>{isFetching ? 'Refreshing...' : 'Refresh'}</span>
           </button>
         </div>
       </div>

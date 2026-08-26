@@ -38,6 +38,7 @@ import {
 import { TalentCandidate } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import PublicPortfolio from './PublicPortfolio';
+import { TalentProfileCard } from './talent/TalentProfileCard';
 
 interface TalentDirectoryProps {
   employerSlots?: number;
@@ -512,135 +513,12 @@ export default function TalentDirectory({
           <AnimatePresence mode="popLayout">
             {filteredCandidates.length > 0 ? (
               filteredCandidates.map((candidate) => (
-                <motion.div
+                <TalentProfileCard
                   key={candidate.id}
-                  layout="position"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
+                  candidate={candidate}
                   onClick={() => handleOpenFullProfile(candidate)}
-                  className="bg-white border border-slate-200/90 hover:border-slate-300 hover:shadow-lg rounded-2xl p-5 sm:p-6 transition-all duration-200 flex flex-col justify-between space-y-4 text-left group cursor-pointer relative"
-                >
-                  <div className="space-y-4">
-                    {/* Header: Avatar, Name, Role, Location and Badges */}
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3.5 min-w-0">
-                        <div className="relative shrink-0">
-                          <img 
-                            src={candidate.avatarUrl} 
-                            alt={candidate.name}
-                            className="w-12 h-12 rounded-xl object-cover border border-slate-200/80 shadow-2xs"
-                            referrerPolicy="no-referrer"
-                          />
-                          {candidate.availability_status === 'available' || !candidate.availability_status ? (
-                            <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white ring-2 ring-white">
-                              <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
-                            </span>
-                          ) : (
-                            <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-900 ring-2 ring-white">
-                              <span className="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="min-w-0 flex-1 space-y-0.5">
-                          <h4 className="font-display font-bold text-sm sm:text-base text-slate-900 group-hover:text-emerald-600 transition-colors truncate">
-                            {candidate.name}
-                          </h4>
-                          <p className="text-xs text-emerald-700 font-medium truncate">
-                            {candidate.role}
-                          </p>
-                          <p className="text-[11px] text-slate-400 flex items-center gap-1 truncate">
-                            <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                            <span>{candidate.location}</span>
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Status Badges */}
-                      <div className="flex flex-col items-end gap-1.5 shrink-0">
-                        {/* Verified vs Unverified Badge */}
-                        {candidate.isVerified ? (
-                          <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200/90 text-[11px] font-semibold px-2 py-0.5 rounded-md shadow-2xs">
-                            <Check className="w-3 h-3 text-emerald-600" />
-                            <span>Verified</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-semibold px-2 py-0.5 rounded-md">
-                            <Clock className="w-3 h-3 text-slate-400" />
-                            <span>Unverified</span>
-                          </span>
-                        )}
-
-                        {/* Availability Indicator */}
-                        {candidate.availability_status === 'available' || !candidate.availability_status ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                            <span>Available</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-500">
-                            <Lock className="w-2.5 h-2.5 text-slate-400" />
-                            <span>Hired</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Metric / Meta Strip */}
-                    <div className="grid grid-cols-3 gap-2 py-2 px-3 bg-slate-50 border border-slate-100 rounded-xl text-center">
-                      <div>
-                        <span className="block text-[10px] uppercase font-mono font-medium text-slate-400">Score</span>
-                        <span className="text-xs font-bold text-slate-800">{candidate.portfolioScore}/100</span>
-                      </div>
-                      <div className="border-x border-slate-200/60">
-                        <span className="block text-[10px] uppercase font-mono font-medium text-slate-400">Exp</span>
-                        <span className="text-xs font-bold text-slate-800">{candidate.experienceCount >= 5 ? 'Senior' : 'Mid-Level'}</span>
-                      </div>
-                      <div>
-                        <span className="block text-[10px] uppercase font-mono font-medium text-slate-400">Track</span>
-                        <span className="text-xs font-bold text-slate-800 truncate block px-1">{candidate.specialization}</span>
-                      </div>
-                    </div>
-
-                    {/* Bio / Summary */}
-                    <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
-                      {candidate.bio}
-                    </p>
-
-                    {/* Core Skill Tags */}
-                    <div className="flex flex-wrap gap-1.5 pt-0.5">
-                      {candidate.skills.slice(0, 4).map((skill, idx) => (
-                        <button
-                          key={idx}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSearchQuery(skill);
-                          }}
-                          title={`Filter by ${skill}`}
-                          className="text-[11px] font-medium bg-white hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-200 text-slate-700 px-2.5 py-0.5 border border-slate-200 rounded-md transition cursor-pointer shadow-2xs"
-                        >
-                          {skill}
-                        </button>
-                      ))}
-                      {candidate.skills.length > 4 && (
-                        <span className="text-[10px] font-mono font-medium text-slate-400 self-center px-1">
-                          +{candidate.skills.length - 4}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Primary CTA Button */}
-                  <button
-                    onClick={() => handleOpenFullProfile(candidate)}
-                    className="w-full bg-slate-900 group-hover:bg-emerald-600 text-white font-medium py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer transition shadow-2xs group-hover:shadow-xs"
-                  >
-                    <Eye className="w-3.5 h-3.5 text-emerald-400 group-hover:text-white transition-colors" />
-                    <span>View Candidate Profile</span>
-                    <ArrowRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
-                  </button>
-                </motion.div>
+                  onSkillClick={(skill) => setSearchQuery(skill)}
+                />
               ))
             ) : (
               <div className="col-span-full bg-white p-12 text-center rounded-2xl border border-slate-200 space-y-3">

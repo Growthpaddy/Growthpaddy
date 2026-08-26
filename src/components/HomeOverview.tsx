@@ -28,6 +28,7 @@ import {
   Search
 } from 'lucide-react';
 import { FeaturedSpecialists } from './FeaturedSpecialists';
+import { Hero } from './home/Hero';
 
 interface HomeOverviewProps {
   navigateToPage: (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login') => void;
@@ -40,85 +41,15 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
     <div className="bg-slate-50/60 text-slate-900 text-left selection:bg-emerald-500/20 selection:text-emerald-900">
       
       {/* ==========================================
-          1. HERO SECTION (Modern SaaS Layout)
+          1. HERO SECTION (Interactive Grid & High-End Dark Theme)
           ========================================== */}
-      <section className="relative pt-12 sm:pt-20 pb-16 sm:pb-24 px-4 sm:px-6 lg:px-8 border-b border-slate-200/80 bg-gradient-to-b from-white via-slate-50/50 to-slate-50 overflow-hidden">
-        {/* Subtle decorative mesh background */}
-        <div className="absolute inset-0 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:32px_32px] opacity-[0.04] pointer-events-none" />
-        
-        <div className="max-w-7xl mx-auto space-y-8 relative z-10">
-          
-          {/* Live Status Pill */}
-          <div className="inline-flex items-center gap-1.5 sm:gap-2.5 bg-emerald-50/90 text-emerald-800 border border-emerald-200/80 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-semibold shadow-xs max-w-full">
-            <span className="relative flex h-2 w-2 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span className="font-mono text-[8.5px] min-[360px]:text-[9.5px] min-[420px]:text-[11px] sm:text-xs uppercase tracking-tight min-[380px]:tracking-wide font-bold whitespace-nowrap overflow-hidden text-ellipsis">
-              ⚡ Speed-First Talent Network • Pre-Vetted AI & Growth Marketers
-            </span>
-          </div>
-
-          {/* Main Headline & Subtitle */}
-          <div className="max-w-4xl space-y-5">
-            <h1 className="font-display font-extrabold text-4xl sm:text-6xl lg:text-7xl text-slate-900 tracking-tight leading-[1.08]">
-              Accelerate Your Hiring Velocity with Pre-Vetted AI & Growth Marketers — <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500">At 60% Less Cost.</span>
-            </h1>
-            
-            <p className="text-base sm:text-xl text-slate-600 font-normal max-w-3xl leading-relaxed">
-              Cut sourcing cycles by 80%. Access elite digital and Growth Marketing Professionals equipped with modern AI workflows—Vetted for instant deployment and day-one performance.
-            </p>
-          </div>
-
-          {/* Primary Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 pt-2">
-            <button
-              onClick={() => navigateToPage('directory')}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 px-6 sm:px-8 rounded-xl text-sm flex items-center justify-center gap-2.5 cursor-pointer shadow-sm hover:shadow-md transition-all duration-150"
-              id="hero-explore-talent-btn"
-            >
-              <Briefcase className="w-4 h-4 text-emerald-100" />
-              <span>Deploy Vetted Talent in 48 Hours →</span>
-              <ArrowRight className="w-4 h-4 text-emerald-100" />
-            </button>
-
-            <button
-              onClick={openTalentModal}
-              className="bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 font-semibold py-3.5 px-6 sm:px-8 rounded-xl text-sm border border-slate-300/90 flex items-center justify-center gap-2.5 cursor-pointer shadow-xs hover:shadow-sm transition-all duration-150"
-              id="hero-apply-talent-btn"
-            >
-              <Zap className="w-4 h-4 text-emerald-600" />
-              <span>Apply as a Specialist →</span>
-            </button>
-          </div>
-
-          {/* Quick Metrics Strip */}
-          <div className="pt-8 border-t border-slate-200/80">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
-              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs text-left">
-                <span className="text-2xl font-extrabold font-mono text-emerald-600 block">&lt; 48 Hours</span>
-                <span className="text-xs text-slate-500 font-medium block mt-1">Average Matching Time</span>
-              </div>
-
-              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs text-left">
-                <span className="text-2xl font-extrabold font-mono text-slate-900 block">Top 3%</span>
-                <span className="text-xs text-slate-500 font-medium block mt-1">Acceptance Rate</span>
-              </div>
-
-              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs text-left">
-                <span className="text-2xl font-extrabold font-mono text-emerald-600 block">0% Markups</span>
-                <span className="text-xs text-slate-500 font-medium block mt-1">Direct Salary Billing</span>
-              </div>
-
-              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs text-left">
-                <span className="text-2xl font-extrabold font-mono text-slate-900 block">100% Practical</span>
-                <span className="text-xs text-slate-500 font-medium block mt-1">Audited Project Output</span>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </section>
+      <Hero 
+        navigateToPage={navigateToPage} 
+        openHireModal={openHireModal} 
+        openTalentModal={openTalentModal}
+        title="Unlock the World's Elite AI & Growth Talent"
+        subtitle="We curate the top 5% of digital operators, AI workflow architects, and performance growth specialists. Cut your sourcing cycles by 80% with verified technical accreditation and direct hiring."
+      />
 
       {/* ==========================================
           2. CORE VALUE PILLARS & FEATURE GRID (4-Card Execution Theme)

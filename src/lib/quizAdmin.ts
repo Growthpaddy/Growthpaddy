@@ -3,6 +3,20 @@ import { QuizSettings, QuizQuestion, TalentProfileQuizRecord } from '../types';
 
 export type { QuizSettings, QuizQuestion, TalentProfileQuizRecord };
 
+// 8 Predefined Skill Categories
+export const PREDEFINED_SKILL_CATEGORIES = [
+  'Growth Marketing Strategy',
+  'Paid Media & PPC',
+  'SEO & Organic Growth',
+  'CRO & Conversion Optimization',
+  'Email & Lifecycle Automation',
+  'Analytics & Attribution',
+  'General Digital Marketing',
+  'AI & Automation Strategy'
+] as const;
+
+export type PredefinedSkillCategory = typeof PREDEFINED_SKILL_CATEGORIES[number];
+
 export const DEFAULT_QUIZ_SETTINGS: QuizSettings = {
   id: 1,
   passing_grade: 80,
@@ -96,7 +110,7 @@ export async function getQuizQuestions(): Promise<QuizQuestion[]> {
 
     return (data || []).map((q: any) => ({
       id: q.id,
-      skill_category: q.skill_category || 'General',
+      skill_category: q.skill_category || 'General Digital Marketing',
       question_text: q.question_text,
       options: typeof q.options === 'string' ? JSON.parse(q.options) : (q.options || []),
       correct_option_id: q.correct_option_id,
@@ -240,13 +254,144 @@ export async function unlockPhaseTwo(talentId: string): Promise<boolean> {
   }
 }
 
-// Score submission handler
-export async function processQuizResult(talentId: string, score: number) {
-  const settings = await getQuizSettings();
+export interface QuizAttemptPayload {
+  talent_id: string;
+  skill_category: string;
+  score_percentage: number;
+  passed: boolean;
+  completed_at?: string;
+}
 
+/**
+ * Inserts quiz attempt into `quiz_attempts` (and talent_quiz_attempts) with skill_category
+ */
+export async function submitQuizAttempt(payload: QuizAttemptPayload): Promise<boolean> {
+  const attempt = {
+    talent_id: payload.talent_id,
+    skill_category: payload.skill_category || 'General Digital Marketing',
+    score_percentage: payload.score_percentage,
+    passed: payload.passed,
+    completed_at: payload.completed_at || new Date().toISOString()
+  };
+
+  try {
+    // 1. Primary insert into `quiz_attempts`
+    const { error: primaryError } = await supabase
+      .from('quiz_attempts')
+      .insert([attempt]);
+
+    if (primaryError) {
+      console.warn('Could not insert directly into quiz_attempts:', primaryError.message);
+    }
+
+    // 2. Also record in talent_quiz_attempts for backwards compatibility if needed
+    try {
+      await supabase
+        .from('talent_quiz_attempts')
+        .insert([{
+          talent_id: payload.talent_id,
+          specialty: payload.skill_category,
+          score: payload.score_percentage,
+          passed: payload.passed,
+          created_at: payload.completed_at || new Date().toISOString()
+        }]);
+    } catch {
+      // Non-blocking
+    }
+
+    // Cache locally for offline resilience
+    const localKey = `dsp_verified_attempts_${payload.talent_id}`;
+    const cached = JSON.parse(localStorage.getItem(localKey) || '[]');
+    cached.push(attempt);
+    localStorage.setItem(localKey, JSON.stringify(cached));
+
+    return true;
+  } catch (err) {
+    console.error('Failed to record quiz attempt:', err);
+    return false;
+  }
+}
+
+/**
+ * Fetches verified skill categories for a talent from `talent_verified_skills` view
+ * or `quiz_attempts` where passed = true
+ */
+export async function getTalentVerifiedSkills(talentId: string): Promise<string[]> {
+  if (!talentId) return [];
+
+  const verifiedSet = new Set<string>();
+
+  try {
+    // 1. Try querying `talent_verified_skills` view
+    const { data: viewData, error: viewError } = await supabase
+      .from('talent_verified_skills')
+      .select('skill_category')
+      .eq('talent_id', talentId);
+
+    if (!viewError && viewData && viewData.length > 0) {
+      viewData.forEach((row: any) => {
+        if (row.skill_category) verifiedSet.add(row.skill_category);
+      });
+      return Array.from(verifiedSet);
+    }
+
+    // 2. Fallback: Query `quiz_attempts` where passed = true
+    const { data: attemptsData, error: attemptsError } = await supabase
+      .from('quiz_attempts')
+      .select('skill_category, passed')
+      .eq('talent_id', talentId)
+      .eq('passed', true);
+
+    if (!attemptsError && attemptsData) {
+      attemptsData.forEach((row: any) => {
+        if (row.skill_category) verifiedSet.add(row.skill_category);
+      });
+    }
+
+    // 3. Fallback: Query `talent_quiz_attempts`
+    if (verifiedSet.size === 0) {
+      const { data: legacyData } = await supabase
+        .from('talent_quiz_attempts')
+        .select('specialty, passed')
+        .eq('talent_id', talentId)
+        .eq('passed', true);
+
+      if (legacyData) {
+        legacyData.forEach((row: any) => {
+          if (row.specialty) verifiedSet.add(row.specialty);
+        });
+      }
+    }
+
+    // 4. Local storage fallback
+    const localKey = `dsp_verified_attempts_${talentId}`;
+    const cached = JSON.parse(localStorage.getItem(localKey) || '[]');
+    cached.forEach((a: any) => {
+      if (a.passed && a.skill_category) verifiedSet.add(a.skill_category);
+    });
+
+  } catch (err) {
+    console.warn('Notice while fetching verified skills for talent:', err);
+  }
+
+  return Array.from(verifiedSet);
+}
+
+// Score submission handler
+export async function processQuizResult(talentId: string, score: number, skillCategory: string = 'General Digital Marketing') {
+  const settings = await getQuizSettings();
   const isPass = score >= settings.passing_grade;
 
   try {
+    // Record into quiz_attempts
+    await submitQuizAttempt({
+      talent_id: talentId,
+      skill_category: skillCategory,
+      score_percentage: score,
+      passed: isPass,
+      completed_at: new Date().toISOString()
+    });
+
     if (isPass) {
       await supabase.from('talent_profiles').update({
         phase_1_status: 'passed',
