@@ -40,7 +40,10 @@ import {
   Cpu,
   Layers,
   Check,
-  TrendingUp
+  TrendingUp,
+  Image as ImageIcon,
+  User,
+  Camera
 } from 'lucide-react';
 
 // ==============================================================================
@@ -140,6 +143,18 @@ const DEFAULT_SKILL_CATEGORIES = [
   'AI & Automation Strategy'
 ];
 
+/**
+ * Generates uppercase candidate initials from full name or fallback.
+ */
+function getInitials(name?: string | null): string {
+  if (!name || !name.trim()) return 'TP';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) {
+    return parts[0].substring(0, 2).toUpperCase();
+  }
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 export default function TalentProfileComponent({ onSignOut, navigateToPage }: TalentProfileProps) {
   const { user } = useSupabase();
 
@@ -150,9 +165,11 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<boolean>(false);
 
   // Edit Form Buffer
   const [formData, setFormData] = useState<{
+    profile_picture_url: string;
     role_title: string;
     headline: string;
     bio: string;
@@ -172,6 +189,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
     ai_tools_input: string;
     certifications_input: string;
   }>({
+    profile_picture_url: '',
     role_title: '',
     headline: '',
     bio: '',
@@ -264,6 +282,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
           id: currentAuthUser.id,
           user_id: currentAuthUser.id,
           full_name: fullName,
+          profile_picture_url: currentAuthUser.user_metadata?.avatar_url || null,
           role_title: 'Growth & Performance Marketing Specialist',
           headline: 'Full-Funnel Acquisition, Paid Search & Lifecycle Automation Lead',
           bio: 'Data-driven marketing practitioner with proven experience managing full-funnel acquisition, paid performance, and customer retention loops.',
@@ -339,9 +358,16 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
 
       const normalizedProfile: TalentProfile = {
         ...profileData,
+        profile_picture_url: profileData.profile_picture_url || null,
         role_title: profileData.role_title || profileData.headline || 'Growth Marketing Specialist',
         years_experience: profileData.years_experience || profileData.years_of_experience || 4,
         contact_email: profileData.contact_email || profileData.email || currentAuthUser.email || '',
+        phone_number: profileData.phone_number || '',
+        whatsapp_number: profileData.whatsapp_number || '',
+        cv_url: profileData.cv_url || '',
+        portfolio_url: profileData.portfolio_url || '',
+        github_url: profileData.github_url || '',
+        linkedin_url: profileData.linkedin_url || '',
         remote_preference: profileData.remote_preference || 'Remote',
         placement_status: profileData.placement_status || 'AVAILABLE',
         work_history: Array.isArray(profileData.work_history) ? profileData.work_history : [],
@@ -364,6 +390,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
 
       // Populate Edit Form Buffer
       setFormData({
+        profile_picture_url: normalizedProfile.profile_picture_url || '',
         role_title: normalizedProfile.role_title || '',
         headline: normalizedProfile.headline || '',
         bio: normalizedProfile.bio || '',
@@ -383,6 +410,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         ai_tools_input: (normalizedProfile.ai_tools || []).join(', '),
         certifications_input: (normalizedProfile.certifications || []).join(', ')
       });
+      setImageError(false);
     } catch (err: any) {
       console.error('Error fetching talent profile:', err);
     } finally {
@@ -413,8 +441,9 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         .map((s) => s.trim())
         .filter(Boolean);
 
-      // ONLY editable fields payload (Strictly exclude locked fields)
+      // ONLY editable fields payload (Strictly exclude locked fields: is_verified_badge, vetting_phase, phase_*_status, phase_1_quizzes_passed, skills)
       const editablePayload = {
+        profile_picture_url: formData.profile_picture_url.trim() || null,
         role_title: formData.role_title,
         headline: formData.headline,
         bio: formData.bio,
@@ -445,6 +474,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
 
       setProfile((prev) => (prev ? { ...prev, ...editablePayload } : null));
       setIsEditing(false);
+      setImageError(false);
       setToastMessage('Profile and portfolio details saved successfully! ✨');
       setTimeout(() => setToastMessage(null), 3500);
     } catch (err: any) {
@@ -547,7 +577,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
   };
 
   // ----------------------------------------------------------------------------
-  // EXACT PRELOADER SCREEN
+  // EXACT PRELOADER SCREEN MANDATE
   // ----------------------------------------------------------------------------
   if (loading) {
     return (
@@ -562,6 +592,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
 
   const passedQuizzesCount = profile?.phase_1_quizzes_passed || skillMatrix.filter((s) => s.isPassed).length;
   const isPhase1Done = passedQuizzesCount >= 5 || profile?.phase_1_completed;
+  const initials = getInitials(profile?.full_name);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased pb-24 selection:bg-emerald-500 selection:text-white">
@@ -645,16 +676,29 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
 
         {/* ========================================================================= */}
-        {/* 1. TOP PROFILE HEADER & IDENTITY BANNER */}
+        {/* 1. TOP PROFILE HEADER & AVATAR ZONE */}
         {/* ========================================================================= */}
         <section className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xs">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
             
             <div className="flex items-start gap-4 sm:gap-5 flex-1 min-w-0">
+              
+              {/* Avatar Zone: Picture with Initials Fallback */}
               <div className="relative shrink-0">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-800 font-bold text-xl sm:text-2xl shadow-inner">
-                  {profile?.full_name?.charAt(0) || 'T'}
-                </div>
+                {profile?.profile_picture_url && !imageError ? (
+                  <img
+                    src={profile.profile_picture_url}
+                    alt={profile?.full_name || 'Candidate Avatar'}
+                    referrerPolicy="no-referrer"
+                    onError={() => setImageError(true)}
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border border-slate-200 shadow-inner bg-slate-100"
+                  />
+                ) : (
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-800 font-bold text-xl sm:text-2xl shadow-inner tracking-wider">
+                    {initials}
+                  </div>
+                )}
+
                 {profile?.is_verified_badge && (
                   <span className="absolute -bottom-1 -right-1 bg-emerald-500 text-white p-1 rounded-full ring-2 ring-white shadow-xs" title="Verified Badge Active">
                     <ShieldCheck className="w-4 h-4" />
@@ -705,6 +749,12 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     <Mail className="w-3.5 h-3.5 text-slate-400" />
                     {profile?.contact_email || 'Contact Email Not Set'}
                   </span>
+                  {profile?.phone_number && (
+                    <span className="flex items-center gap-1">
+                      <Phone className="w-3.5 h-3.5 text-slate-400" />
+                      {profile.phone_number}
+                    </span>
+                  )}
                   {profile?.location && (
                     <span className="flex items-center gap-1">
                       <MapPin className="w-3.5 h-3.5 text-slate-400" />
@@ -717,8 +767,8 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                   </span>
                   {profile?.whatsapp_number && (
                     <span className="flex items-center gap-1 text-emerald-700 font-medium">
-                      <Phone className="w-3.5 h-3.5" />
-                      {profile.whatsapp_number}
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      WhatsApp: {profile.whatsapp_number}
                     </span>
                   )}
                 </div>
@@ -786,11 +836,12 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-slate-900">3-Phase Candidate Verification Pipeline</h2>
-                <span className="text-[10px] font-mono font-bold uppercase bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">
+                <span className="text-[10px] font-mono font-bold uppercase bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200 flex items-center gap-1">
+                  <Lock className="w-2.5 h-2.5" />
                   Read-Only Authority
                 </span>
               </div>
-              <p className="text-xs text-slate-500">Pipeline advancement and badges are awarded through specialist audits and assessment scores.</p>
+              <p className="text-xs text-slate-500">Pipeline advancement, quiz credits, and verification badges are awarded through specialist audits and assessment scores.</p>
             </div>
             <span className="text-xs font-mono font-bold px-3 py-1 bg-white border border-slate-200 rounded-full text-slate-700 shadow-2xs">
               {profile?.is_verified_badge ? 'Phase 3/3 (Verified)' : profile?.phase_2_status === 'COMPLETED' ? 'Phase 3/3 (Payment Ready)' : isPhase1Done ? 'Phase 2/3 (Interview)' : 'Phase 1/3 (Quizzes)'}
@@ -971,7 +1022,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Edit Portfolio Dossier & Resume</h2>
-                <p className="text-xs text-slate-500">Update your public profile, external links, career history, and toolkits.</p>
+                <p className="text-xs text-slate-500">Update your avatar, public profile, external links, career history, and toolkits.</p>
               </div>
 
               <div className="flex items-center gap-2">
@@ -991,6 +1042,44 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                   {isSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                   <span>Save Changes</span>
                 </button>
+              </div>
+            </div>
+
+            {/* Profile Picture URL Field & Live Preview */}
+            <div className="p-4 bg-slate-50/80 border border-slate-200/80 rounded-2xl space-y-3">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">
+                <Camera className="w-4 h-4 text-emerald-600" />
+                <span>Profile Picture URL Management</span>
+              </div>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-200 shrink-0 border border-slate-300 flex items-center justify-center">
+                  {formData.profile_picture_url.trim() ? (
+                    <img
+                      src={formData.profile_picture_url.trim()}
+                      alt="Avatar Preview"
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-sm font-bold text-slate-500">
+                      {initials}
+                    </span>
+                  )}
+                </div>
+                <div className="flex-1 w-full space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">Avatar Image URL (Direct link to PNG, JPG, WebP)</label>
+                  <input
+                    type="url"
+                    value={formData.profile_picture_url}
+                    onChange={(e) => setFormData({ ...formData, profile_picture_url: e.target.value })}
+                    placeholder="https://images.unsplash.com/... or hosted picture link"
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
+                  />
+                  <p className="text-[11px] text-slate-500">If empty or unreachable, the header automatically displays your initials ({initials}).</p>
+                </div>
               </div>
             </div>
 
@@ -1086,6 +1175,17 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                 </div>
 
                 <div className="space-y-1">
+                  <label className="text-[11px] font-semibold text-slate-600">Phone Number</label>
+                  <input
+                    type="text"
+                    value={formData.phone_number}
+                    onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+                    placeholder="+1 555 123 4567"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50/50"
+                  />
+                </div>
+
+                <div className="space-y-1">
                   <label className="text-[11px] font-semibold text-slate-600">WhatsApp Number</label>
                   <input
                     type="text"
@@ -1129,7 +1229,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                   />
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-1 sm:col-span-2 lg:col-span-3">
                   <label className="text-[11px] font-semibold text-slate-600">GitHub Profile URL</label>
                   <input
                     type="url"
@@ -1163,6 +1263,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                       type="button"
                       onClick={() => handleRemoveWorkHistory(idx)}
                       className="absolute top-3 right-3 text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
+                      title="Remove experience"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -1245,10 +1346,79 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                         type="button"
                         onClick={() => handleRemoveEducation(idx)}
                         className="text-slate-400 hover:text-rose-600 p-1.5 cursor-pointer"
+                        title="Remove degree"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Case Studies Builder */}
+            <div className="space-y-3 pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">Case Studies & Growth Highlights</h3>
+                <button
+                  type="button"
+                  onClick={handleAddCaseStudy}
+                  className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Case Study</span>
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {formData.case_studies.map((cs, idx) => (
+                  <div key={idx} className="p-4 bg-slate-50/70 border border-slate-200 rounded-2xl space-y-2.5 relative">
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveCaseStudy(idx)}
+                      className="absolute top-3 right-3 text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
+                      title="Remove case study"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pr-6">
+                      <input
+                        type="text"
+                        placeholder="Case Study Title"
+                        value={cs.title}
+                        onChange={(e) => handleUpdateCaseStudy(idx, 'title', e.target.value)}
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Client / Brand"
+                        value={cs.client_or_brand}
+                        onChange={(e) => handleUpdateCaseStudy(idx, 'client_or_brand', e.target.value)}
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Metrics Achieved (e.g. +140% ROAS)"
+                        value={cs.metrics_achieved}
+                        onChange={(e) => handleUpdateCaseStudy(idx, 'metrics_achieved', e.target.value)}
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white"
+                      />
+                    </div>
+                    <textarea
+                      rows={2}
+                      placeholder="Execution strategy, funnel mechanics, optimization results..."
+                      value={cs.description}
+                      onChange={(e) => handleUpdateCaseStudy(idx, 'description', e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white"
+                    />
+                    <input
+                      type="url"
+                      placeholder="Case Study Link (optional)"
+                      value={cs.link || ''}
+                      onChange={(e) => handleUpdateCaseStudy(idx, 'link', e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white"
+                    />
                   </div>
                 ))}
               </div>
@@ -1364,6 +1534,17 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                           </span>
                         </div>
                         <p className="text-xs text-slate-600 leading-relaxed">{cs.description}</p>
+                        {cs.link && (
+                          <a
+                            href={cs.link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:underline pt-1"
+                          >
+                            <span>View Case Study</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1382,7 +1563,10 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     <Award className="w-4 h-4 text-emerald-600" />
                     <h3 className="text-xs font-bold text-slate-900">Accredited Skills</h3>
                   </div>
-                  <span className="text-[10px] font-mono text-slate-400 font-bold">Auto-Awarded</span>
+                  <span className="text-[10px] font-mono text-slate-400 font-bold flex items-center gap-1">
+                    <Lock className="w-2.5 h-2.5" />
+                    Auto-Awarded
+                  </span>
                 </div>
 
                 <div className="flex flex-wrap gap-1.5">
