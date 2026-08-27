@@ -176,7 +176,7 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
       }
     };
     loadProfile();
-  }, [user]);
+  }, [user?.id]);
 
   // Handle Availability Toggle
   const handleToggleAvailability = async (newStatus: 'available' | 'hired') => {
@@ -324,9 +324,9 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
     <div className="min-h-screen bg-slate-50/50 py-8 px-4 sm:px-6 lg:px-8 space-y-8 max-w-6xl mx-auto font-sans antialiased text-slate-900">
       
       {/* ========================================================================= */}
-      {/* 1. ONBOARDING STEPPER HEADER (3-Phase Accreditation Progress Bar) */}
+      {/* 1. ONBOARDING STEPPER HEADER (3-Step Accreditation Progress Bar) */}
       {/* ========================================================================= */}
-      <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
+      <div className="bg-white rounded-xl p-6 sm:p-8 border border-slate-200 shadow-sm hover:border-slate-300 transition-all space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
           <div>
             <span className="text-xs font-medium tracking-wide text-emerald-700 bg-emerald-50 border border-emerald-200/90 px-3 py-1 rounded-full uppercase">
@@ -335,8 +335,8 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 mt-2">
               Talent Accreditation & Profile Hub
             </h1>
-            <p className="text-sm text-slate-500 leading-relaxed">
-              Complete your 3-phase onboarding to qualify for direct recruiter hiring on the verified directory.
+            <p className="text-sm font-normal text-slate-500 leading-relaxed">
+              Complete your 3-step onboarding to qualify for direct recruiter hiring on the verified directory.
             </p>
           </div>
 
@@ -360,16 +360,16 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
           </div>
         </div>
 
-        {/* 3-Phase Stepper Visualizer */}
+        {/* 3-Step Stepper Visualizer */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
           
-          {/* Phase 1: Diagnostic Quiz */}
+          {/* Step 1: Skill Checks */}
           <div className={`p-4 rounded-xl border transition-all ${
             phase1QuizPassed 
-              ? 'bg-emerald-50/50 border-emerald-200/90'
+              ? 'bg-emerald-50/50 border-emerald-300'
               : activeStep === 1 
               ? 'bg-white border-slate-300 ring-2 ring-emerald-500/20'
-              : 'bg-slate-50/60 border-slate-200/60 opacity-80'
+              : 'bg-slate-50/60 border-slate-200 opacity-80'
           }`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -381,8 +381,8 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
                   {phase1QuizPassed ? <Check className="w-4 h-4" /> : '1'}
                 </div>
                 <div>
-                  <h3 className="text-xs font-semibold text-slate-800">Phase 1: Diagnostic Quiz</h3>
-                  <p className="text-[11px] text-slate-500">Skills Accreditation</p>
+                  <h3 className="text-xs font-bold text-slate-800">Step 1: Skill Checks</h3>
+                  <p className="text-[11px] font-normal text-slate-500">Skills Accreditation</p>
                 </div>
               </div>
               <span className={`text-[10px] font-mono font-medium px-2 py-0.5 rounded-full ${
@@ -393,13 +393,13 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
             </div>
           </div>
 
-          {/* Phase 2: Profile & Verification */}
+          {/* Step 2: Profile & Verification */}
           <div className={`p-4 rounded-xl border transition-all ${
             phase2Verified 
-              ? 'bg-emerald-50/50 border-emerald-200/90'
+              ? 'bg-emerald-50/50 border-emerald-300'
               : activeStep === 2 
               ? 'bg-white border-slate-300 ring-2 ring-emerald-500/20'
-              : 'bg-slate-50/60 border-slate-200/60 opacity-80'
+              : 'bg-slate-50/60 border-slate-200 opacity-80'
           }`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -411,8 +411,8 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
                   {phase2Verified ? <Check className="w-4 h-4" /> : '2'}
                 </div>
                 <div>
-                  <h3 className="text-xs font-semibold text-slate-800">Phase 2: Profile & Verification</h3>
-                  <p className="text-[11px] text-slate-500">Portfolio & Bio Dossier</p>
+                  <h3 className="text-xs font-bold text-slate-800">Step 2: Specialist Review & Dossier</h3>
+                  <p className="text-[11px] font-normal text-slate-500">Portfolio & Bio Dossier</p>
                 </div>
               </div>
               <span className={`text-[10px] font-mono font-medium px-2 py-0.5 rounded-full ${
@@ -423,13 +423,13 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
             </div>
           </div>
 
-          {/* Phase 3: Directory Listing */}
+          {/* Step 3: Directory Listing */}
           <div className={`p-4 rounded-xl border transition-all ${
             phase3Listed 
-              ? 'bg-emerald-50/50 border-emerald-200/90'
+              ? 'bg-emerald-50/50 border-emerald-300'
               : activeStep === 3 
               ? 'bg-white border-slate-300 ring-2 ring-emerald-500/20'
-              : 'bg-slate-50/60 border-slate-200/60 opacity-80'
+              : 'bg-slate-50/60 border-slate-200 opacity-80'
           }`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -441,8 +441,8 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
                   {phase3Listed ? <Check className="w-4 h-4" /> : '3'}
                 </div>
                 <div>
-                  <h3 className="text-xs font-semibold text-slate-800">Phase 3: Directory Listing</h3>
-                  <p className="text-[11px] text-slate-500">Live for Recruiters</p>
+                  <h3 className="text-xs font-bold text-slate-800">Step 3: Directory Listing</h3>
+                  <p className="text-[11px] font-normal text-slate-500">Live for Recruiters</p>
                 </div>
               </div>
               <span className={`text-[10px] font-mono font-medium px-2 py-0.5 rounded-full ${
@@ -461,7 +461,7 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
       {/* ========================================================================= */}
       {isCooldownActive ? (
         /* Cooldown Notice Alert */
-        <div className="bg-amber-50 border border-amber-200/90 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 sm:p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3.5">
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-700 shrink-0">
               <Clock className="w-5 h-5" />
@@ -475,8 +475,8 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
                   {cooldownCountdownStr}
                 </span>
               </div>
-              <p className="text-xs text-amber-800/90 leading-relaxed max-w-2xl">
-                You recently completed an assessment attempt. You can re-attempt the diagnostic quiz once the cooldown expires. In the meantime, accelerate your mastery with our official curriculum.
+              <p className="text-xs font-normal text-amber-800/90 leading-relaxed max-w-2xl">
+                You recently completed an assessment attempt. You can re-attempt the skill check once the cooldown expires. In the meantime, accelerate your mastery with our official curriculum.
               </p>
             </div>
           </div>
@@ -494,46 +494,46 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
         </div>
       ) : (
         /* Verified & Live Active Status Banner */
-        <div className="bg-emerald-50/80 border border-emerald-200/90 rounded-2xl p-5 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
             <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-700 shrink-0">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-emerald-900">
+              <h2 className="text-sm font-bold text-emerald-900">
                 Verified Candidate Dossier Active
               </h2>
-              <p className="text-xs text-emerald-700/90 leading-relaxed">
+              <p className="text-xs font-normal text-emerald-700/90 leading-relaxed">
                 Your portfolio file is live on the Digital Campux candidate marketplace for verified recruiters.
               </p>
             </div>
           </div>
 
-          {/* Live Availability Toggle Switch */}
-          <div className="flex items-center gap-2 bg-white border border-emerald-200 rounded-xl p-1 shadow-2xs">
+          {/* Work Status Toggle Switch */}
+          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl p-1 shadow-2xs">
             <button
               type="button"
               onClick={() => handleToggleAvailability('available')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
                 availability === 'available'
-                  ? 'bg-emerald-600 text-white shadow-2xs'
+                  ? 'bg-emerald-600 text-white shadow-2xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <span className="w-2 h-2 rounded-full bg-emerald-300" />
-              <span>Available for Hire</span>
+              <span>Available for Placement</span>
             </button>
             <button
               type="button"
               onClick={() => handleToggleAvailability('hired')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
                 availability === 'hired'
-                  ? 'bg-amber-600 text-white shadow-2xs'
+                  ? 'bg-slate-800 text-white shadow-2xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Lock className="w-3 h-3" />
-              <span>Currently Hired</span>
+              <span>Hired</span>
             </button>
           </div>
         </div>
@@ -542,7 +542,7 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
       {/* ========================================================================= */}
       {/* 2.5. DASHBOARD NAVIGATION TABS (Mobile / Desktop View Switcher) */}
       {/* ========================================================================= */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-2 shadow-xs flex flex-wrap items-center justify-between gap-2">
+      <div className="bg-white border border-slate-200 rounded-xl p-2 shadow-sm flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 w-full sm:w-auto">
           <button
             onClick={() => setActiveTalentTab('all')}
@@ -562,7 +562,7 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
-            <span>Skills Matrix</span>
+            <span>Verified Skills</span>
             <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 font-mono">
               {skillsList.filter(s => s.isVerified).length}/{skillsList.length}
             </span>
@@ -594,13 +594,13 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
         {(activeTalentTab === 'all' || activeTalentTab === 'skills') && (
         <div className={`${activeTalentTab === 'skills' ? 'lg:col-span-3' : 'lg:col-span-2'} space-y-6`}>
           
-          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
+          <div className="bg-white rounded-xl p-6 sm:p-8 border border-slate-200 shadow-sm hover:border-slate-300 transition-all space-y-6">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
-                <h2 className="text-lg font-semibold text-slate-800">
-                  Skills Accreditation Matrix
+                <h2 className="text-lg font-bold text-slate-800">
+                  Verified Skills
                 </h2>
-                <p className="text-sm text-slate-500 leading-relaxed">
+                <p className="text-sm font-normal text-slate-500 leading-relaxed">
                   Badges verified through diagnostic testing are prominently highlighted on recruiter searches.
                 </p>
               </div>
@@ -616,8 +616,8 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
                   key={index}
                   className={`p-4 rounded-xl border transition-all flex items-start justify-between gap-3 ${
                     skill.isVerified
-                      ? 'bg-white border-emerald-200/90 shadow-2xs hover:border-emerald-300'
-                      : 'bg-slate-50/70 border-slate-200 hover:bg-slate-50'
+                      ? 'bg-white border-emerald-200 shadow-sm hover:border-emerald-300'
+                      : 'bg-slate-50/70 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
                   }`}
                 >
                   <div className="space-y-1 min-w-0">
@@ -626,7 +626,7 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
                         {skill.name}
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[11px] font-normal text-slate-500">
                       {skill.category}
                     </p>
                     {skill.isVerified && skill.score && (
@@ -637,7 +637,7 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
                   </div>
 
                   {skill.isVerified ? (
-                    <span className="flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200/90 text-[11px] font-semibold px-2.5 py-1 rounded-lg shrink-0 shadow-2xs">
+                    <span className="flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-semibold px-2.5 py-1 rounded-lg shrink-0 shadow-2xs">
                       <Check className="w-3.5 h-3.5 text-emerald-600" />
                       <span>Verified</span>
                     </span>
@@ -648,7 +648,7 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
                       className="flex items-center gap-1 bg-white hover:bg-emerald-600 hover:text-white hover:border-emerald-600 text-slate-700 border border-slate-200 text-[11px] font-semibold px-2.5 py-1 rounded-lg transition cursor-pointer shrink-0 shadow-2xs"
                     >
                       <Lock className="w-3 h-3 text-slate-400" />
-                      <span>Take Quiz</span>
+                      <span>Take Skill Check</span>
                     </button>
                   )}
                 </div>
@@ -675,13 +675,13 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
           </div>
 
           {/* Quick Curriculum / Practice Card */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:border-slate-300 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="space-y-1">
-              <h2 className="text-base font-semibold text-slate-800 flex items-center gap-2">
+              <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
                 <BookOpen className="w-4 h-4 text-emerald-600" />
                 <span>Need Diagnostic Practice?</span>
               </h2>
-              <p className="text-xs text-slate-500 leading-relaxed max-w-xl">
+              <p className="text-xs font-normal text-slate-500 leading-relaxed max-w-xl">
                 Review core conceptual frameworks, system architecture questions, and practical scenarios before retaking tests.
               </p>
             </div>
@@ -701,12 +701,12 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
         {/* Right Column: Executive Dossier Details Form */}
         {(activeTalentTab === 'all' || activeTalentTab === 'dossier') && (
         <div className={`${activeTalentTab === 'dossier' ? 'lg:col-span-3 max-w-2xl mx-auto w-full' : ''} space-y-6`}>
-          <form onSubmit={handleSaveProfile} className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+          <form onSubmit={handleSaveProfile} className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:border-slate-300 transition-all space-y-4">
             <div className="border-b border-slate-100 pb-3">
-              <h2 className="text-base font-semibold text-slate-800">
+              <h2 className="text-base font-bold text-slate-800">
                 Executive Profile Details
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs font-normal text-slate-500">
                 Visible to hiring managers in search results.
               </p>
             </div>
@@ -720,7 +720,7 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
             )}
 
             <div className="space-y-1">
-              <label className="text-xs font-medium tracking-wide text-slate-700 block">Full Name</label>
+              <label className="text-xs font-bold tracking-wide text-slate-700 block">Full Name</label>
               <input
                 type="text"
                 value={fullName}
@@ -731,7 +731,7 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium tracking-wide text-slate-700 block">Specialization Track</label>
+              <label className="text-xs font-bold tracking-wide text-slate-700 block">Specialization Track</label>
               <input
                 type="text"
                 value={specialty}
@@ -742,7 +742,19 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium tracking-wide text-slate-700 block">Location</label>
+              <label className="text-xs font-bold tracking-wide text-slate-700 block">Work Status</label>
+              <select
+                value={availability}
+                onChange={(e) => handleToggleAvailability(e.target.value as 'available' | 'hired')}
+                className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900 font-medium"
+              >
+                <option value="available">Available for Placement</option>
+                <option value="hired">Hired</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold tracking-wide text-slate-700 block">Location</label>
               <input
                 type="text"
                 value={location}
@@ -752,7 +764,7 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium tracking-wide text-slate-700 block">Portfolio / GitHub URL</label>
+              <label className="text-xs font-bold tracking-wide text-slate-700 block">Portfolio / GitHub URL</label>
               <input
                 type="url"
                 value={portfolioUrl}
@@ -763,12 +775,12 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium tracking-wide text-slate-700 block">Executive Bio / Pitch</label>
+              <label className="text-xs font-bold tracking-wide text-slate-700 block">Executive Bio / Pitch</label>
               <textarea
                 rows={4}
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
-                className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900 leading-relaxed"
+                className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-slate-900 leading-relaxed font-normal"
               />
             </div>
 
@@ -873,7 +885,7 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
                     disabled={selectedAnswer === null}
                     className="w-full mt-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition cursor-pointer shadow-xs"
                   >
-                    {currentQuestionIdx + 1 === sampleQuizQuestions.length ? 'Submit Final Diagnostic' : 'Next Question'}
+                    {currentQuestionIdx + 1 === sampleQuizQuestions.length ? 'Finish Quiz' : 'Next Question'}
                   </button>
                 </div>
               )}

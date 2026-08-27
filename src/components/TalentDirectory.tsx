@@ -513,7 +513,7 @@ export default function TalentDirectory({
       try {
         const { data: quizData } = await supabase
           .from('quiz_attempts')
-          .select('talent_id, skill_category, score_percentage, passed, created_at')
+          .select('talent_id, skill_category, score_percentage, passed')
           .eq('passed', true);
 
         if (quizData && Array.isArray(quizData)) {
@@ -527,7 +527,7 @@ export default function TalentDirectory({
                 category: q.skill_category,
                 score: Number(q.score_percentage || 85),
                 passed: Boolean(q.passed),
-                attemptDate: q.created_at
+                attemptDate: q.created_at || undefined
               });
             }
           });

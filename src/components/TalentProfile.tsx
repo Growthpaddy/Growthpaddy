@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useSupabase } from '../context/SupabaseContext';
 import {
@@ -48,7 +48,10 @@ import {
   RotateCcw,
   CheckCircle,
   XCircle,
-  Info
+  Info,
+  Sliders,
+  ToggleLeft,
+  ToggleRight
 } from 'lucide-react';
 import { SKILL_QUIZ_DEFINITIONS, SkillCategoryDefinition, QuizQuestion } from '../data/quizQuestions';
 
@@ -96,6 +99,7 @@ export interface TalentProfile {
   location?: string | null;
   remote_preference?: 'Remote' | 'Hybrid' | 'On-site' | string;
   placement_status?: PlacementStatus;
+  availability_status?: 'available' | 'placed' | 'hired' | string;
   contact_email?: string;
   phone_number?: string;
   whatsapp_number?: string;
@@ -183,6 +187,9 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
   const [isSubmittingQuiz, setIsSubmittingQuiz] = useState<boolean>(false);
   const [activeQuizQuestions, setActiveQuizQuestions] = useState<QuizQuestion[]>([]);
   const [loadingQuestions, setLoadingQuestions] = useState<boolean>(false);
+  const [categoryQuestionCounts, setCategoryQuestionCounts] = useState<Record<string, number>>({});
+  const initialLoadedRef = useRef<boolean>(false);
+  const isFetchingRef = useRef<boolean>(false);
   const [quizScoreResult, setQuizScoreResult] = useState<{
     scorePercentage: number;
     passed: boolean;
@@ -202,6 +209,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
     years_experience: number;
     location: string;
     remote_preference: string;
+    availability_status: string;
     contact_email: string;
     phone_number: string;
     whatsapp_number: string;
@@ -222,6 +230,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
     years_experience: 3,
     location: '',
     remote_preference: 'Remote',
+    availability_status: 'available',
     contact_email: '',
     phone_number: '',
     whatsapp_number: '',
@@ -237,21 +246,68 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
   });
 
   // ----------------------------------------------------------------------------
+  // Toggle Availability Status ('available' vs 'placed' / 'hired')
+  // ----------------------------------------------------------------------------
+  const handleToggleAvailability = async (targetStatus?: 'available' | 'placed' | 'hired') => {
+    if (!profile) return;
+    const currentStatus = profile.availability_status || (profile.placement_status === 'HIRED' ? 'placed' : 'available');
+    const nextStatus = targetStatus || (currentStatus === 'available' ? 'placed' : 'available');
+    const nextPlacementStatus = nextStatus === 'available' ? 'AVAILABLE' : 'HIRED';
+
+    // Optimistic UI update
+    setProfile((prev) => prev ? {
+      ...prev,
+      availability_status: nextStatus,
+      placement_status: nextPlacementStatus
+    } : null);
+
+    setFormData((prev) => ({
+      ...prev,
+      availability_status: nextStatus
+    }));
+
+    const statusLabel = nextStatus === 'available' ? 'Available for Placement' : 'Hired';
+    setToastMessage(`Status updated to ${statusLabel}`);
+    setTimeout(() => setToastMessage(null), 3000);
+
+    try {
+      const { error } = await supabase
+        .from('talent_profiles')
+        .update({
+          availability_status: nextStatus,
+          placement_status: nextPlacementStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', profile.id);
+
+      if (error) {
+        console.error('Error updating availability_status:', error);
+      }
+    } catch (err: any) {
+      console.error('Error in handleToggleAvailability:', err);
+    }
+  };
+
+  // ----------------------------------------------------------------------------
   // Helper: Aggregate Skill Matrix from Quiz Attempts
   // ----------------------------------------------------------------------------
-  const buildSkillMatrix = useCallback((attempts: any[]) => {
+  const buildSkillMatrix = useCallback((attempts: any[], customCounts?: Record<string, number>) => {
     const now = Date.now();
     return DEFAULT_SKILL_CATEGORIES.map((catName) => {
       const catAttempts = (attempts || [])
-        .filter((a: any) => a.skill_category === catName)
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        .filter((a: any) => (a.skill_category || a.category) === catName)
+        .sort((a, b) => {
+          const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+          const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+          return timeB - timeA;
+        });
 
-      const hasPassed = catAttempts.some((a: any) => a.passed === true || Number(a.score_percentage || 0) >= 80);
+      const hasPassed = catAttempts.some((a: any) => a.passed === true || Number(a.score_percentage ?? a.score ?? 0) >= 80);
       const bestScore = catAttempts.length > 0 
-        ? Math.max(...catAttempts.map((a: any) => Number(a.score_percentage || 0))) 
+        ? Math.max(...catAttempts.map((a: any) => Number(a.score_percentage ?? a.score ?? 0))) 
         : undefined;
 
-      const failAttempts = catAttempts.filter((a: any) => !a.passed && Number(a.score_percentage || 0) < 80);
+      const failAttempts = catAttempts.filter((a: any) => !a.passed && Number(a.score_percentage ?? a.score ?? 0) < 80);
       const failCount = failAttempts.length;
       const attemptsCount = catAttempts.length;
 
@@ -260,7 +316,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
 
       // Lock category for 90 days after 2+ failed attempts
       if (!hasPassed && failCount >= 2 && failAttempts[0]) {
-        const latestFailTime = new Date(failAttempts[0].created_at).getTime();
+        const latestFailTime = failAttempts[0].created_at ? new Date(failAttempts[0].created_at).getTime() : now;
         const cooldownEnd = latestFailTime + 90 * 24 * 60 * 60 * 1000;
         if (now < cooldownEnd) {
           isLocked = true;
@@ -268,7 +324,10 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         }
       }
 
-      const totalQCount = SKILL_QUIZ_DEFINITIONS[catName]?.questions?.length || 5;
+      const dbCount = customCounts ? customCounts[catName] : undefined;
+      const totalQCount = typeof dbCount === 'number' && dbCount > 0
+        ? dbCount
+        : (SKILL_QUIZ_DEFINITIONS[catName]?.questions?.length || 5);
 
       return {
         category: catName,
@@ -287,8 +346,13 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
   // ----------------------------------------------------------------------------
   // Fetch Candidate Profile & Verification Pipeline Data
   // ----------------------------------------------------------------------------
-  const fetchTalentProfile = useCallback(async () => {
-    setLoading(true);
+  const fetchTalentProfile = useCallback(async (isSilent = false) => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+
+    if (!isSilent && !initialLoadedRef.current) {
+      setLoading(true);
+    }
     try {
       const { data: authData } = await supabase.auth.getUser();
       const currentAuthUser = authData?.user || user;
@@ -320,6 +384,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
           location: 'Remote Global',
           remote_preference: 'Remote',
           placement_status: 'AVAILABLE',
+          availability_status: 'available',
           contact_email: currentAuthUser.email || '',
           phone_number: '',
           whatsapp_number: '',
@@ -370,14 +435,40 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         profileData = created || defaultProfile;
       }
 
+      // Fetch exact question counts per skill_category from live quiz_questions table
+      let liveQuestionCounts: Record<string, number> = {};
+      try {
+        const { data: qCountData, error: qCountError } = await supabase
+          .from('quiz_questions')
+          .select('skill_category');
+
+        console.log('[TalentProfile useEffect] Fetched quiz_questions data for category counts:', {
+          totalReturned: qCountData?.length || 0,
+          data: qCountData,
+          error: qCountError
+        });
+
+        if (!qCountError && qCountData && qCountData.length > 0) {
+          qCountData.forEach((q: any) => {
+            const cat = q.skill_category;
+            if (cat) {
+              liveQuestionCounts[cat] = (liveQuestionCounts[cat] || 0) + 1;
+            }
+          });
+        }
+      } catch (countErr) {
+        console.warn('Could not query quiz_questions count:', countErr);
+      }
+      console.log('[TalentProfile useEffect] Computed categoryQuestionCounts from DB:', liveQuestionCounts);
+      setCategoryQuestionCounts(liveQuestionCounts);
+
       // Fetch Quiz Attempts
       const { data: attemptsData } = await supabase
         .from('quiz_attempts')
         .select('*')
-        .eq('talent_id', currentAuthUser.id)
-        .order('created_at', { ascending: false });
+        .eq('talent_id', currentAuthUser.id);
 
-      const matrix = buildSkillMatrix(attemptsData || []);
+      const matrix = buildSkillMatrix(attemptsData || [], liveQuestionCounts);
       setSkillMatrix(matrix);
 
       const passedAttempts = (attemptsData || []).filter(
@@ -387,7 +478,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         new Set(passedAttempts.map((a: any) => a.skill_category).filter(Boolean))
       );
       const passedCount = distinctPassedCategories.length;
-      const isPhase1Passed = passedCount >= 5 || profileData.phase_1_completed || profileData.phase_1_status === 'PASSED';
+      const isPhase1Passed = passedCount >= 5 || profileData.phase_1_completed || String(profileData.phase_1_status || '').toLowerCase() === 'passed';
 
       // STRICT RULE: ONLY dynamically accredited skills from passed Phase 1 quizzes (up to max 5)
       const dynamicAccreditedSkills = distinctPassedCategories.slice(0, 5);
@@ -406,6 +497,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         linkedin_url: profileData.linkedin_url || '',
         remote_preference: profileData.remote_preference || 'Remote',
         placement_status: profileData.placement_status || 'AVAILABLE',
+        availability_status: profileData.availability_status || (profileData.placement_status === 'HIRED' ? 'placed' : 'available'),
         work_history: Array.isArray(profileData.work_history) ? profileData.work_history : [],
         education: Array.isArray(profileData.education) ? profileData.education : [],
         case_studies: Array.isArray(profileData.case_studies) ? profileData.case_studies : [],
@@ -424,35 +516,40 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
 
       setProfile(normalizedProfile);
 
-      // Populate Edit Form Buffer
-      setFormData({
-        profile_picture_url: normalizedProfile.profile_picture_url || '',
-        role_title: normalizedProfile.role_title || '',
-        headline: normalizedProfile.headline || '',
-        bio: normalizedProfile.bio || '',
-        years_experience: normalizedProfile.years_experience || 4,
-        location: normalizedProfile.location || '',
-        remote_preference: normalizedProfile.remote_preference || 'Remote',
-        contact_email: normalizedProfile.contact_email || '',
-        phone_number: normalizedProfile.phone_number || '',
-        whatsapp_number: normalizedProfile.whatsapp_number || '',
-        cv_url: normalizedProfile.cv_url || '',
-        portfolio_url: normalizedProfile.portfolio_url || '',
-        github_url: normalizedProfile.github_url || '',
-        linkedin_url: normalizedProfile.linkedin_url || '',
-        work_history: normalizedProfile.work_history || [],
-        education: normalizedProfile.education || [],
-        case_studies: normalizedProfile.case_studies || [],
-        ai_tools_input: (normalizedProfile.ai_tools || []).join(', '),
-        certifications_input: (normalizedProfile.certifications || []).join(', ')
-      });
+      // Populate Edit Form Buffer only on initial load or if user is not editing
+      if (!initialLoadedRef.current) {
+        setFormData({
+          profile_picture_url: normalizedProfile.profile_picture_url || '',
+          role_title: normalizedProfile.role_title || '',
+          headline: normalizedProfile.headline || '',
+          bio: normalizedProfile.bio || '',
+          years_experience: normalizedProfile.years_experience || 4,
+          location: normalizedProfile.location || '',
+          remote_preference: normalizedProfile.remote_preference || 'Remote',
+          availability_status: normalizedProfile.availability_status || 'available',
+          contact_email: normalizedProfile.contact_email || '',
+          phone_number: normalizedProfile.phone_number || '',
+          whatsapp_number: normalizedProfile.whatsapp_number || '',
+          cv_url: normalizedProfile.cv_url || '',
+          portfolio_url: normalizedProfile.portfolio_url || '',
+          github_url: normalizedProfile.github_url || '',
+          linkedin_url: normalizedProfile.linkedin_url || '',
+          work_history: normalizedProfile.work_history || [],
+          education: normalizedProfile.education || [],
+          case_studies: normalizedProfile.case_studies || [],
+          ai_tools_input: (normalizedProfile.ai_tools || []).join(', '),
+          certifications_input: (normalizedProfile.certifications || []).join(', ')
+        });
+      }
       setImageError(false);
+      initialLoadedRef.current = true;
     } catch (err: any) {
       console.error('Error fetching talent profile:', err);
     } finally {
+      isFetchingRef.current = false;
       setLoading(false);
     }
-  }, [user, buildSkillMatrix]);
+  }, [user?.id, buildSkillMatrix]);
 
   useEffect(() => {
     fetchTalentProfile();
@@ -463,12 +560,11 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
   // ----------------------------------------------------------------------------
   useEffect(() => {
     let interval: any = null;
-    if (quizModalStep === 'LIVE' && timeRemainingSeconds > 0) {
+    if (quizModalStep === 'LIVE') {
       interval = setInterval(() => {
         setTimeRemainingSeconds((prev) => {
           if (prev <= 1) {
             clearInterval(interval);
-            handleAutoSubmitQuiz();
             return 0;
           }
           return prev - 1;
@@ -478,6 +574,13 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
     return () => {
       if (interval) clearInterval(interval);
     };
+  }, [quizModalStep]);
+
+  // Trigger auto submit when time hits 0 in LIVE mode
+  useEffect(() => {
+    if (quizModalStep === 'LIVE' && timeRemainingSeconds === 0) {
+      handleAutoSubmitQuiz();
+    }
   }, [quizModalStep, timeRemainingSeconds]);
 
   // ----------------------------------------------------------------------------
@@ -507,11 +610,17 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
     setLoadingQuestions(true);
 
     try {
-      // Fetch ALL diagnostic questions from Supabase without any .limit(5) or .slice(0, 5)
+      // 1. Fetch ALL diagnostic questions from Supabase by skill_category without any .limit(5) or .slice(0, 5)
       const { data, error } = await supabase
         .from('quiz_questions')
         .select('*')
         .eq('skill_category', categoryName);
+
+      console.log(`[TalentProfile] Fetched questions from quiz_questions for "${categoryName}":`, {
+        totalCount: data?.length || 0,
+        data,
+        error
+      });
 
       if (!error && data && data.length > 0) {
         const loadedQuestions: QuizQuestion[] = data.map((q: any, idx: number) => {
@@ -560,16 +669,41 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
           };
         });
 
+        // Ensure ALL questions are loaded into state without truncation
         setActiveQuizQuestions(loadedQuestions);
+        setCategoryQuestionCounts((prev) => ({ ...prev, [categoryName]: loadedQuestions.length }));
+        setSkillMatrix((prev) =>
+          prev.map((item) =>
+            item.category === categoryName
+              ? { ...item, totalQuestions: loadedQuestions.length }
+              : item
+          )
+        );
       } else {
         // Fallback to static quiz questions definition (all questions, no slicing)
         const fallback = SKILL_QUIZ_DEFINITIONS[categoryName]?.questions || [];
         setActiveQuizQuestions(fallback);
+        setCategoryQuestionCounts((prev) => ({ ...prev, [categoryName]: fallback.length }));
+        setSkillMatrix((prev) =>
+          prev.map((item) =>
+            item.category === categoryName
+              ? { ...item, totalQuestions: fallback.length }
+              : item
+          )
+        );
       }
     } catch (err) {
       console.warn('Error fetching questions from Supabase, falling back to static questions:', err);
       const fallback = SKILL_QUIZ_DEFINITIONS[categoryName]?.questions || [];
       setActiveQuizQuestions(fallback);
+      setCategoryQuestionCounts((prev) => ({ ...prev, [categoryName]: fallback.length }));
+      setSkillMatrix((prev) =>
+        prev.map((item) =>
+          item.category === categoryName
+            ? { ...item, totalQuestions: fallback.length }
+            : item
+        )
+      );
     } finally {
       setLoadingQuestions(false);
     }
@@ -613,82 +747,147 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
 
       const totalCount = questions.length;
       const scorePercentage = Math.round((correctCount / totalCount) * 100);
-      // Mark as passed only if score is >= 80% (or passingScorePercent)
-      const passingScore = quizDef?.passingScorePercent || 80;
-      const passed = scorePercentage >= passingScore; // >= 80%
+      // Passing condition: candidate passes only if score is >= 80%
+      const passed = scorePercentage >= 80;
 
       // Fetch past attempts to determine fail count
-      const { data: existingAttempts } = await supabase
+      const { data: existingAttempts, error: fetchExistingError } = await supabase
         .from('quiz_attempts')
         .select('*')
         .eq('talent_id', profile.id)
-        .eq('skill_category', activeQuizCategory)
-        .order('created_at', { ascending: false });
+        .eq('skill_category', activeQuizCategory);
+
+      if (fetchExistingError) {
+        console.warn('Could not query previous quiz attempts:', fetchExistingError);
+      }
 
       const pastFails = (existingAttempts || []).filter(
-        (a: any) => !a.passed && Number(a.score_percentage || 0) < 80
+        (a: any) => !a.passed && Number(a.score_percentage ?? a.score ?? 0) < 80
       ).length;
       const currentFailCount = passed ? 0 : pastFails + 1;
       const isNowLocked = !passed && currentFailCount >= 2;
       const cooldownDays = isNowLocked ? 90 : 0;
 
-      // Save to Supabase `quiz_attempts`
+      // Save to Supabase `quiz_attempts` with exact column names:
+      // talent_id, skill_category, score_percentage, passed
       const attemptPayload = {
         talent_id: profile.id,
         skill_category: activeQuizCategory,
         score_percentage: scorePercentage,
-        passed,
-        created_at: new Date().toISOString()
+        passed
       };
 
-      await supabase.from('quiz_attempts').insert([attemptPayload]);
+      // Primary insertion into quiz_attempts with explicit error handling/logging
+      const { error: insertError } = await supabase
+        .from('quiz_attempts')
+        .insert([attemptPayload]);
 
-      // Query all attempts to count distinct/unique passed categories (score >= 80%)
-      const { data: allAttempts } = await supabase
+      if (insertError) {
+        console.error('Quiz save error:', insertError);
+      }
+
+      // Query distinct passed quizzes count:
+      // First attempt using RPC `get_distinct_passed_quizzes`
+      let distinctPassedCount = 0;
+      let distinctPassedCategories: string[] = [];
+
+      try {
+        const { data: rpcCount, error: rpcError } = await supabase.rpc('get_distinct_passed_quizzes', {
+          target_talent_id: profile.id
+        });
+
+        if (!rpcError && typeof rpcCount === 'number') {
+          distinctPassedCount = rpcCount;
+        } else if (!rpcError && Array.isArray(rpcCount)) {
+          distinctPassedCount = rpcCount.length;
+          distinctPassedCategories = rpcCount.map((r: any) => r.skill_category || String(r));
+        } else {
+          // RPC may not exist or returned error, query attempts directly
+          const { data: allAttempts, error: fetchAllError } = await supabase
+            .from('quiz_attempts')
+            .select('*')
+            .eq('talent_id', profile.id);
+
+          if (fetchAllError) {
+            console.error('Fetch all attempts error:', fetchAllError);
+          }
+
+          const attemptsList = (allAttempts && allAttempts.length > 0)
+            ? allAttempts
+            : [...(existingAttempts || []), attemptPayload];
+
+          const passedAttempts = attemptsList.filter(
+            (a: any) => a.passed === true || Number(a.score_percentage ?? a.score ?? 0) >= 80
+          );
+          distinctPassedCategories = Array.from(
+            new Set(passedAttempts.map((a: any) => a.skill_category).filter(Boolean))
+          );
+          distinctPassedCount = distinctPassedCategories.length;
+        }
+      } catch (rpcErr) {
+        console.warn('RPC get_distinct_passed_quizzes execution error, using local distinct calculation:', rpcErr);
+        const { data: allAttempts } = await supabase
+          .from('quiz_attempts')
+          .select('*')
+          .eq('talent_id', profile.id);
+
+        const attemptsList = (allAttempts && allAttempts.length > 0)
+          ? allAttempts
+          : [...(existingAttempts || []), attemptPayload];
+
+        const passedAttempts = attemptsList.filter(
+          (a: any) => a.passed === true || Number(a.score_percentage ?? a.score ?? 0) >= 80
+        );
+        distinctPassedCategories = Array.from(
+          new Set(passedAttempts.map((a: any) => a.skill_category).filter(Boolean))
+        );
+        distinctPassedCount = distinctPassedCategories.length;
+      }
+
+      // Query latest attempts for updating the Skill Matrix UI
+      const { data: refreshAttempts } = await supabase
         .from('quiz_attempts')
         .select('*')
         .eq('talent_id', profile.id);
 
-      // Merge newly inserted attempt to avoid any read-after-write replication latency
-      const attemptsList = (allAttempts && allAttempts.length > 0)
-        ? allAttempts
+      const mergedAttempts = (refreshAttempts && refreshAttempts.length > 0)
+        ? refreshAttempts
         : [...(existingAttempts || []), attemptPayload];
 
-      // Perform a distinct count of unique passed categories (score >= 80% or passed: true).
-      // Retaking or re-passing an already-passed category will NOT double-count toward the 5-skill requirement.
-      const passedAttempts = attemptsList.filter(
-        (a: any) => a.passed === true || Number(a.score_percentage || 0) >= 80
-      );
-      const distinctPassedCategories = Array.from(
-        new Set(passedAttempts.map((a: any) => a.skill_category).filter(Boolean))
-      );
-      const distinctPassedCount = distinctPassedCategories.length;
-      const isPhase1Completed = distinctPassedCount >= 5;
-
-      const updatedMatrix = buildSkillMatrix(attemptsList);
+      const updatedMatrix = buildSkillMatrix(mergedAttempts);
       setSkillMatrix(updatedMatrix);
 
-      // Dynamic skills list from distinct passed categories (max 5)
+      // If categories list wasn't populated from RPC, get it from updated matrix
+      if (distinctPassedCategories.length === 0) {
+        distinctPassedCategories = updatedMatrix.filter((m) => m.isPassed).map((m) => m.category);
+      }
+
+      const isPhase1Completed = distinctPassedCount >= 5;
       const newDynamicSkills = distinctPassedCategories.slice(0, 5);
 
+      // Update talent_profiles columns: phase_1_quizzes_passed, phase_1_completed, phase_1_status
       const profileUpdates: Partial<TalentProfile> = {
         phase_1_quizzes_passed: distinctPassedCount,
         phase_1_completed: isPhase1Completed,
-        phase_1_status: isPhase1Completed ? 'PASSED' : 'IN_PROGRESS',
+        phase_1_status: isPhase1Completed ? 'passed' : (profile.phase_1_status || 'IN_PROGRESS'),
         skills: newDynamicSkills,
         updated_at: new Date().toISOString()
       };
 
-      if (isPhase1Completed && (!profile.phase_2_status || profile.phase_2_status === 'LOCKED')) {
+      if (isPhase1Completed) {
         profileUpdates.phase_2_status = 'PENDING_SCHEDULE';
       }
 
-      await supabase
+      const { error: profileUpdateError } = await supabase
         .from('talent_profiles')
         .update(profileUpdates)
         .eq('id', profile.id);
 
-      // Update local state to unlock Phase 2 immediately without requiring a full page refresh
+      if (profileUpdateError) {
+        console.error('Error updating talent_profiles after quiz pass:', profileUpdateError);
+      }
+
+      // Update local UI state to unlock Phase 2 immediately without requiring a full page refresh
       setProfile((prev) => (prev ? { ...prev, ...profileUpdates } : null));
 
       setQuizScoreResult({
@@ -701,10 +900,9 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         cooldownDays
       });
 
-      setQuizModalStep('RESULTS');
+      setQuizModalStep('RESULT');
     } catch (err: any) {
       console.error('Quiz submission error:', err);
-      alert(`Submission error: ${err.message}`);
     } finally {
       setIsSubmittingQuiz(false);
     }
@@ -749,6 +947,8 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         years_experience: Number(formData.years_experience),
         location: formData.location,
         remote_preference: formData.remote_preference,
+        availability_status: formData.availability_status || 'available',
+        placement_status: (formData.availability_status === 'available' ? 'AVAILABLE' : 'HIRED') as PlacementStatus,
         contact_email: formData.contact_email,
         phone_number: formData.phone_number,
         whatsapp_number: formData.whatsapp_number,
@@ -878,7 +1078,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
   // ----------------------------------------------------------------------------
   // EXACT PRELOADER SCREEN MANDATE
   // ----------------------------------------------------------------------------
-  if (loading) {
+  if (loading && !profile) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
         <div className="flex flex-col items-center gap-3">
@@ -889,7 +1089,9 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
     );
   }
 
-  const passedQuizzesCount = profile?.phase_1_quizzes_passed || skillMatrix.filter((s) => s.isPassed).length;
+  const passedQuizzesCount = typeof profile?.phase_1_quizzes_passed === 'number'
+    ? profile.phase_1_quizzes_passed
+    : skillMatrix.filter((s) => s.isPassed).length;
   const isPhase1Done = passedQuizzesCount >= 5 || profile?.phase_1_completed;
   const initials = getInitials(profile?.full_name);
 
@@ -949,10 +1151,44 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
           </div>
 
           <div className="flex items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-end flex-wrap">
+            {/* Dynamic Placement Availability Toggle Switch */}
+            <div className="flex items-center gap-2 bg-slate-100/90 border border-slate-200/90 py-1.5 px-3 rounded-full shadow-2xs">
+              <span className={`w-2 h-2 rounded-full transition-colors ${
+                (profile?.availability_status || (profile?.placement_status === 'HIRED' ? 'placed' : 'available')) === 'available'
+                  ? 'bg-emerald-500 ring-4 ring-emerald-100 animate-pulse'
+                  : 'bg-slate-400'
+              }`} />
+              <span className="text-[11px] font-medium text-slate-700">
+                {(profile?.availability_status || (profile?.placement_status === 'HIRED' ? 'placed' : 'available')) === 'available'
+                  ? 'Available for Placement'
+                  : 'Hired'}
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={(profile?.availability_status || (profile?.placement_status === 'HIRED' ? 'placed' : 'available')) === 'available'}
+                onClick={() => handleToggleAvailability()}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${
+                  (profile?.availability_status || (profile?.placement_status === 'HIRED' ? 'placed' : 'available')) === 'available'
+                    ? 'bg-emerald-600'
+                    : 'bg-slate-300'
+                }`}
+                title="Toggle placement availability status"
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                    (profile?.availability_status || (profile?.placement_status === 'HIRED' ? 'placed' : 'available')) === 'available'
+                      ? 'translate-x-4'
+                      : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
             {profile?.is_verified_badge ? (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-mono font-bold uppercase rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Verified Talent</span>
+                <span>Verified Skills</span>
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-mono font-bold uppercase rounded-full bg-amber-50 text-amber-800 border border-amber-200">
@@ -986,7 +1222,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         {/* ========================================================================= */}
         {/* 1. TOP PROFILE HEADER & AVATAR ZONE */}
         {/* ========================================================================= */}
-        <section className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xs">
+        <section className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 shadow-sm hover:border-slate-300 transition-all">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
             
             <div className="flex items-start gap-4 sm:gap-5 flex-1 min-w-0">
@@ -999,16 +1235,16 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     alt={profile?.full_name || 'Candidate Avatar'}
                     referrerPolicy="no-referrer"
                     onError={() => setImageError(true)}
-                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border border-slate-200 shadow-inner bg-slate-100"
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover border border-slate-200 shadow-inner bg-slate-100"
                   />
                 ) : (
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-800 font-bold text-xl sm:text-2xl shadow-inner tracking-wider">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-800 font-bold text-xl sm:text-2xl shadow-inner tracking-wider">
                     {initials}
                   </div>
                 )}
 
                 {profile?.is_verified_badge && (
-                  <span className="absolute -bottom-1 -right-1 bg-emerald-500 text-white p-1 rounded-full ring-2 ring-white shadow-xs" title="Verified Badge Active">
+                  <span className="absolute -bottom-1 -right-1 bg-emerald-500 text-white p-1 rounded-full ring-2 ring-white shadow-xs" title="Verified Skills Active">
                     <ShieldCheck className="w-4 h-4" />
                   </span>
                 )}
@@ -1020,11 +1256,11 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     {profile?.full_name}
                   </h1>
 
-                  {/* Read-Only Verified Badge */}
+                  {/* Verified Skills Badge */}
                   {profile?.is_verified_badge ? (
                     <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full text-xs font-semibold">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Verified Talent Badge</span>
+                      <span>Verified Skills</span>
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-0.5 rounded-full text-xs font-semibold">
@@ -1033,21 +1269,46 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     </span>
                   )}
 
-                  {/* Read-Only Placement Status */}
-                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                    profile?.placement_status === 'AVAILABLE'
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                      : 'bg-slate-100 text-slate-700 border-slate-200'
-                  }`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${profile?.placement_status === 'AVAILABLE' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                    <span>{profile?.placement_status === 'AVAILABLE' ? 'Available for Placement' : 'In Placement / Hired'}</span>
-                  </span>
+                  {/* Work Status with Quick Toggle */}
+                  <div className="inline-flex items-center gap-2 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-full text-xs">
+                    <span className="text-slate-500 font-medium">Work Status:</span>
+                    <span className={`inline-flex items-center gap-1 font-semibold ${
+                      (profile?.availability_status || (profile?.placement_status === 'HIRED' ? 'placed' : 'available')) === 'available'
+                        ? 'text-emerald-800'
+                        : 'text-slate-700'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        (profile?.availability_status || (profile?.placement_status === 'HIRED' ? 'placed' : 'available')) === 'available'
+                          ? 'bg-emerald-500 animate-pulse'
+                          : 'bg-slate-400'
+                      }`} />
+                      <span>{(profile?.availability_status || (profile?.placement_status === 'HIRED' ? 'placed' : 'available')) === 'available' ? 'Available for Placement' : 'Hired'}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleAvailability()}
+                      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        (profile?.availability_status || (profile?.placement_status === 'HIRED' ? 'placed' : 'available')) === 'available'
+                          ? 'bg-emerald-600'
+                          : 'bg-slate-300'
+                      }`}
+                      title="Toggle Work Status"
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
+                          (profile?.availability_status || (profile?.placement_status === 'HIRED' ? 'placed' : 'available')) === 'available'
+                            ? 'translate-x-3'
+                            : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
                 </div>
 
-                <p className="text-sm font-bold text-slate-800">{profile?.role_title || profile?.headline}</p>
+                <p className="text-sm sm:text-base font-semibold text-slate-800">{profile?.role_title || profile?.headline}</p>
 
                 {profile?.bio && (
-                  <p className="text-xs text-slate-600 leading-relaxed max-w-3xl">
+                  <p className="text-xs sm:text-sm font-normal text-slate-600 leading-relaxed max-w-3xl">
                     {profile.bio}
                   </p>
                 )}
@@ -1137,30 +1398,30 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         </section>
 
         {/* ========================================================================= */}
-        {/* 2. 3-PHASE VERIFICATION PIPELINE (STRICTLY READ-ONLY) */}
+        {/* 2. 3-STEP VERIFICATION PIPELINE (STRICTLY READ-ONLY) */}
         {/* ========================================================================= */}
         <section className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-slate-900">3-Phase Candidate Verification Pipeline</h2>
+                <h2 className="text-base font-bold text-slate-900">3-Step Candidate Verification Pipeline</h2>
                 <span className="text-[10px] font-mono font-bold uppercase bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200 flex items-center gap-1">
                   <Lock className="w-2.5 h-2.5" />
                   Read-Only Authority
                 </span>
               </div>
-              <p className="text-xs text-slate-500">Pipeline advancement, quiz credits, and verification badges are awarded through specialist audits and assessment scores.</p>
+              <p className="text-xs text-slate-500 font-normal leading-relaxed">Pipeline advancement, quiz credits, and verified skills are awarded through specialist audits and assessment scores.</p>
             </div>
             <span className="text-xs font-mono font-bold px-3 py-1 bg-white border border-slate-200 rounded-full text-slate-700 shadow-2xs self-start sm:self-auto">
-              {profile?.is_verified_badge ? 'Phase 3/3 (Verified)' : profile?.phase_2_status === 'COMPLETED' ? 'Phase 3/3 (Payment Ready)' : isPhase1Done ? 'Phase 2/3 (Interview)' : 'Phase 1/3 (Quizzes)'}
+              {profile?.is_verified_badge ? 'Step 3/3 (Verified)' : profile?.phase_2_status === 'COMPLETED' ? 'Step 3/3 (Payment Ready)' : isPhase1Done ? 'Step 2/3 (Interview)' : 'Step 1/3 (Skill Checks)'}
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-            {/* PHASE 1: Quizzes */}
-            <div className={`bg-white rounded-3xl p-6 border transition shadow-xs flex flex-col justify-between ${
-              isPhase1Done ? 'border-emerald-200 bg-emerald-50/20' : 'border-slate-200'
+            {/* STEP 1: Skill Checks */}
+            <div className={`bg-white rounded-xl p-6 border transition-all duration-200 shadow-sm hover:shadow-md flex flex-col justify-between ${
+              isPhase1Done ? 'border-emerald-300 bg-emerald-50/20' : 'border-slate-200 hover:border-slate-300'
             }`}>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -1170,7 +1431,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     }`}>
                       1
                     </div>
-                    <h3 className="text-sm font-bold text-slate-900">Diagnostic Quizzes</h3>
+                    <h3 className="text-sm font-bold text-slate-900">Step 1: Skill Checks</h3>
                   </div>
 
                   {isPhase1Done ? (
@@ -1185,8 +1446,8 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                   )}
                 </div>
 
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Pass 5 or more skill diagnostic categories with an 80%+ benchmark.
+                <p className="text-xs font-normal text-slate-600 leading-relaxed">
+                  Pass 5 or more skill checks with an 80%+ benchmark to qualify for Step 2.
                 </p>
 
                 {/* Progress Bar */}
@@ -1203,32 +1464,32 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                   </div>
                 </div>
 
-                {/* Quick Phase Quick-Link to Quizzes */}
+                {/* Quick Link to Skill Checks */}
                 <button
                   type="button"
                   onClick={scrollToQuizSection}
-                  className="w-full py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs"
+                  className="w-full py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs"
                 >
-                  <span>Take Diagnostic Quizzes</span>
+                  <span>Start Skill Checks</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              <div className="pt-4 border-t border-slate-100 mt-4 text-[11px] font-medium text-slate-500 flex items-center gap-1">
+              <div className="pt-4 border-t border-slate-100 mt-4 text-[11px] font-normal text-slate-500 flex items-center gap-1">
                 <Lock className="w-3 h-3 text-slate-400" />
                 <span>Awarded automatically via quiz completions</span>
               </div>
             </div>
 
-            {/* PHASE 2: Specialist Interview */}
-            <div className={`bg-white rounded-3xl p-6 border transition shadow-xs flex flex-col justify-between ${
+            {/* STEP 2: Specialist Interview */}
+            <div className={`bg-white rounded-xl p-6 border transition-all duration-200 shadow-sm hover:shadow-md flex flex-col justify-between ${
               profile?.phase_2_status === 'COMPLETED'
-                ? 'border-emerald-200 bg-emerald-50/20'
+                ? 'border-emerald-300 bg-emerald-50/20'
                 : profile?.phase_2_status === 'PENDING_SCHEDULE'
                 ? 'border-indigo-300 ring-2 ring-indigo-500/10'
                 : profile?.phase_2_status === 'FAILED'
                 ? 'border-rose-200 bg-rose-50/20'
-                : 'border-slate-200 opacity-80'
+                : 'border-slate-200 hover:border-slate-300 opacity-90'
             }`}>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -1242,7 +1503,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     }`}>
                       2
                     </div>
-                    <h3 className="text-sm font-bold text-slate-900">Specialist 1-on-1 Review</h3>
+                    <h3 className="text-sm font-bold text-slate-900">Step 2: Specialist Review</h3>
                   </div>
 
                   {profile?.phase_2_status === 'COMPLETED' ? (
@@ -1266,24 +1527,24 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                   )}
                 </div>
 
-                <p className="text-xs text-slate-600 leading-relaxed">
+                <p className="text-xs font-normal text-slate-600 leading-relaxed">
                   30-minute technical evaluation on execution velocity, campaign strategy, and growth architecture.
                 </p>
               </div>
 
-              <div className="pt-4 border-t border-slate-100 mt-4 text-[11px] font-medium text-slate-500 flex items-center gap-1">
+              <div className="pt-4 border-t border-slate-100 mt-4 text-[11px] font-normal text-slate-500 flex items-center gap-1">
                 <Lock className="w-3 h-3 text-slate-400" />
                 <span>Evaluated by GrowthPaddy panel</span>
               </div>
             </div>
 
-            {/* PHASE 3: Badge Issuance */}
-            <div className={`bg-white rounded-3xl p-6 border transition shadow-xs flex flex-col justify-between ${
+            {/* STEP 3: Badge Issuance */}
+            <div className={`bg-white rounded-xl p-6 border transition-all duration-200 shadow-sm hover:shadow-md flex flex-col justify-between ${
               profile?.is_verified_badge
                 ? 'border-emerald-300 bg-emerald-50/20'
                 : profile?.phase_3_status === 'PAYMENT_PENDING'
                 ? 'border-amber-300 ring-2 ring-amber-500/10'
-                : 'border-slate-200 opacity-80'
+                : 'border-slate-200 hover:border-slate-300 opacity-90'
             }`}>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -1297,7 +1558,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     }`}>
                       3
                     </div>
-                    <h3 className="text-sm font-bold text-slate-900">Verified Badge Issuance</h3>
+                    <h3 className="text-sm font-bold text-slate-900">Step 3: Verified Badge Issuance</h3>
                   </div>
 
                   {profile?.is_verified_badge ? (
@@ -1317,12 +1578,12 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                   )}
                 </div>
 
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Final authorization and inclusion in recruiter talent directory.
+                <p className="text-xs font-normal text-slate-600 leading-relaxed">
+                  Final accreditation and verified placement status in recruiter search directory.
                 </p>
               </div>
 
-              <div className="pt-4 border-t border-slate-100 mt-4 text-[11px] font-medium text-slate-500 flex items-center gap-1">
+              <div className="pt-4 border-t border-slate-100 mt-4 text-[11px] font-normal text-slate-500 flex items-center gap-1">
                 <Lock className="w-3 h-3 text-slate-400" />
                 <span>Authorized via fee settlement</span>
               </div>
@@ -1332,17 +1593,17 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         </section>
 
         {/* ========================================================================= */}
-        {/* 3. SKILL CATEGORIES & DIAGNOSTIC QUIZZES GRID (#quiz-section) */}
+        {/* 3. SKILL CATEGORIES & SKILL CHECKS GRID (#quiz-section) */}
         {/* ========================================================================= */}
         <section id="quiz-section" className="space-y-4 pt-2">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <div className="flex items-center gap-2">
                 <Award className="w-5 h-5 text-emerald-600" />
-                <h2 className="text-base font-bold text-slate-900">Phase 1 Skill Diagnostics Matrix</h2>
+                <h2 className="text-base font-bold text-slate-900">Step 1: Skill Checks</h2>
               </div>
-              <p className="text-xs text-slate-500">
-                Complete 5 categories with 80%+ score to unlock Phase 2 Specialist Review. Each quiz has a 10-minute timer and 2 attempts before a 90-day cooldown.
+              <p className="text-xs text-slate-500 font-normal leading-relaxed">
+                Complete 5 skill checks with an 80%+ score to unlock Step 2 Specialist Review. Each quiz has a 10-minute timer and 2 attempts before a 90-day cooldown.
               </p>
             </div>
             <div className="text-xs font-mono font-bold bg-white border border-slate-200 px-3 py-1 rounded-full text-slate-700 shadow-2xs self-start sm:self-auto">
@@ -1356,12 +1617,12 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
               return (
                 <div
                   key={item.category}
-                  className={`bg-white border rounded-3xl p-5 shadow-xs flex flex-col justify-between transition hover:shadow-md ${
+                  className={`bg-white border rounded-xl p-5 shadow-sm flex flex-col justify-between transition-all duration-200 hover:shadow-md ${
                     item.isPassed
                       ? 'border-emerald-300 bg-emerald-50/15 ring-1 ring-emerald-400/20'
                       : item.isLocked
                       ? 'border-rose-200 bg-rose-50/15'
-                      : 'border-slate-200 hover:border-emerald-300'
+                      : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
                   <div className="space-y-3">
@@ -1402,28 +1663,32 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                       )}
                     </div>
 
-                    <p className="text-xs text-slate-600 leading-relaxed">
+                    <p className="text-xs font-normal text-slate-600 leading-relaxed">
                       {def?.shortDesc || 'Comprehensive evaluation on core industry workflows and execution standards.'}
                     </p>
 
                     {/* Stats details */}
                     <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 pt-1 border-t border-slate-100">
-                      <span>Pass Mark: 80%</span>
+                      <span className="flex items-center gap-1.5 font-medium text-slate-700">
+                        <span>{item.totalQuestions} {item.totalQuestions === 1 ? 'Question' : 'Questions'}</span>
+                        <span className="text-slate-300">•</span>
+                        <span className="text-slate-500 font-normal">Pass: 80%</span>
+                      </span>
                       {item.bestScore !== undefined ? (
                         <span>Best: <strong className={item.isPassed ? 'text-emerald-700' : 'text-slate-700'}>{item.bestScore}%</strong></span>
                       ) : (
-                        <span>5 Questions</span>
+                        <span className="text-slate-400">Unattempted</span>
                       )}
                     </div>
 
                     {/* Locked 90-Day Countdown State */}
                     {item.isLocked && (
-                      <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl space-y-2">
+                      <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl space-y-2">
                         <div className="flex items-center gap-1.5 text-xs font-bold text-rose-800">
                           <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
                           <span>Cooldown Period Active</span>
                         </div>
-                        <p className="text-[11px] text-rose-700 leading-relaxed">
+                        <p className="text-[11px] font-normal text-rose-700 leading-relaxed">
                           2 attempts failed. Re-attempt unlocks in <strong>{item.cooldownDaysRemaining} days</strong>.
                         </p>
                         <a
@@ -1444,7 +1709,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     {item.isPassed ? (
                       <div className="w-full py-2 px-3 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold flex items-center justify-center gap-1.5">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Skill Verified & Accredited</span>
+                        <span>Verified Skill & Accredited</span>
                       </div>
                     ) : item.isLocked ? (
                       <div className="w-full py-2 px-3 rounded-xl bg-slate-100 text-slate-400 text-xs font-medium flex items-center justify-center gap-1.5 cursor-not-allowed">
@@ -1458,7 +1723,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                         className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs"
                       >
                         <Play className="w-3.5 h-3.5 fill-current" />
-                        <span>{item.attemptsCount === 1 ? 'Retake Quiz (Final Attempt)' : 'Take Diagnostic Quiz'}</span>
+                        <span>{item.attemptsCount === 1 ? 'Retake Quiz (Final Attempt)' : 'Take Skill Check'}</span>
                       </button>
                     )}
                   </div>
@@ -1534,6 +1799,47 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
                   />
                   <p className="text-[11px] text-slate-500">If empty or unreachable, the header automatically displays your initials ({initials}).</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Work Status / Availability Toggle in Edit Form */}
+            <div className="p-4 bg-slate-50/80 border border-slate-200 rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">
+                    <Sliders className="w-4 h-4 text-emerald-600" />
+                    <span>Work Status & Placement Availability</span>
+                  </div>
+                  <p className="text-xs font-normal text-slate-500">
+                    Control whether recruiters can contact you for immediate roles and interview opportunities.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs font-semibold ${
+                    formData.availability_status === 'available' ? 'text-emerald-700 font-bold' : 'text-slate-600'
+                  }`}>
+                    {formData.availability_status === 'available' ? 'Available for Placement' : 'Hired / In Placement'}
+                  </span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={formData.availability_status === 'available'}
+                    onClick={() => {
+                      const nextStatus = formData.availability_status === 'available' ? 'placed' : 'available';
+                      setFormData(prev => ({ ...prev, availability_status: nextStatus }));
+                    }}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${
+                      formData.availability_status === 'available' ? 'bg-emerald-600' : 'bg-slate-300'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                        formData.availability_status === 'available' ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
                 </div>
               </div>
             </div>
@@ -2305,7 +2611,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                         ) : (
                           <CheckCircle className="w-4 h-4" />
                         )}
-                        <span>Submit Final Answers</span>
+                        <span>Finish Quiz</span>
                       </button>
                     )}
                   </div>

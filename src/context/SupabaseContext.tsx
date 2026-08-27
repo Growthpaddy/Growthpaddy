@@ -917,8 +917,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
               talent_id: talentId,
               skill_category: specialty || "General Digital Marketing",
               score_percentage: data.score,
-              passed: data.passed,
-              completed_at: new Date().toISOString()
+              passed: data.passed
             }]);
 
           const { error: insertError } = await supabase

@@ -270,8 +270,7 @@ export async function submitQuizAttempt(payload: QuizAttemptPayload): Promise<bo
     talent_id: payload.talent_id,
     skill_category: payload.skill_category || 'General Digital Marketing',
     score_percentage: payload.score_percentage,
-    passed: payload.passed,
-    completed_at: payload.completed_at || new Date().toISOString()
+    passed: payload.passed
   };
 
   try {
