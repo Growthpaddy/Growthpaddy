@@ -181,6 +181,8 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
   const [userAnswers, setUserAnswers] = useState<Record<number, number>>({});
   const [timeRemainingSeconds, setTimeRemainingSeconds] = useState<number>(600); // 10 minutes
   const [isSubmittingQuiz, setIsSubmittingQuiz] = useState<boolean>(false);
+  const [activeQuizQuestions, setActiveQuizQuestions] = useState<QuizQuestion[]>([]);
+  const [loadingQuestions, setLoadingQuestions] = useState<boolean>(false);
   const [quizScoreResult, setQuizScoreResult] = useState<{
     scorePercentage: number;
     passed: boolean;
@@ -244,12 +246,12 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         .filter((a: any) => a.skill_category === catName)
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-      const hasPassed = catAttempts.some((a: any) => a.passed === true);
+      const hasPassed = catAttempts.some((a: any) => a.passed === true || Number(a.score_percentage || 0) >= 80);
       const bestScore = catAttempts.length > 0 
         ? Math.max(...catAttempts.map((a: any) => Number(a.score_percentage || 0))) 
         : undefined;
 
-      const failAttempts = catAttempts.filter((a: any) => !a.passed);
+      const failAttempts = catAttempts.filter((a: any) => !a.passed && Number(a.score_percentage || 0) < 80);
       const failCount = failAttempts.length;
       const attemptsCount = catAttempts.length;
 
@@ -266,9 +268,11 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         }
       }
 
+      const totalQCount = SKILL_QUIZ_DEFINITIONS[catName]?.questions?.length || 5;
+
       return {
         category: catName,
-        totalQuestions: 5,
+        totalQuestions: totalQCount,
         isPassed: hasPassed,
         bestScore,
         failCount,
@@ -376,12 +380,17 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
       const matrix = buildSkillMatrix(attemptsData || []);
       setSkillMatrix(matrix);
 
-      const passedCategories = matrix.filter((m) => m.isPassed).map((m) => m.category);
-      const passedCount = passedCategories.length;
+      const passedAttempts = (attemptsData || []).filter(
+        (a: any) => a.passed === true || Number(a.score_percentage || 0) >= 80
+      );
+      const distinctPassedCategories = Array.from(
+        new Set(passedAttempts.map((a: any) => a.skill_category).filter(Boolean))
+      );
+      const passedCount = distinctPassedCategories.length;
       const isPhase1Passed = passedCount >= 5 || profileData.phase_1_completed || profileData.phase_1_status === 'PASSED';
 
       // STRICT RULE: ONLY dynamically accredited skills from passed Phase 1 quizzes (up to max 5)
-      const dynamicAccreditedSkills = passedCategories.slice(0, 5);
+      const dynamicAccreditedSkills = distinctPassedCategories.slice(0, 5);
 
       const normalizedProfile: TalentProfile = {
         ...profileData,
@@ -484,7 +493,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
   // ----------------------------------------------------------------------------
   // Quiz Flow Controllers
   // ----------------------------------------------------------------------------
-  const handleOpenQuizInstructions = (categoryName: string) => {
+  const handleOpenQuizInstructions = async (categoryName: string) => {
     const matrixItem = skillMatrix.find((s) => s.category === categoryName);
     if (matrixItem?.isLocked) {
       return; // Locked category cannot be opened
@@ -495,6 +504,75 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
     setCurrentQuestionIndex(0);
     setTimeRemainingSeconds(600); // 10 minutes
     setQuizScoreResult(null);
+    setLoadingQuestions(true);
+
+    try {
+      // Fetch ALL diagnostic questions from Supabase without any .limit(5) or .slice(0, 5)
+      const { data, error } = await supabase
+        .from('quiz_questions')
+        .select('*')
+        .eq('skill_category', categoryName);
+
+      if (!error && data && data.length > 0) {
+        const loadedQuestions: QuizQuestion[] = data.map((q: any, idx: number) => {
+          let opts: string[] = [];
+          if (Array.isArray(q.options)) {
+            opts = q.options.map((opt: any) =>
+              typeof opt === 'string' ? opt : (opt?.text || opt?.label || String(opt))
+            );
+          } else if (typeof q.options === 'string') {
+            try {
+              const parsed = JSON.parse(q.options);
+              if (Array.isArray(parsed)) {
+                opts = parsed.map((opt: any) =>
+                  typeof opt === 'string' ? opt : (opt?.text || opt?.label || String(opt))
+                );
+              }
+            } catch {
+              opts = [q.options];
+            }
+          }
+
+          let correctIdx = 0;
+          if (typeof q.correctIdx === 'number') {
+            correctIdx = q.correctIdx;
+          } else if (q.correct_option_id !== undefined && q.correct_option_id !== null) {
+            const rawId = String(q.correct_option_id).trim();
+            if (Array.isArray(q.options) && q.options.some((o: any) => typeof o === 'object' && o.id)) {
+              const foundIdx = q.options.findIndex((o: any) => String(o.id) === rawId);
+              if (foundIdx >= 0) correctIdx = foundIdx;
+            } else if (!isNaN(Number(rawId)) && Number(rawId) >= 0 && Number(rawId) < opts.length) {
+              correctIdx = Number(rawId);
+            } else if (['A', 'B', 'C', 'D', 'E'].includes(rawId.toUpperCase())) {
+              correctIdx = rawId.toUpperCase().charCodeAt(0) - 65;
+            } else {
+              const foundIdx = opts.findIndex((o) => o === rawId);
+              if (foundIdx >= 0) correctIdx = foundIdx;
+            }
+          }
+
+          return {
+            id: q.id ? String(q.id) : `db-q-${idx}`,
+            question: q.question_text || q.question || 'Question',
+            options: opts.length > 0 ? opts : ['Option A', 'Option B', 'Option C', 'Option D'],
+            correctIdx,
+            explanation: q.explanation || 'Refer to verified industry best practices.'
+          };
+        });
+
+        setActiveQuizQuestions(loadedQuestions);
+      } else {
+        // Fallback to static quiz questions definition (all questions, no slicing)
+        const fallback = SKILL_QUIZ_DEFINITIONS[categoryName]?.questions || [];
+        setActiveQuizQuestions(fallback);
+      }
+    } catch (err) {
+      console.warn('Error fetching questions from Supabase, falling back to static questions:', err);
+      const fallback = SKILL_QUIZ_DEFINITIONS[categoryName]?.questions || [];
+      setActiveQuizQuestions(fallback);
+    } finally {
+      setLoadingQuestions(false);
+    }
   };
 
   const handleStartLiveQuiz = () => {
@@ -520,11 +598,11 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
   const handleSubmitQuiz = async () => {
     if (!activeQuizCategory || !profile) return;
     const quizDef = SKILL_QUIZ_DEFINITIONS[activeQuizCategory];
-    if (!quizDef) return;
+    const questions = activeQuizQuestions.length > 0 ? activeQuizQuestions : (quizDef?.questions || []);
+    if (questions.length === 0) return;
 
     setIsSubmittingQuiz(true);
     try {
-      const questions = quizDef.questions;
       let correctCount = 0;
 
       questions.forEach((q, idx) => {
@@ -533,8 +611,11 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         }
       });
 
-      const scorePercentage = Math.round((correctCount / questions.length) * 100);
-      const passed = scorePercentage >= quizDef.passingScorePercent; // >= 80%
+      const totalCount = questions.length;
+      const scorePercentage = Math.round((correctCount / totalCount) * 100);
+      // Mark as passed only if score is >= 80% (or passingScorePercent)
+      const passingScore = quizDef?.passingScorePercent || 80;
+      const passed = scorePercentage >= passingScore; // >= 80%
 
       // Fetch past attempts to determine fail count
       const { data: existingAttempts } = await supabase
@@ -544,7 +625,9 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         .eq('skill_category', activeQuizCategory)
         .order('created_at', { ascending: false });
 
-      const pastFails = (existingAttempts || []).filter((a: any) => !a.passed).length;
+      const pastFails = (existingAttempts || []).filter(
+        (a: any) => !a.passed && Number(a.score_percentage || 0) < 80
+      ).length;
       const currentFailCount = passed ? 0 : pastFails + 1;
       const isNowLocked = !passed && currentFailCount >= 2;
       const cooldownDays = isNowLocked ? 90 : 0;
@@ -560,31 +643,43 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
 
       await supabase.from('quiz_attempts').insert([attemptPayload]);
 
-      // Refresh attempts & update profile stats
+      // Query all attempts to count distinct/unique passed categories (score >= 80%)
       const { data: allAttempts } = await supabase
         .from('quiz_attempts')
         .select('*')
         .eq('talent_id', profile.id);
 
-      const updatedMatrix = buildSkillMatrix(allAttempts || []);
+      // Merge newly inserted attempt to avoid any read-after-write replication latency
+      const attemptsList = (allAttempts && allAttempts.length > 0)
+        ? allAttempts
+        : [...(existingAttempts || []), attemptPayload];
+
+      // Perform a distinct count of unique passed categories (score >= 80% or passed: true).
+      // Retaking or re-passing an already-passed category will NOT double-count toward the 5-skill requirement.
+      const passedAttempts = attemptsList.filter(
+        (a: any) => a.passed === true || Number(a.score_percentage || 0) >= 80
+      );
+      const distinctPassedCategories = Array.from(
+        new Set(passedAttempts.map((a: any) => a.skill_category).filter(Boolean))
+      );
+      const distinctPassedCount = distinctPassedCategories.length;
+      const isPhase1Completed = distinctPassedCount >= 5;
+
+      const updatedMatrix = buildSkillMatrix(attemptsList);
       setSkillMatrix(updatedMatrix);
 
-      const newPassedCategories = updatedMatrix.filter((m) => m.isPassed).map((m) => m.category);
-      const newPassedCount = newPassedCategories.length;
-      const newPhase1Completed = newPassedCount >= 5;
-
-      // Dynamic skills list (max 5)
-      const newDynamicSkills = newPassedCategories.slice(0, 5);
+      // Dynamic skills list from distinct passed categories (max 5)
+      const newDynamicSkills = distinctPassedCategories.slice(0, 5);
 
       const profileUpdates: Partial<TalentProfile> = {
-        phase_1_quizzes_passed: newPassedCount,
-        phase_1_completed: newPhase1Completed,
-        phase_1_status: newPhase1Completed ? 'PASSED' : 'IN_PROGRESS',
+        phase_1_quizzes_passed: distinctPassedCount,
+        phase_1_completed: isPhase1Completed,
+        phase_1_status: isPhase1Completed ? 'PASSED' : 'IN_PROGRESS',
         skills: newDynamicSkills,
         updated_at: new Date().toISOString()
       };
 
-      if (newPhase1Completed && (!profile.phase_2_status || profile.phase_2_status === 'LOCKED')) {
+      if (isPhase1Completed && (!profile.phase_2_status || profile.phase_2_status === 'LOCKED')) {
         profileUpdates.phase_2_status = 'PENDING_SCHEDULE';
       }
 
@@ -593,13 +688,14 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         .update(profileUpdates)
         .eq('id', profile.id);
 
+      // Update local state to unlock Phase 2 immediately without requiring a full page refresh
       setProfile((prev) => (prev ? { ...prev, ...profileUpdates } : null));
 
       setQuizScoreResult({
         scorePercentage,
         passed,
         correctCount,
-        totalCount: questions.length,
+        totalCount,
         attemptsUsed: (existingAttempts?.length || 0) + 1,
         isNowLocked,
         cooldownDays
@@ -614,12 +710,16 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
     }
   };
 
+  // Alias for compatibility
+  const handleQuizSubmit = handleSubmitQuiz;
+
   const handleCloseQuizModal = () => {
     setActiveQuizCategory(null);
     setQuizModalStep(null);
     setQuizScoreResult(null);
     setUserAnswers({});
     setCurrentQuestionIndex(0);
+    setActiveQuizQuestions([]);
   };
 
   // ----------------------------------------------------------------------------
@@ -795,6 +895,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
 
   const activeDef = activeQuizCategory ? SKILL_QUIZ_DEFINITIONS[activeQuizCategory] : null;
   const activeMatrix = activeQuizCategory ? skillMatrix.find((s) => s.category === activeQuizCategory) : null;
+  const activeQuestions = activeQuizQuestions.length > 0 ? activeQuizQuestions : (activeDef?.questions || []);
 
   // Format MM:SS for countdown timer
   const minutes = Math.floor(timeRemainingSeconds / 60);
@@ -2067,11 +2168,11 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                   <ul className="space-y-2.5 text-xs text-slate-700">
                     <li className="flex items-start gap-2">
                       <Clock className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
-                      <span><strong>10-Minute Timed Session:</strong> You have 10 minutes to answer all 5 questions. Answers auto-submit when the timer expires.</span>
+                      <span><strong>10-Minute Timed Session:</strong> You have 10 minutes to answer all {activeQuestions.length} questions. Answers auto-submit when the timer expires.</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <Award className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                      <span><strong>80% Passing Benchmark:</strong> You must answer at least 4 out of 5 questions correctly to achieve accreditation in this skill.</span>
+                      <span><strong>80% Passing Benchmark:</strong> You must answer at least {Math.ceil(activeQuestions.length * 0.8)} out of {activeQuestions.length} questions correctly ({activeDef.passingScorePercent || 80}%+) to achieve accreditation in this skill.</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <RotateCcw className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
@@ -2117,13 +2218,13 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     </span>
                   </div>
                   <span className="text-xs font-mono text-slate-400">
-                    Question {currentQuestionIndex + 1} of {activeDef.questions.length}
+                    Question {currentQuestionIndex + 1} of {activeQuestions.length}
                   </span>
                 </div>
 
                 {/* Progress Indicators */}
                 <div className="flex gap-1.5">
-                  {activeDef.questions.map((_, idx) => (
+                  {activeQuestions.map((_, idx) => (
                     <div
                       key={idx}
                       className={`h-1.5 flex-1 rounded-full transition ${
@@ -2138,14 +2239,14 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                 </div>
 
                 {/* Current Question */}
-                {activeDef.questions[currentQuestionIndex] && (
+                {activeQuestions[currentQuestionIndex] && (
                   <div className="space-y-4">
                     <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-snug">
-                      {activeDef.questions[currentQuestionIndex].question}
+                      {activeQuestions[currentQuestionIndex].question}
                     </h3>
 
                     <div className="space-y-2.5">
-                      {activeDef.questions[currentQuestionIndex].options.map((opt, optIdx) => {
+                      {activeQuestions[currentQuestionIndex].options.map((opt, optIdx) => {
                         const isSelected = userAnswers[currentQuestionIndex] === optIdx;
                         return (
                           <button
@@ -2183,7 +2284,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                   </button>
 
                   <div className="flex items-center gap-2">
-                    {currentQuestionIndex < activeDef.questions.length - 1 ? (
+                    {currentQuestionIndex < activeQuestions.length - 1 ? (
                       <button
                         type="button"
                         onClick={() => setCurrentQuestionIndex((prev) => prev + 1)}
@@ -2195,7 +2296,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     ) : (
                       <button
                         type="button"
-                        disabled={isSubmittingQuiz || Object.keys(userAnswers).length < activeDef.questions.length}
+                        disabled={isSubmittingQuiz || Object.keys(userAnswers).length < activeQuestions.length}
                         onClick={handleSubmitQuiz}
                         className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs"
                       >
@@ -2277,7 +2378,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                   </h4>
 
                   <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
-                    {activeDef.questions.map((q, idx) => {
+                    {activeQuestions.map((q, idx) => {
                       const userChoice = userAnswers[idx];
                       const isCorrect = userChoice === q.correctIdx;
 
