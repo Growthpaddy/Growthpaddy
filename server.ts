@@ -50,7 +50,7 @@ app.post("/api/gemini/quiz", async (req, res) => {
     const tier = experienceLevel || "Seasoned Professional";
     const ai = getGeminiClient();
 
-    const prompt = `You are GrowthPaddy's Senior Vetting Director. Generate exactly 3 highly practical, scenario-based multiple-choice quiz questions tailored to the specialty "${specialty}" and experience level "${tier}". 
+    const prompt = `You are Digital Campux's Senior Vetting Director. Generate exactly 3 highly practical, scenario-based multiple-choice quiz questions tailored to the specialty "${specialty}" and experience level "${tier}". 
 
 Each question MUST challenge the candidate with a real-world dilemma they would face in their daily execution as a ${specialty} specialist. Each question must have exactly 4 choices, one clearly correct option, and a brief, highly educational explanation of the correct choice.
 
@@ -136,12 +136,12 @@ ${passed ? "They passed! Praise their systems knowledge and welcome them to Phas
       model: "gemini-3.5-flash",
       contents: gradingPrompt,
       config: {
-        systemInstruction: "You are GrowthPaddy's Expert Vetting & Recruitment Panel. Speak in a encouraging, professional, and supportive voice.",
+        systemInstruction: "You are Digital Campux's Expert Vetting & Recruitment Panel. Speak in a encouraging, professional, and supportive voice.",
       }
     });
 
     const feedbackParagraph = geminiResponse.text?.trim() || (passed 
-      ? `Congratulations! You cleared the GrowthPaddy Phase 1 Gateway with a score of ${score}%. Your specialty expertise in ${specialty} is verified.`
+      ? `Congratulations! You cleared the Digital Campux Phase 1 Gateway with a score of ${score}%. Your specialty expertise in ${specialty} is verified.`
       : `You scored ${score}% on this attempt. Stay positive and keep practicing! Use the resources provided to master key ${specialty} concepts and you'll clear the benchmark next time.`);
 
     return res.json({

@@ -203,7 +203,7 @@ export default function RecruiterSignup({
         <div className="text-center space-y-3">
           <div className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-800 border border-emerald-200 px-3.5 py-1 rounded-full text-xs font-mono font-bold tracking-wide uppercase">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>GrowthPaddy Recruiter Gateway</span>
+            <span>Digital Campux Recruiter Gateway</span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 font-display tracking-tight">
             Register Employer Hiring Account
@@ -301,7 +301,7 @@ export default function RecruiterSignup({
               </button>
 
               <a
-                href={`https://wa.me/2348169664607?text=${encodeURIComponent(`Hello GrowthPaddy Support, I just registered a recruiter account for ${companyName} (${businessEmail}) and completed the GTBank transfer for ${selectedPackage === 'starter_tier' ? '₦35,000' : '₦250,000'}. Please verify my account.`)}`}
+                href={`https://wa.me/2348169664607?text=${encodeURIComponent(`Hello Digital Campux Support, I just registered a recruiter account for ${companyName} (${businessEmail}) and completed the GTBank transfer for ${selectedPackage === 'starter_tier' ? '₦35,000' : '₦250,000'}. Please verify my account.`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-semibold py-3.5 px-6 rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer transition shadow-xs"

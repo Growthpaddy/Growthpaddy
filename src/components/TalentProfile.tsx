@@ -51,9 +51,16 @@ import {
   Info,
   Sliders,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  CheckSquare
 } from 'lucide-react';
 import { SKILL_QUIZ_DEFINITIONS, SkillCategoryDefinition, QuizQuestion } from '../data/quizQuestions';
+
+// ==============================================================================
+// WORK TYPE AVAILABILITY OPTIONS (INTERNSHIP, VOLUNTEER, FREELANCE, FULL-TIME)
+// ==============================================================================
+export const WORK_TYPE_OPTIONS = ['Full-Time', 'Freelance', 'Internship', 'Volunteer'] as const;
+export type WorkTypeOption = typeof WORK_TYPE_OPTIONS[number];
 
 // ==============================================================================
 // INLINE TYPES & INTERFACES (MATCHING SUPABASE talent_profiles SCHEMA)
@@ -99,7 +106,8 @@ export interface TalentProfile {
   location?: string | null;
   remote_preference?: 'Remote' | 'Hybrid' | 'On-site' | string;
   placement_status?: PlacementStatus;
-  availability_status?: 'available' | 'placed' | 'hired' | string;
+  availability_status?: 'available' | 'hired' | string;
+  work_availability_type?: string[] | null;
   contact_email?: string;
   phone_number?: string;
   whatsapp_number?: string;
@@ -246,12 +254,12 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
   });
 
   // ----------------------------------------------------------------------------
-  // Toggle Availability Status ('available' vs 'placed' / 'hired')
+  // Toggle Availability Status ('available' vs 'hired')
   // ----------------------------------------------------------------------------
-  const handleToggleAvailability = async (targetStatus?: 'available' | 'placed' | 'hired') => {
+  const handleToggleAvailability = async (targetStatus?: 'available' | 'hired') => {
     if (!profile) return;
-    const currentStatus = profile.availability_status || (profile.placement_status === 'HIRED' ? 'placed' : 'available');
-    const nextStatus = targetStatus || (currentStatus === 'available' ? 'placed' : 'available');
+    const currentStatus = profile.availability_status === 'hired' || profile.placement_status === 'HIRED' ? 'hired' : 'available';
+    const nextStatus = targetStatus || (currentStatus === 'available' ? 'hired' : 'available');
     const nextPlacementStatus = nextStatus === 'available' ? 'AVAILABLE' : 'HIRED';
 
     // Optimistic UI update
@@ -413,7 +421,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
               client_or_brand: 'Nordic Cleanse',
               metrics_achieved: '+185% Revenue Lift, $2.4M ARR Added',
               description: 'Restructured conversion APIs, built high-converting interactive advertorial landing pages, and implemented cohort-based creative testing.',
-              link: 'https://growthpaddy.com'
+              link: 'https://digitalcampux.com'
             }
           ],
           ai_tools: ['ChatGPT Plus', 'Midjourney', 'Claude 3.5 Sonnet', 'Perplexity', 'Make.com', 'Zapier AI'],
@@ -497,7 +505,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         linkedin_url: profileData.linkedin_url || '',
         remote_preference: profileData.remote_preference || 'Remote',
         placement_status: profileData.placement_status || 'AVAILABLE',
-        availability_status: profileData.availability_status || (profileData.placement_status === 'HIRED' ? 'placed' : 'available'),
+        availability_status: profileData.availability_status === 'hired' || profileData.placement_status === 'HIRED' ? 'hired' : 'available',
         work_history: Array.isArray(profileData.work_history) ? profileData.work_history : [],
         education: Array.isArray(profileData.education) ? profileData.education : [],
         case_studies: Array.isArray(profileData.case_studies) ? profileData.case_studies : [],
@@ -1138,7 +1146,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-display font-black text-sm tracking-tight text-slate-900">
-                  GrowthPaddy
+                  Digital Campux
                 </span>
                 <span className="text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">
                   Talent Dossier
@@ -1154,22 +1162,22 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
             {/* Dynamic Placement Availability Toggle Switch */}
             <div className="flex items-center gap-2 bg-slate-100/90 border border-slate-200/90 py-1.5 px-3 rounded-full shadow-2xs">
               <span className={`w-2 h-2 rounded-full transition-colors ${
-                (profile?.availability_status || (profile?.placement_status === 'HIRED' ? 'placed' : 'available')) === 'available'
+                profile?.availability_status === 'available'
                   ? 'bg-emerald-500 ring-4 ring-emerald-100 animate-pulse'
                   : 'bg-slate-400'
               }`} />
               <span className="text-[11px] font-medium text-slate-700">
-                {(profile?.availability_status || (profile?.placement_status === 'HIRED' ? 'placed' : 'available')) === 'available'
+                {profile?.availability_status === 'available'
                   ? 'Available for Placement'
                   : 'Hired'}
               </span>
               <button
                 type="button"
                 role="switch"
-                aria-checked={(profile?.availability_status || (profile?.placement_status === 'HIRED' ? 'placed' : 'available')) === 'available'}
+                aria-checked={profile?.availability_status === 'available'}
                 onClick={() => handleToggleAvailability()}
                 className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${
-                  (profile?.availability_status || (profile?.placement_status === 'HIRED' ? 'placed' : 'available')) === 'available'
+                  profile?.availability_status === 'available'
                     ? 'bg-emerald-600'
                     : 'bg-slate-300'
                 }`}
@@ -1177,7 +1185,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
               >
                 <span
                   className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
-                    (profile?.availability_status || (profile?.placement_status === 'HIRED' ? 'placed' : 'available')) === 'available'
+                    profile?.availability_status === 'available'
                       ? 'translate-x-4'
                       : 'translate-x-0'
                   }`}
@@ -1273,22 +1281,22 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                   <div className="inline-flex items-center gap-2 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-full text-xs">
                     <span className="text-slate-500 font-medium">Work Status:</span>
                     <span className={`inline-flex items-center gap-1 font-semibold ${
-                      (profile?.availability_status || (profile?.placement_status === 'HIRED' ? 'placed' : 'available')) === 'available'
+                      profile?.availability_status === 'available'
                         ? 'text-emerald-800'
                         : 'text-slate-700'
                     }`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${
-                        (profile?.availability_status || (profile?.placement_status === 'HIRED' ? 'placed' : 'available')) === 'available'
+                        profile?.availability_status === 'available'
                           ? 'bg-emerald-500 animate-pulse'
                           : 'bg-slate-400'
                       }`} />
-                      <span>{(profile?.availability_status || (profile?.placement_status === 'HIRED' ? 'placed' : 'available')) === 'available' ? 'Available for Placement' : 'Hired'}</span>
+                      <span>{profile?.availability_status === 'available' ? 'Available for Placement' : 'Hired'}</span>
                     </span>
                     <button
                       type="button"
                       onClick={() => handleToggleAvailability()}
                       className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                        (profile?.availability_status || (profile?.placement_status === 'HIRED' ? 'placed' : 'available')) === 'available'
+                        profile?.availability_status === 'available'
                           ? 'bg-emerald-600'
                           : 'bg-slate-300'
                       }`}
@@ -1296,7 +1304,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     >
                       <span
                         className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
-                          (profile?.availability_status || (profile?.placement_status === 'HIRED' ? 'placed' : 'available')) === 'available'
+                          profile?.availability_status === 'available'
                             ? 'translate-x-3'
                             : 'translate-x-0'
                         }`}
@@ -1534,7 +1542,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
 
               <div className="pt-4 border-t border-slate-100 mt-4 text-[11px] font-normal text-slate-500 flex items-center gap-1">
                 <Lock className="w-3 h-3 text-slate-400" />
-                <span>Evaluated by GrowthPaddy panel</span>
+                <span>Evaluated by Digital Campux panel</span>
               </div>
             </div>
 
@@ -1827,7 +1835,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     role="switch"
                     aria-checked={formData.availability_status === 'available'}
                     onClick={() => {
-                      const nextStatus = formData.availability_status === 'available' ? 'placed' : 'available';
+                      const nextStatus = formData.availability_status === 'available' ? 'hired' : 'available';
                       setFormData(prev => ({ ...prev, availability_status: nextStatus }));
                     }}
                     className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${

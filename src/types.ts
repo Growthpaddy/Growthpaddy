@@ -82,6 +82,8 @@ export interface TalentCandidate {
   monthlyRetainer?: string | number;
   availability: 'Available Immediately' | 'Interviews Open' | 'Onboard in 1 Week' | 'In Placement';
   availability_status?: 'available' | 'hired';
+  work_availability_type?: string[];
+  workAvailabilityType?: string[];
   portfolioScore: number;
   featuredProject: {
     title: string;

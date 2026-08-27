@@ -137,7 +137,7 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
                 Audited Proof of Work
               </h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Every candidate completes real-world scenario tests and technical panel audits before earning their GrowthPaddy Verified badge—ensuring zero mis-hire risk.
+                Every candidate completes real-world scenario tests and technical panel audits before earning their Digital Campux Verified badge—ensuring zero mis-hire risk.
               </p>
             </div>
             <div className="pt-3.5 border-t border-slate-100 flex items-center gap-1.5 text-[11px] font-mono font-semibold text-teal-700">

@@ -884,7 +884,7 @@ export default function AdminDashboard({ onSignOutRedirect, onNavigateHome }: Ad
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-display font-black text-sm tracking-tight text-slate-900">
-                  GrowthPaddy
+                  Digital Campux
                 </span>
                 <span className="text-[10px] font-mono font-bold bg-slate-900 text-emerald-400 px-2 py-0.5 rounded-full">
                   Admin Command

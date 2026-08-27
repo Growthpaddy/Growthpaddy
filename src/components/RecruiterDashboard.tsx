@@ -306,7 +306,7 @@ export default function RecruiterDashboard({
               </div>
 
               <a
-                href={`https://wa.me/2348169664607?text=${encodeURIComponent(`Hello GrowthPaddy, I have paid via GTBank for ${recruiter?.company_name} (${recruiter?.business_email}). Please expedite account activation.`)}`}
+                href={`https://wa.me/2348169664607?text=${encodeURIComponent(`Hello Digital Campux, I have paid via GTBank for ${recruiter?.company_name} (${recruiter?.business_email}). Please expedite account activation.`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hidden sm:flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow-xs whitespace-nowrap"
@@ -545,7 +545,7 @@ export default function RecruiterDashboard({
                               <span>{phone}</span>
                             </span>
                             <a
-                              href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hi ${candidate.full_name}, I'm reaching out from ${recruiter?.company_name || 'GrowthPaddy Recruiter Network'} regarding an opportunity.`)}`}
+                              href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hi ${candidate.full_name}, I'm reaching out from ${recruiter?.company_name || 'Digital Campux Recruiter Network'} regarding an opportunity.`)}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-emerald-700 hover:text-emerald-800 font-bold font-mono text-[11px] bg-emerald-100/70 hover:bg-emerald-200/70 px-2 py-0.5 rounded transition"

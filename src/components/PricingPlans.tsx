@@ -100,7 +100,7 @@ export default function PricingPlans({
               <div className="space-y-1">
                 <span className="text-[11px] font-mono font-bold text-emerald-400 uppercase tracking-wider block">Zero Commission Guarantee:</span>
                 <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
-                  Traditional recruitment agencies take <span className="text-white font-semibold">20% to 30%</span> of first-year talent salaries. With GrowthPaddy, you pay a flat sourcing fee and interview, hire, and negotiate directly.
+                  Traditional recruitment agencies take <span className="text-white font-semibold">20% to 30%</span> of first-year talent salaries. With Digital Campux, you pay a flat sourcing fee and interview, hire, and negotiate directly.
                 </p>
               </div>
               <div className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-mono font-bold px-3 py-1.5 rounded-lg whitespace-nowrap">
@@ -240,7 +240,7 @@ export default function PricingPlans({
                   Candidate Verification
                 </span>
                 
-                <h3 className="font-display font-bold text-2xl text-slate-900">GrowthPaddy Vetting</h3>
+                <h3 className="font-display font-bold text-2xl text-slate-900">Digital Campux Vetting</h3>
                 
                 <div className="space-y-0.5">
                   <p className="text-4xl font-extrabold font-display text-slate-900">

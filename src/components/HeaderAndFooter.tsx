@@ -388,18 +388,6 @@ export function Header({
                       <span>Sourcing & Pricing</span>
                     </div>
                   </button>
-
-                  <button
-                    onClick={() => handleNavClick('assessment')}
-                    className={`w-full text-left px-3 py-2 text-xs font-medium rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
-                      currentPage === 'assessment' ? 'bg-emerald-50 text-emerald-800 font-bold' : 'text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Award className="w-4 h-4 text-slate-500" />
-                      <span>Practice Assessment</span>
-                    </div>
-                  </button>
                 </div>
 
                 {/* Sign In CTA when not logged in */}

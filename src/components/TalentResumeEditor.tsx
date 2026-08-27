@@ -60,7 +60,7 @@ const PRESET_AI_TOOLS = [
 ];
 
 const PRESET_CERTS = [
-  'GrowthPaddy Certified Technical Specialist',
+  'Digital Campux Certified Technical Specialist',
   'Make.com Advanced Automation Specialist',
   'Anthropic Certified Prompt Engineer',
   'Google Professional Cloud Architect',
@@ -505,7 +505,7 @@ export default function TalentResumeEditor({
         <div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-mono font-bold uppercase text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-              GrowthPaddy Candidate Engine
+              Digital Campux Candidate Engine
             </span>
             <span className="text-xs text-slate-500 font-medium">Digital CV & Resume Builder</span>
           </div>
@@ -1579,7 +1579,7 @@ export default function TalentResumeEditor({
       {/* Bottom Save Action Bar */}
       <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="text-xs text-slate-500 font-medium">
-          All changes are synchronized directly to your live GrowthPaddy candidate dossier.
+          All changes are synchronized directly to your live Digital Campux candidate dossier.
         </div>
 
         <div className="flex items-center gap-2.5 w-full sm:w-auto">

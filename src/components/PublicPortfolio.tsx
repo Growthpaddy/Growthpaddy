@@ -212,7 +212,7 @@ export default function PublicPortfolio({
   const portfolioUrl = talent?.portfolio_url || talent?.portfolioUrl;
 
   const rawPhone = talent?.whatsapp_number || talent?.phone || '+234 816 966 4607';
-  const rawEmail = talent?.contact_email || talent?.email || 'contact@growthpaddy.com';
+  const rawEmail = talent?.contact_email || talent?.email || 'contact@digitalcampux.com';
   const cleanPhone = rawPhone.replace(/[^0-9+]/g, '').replace(/^0/, '234');
 
   const defaultAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400';
@@ -307,7 +307,7 @@ export default function PublicPortfolio({
 
       // Perform direct action
       if (actionType === 'whatsapp') {
-        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hi ${candidateName}, I reviewed your GrowthPaddy verified portfolio and would like to schedule an introductory interview with ${recruiterData.company_name}.`)}`, '_blank');
+        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hi ${candidateName}, I reviewed your Digital Campux verified portfolio and would like to schedule an introductory interview with ${recruiterData.company_name}.`)}`, '_blank');
       } else if (actionType === 'email') {
         window.location.href = `mailto:${rawEmail}?subject=${encodeURIComponent(`Interview Invitation from ${recruiterData.company_name}`)}`;
       } else {
@@ -386,7 +386,7 @@ export default function PublicPortfolio({
             )}
             <div className="flex items-center gap-2">
               <span className="font-display font-black text-sm tracking-tight text-slate-900">
-                GrowthPaddy
+                Digital Campux
               </span>
               <span className="text-[10px] font-mono font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full">
                 Candidate Dossier
@@ -487,11 +487,11 @@ export default function PublicPortfolio({
                     </span>
                   )}
 
-                  {/* GrowthPaddy Verified Gold Badge */}
+                  {/* Digital Campux Verified Gold Badge */}
                   {isApproved ? (
                     <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-900 border border-amber-300 px-3 py-0.5 rounded-full font-mono text-[11px] font-bold uppercase shadow-2xs">
                       <Award className="w-3.5 h-3.5 text-amber-600" />
-                      <span>🏆 GrowthPaddy Verified</span>
+                      <span>🏆 Digital Campux Verified</span>
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 border border-slate-200 px-2.5 py-0.5 rounded-full font-mono text-[11px] font-bold uppercase">
@@ -598,7 +598,7 @@ export default function PublicPortfolio({
 
                   <div className="grid grid-cols-2 gap-2">
                     <a
-                      href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hi ${candidateName}, I reviewed your GrowthPaddy verified portfolio and want to discuss a role.`)}`}
+                      href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hi ${candidateName}, I reviewed your Digital Campux verified portfolio and want to discuss a role.`)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 shadow-xs"
@@ -608,7 +608,7 @@ export default function PublicPortfolio({
                     </a>
 
                     <a
-                      href={`mailto:${rawEmail}?subject=${encodeURIComponent(`Interview Invitation via GrowthPaddy: ${candidateName}`)}`}
+                      href={`mailto:${rawEmail}?subject=${encodeURIComponent(`Interview Invitation via Digital Campux: ${candidateName}`)}`}
                       className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 shadow-xs"
                     >
                       <Mail className="w-3.5 h-3.5" />
@@ -654,7 +654,7 @@ export default function PublicPortfolio({
               )}
 
               <p className="text-[10px] text-slate-500 text-center leading-tight pt-1 font-sans">
-                Direct introductions facilitated by GrowthPaddy. Zero ongoing recruitment commission.
+                Direct introductions facilitated by Digital Campux. Zero ongoing recruitment commission.
               </p>
             </div>
 
@@ -897,7 +897,7 @@ export default function PublicPortfolio({
           {/* RIGHT SIDEBAR (4 cols): Vetting Notice, Core Skills, AI Stack, Certs */}
           <div className="lg:col-span-4 space-y-6">
             
-            {/* 1. GrowthPaddy Vetting Audit Notice */}
+            {/* 1. Digital Campux Vetting Audit Notice */}
             <div className={`p-5 rounded-2xl border ${
               isApproved
                 ? 'bg-amber-50/70 border-amber-200 text-amber-950'
@@ -910,14 +910,14 @@ export default function PublicPortfolio({
                   <AlertTriangle className="w-5 h-5 text-slate-500" />
                 )}
                 <h3 className="font-display font-bold text-sm uppercase tracking-wide text-slate-900">
-                  {isApproved ? 'GrowthPaddy Verified File' : 'Verification Status'}
+                  {isApproved ? 'Digital Campux Verified File' : 'Verification Status'}
                 </h3>
               </div>
 
               <p className="text-xs leading-relaxed text-slate-600">
                 {isApproved
-                  ? 'Identity, problem-solving speed, and automation architecture verified by GrowthPaddy technical evaluators.'
-                  : 'Candidate profile registered on GrowthPaddy talent network. Phase 3 verification in progress.'}
+                  ? 'Identity, problem-solving speed, and automation architecture verified by Digital Campux technical evaluators.'
+                  : 'Candidate profile registered on Digital Campux talent network. Phase 3 verification in progress.'}
               </p>
 
               <div className="pt-2 border-t border-slate-200/80 space-y-1.5 text-[11px] font-mono text-slate-600">
@@ -1186,7 +1186,7 @@ export default function PublicPortfolio({
                 <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
                 <h4 className="font-bold text-slate-900 text-base">Inquiry Dispatched!</h4>
                 <p className="text-xs text-slate-600">
-                  {candidateName} and GrowthPaddy talent coordinators have been notified.
+                  {candidateName} and Digital Campux talent coordinators have been notified.
                 </p>
               </div>
             ) : (

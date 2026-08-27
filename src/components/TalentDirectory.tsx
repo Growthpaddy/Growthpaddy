@@ -241,8 +241,8 @@ export default function TalentDirectory({
       primary_specialization: 'Paid Media & PPC',
       specialty: 'Paid Media & PPC',
       profile_picture_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-      contact_email: 'sarah.chen@growthpaddy.talent',
-      email: 'sarah.chen@growthpaddy.talent',
+      contact_email: 'sarah.chen@digitalcampux.talent',
+      email: 'sarah.chen@digitalcampux.talent',
       phone_number: '+44 7911 123456',
       whatsapp_number: '+44 7911 123456',
       cv_url: 'https://storage.googleapis.com/demo-cvs/sarah-chen-resume.pdf',
@@ -310,8 +310,8 @@ export default function TalentDirectory({
       primary_specialization: 'Email & Lifecycle Automation',
       specialty: 'Email & Lifecycle Automation',
       profile_picture_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
-      contact_email: 'marcus.v@growthpaddy.talent',
-      email: 'marcus.v@growthpaddy.talent',
+      contact_email: 'marcus.v@digitalcampux.talent',
+      email: 'marcus.v@digitalcampux.talent',
       phone_number: '+1 (512) 843-9201',
       whatsapp_number: '+1 (512) 843-9201',
       cv_url: 'https://storage.googleapis.com/demo-cvs/marcus-vance-cv.pdf',
@@ -372,8 +372,8 @@ export default function TalentDirectory({
       primary_specialization: 'SEO & Organic Growth',
       specialty: 'SEO & Organic Growth',
       profile_picture_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
-      contact_email: 'elena.rostova@growthpaddy.talent',
-      email: 'elena.rostova@growthpaddy.talent',
+      contact_email: 'elena.rostova@digitalcampux.talent',
+      email: 'elena.rostova@digitalcampux.talent',
       phone_number: '+49 30 901820',
       whatsapp_number: '+49 30 901820',
       cv_url: 'https://storage.googleapis.com/demo-cvs/elena-rostova-cv.pdf',
@@ -435,8 +435,8 @@ export default function TalentDirectory({
       primary_specialization: 'CRO & Conversion Optimization',
       specialty: 'CRO & Conversion Optimization',
       profile_picture_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
-      contact_email: 'david.okafor@growthpaddy.talent',
-      email: 'david.okafor@growthpaddy.talent',
+      contact_email: 'david.okafor@digitalcampux.talent',
+      email: 'david.okafor@digitalcampux.talent',
       phone_number: '+1 (416) 555-0199',
       whatsapp_number: '+1 (416) 555-0199',
       cv_url: 'https://storage.googleapis.com/demo-cvs/david-okafor-cv.pdf',
@@ -956,7 +956,7 @@ export default function TalentDirectory({
                               {displayName}
                             </h3>
                             {isVerified && (
-                              <span title="GrowthPaddy Verified Badge (Phase 1-3 Accredited)" className="shrink-0 text-emerald-600">
+                              <span title="Digital Campux Verified Badge (Phase 1-3 Accredited)" className="shrink-0 text-emerald-600">
                                 <ShieldCheck className="w-4 h-4 fill-emerald-100" />
                               </span>
                             )}
@@ -1086,7 +1086,7 @@ export default function TalentDirectory({
               <div className="flex items-center gap-2">
                 <span className="font-mono text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  GrowthPaddy Candidate Dossier
+                  Digital Campux Candidate Dossier
                 </span>
                 {activePortfolioCandidate.is_verified_badge && (
                   <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md hidden sm:inline">
@@ -1307,7 +1307,7 @@ export default function TalentDirectory({
                       >
                         <div className="space-y-0.5">
                           <p className="text-xs font-bold text-slate-900">{diag.category}</p>
-                          <p className="text-[10px] text-slate-500">Verified by GrowthPaddy Algorithm Engine</p>
+                          <p className="text-[10px] text-slate-500">Verified by Digital Campux Algorithm Engine</p>
                         </div>
                         <div className="text-right">
                           <span className="font-mono text-sm font-extrabold text-emerald-700">
