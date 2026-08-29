@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { supabase, addSkillToTalent } from '../lib/supabaseClient';
 import { useSupabase } from '../context/SupabaseContext';
 import {
   ShieldCheck,
@@ -52,8 +52,10 @@ import {
   Sliders,
   ToggleLeft,
   ToggleRight,
-  CheckSquare
+  CheckSquare,
+  Trophy
 } from 'lucide-react';
+import ConfettiSuccess from './ConfettiSuccess';
 import { SKILL_QUIZ_DEFINITIONS, SkillCategoryDefinition, QuizQuestion } from '../data/quizQuestions';
 
 // ==============================================================================
@@ -197,6 +199,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
   const [activeQuizQuestions, setActiveQuizQuestions] = useState<QuizQuestion[]>([]);
   const [loadingQuestions, setLoadingQuestions] = useState<boolean>(false);
   const [categoryQuestionCounts, setCategoryQuestionCounts] = useState<Record<string, number>>({});
+  const [showPhase1Congratulations, setShowPhase1Congratulations] = useState<boolean>(false);
   const initialLoadedRef = useRef<boolean>(false);
   const isFetchingRef = useRef<boolean>(false);
   const [quizScoreResult, setQuizScoreResult] = useState<{
@@ -365,21 +368,23 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
   // ----------------------------------------------------------------------------
   // Helper: Aggregate Skill Matrix from Quiz Attempts
   // ----------------------------------------------------------------------------
-  const buildSkillMatrix = useCallback((attempts: any[], customCounts?: Record<string, number>) => {
+  const buildSkillMatrix = useCallback((attempts: any[], customCounts?: Record<string, number>, currentSkills?: string[]) => {
     const now = Date.now();
     return DEFAULT_SKILL_CATEGORIES.map((catName) => {
       const catAttempts = (attempts || [])
-        .filter((a: any) => (a.skill_category || a.category) === catName)
+        .filter((a: any) => (a.skill_category || a.category || a.specialty) === catName)
         .sort((a, b) => {
           const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
           const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
           return timeB - timeA;
         });
 
-      const hasPassed = catAttempts.some((a: any) => a.passed === true || Number(a.score_percentage ?? a.score ?? 0) >= 80);
+      const hasPassed = catAttempts.some((a: any) => a.passed === true || Number(a.score_percentage ?? a.score ?? 0) >= 80) ||
+        (Array.isArray(currentSkills) && currentSkills.includes(catName));
+
       const bestScore = catAttempts.length > 0 
         ? Math.max(...catAttempts.map((a: any) => Number(a.score_percentage ?? a.score ?? 0))) 
-        : undefined;
+        : hasPassed ? 100 : undefined;
 
       const failAttempts = catAttempts.filter((a: any) => !a.passed && Number(a.score_percentage ?? a.score ?? 0) < 80);
       const failCount = failAttempts.length;
@@ -388,7 +393,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
       let isLocked = false;
       let cooldownDaysRemaining = 0;
 
-      // Lock category for 90 days after 2+ failed attempts
+      // Lock category for 90 days after 2+ failed attempts ONLY if not passed
       if (!hasPassed && failCount >= 2 && failAttempts[0]) {
         const latestFailTime = failAttempts[0].created_at ? new Date(failAttempts[0].created_at).getTime() : now;
         const cooldownEnd = latestFailTime + 90 * 24 * 60 * 60 * 1000;
@@ -420,8 +425,8 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
   // ----------------------------------------------------------------------------
   // Fetch Candidate Profile & Verification Pipeline Data
   // ----------------------------------------------------------------------------
-  const fetchTalentProfile = useCallback(async (isSilent = false) => {
-    if (isFetchingRef.current) return;
+  const fetchTalentProfile = useCallback(async (isSilent = false, force = false) => {
+    if (isFetchingRef.current && !force) return;
     isFetchingRef.current = true;
 
     if (!isSilent && !initialLoadedRef.current) {
@@ -517,12 +522,6 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
           .from('quiz_questions')
           .select('skill_category');
 
-        console.log('[TalentProfile useEffect] Fetched quiz_questions data for category counts:', {
-          totalReturned: qCountData?.length || 0,
-          data: qCountData,
-          error: qCountError
-        });
-
         if (!qCountError && qCountData && qCountData.length > 0) {
           qCountData.forEach((q: any) => {
             const cat = q.skill_category;
@@ -534,30 +533,93 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
       } catch (countErr) {
         console.warn('Could not query quiz_questions count:', countErr);
       }
-      console.log('[TalentProfile useEffect] Computed categoryQuestionCounts from DB:', liveQuestionCounts);
       setCategoryQuestionCounts(liveQuestionCounts);
 
-      // Fetch Quiz Attempts for this talent profile ID
+      // Fetch Quiz Attempts from all sources: quiz_attempts, talent_quiz_attempts, localStorage
       const targetTalentId = profileData.id || currentAuthUser.id;
-      const { data: attemptsData } = await supabase
-        .from('quiz_attempts')
-        .select('*')
-        .or(`talent_id.eq.${targetTalentId},talent_id.eq.${currentAuthUser.id}`);
+      let allMergedAttempts: any[] = [];
 
-      const matrix = buildSkillMatrix(attemptsData || [], liveQuestionCounts);
-      setSkillMatrix(matrix);
+      try {
+        const { data: qData } = await supabase
+          .from('quiz_attempts')
+          .select('*')
+          .or(`talent_id.eq.${targetTalentId},talent_id.eq.${currentAuthUser.id}`);
+        if (qData && Array.isArray(qData)) {
+          allMergedAttempts.push(...qData);
+        }
+      } catch (err) {
+        console.warn('quiz_attempts select error:', err);
+      }
 
-      const passedAttempts = (attemptsData || []).filter(
-        (a: any) => a.passed === true || Number(a.score_percentage || 0) >= 80
+      try {
+        const { data: tData } = await supabase
+          .from('talent_quiz_attempts')
+          .select('*')
+          .or(`talent_id.eq.${targetTalentId},talent_id.eq.${currentAuthUser.id}`);
+        if (tData && Array.isArray(tData)) {
+          allMergedAttempts.push(...tData);
+        }
+      } catch (err) {
+        console.warn('talent_quiz_attempts select error:', err);
+      }
+
+      // Read local storage attempts cache
+      try {
+        const localAttempts = JSON.parse(localStorage.getItem('dsp_talent_quiz_attempts') || '[]');
+        if (Array.isArray(localAttempts)) {
+          const userLocal = localAttempts.filter((a: any) => !a.talent_id || a.talent_id === targetTalentId || a.talent_id === currentAuthUser.id);
+          allMergedAttempts.push(...userLocal);
+        }
+      } catch (err) {
+        console.warn('localStorage quiz attempts parse error:', err);
+      }
+
+      // Calculate all passed skill categories from attempts
+      const passedAttempts = allMergedAttempts.filter(
+        (a: any) => a.passed === true || Number(a.score_percentage ?? a.score ?? 0) >= 80
       );
+      const passedFromAttempts = passedAttempts
+        .map((a: any) => a.skill_category || a.category || a.specialty)
+        .filter(Boolean);
+
+      // Merge with any skills already saved on the profile record
+      const existingProfileSkills = Array.isArray(profileData.skills) ? profileData.skills : [];
       const distinctPassedCategories = Array.from(
-        new Set(passedAttempts.map((a: any) => a.skill_category).filter(Boolean))
+        new Set([...passedFromAttempts, ...existingProfileSkills])
       );
-      const passedCount = distinctPassedCategories.length;
-      const isPhase1Passed = passedCount >= 5 || profileData.phase_1_completed || String(profileData.phase_1_status || '').toLowerCase() === 'passed';
 
-      // STRICT RULE: ONLY dynamically accredited skills from passed Phase 1 quizzes (up to max 5)
+      const passedCount = Math.max(
+        distinctPassedCategories.length,
+        Number(profileData.phase_1_quizzes_passed || 0)
+      );
+
+      const isPhase1Passed = passedCount >= 5 || Boolean(profileData.phase_1_completed) || String(profileData.phase_1_status || '').toLowerCase() === 'passed';
+
+      // Accredited skills from passed quizzes (Max 5)
       const dynamicAccreditedSkills = distinctPassedCategories.slice(0, 5);
+
+      // Automatically sync completed flags to Supabase if 5 quizzes passed
+      if (isPhase1Passed && (!profileData.phase_1_completed || !profileData.phase_2_unlocked || profileData.phase_1_status !== 'PASSED' || (profileData.phase_1_quizzes_passed || 0) < passedCount)) {
+        try {
+          await supabase
+            .from('talent_profiles')
+            .update({
+              phase_1_quizzes_passed: passedCount,
+              phase_1_completed: true,
+              phase_2_unlocked: true,
+              phase_1_status: 'PASSED',
+              phase_2_status: profileData.phase_2_status === 'LOCKED' || !profileData.phase_2_status ? 'PENDING_SCHEDULE' : profileData.phase_2_status,
+              skills: dynamicAccreditedSkills,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', targetTalentId);
+        } catch (autoUpdateErr) {
+          console.warn('Auto sync phase 1 complete error:', autoUpdateErr);
+        }
+      }
+
+      const matrix = buildSkillMatrix(allMergedAttempts, liveQuestionCounts, dynamicAccreditedSkills);
+      setSkillMatrix(matrix);
 
       const normalizedProfile: TalentProfile = {
         ...profileData,
@@ -869,99 +931,76 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         talent_id: profile.id,
         skill_category: activeQuizCategory,
         score_percentage: scorePercentage,
-        passed
+        score: scorePercentage,
+        passed,
+        created_at: new Date().toISOString()
       };
 
-      // Primary insertion into quiz_attempts with explicit error handling/logging
-      const { error: insertError } = await supabase
-        .from('quiz_attempts')
-        .insert([attemptPayload]);
-
-      if (insertError) {
-        console.error('Quiz save failed:', insertError);
-      }
-
-      // Query distinct passed quizzes count:
-      // First attempt using RPC `get_distinct_passed_quizzes`
-      let distinctPassedCount = 0;
-      let distinctPassedCategories: string[] = [];
-
+      // 1. Insert into quiz_attempts
       try {
-        const { data: rpcCount, error: rpcError } = await supabase.rpc('get_distinct_passed_quizzes', {
-          target_talent_id: profile.id
-        });
-
-        if (!rpcError && typeof rpcCount === 'number') {
-          distinctPassedCount = rpcCount;
-        } else if (!rpcError && Array.isArray(rpcCount)) {
-          distinctPassedCount = rpcCount.length;
-          distinctPassedCategories = rpcCount.map((r: any) => r.skill_category || String(r));
-        } else {
-          // RPC may not exist or returned error, query attempts directly
-          const { data: allAttempts, error: fetchAllError } = await supabase
-            .from('quiz_attempts')
-            .select('*')
-            .eq('talent_id', profile.id);
-
-          if (fetchAllError) {
-            console.error('Fetch all attempts error:', fetchAllError);
-          }
-
-          const attemptsList = (allAttempts && allAttempts.length > 0)
-            ? allAttempts
-            : [...(existingAttempts || []), attemptPayload];
-
-          const passedAttempts = attemptsList.filter(
-            (a: any) => a.passed === true || Number(a.score_percentage ?? a.score ?? 0) >= 80
-          );
-          distinctPassedCategories = Array.from(
-            new Set(passedAttempts.map((a: any) => a.skill_category).filter(Boolean))
-          );
-          distinctPassedCount = distinctPassedCategories.length;
-        }
-      } catch (rpcErr) {
-        console.warn('RPC get_distinct_passed_quizzes execution error, using local distinct calculation:', rpcErr);
-        const { data: allAttempts } = await supabase
-          .from('quiz_attempts')
-          .select('*')
-          .eq('talent_id', profile.id);
-
-        const attemptsList = (allAttempts && allAttempts.length > 0)
-          ? allAttempts
-          : [...(existingAttempts || []), attemptPayload];
-
-        const passedAttempts = attemptsList.filter(
-          (a: any) => a.passed === true || Number(a.score_percentage ?? a.score ?? 0) >= 80
-        );
-        distinctPassedCategories = Array.from(
-          new Set(passedAttempts.map((a: any) => a.skill_category).filter(Boolean))
-        );
-        distinctPassedCount = distinctPassedCategories.length;
+        await supabase.from('quiz_attempts').insert([attemptPayload]);
+      } catch (insertErr) {
+        console.warn('Quiz save failed in quiz_attempts:', insertErr);
       }
 
-      // Query latest attempts for updating the Skill Matrix UI
-      const { data: refreshAttempts } = await supabase
-        .from('quiz_attempts')
-        .select('*')
-        .eq('talent_id', profile.id);
+      // 2. Insert into talent_quiz_attempts
+      try {
+        await supabase.from('talent_quiz_attempts').insert([{
+          talent_id: profile.id,
+          talent_name: profile.full_name,
+          specialty: activeQuizCategory,
+          score: scorePercentage,
+          passed,
+          created_at: new Date().toISOString()
+        }]);
+      } catch (insertErr2) {
+        console.warn('talent_quiz_attempts insert error:', insertErr2);
+      }
 
-      const mergedAttempts = (refreshAttempts && refreshAttempts.length > 0)
-        ? refreshAttempts
-        : [...(existingAttempts || []), attemptPayload];
+      // 3. Update localStorage cache
+      try {
+        const cached = JSON.parse(localStorage.getItem('dsp_talent_quiz_attempts') || '[]');
+        cached.push({
+          id: 'att-' + Math.random().toString(36).substr(2, 9),
+          ...attemptPayload
+        });
+        localStorage.setItem('dsp_talent_quiz_attempts', JSON.stringify(cached));
+      } catch (e) {
+        console.warn('localStorage cache error:', e);
+      }
 
-      const updatedMatrix = buildSkillMatrix(mergedAttempts);
+      // 4. Trigger addSkillToTalent helper if quiz passed
+      let dynamicUpdatedSkills: string[] = Array.isArray(profile.skills) ? [...profile.skills] : [];
+      if (passed && activeQuizCategory) {
+        try {
+          const updatedTalentRecord = await addSkillToTalent(profile.id, activeQuizCategory);
+          if (updatedTalentRecord && Array.isArray(updatedTalentRecord.skills)) {
+            dynamicUpdatedSkills = updatedTalentRecord.skills;
+          } else if (!dynamicUpdatedSkills.includes(activeQuizCategory)) {
+            dynamicUpdatedSkills.push(activeQuizCategory);
+          }
+        } catch (addSkillErr) {
+          console.warn('Error running addSkillToTalent:', addSkillErr);
+          if (!dynamicUpdatedSkills.includes(activeQuizCategory)) {
+            dynamicUpdatedSkills.push(activeQuizCategory);
+          }
+        }
+      }
+
+      // Calculate distinct passed categories immediately
+      const priorPassedMatrix = skillMatrix.filter((m) => m.isPassed).map((m) => m.category);
+      const allPassedCategories = Array.from(new Set([...dynamicUpdatedSkills, ...priorPassedMatrix]));
+      const distinctPassedCount = allPassedCategories.length;
+      const isPhase1Completed = distinctPassedCount >= 5;
+      const isPhase2Unlocked = isPhase1Completed;
+      const newDynamicSkills = allPassedCategories.slice(0, 5);
+
+      // Update skill matrix so the quiz card immediately turns green and button greys out
+      const mergedAttempts = [...(existingAttempts || []), attemptPayload];
+      const updatedMatrix = buildSkillMatrix(mergedAttempts, categoryQuestionCounts, newDynamicSkills);
       setSkillMatrix(updatedMatrix);
 
-      // If categories list wasn't populated from RPC, get it from updated matrix
-      if (distinctPassedCategories.length === 0) {
-        distinctPassedCategories = updatedMatrix.filter((m) => m.isPassed).map((m) => m.category);
-      }
-
-      const isPhase1Completed = distinctPassedCount >= 5;
-      const newDynamicSkills = distinctPassedCategories.slice(0, 5);
-
       // Update talent_profiles columns: phase_1_quizzes_passed, phase_1_completed, phase_2_unlocked, phase_1_status
-      const isPhase2Unlocked = isPhase1Completed;
       const profileUpdates: Record<string, any> = {
         phase_1_quizzes_passed: distinctPassedCount,
         phase_1_completed: isPhase1Completed,
@@ -975,16 +1014,16 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         profileUpdates.phase_2_status = 'PENDING_SCHEDULE';
       }
 
-      const { error: profileUpdateError } = await supabase
-        .from('talent_profiles')
-        .update(profileUpdates)
-        .eq('id', profile.id);
-
-      if (profileUpdateError) {
+      try {
+        await supabase
+          .from('talent_profiles')
+          .update(profileUpdates)
+          .eq('id', profile.id);
+      } catch (profileUpdateError) {
         console.error('Error updating talent_profiles after quiz pass:', profileUpdateError);
       }
 
-      // Update local profile state immediately for instantaneous header and pipeline sync
+      // Update local profile state immediately for instantaneous UI sync
       setProfile((prev) => {
         if (!prev) return null;
         return {
@@ -1000,8 +1039,10 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         };
       });
 
-      // Immediate re-fetch of the user's talent_profiles record from Supabase so all sub-components update
-      await fetchTalentProfile(true);
+      // Show immediate congratulatory modal if talent reached 5 passed quizzes
+      if (passed && isPhase1Completed) {
+        setShowPhase1Congratulations(true);
+      }
 
       setQuizScoreResult({
         scorePercentage,
@@ -1015,6 +1056,9 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
 
       // Transition modal to Results View (do NOT close modal immediately)
       setQuizModalStep('RESULTS');
+
+      // Trigger immediate background state re-fetch from database to guarantee synchronization
+      fetchTalentProfile(true, true);
     } catch (err: any) {
       console.error('Quiz submission error:', err);
     } finally {
@@ -1204,11 +1248,18 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
     );
   }
 
-  const passedQuizzesCount = typeof profile?.phase_1_quizzes_passed === 'number'
-    ? profile.phase_1_quizzes_passed
-    : skillMatrix.filter((s) => s.isPassed).length;
-  const isPhase1Done = passedQuizzesCount >= 5 || profile?.phase_1_completed;
+  const passedQuizzesCount = Math.max(
+    Number(profile?.phase_1_quizzes_passed || 0),
+    skillMatrix.filter((s) => s.isPassed).length,
+    Array.isArray(profile?.skills) ? profile.skills.length : 0
+  );
+  const isPhase1Done = passedQuizzesCount >= 5 || Boolean(profile?.phase_1_completed);
   const initials = getInitials(profile?.full_name);
+
+  // Dynamically derived accredited skills list (always in sync with passed quizzes)
+  const displayAccreditedSkills = Array.from(
+    new Set([...(profile?.skills || []), ...skillMatrix.filter((s) => s.isPassed).map((s) => s.category)])
+  ).slice(0, 5);
 
   const activeDef = activeQuizCategory ? SKILL_QUIZ_DEFINITIONS[activeQuizCategory] : null;
   const activeMatrix = activeQuizCategory ? skillMatrix.find((s) => s.category === activeQuizCategory) : null;
@@ -1851,15 +1902,25 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
 
                   <div className="pt-4 mt-2">
                     {item.isPassed ? (
-                      <div className="w-full py-2 px-3 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold flex items-center justify-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled
+                        className="w-full py-2.5 px-4 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 font-semibold text-xs flex items-center justify-center gap-1.5 cursor-not-allowed select-none opacity-80"
+                        title="You have passed this skill check"
+                      >
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Verified Skill & Accredited</span>
-                      </div>
+                        <span>Take Skill Check (Passed)</span>
+                      </button>
                     ) : item.isLocked ? (
-                      <div className="w-full py-2 px-3 rounded-xl bg-slate-100 text-slate-400 text-xs font-medium flex items-center justify-center gap-1.5 cursor-not-allowed">
-                        <Lock className="w-3.5 h-3.5" />
+                      <button
+                        type="button"
+                        disabled
+                        className="w-full py-2.5 px-4 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 text-xs font-medium flex items-center justify-center gap-1.5 cursor-not-allowed select-none"
+                        title={`Locked. Cooldown active for ${item.cooldownDaysRemaining} days.`}
+                      >
+                        <Lock className="w-3.5 h-3.5 text-rose-500" />
                         <span>Locked ({item.cooldownDaysRemaining}d remaining)</span>
-                      </div>
+                      </button>
                     ) : (
                       <button
                         type="button"
@@ -2522,7 +2583,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                 </p>
 
                 <div className="flex flex-wrap gap-1.5">
-                  {(profile?.skills || []).length === 0 ? (
+                  {displayAccreditedSkills.length === 0 ? (
                     <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center w-full space-y-1">
                       <p className="text-xs text-slate-500 font-medium">No accredited skills unlocked yet.</p>
                       <button
@@ -2535,10 +2596,10 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                       </button>
                     </div>
                   ) : (
-                    (profile?.skills || []).map((skill, idx) => (
+                    displayAccreditedSkills.map((skill, idx) => (
                       <span
                         key={idx}
-                        className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 font-semibold text-[11px] flex items-center gap-1"
+                        className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 font-semibold text-[11px] flex items-center gap-1 shadow-2xs"
                       >
                         <Check className="w-3 h-3 text-emerald-600" />
                         <span>{skill}</span>
@@ -2960,6 +3021,20 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     </button>
                   )}
 
+                  {quizScoreResult.passed && (passedQuizzesCount >= 5 || isPhase1Done) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleCloseQuizModal();
+                        setShowPhase1Congratulations(true);
+                      }}
+                      className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs transition"
+                    >
+                      <Trophy className="w-4 h-4" />
+                      <span>View Phase 1 Accreditation & Next Steps</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={handleCloseQuizModal}
@@ -2972,6 +3047,129 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
               </div>
             )}
 
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* PHASE 1 CONGRATULATORY ACCREDITATION MODAL (TRIGGERS ON 5/5 PASSED) */}
+      {/* ========================================================================= */}
+      <ConfettiSuccess
+        isActive={showPhase1Congratulations}
+        onComplete={() => {}}
+        message="Phase 1 Accreditation Complete! (5/5 Skill Checks Passed)"
+      />
+
+      {showPhase1Congratulations && (
+        <div
+          id="phase-1-congratulations-modal"
+          className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn"
+        >
+          <div className="bg-white rounded-3xl border-2 border-emerald-500 max-w-xl w-full p-6 sm:p-8 shadow-2xl space-y-6 relative overflow-hidden text-center my-8">
+            {/* Decorative Ambient Accents */}
+            <div className="absolute -top-24 -left-24 w-48 h-48 bg-emerald-100 rounded-full blur-2xl pointer-events-none opacity-60" />
+            <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-teal-100 rounded-full blur-2xl pointer-events-none opacity-60" />
+
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setShowPhase1Congratulations(false)}
+              className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Trophy Icon with celebratory ring */}
+            <div className="relative inline-flex items-center justify-center">
+              <div className="w-20 h-20 rounded-3xl bg-linear-to-tr from-emerald-500 via-teal-500 to-emerald-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/30 ring-8 ring-emerald-50">
+                <Trophy className="w-10 h-10 text-white animate-bounce" />
+              </div>
+              <div className="absolute -bottom-1 -right-1 bg-amber-400 border-2 border-white rounded-full p-1 shadow-xs">
+                <Sparkles className="w-4 h-4 text-amber-900" />
+              </div>
+            </div>
+
+            {/* Header Text */}
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold font-mono uppercase tracking-wider">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Accreditation Milestone Achieved</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                🎉 Congratulations! Phase 1 Complete
+              </h2>
+              <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+                You have successfully passed <strong>5 of 5 Core Marketing Diagnostic Skill Checks</strong> with an 80%+ benchmark. Your accredited skills are now verified and active on your talent profile!
+              </p>
+            </div>
+
+            {/* Accredited Skills Showcase */}
+            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-left space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700 uppercase font-mono tracking-wider">
+                  5 Accredited Core Skills Verified
+                </span>
+                <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> 5/5 Completed
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {displayAccreditedSkills.map((skill, idx) => (
+                  <div
+                    key={idx}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-emerald-200 text-slate-800 text-xs font-bold shadow-2xs"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>{skill}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Phase 2 Unlocked Card */}
+            <div className="bg-linear-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-4 text-left flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Calendar className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-wide">
+                    Phase 2 Unlocked: Specialist Review
+                  </h4>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-200 text-emerald-900">
+                    Ready to Schedule
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  You are now eligible to book your 30-minute technical evaluation with our specialist vetting panel.
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPhase1Congratulations(false);
+                  const step2El = document.getElementById('step-2-verification-card');
+                  if (step2El) {
+                    step2El.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }
+                }}
+                className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition cursor-pointer"
+              >
+                <span>Proceed to Step 2: Schedule Review</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPhase1Congratulations(false)}
+                className="w-full sm:w-auto py-3 px-5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition cursor-pointer"
+              >
+                View Updated Dossier
+              </button>
+            </div>
           </div>
         </div>
       )}

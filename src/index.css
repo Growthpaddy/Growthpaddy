@@ -64,4 +64,52 @@
   animation: pulseSlow 6s ease-in-out infinite;
 }
 
+/* ========================================================================== */
+/* Print to PDF Styling (Resume / CV Export) */
+/* ========================================================================== */
+@media print {
+  @page {
+    margin: 12mm 15mm;
+    size: letter portrait;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide UI elements during print-to-PDF */
+  .no-print,
+  #header-nav,
+  header.sticky,
+  .print\:hidden,
+  button:not(.print-include),
+  input,
+  textarea,
+  select,
+  .fixed,
+  .backdrop-blur-md,
+  .backdrop-blur-xs {
+    display: none !important;
+  }
+
+  /* Ensure resume container takes full printable page width */
+  .print-resume-container {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .print-page-break-inside-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}
+
 

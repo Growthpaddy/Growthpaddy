@@ -315,14 +315,37 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
 
   const handleCopyProfileLink = () => {
     const fullUrl = `${window.location.origin}/p/${slug}`;
-    navigator.clipboard.writeText(fullUrl);
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(fullUrl);
+    }
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 3000);
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 py-8 px-4 sm:px-6 lg:px-8 space-y-8 max-w-6xl mx-auto font-sans antialiased text-slate-900">
+    <div className="min-h-screen bg-slate-50/50 py-8 px-4 sm:px-6 lg:px-8 space-y-8 max-w-6xl mx-auto font-sans antialiased text-slate-900 relative">
       
+      {/* Toast Notification: Link Copied */}
+      <AnimatePresence>
+        {copiedLink && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+            className="fixed top-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl border border-slate-700 flex items-center gap-3 font-medium text-xs pointer-events-none"
+          >
+            <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <Check className="w-3.5 h-3.5 text-white stroke-[3]" />
+            </div>
+            <div>
+              <p className="font-bold text-white text-xs">Link Copied!</p>
+              <p className="text-[11px] text-slate-300">Public profile URL copied to your clipboard.</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ========================================================================= */}
       {/* 1. ONBOARDING STEPPER HEADER (3-Step Accreditation Progress Bar) */}
       {/* ========================================================================= */}
@@ -342,11 +365,14 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
 
           <div className="flex items-center gap-3">
             <button
+              id="talent-dashboard-share-profile-btn"
+              type="button"
               onClick={handleCopyProfileLink}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200/70 text-slate-700 transition cursor-pointer border border-slate-200 shadow-2xs"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white hover:bg-slate-100 text-slate-700 transition cursor-pointer border border-slate-200 shadow-2xs hover:border-slate-300"
+              title="Copy public profile link to clipboard"
             >
-              {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5" />}
-              <span>{copiedLink ? 'Link Copied' : 'Share Public CV'}</span>
+              {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5 text-emerald-600" />}
+              <span>{copiedLink ? 'Link Copied!' : 'Share Profile'}</span>
             </button>
             <a
               href={`/p/${slug}`}
@@ -637,10 +663,14 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
                   </div>
 
                   {skill.isVerified ? (
-                    <span className="flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-semibold px-2.5 py-1 rounded-lg shrink-0 shadow-2xs">
+                    <button
+                      type="button"
+                      disabled
+                      className="flex items-center gap-1 bg-slate-100 text-slate-400 border border-slate-200 text-[11px] font-semibold px-2.5 py-1 rounded-lg shrink-0 cursor-not-allowed opacity-80 select-none"
+                    >
                       <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Verified</span>
-                    </span>
+                      <span>Passed (Verified)</span>
+                    </button>
                   ) : (
                     <button
                       type="button"
