@@ -549,24 +549,7 @@ export default function App() {
 
             {/* View 2: Find Talent (Directory Page) */}
             {currentPage === 'directory' && (
-              <section className="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-10">
-                <div className="text-left border-b border-slate-200/80 pb-6 space-y-2.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[11px] font-mono font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                      VERIFIED DIRECTORY
-                    </span>
-                    <span className="text-[11px] font-mono font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
-                      1,400+ CANDIDATES
-                    </span>
-                  </div>
-                  <h2 className="font-display font-bold text-3xl sm:text-4xl text-slate-900 tracking-tight">
-                    Browse Digital Talent & Growth Specialists
-                  </h2>
-                  <p className="text-sm text-slate-600 max-w-2xl leading-relaxed">
-                    Every candidate has passed diagnostic testing, practical scenario evaluations, and verified work portfolio reviews. Unlock full candidate files below.
-                  </p>
-                </div>
-                
+              <div className="w-full">
                 <TalentDirectory 
                   employerSlots={employerSlots} 
                   setEmployerSlots={setEmployerSlots}
@@ -576,7 +559,7 @@ export default function App() {
                   onCloseProfileModal={() => setSelectedPublicSlug(undefined)}
                   onboardingData={onboardingData as any}
                 />
-              </section>
+              </div>
             )}
 
             {/* View 3: Recruiter Workspace Dashboard */}

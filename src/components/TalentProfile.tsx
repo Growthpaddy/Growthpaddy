@@ -218,6 +218,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
     location: string;
     remote_preference: string;
     availability_status: string;
+    work_availability_type: string[];
     contact_email: string;
     phone_number: string;
     whatsapp_number: string;
@@ -239,6 +240,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
     location: '',
     remote_preference: 'Remote',
     availability_status: 'available',
+    work_availability_type: ['Full-Time', 'Freelance'],
     contact_email: '',
     phone_number: '',
     whatsapp_number: '',
@@ -252,6 +254,44 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
     ai_tools_input: '',
     certifications_input: ''
   });
+
+  // ----------------------------------------------------------------------------
+  // Toggle Work Availability Type ('Full-Time' | 'Freelance' | 'Internship' | 'Volunteer')
+  // ----------------------------------------------------------------------------
+  const handleToggleWorkType = async (type: string) => {
+    if (!profile) return;
+    const currentList = Array.isArray(profile.work_availability_type)
+      ? [...profile.work_availability_type]
+      : ['Full-Time', 'Freelance'];
+
+    const exists = currentList.includes(type);
+    const updatedList = exists
+      ? currentList.filter((item) => item !== type)
+      : [...currentList, type];
+
+    // Immediate optimistic local update
+    setProfile((prev) => (prev ? { ...prev, work_availability_type: updatedList } : null));
+    setFormData((prev) => ({ ...prev, work_availability_type: updatedList }));
+
+    setToastMessage(`Work Preference updated: ${updatedList.length > 0 ? updatedList.join(', ') : 'None selected'}`);
+    setTimeout(() => setToastMessage(null), 3000);
+
+    try {
+      const { error } = await supabase
+        .from('talent_profiles')
+        .update({
+          work_availability_type: updatedList,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', profile.id);
+
+      if (error) {
+        console.error('Error updating work_availability_type:', error);
+      }
+    } catch (err: any) {
+      console.error('Error in handleToggleWorkType:', err);
+    }
+  };
 
   // ----------------------------------------------------------------------------
   // Toggle Availability Status ('available' vs 'hired')
@@ -294,6 +334,31 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
     } catch (err: any) {
       console.error('Error in handleToggleAvailability:', err);
     }
+  };
+
+  // ----------------------------------------------------------------------------
+  // Question Options Shuffler (Scatters answers across A, B, C, D)
+  // ----------------------------------------------------------------------------
+  const shuffleQuestionOptions = (q: QuizQuestion): QuizQuestion & { correct_answer_text?: string } => {
+    const rawOptions = Array.isArray(q.options) && q.options.length > 0 ? [...q.options] : ['Option A', 'Option B', 'Option C', 'Option D'];
+    const validIdx = typeof q.correctIdx === 'number' && q.correctIdx >= 0 && q.correctIdx < rawOptions.length ? q.correctIdx : 0;
+    const correctText = rawOptions[validIdx] || rawOptions[0];
+
+    // Fisher-Yates shuffle algorithm
+    const shuffled = [...rawOptions];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    const newCorrectIdx = shuffled.indexOf(correctText);
+
+    return {
+      ...q,
+      options: shuffled,
+      correctIdx: newCorrectIdx >= 0 ? newCorrectIdx : 0,
+      correct_answer_text: correctText
+    };
   };
 
   // ----------------------------------------------------------------------------
@@ -470,11 +535,12 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
       console.log('[TalentProfile useEffect] Computed categoryQuestionCounts from DB:', liveQuestionCounts);
       setCategoryQuestionCounts(liveQuestionCounts);
 
-      // Fetch Quiz Attempts
+      // Fetch Quiz Attempts for this talent profile ID
+      const targetTalentId = profileData.id || currentAuthUser.id;
       const { data: attemptsData } = await supabase
         .from('quiz_attempts')
         .select('*')
-        .eq('talent_id', currentAuthUser.id);
+        .or(`talent_id.eq.${targetTalentId},talent_id.eq.${currentAuthUser.id}`);
 
       const matrix = buildSkillMatrix(attemptsData || [], liveQuestionCounts);
       setSkillMatrix(matrix);
@@ -506,6 +572,9 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         remote_preference: profileData.remote_preference || 'Remote',
         placement_status: profileData.placement_status || 'AVAILABLE',
         availability_status: profileData.availability_status === 'hired' || profileData.placement_status === 'HIRED' ? 'hired' : 'available',
+        work_availability_type: Array.isArray(profileData.work_availability_type) && profileData.work_availability_type.length > 0
+          ? profileData.work_availability_type
+          : ['Full-Time', 'Freelance'],
         work_history: Array.isArray(profileData.work_history) ? profileData.work_history : [],
         education: Array.isArray(profileData.education) ? profileData.education : [],
         case_studies: Array.isArray(profileData.case_studies) ? profileData.case_studies : [],
@@ -535,6 +604,9 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
           location: normalizedProfile.location || '',
           remote_preference: normalizedProfile.remote_preference || 'Remote',
           availability_status: normalizedProfile.availability_status || 'available',
+          work_availability_type: Array.isArray(normalizedProfile.work_availability_type) && normalizedProfile.work_availability_type.length > 0
+            ? normalizedProfile.work_availability_type
+            : ['Full-Time', 'Freelance'],
           contact_email: normalizedProfile.contact_email || '',
           phone_number: normalizedProfile.phone_number || '',
           whatsapp_number: normalizedProfile.whatsapp_number || '',
@@ -677,19 +749,22 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
           };
         });
 
+        // Shuffle question options so correct answers are randomly scattered across A, B, C, D
+        const shuffledQuestions = loadedQuestions.map(shuffleQuestionOptions);
+
         // Ensure ALL questions are loaded into state without truncation
-        setActiveQuizQuestions(loadedQuestions);
-        setCategoryQuestionCounts((prev) => ({ ...prev, [categoryName]: loadedQuestions.length }));
+        setActiveQuizQuestions(shuffledQuestions);
+        setCategoryQuestionCounts((prev) => ({ ...prev, [categoryName]: shuffledQuestions.length }));
         setSkillMatrix((prev) =>
           prev.map((item) =>
             item.category === categoryName
-              ? { ...item, totalQuestions: loadedQuestions.length }
+              ? { ...item, totalQuestions: shuffledQuestions.length }
               : item
           )
         );
       } else {
-        // Fallback to static quiz questions definition (all questions, no slicing)
-        const fallback = SKILL_QUIZ_DEFINITIONS[categoryName]?.questions || [];
+        // Fallback to static quiz questions definition with randomized option shuffling
+        const fallback = (SKILL_QUIZ_DEFINITIONS[categoryName]?.questions || []).map(shuffleQuestionOptions);
         setActiveQuizQuestions(fallback);
         setCategoryQuestionCounts((prev) => ({ ...prev, [categoryName]: fallback.length }));
         setSkillMatrix((prev) =>
@@ -702,7 +777,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
       }
     } catch (err) {
       console.warn('Error fetching questions from Supabase, falling back to static questions:', err);
-      const fallback = SKILL_QUIZ_DEFINITIONS[categoryName]?.questions || [];
+      const fallback = (SKILL_QUIZ_DEFINITIONS[categoryName]?.questions || []).map(shuffleQuestionOptions);
       setActiveQuizQuestions(fallback);
       setCategoryQuestionCounts((prev) => ({ ...prev, [categoryName]: fallback.length }));
       setSkillMatrix((prev) =>
@@ -747,9 +822,18 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
     try {
       let correctCount = 0;
 
-      questions.forEach((q, idx) => {
-        if (userAnswers[idx] === q.correctIdx) {
-          correctCount += 1;
+      // Resilient answer validation comparing option index and exact answer text
+      questions.forEach((q: any, idx) => {
+        const userChoice = userAnswers[idx];
+        if (userChoice !== undefined && userChoice !== null) {
+          const chosenText = q.options?.[userChoice];
+          const expectedText = q.correct_answer_text || q.options?.[q.correctIdx];
+          if (
+            userChoice === q.correctIdx ||
+            (chosenText && expectedText && chosenText.trim().toLowerCase() === expectedText.trim().toLowerCase())
+          ) {
+            correctCount += 1;
+          }
         }
       });
 
@@ -777,7 +861,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
       const cooldownDays = isNowLocked ? 90 : 0;
 
       // Save to Supabase `quiz_attempts` with exact column names:
-      // talent_id, skill_category, score_percentage, passed
+      // talent_id: profile.id, skill_category, score_percentage, passed
       const attemptPayload = {
         talent_id: profile.id,
         skill_category: activeQuizCategory,
@@ -791,7 +875,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         .insert([attemptPayload]);
 
       if (insertError) {
-        console.error('Quiz save error:', insertError);
+        console.error('Quiz save failed:', insertError);
       }
 
       // Query distinct passed quizzes count:
@@ -895,8 +979,8 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         console.error('Error updating talent_profiles after quiz pass:', profileUpdateError);
       }
 
-      // Update local UI state to unlock Phase 2 immediately without requiring a full page refresh
-      setProfile((prev) => (prev ? { ...prev, ...profileUpdates } : null));
+      // Re-fetch the user's talent_profiles record from Supabase immediately to ensure progress bar updates instantly
+      await fetchTalentProfile();
 
       setQuizScoreResult({
         scorePercentage,
@@ -956,6 +1040,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         location: formData.location,
         remote_preference: formData.remote_preference,
         availability_status: formData.availability_status || 'available',
+        work_availability_type: formData.work_availability_type || ['Full-Time', 'Freelance'],
         placement_status: (formData.availability_status === 'available' ? 'AVAILABLE' : 'HIRED') as PlacementStatus,
         contact_email: formData.contact_email,
         phone_number: formData.phone_number,
@@ -1348,6 +1433,35 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                       WhatsApp: {profile.whatsapp_number}
                     </span>
                   )}
+                </div>
+
+                {/* Work Type Availability Selection (Open To / Work Preference) */}
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+                  <span className="text-xs font-semibold text-slate-700">Open To:</span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {WORK_TYPE_OPTIONS.map((type) => {
+                      const isSelected = Array.isArray(profile?.work_availability_type)
+                        ? profile.work_availability_type.includes(type)
+                        : ['Full-Time', 'Freelance'].includes(type);
+
+                      return (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => handleToggleWorkType(type)}
+                          className={`px-3 py-1 text-xs font-medium rounded-full transition-colors cursor-pointer border flex items-center gap-1.5 ${
+                            isSelected
+                              ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                              : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                          }`}
+                          title={`Toggle ${type} availability`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-emerald-400' : 'bg-slate-400'}`} />
+                          <span>{type}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1849,6 +1963,49 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     />
                   </button>
                 </div>
+              </div>
+            </div>
+
+            {/* Work Type Availability / Open To Multi-Select in Edit Form */}
+            <div className="p-4 bg-slate-50/80 border border-slate-200 rounded-xl space-y-3">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">
+                  <Briefcase className="w-4 h-4 text-emerald-600" />
+                  <span>Work Preference & Engagement Type (Open To)</span>
+                </div>
+                <p className="text-xs font-normal text-slate-500">
+                  Select all employment arrangements you are available and actively looking for.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {WORK_TYPE_OPTIONS.map((type) => {
+                  const currentSelected = Array.isArray(formData.work_availability_type)
+                    ? formData.work_availability_type
+                    : ['Full-Time', 'Freelance'];
+                  const isChecked = currentSelected.includes(type);
+
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => {
+                        const updated = isChecked
+                          ? currentSelected.filter((t) => t !== type)
+                          : [...currentSelected, type];
+                        setFormData((prev) => ({ ...prev, work_availability_type: updated }));
+                      }}
+                      className={`px-3.5 py-1.5 text-xs font-medium rounded-full border transition-all cursor-pointer flex items-center gap-2 ${
+                        isChecked
+                          ? 'bg-slate-900 text-white border-slate-900 shadow-2xs font-semibold'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${isChecked ? 'bg-emerald-400' : 'bg-slate-300'}`} />
+                      <span>{type}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

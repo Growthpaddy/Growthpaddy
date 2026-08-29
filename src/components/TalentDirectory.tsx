@@ -39,7 +39,8 @@ import {
   Layers,
   Star,
   CheckSquare,
-  AlertCircle
+  AlertCircle,
+  Users
 } from 'lucide-react';
 
 // ==============================================================================
@@ -116,6 +117,7 @@ export interface TalentProfile {
   ai_tools?: string[] | null;
   certifications?: string[] | null;
   skills?: string[] | null;
+  work_availability_type?: string[] | null;
   is_verified_badge?: boolean;
   phase_1_quizzes_passed?: number;
   phase_1_status?: Phase1Status;
@@ -203,6 +205,7 @@ export default function TalentDirectory({
   // Directory State
   const [candidates, setCandidates] = useState<TalentProfile[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>(initialSkillFilter || 'ALL');
   const [verifiedOnly, setVerifiedOnly] = useState<boolean>(false);
@@ -223,404 +226,235 @@ export default function TalentDirectory({
   };
 
   // ----------------------------------------------------------------------------
-  // Fallback Candidate Roster (Ensures rich experience even with empty database)
-  // ----------------------------------------------------------------------------
-  const getFallbackCandidates = useCallback((): TalentProfile[] => [
-    {
-      id: 'demo-sarah-chen',
-      full_name: 'Sarah Chen',
-      slug: 'sarah-chen',
-      headline: 'Head of Growth & Performance Acquisition',
-      role_title: 'Senior Growth & Performance Acquisition Lead',
-      bio: 'Scaled 3 B2B SaaS and high-volume DTC brands from $1M to $18M ARR. Deep expertise in high-budget Meta Advantage+, Google PMax, server-side attribution, and algorithmic creative testing.',
-      location: 'London, UK',
-      remote_preference: 'Remote',
-      is_remote: true,
-      years_experience: 7,
-      years_of_experience: 7,
-      primary_specialization: 'Paid Media & PPC',
-      specialty: 'Paid Media & PPC',
-      profile_picture_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-      contact_email: 'sarah.chen@digitalcampux.talent',
-      email: 'sarah.chen@digitalcampux.talent',
-      phone_number: '+44 7911 123456',
-      whatsapp_number: '+44 7911 123456',
-      cv_url: 'https://storage.googleapis.com/demo-cvs/sarah-chen-resume.pdf',
-      portfolio_url: 'https://sarahchen.growth',
-      linkedin_url: 'https://linkedin.com/in/sarah-chen-growth',
-      github_url: 'https://github.com/sarahchen-ads',
-      placement_status: 'AVAILABLE',
-      availability_status: 'available',
-      is_verified_badge: true,
-      phase_1_status: 'PASSED',
-      phase_2_status: 'COMPLETED',
-      phase_3_status: 'VERIFIED',
-      skills: ['Meta Advantage+', 'Google PMax', 'Attribution', 'Creative Testing', 'LTV:CAC Modeling', 'GA4 Server GTM'],
-      verified_skills: [
-        { category: 'Paid Media & PPC', score: 96, passed: true },
-        { category: 'Growth Marketing Strategy', score: 92, passed: true },
-        { category: 'Analytics & Attribution', score: 88, passed: true },
-        { category: 'CRO & Conversion Optimization', score: 90, passed: true },
-        { category: 'Email & Lifecycle Automation', score: 85, passed: true }
-      ],
-      work_history: [
-        {
-          company: 'AcquireFlow Global',
-          role: 'Director of Growth Marketing',
-          duration: '2023 - Present',
-          description: 'Managed $1.2M/mo cross-network budget across Meta, TikTok, and Google PMax with an average blended MER of 4.2x.'
-        },
-        {
-          company: 'HyperScale DTC',
-          role: 'Senior Performance Marketer',
-          duration: '2021 - 2023',
-          description: 'Pioneered dynamic creative iteration sprints resulting in a 38% reduction in CPA across international markets.'
-        }
-      ],
-      education: [
-        {
-          school: 'Imperial College London',
-          degree: 'B.Sc. in Data Science & Marketing Economics',
-          year: '2018'
-        }
-      ],
-      case_studies: [
-        {
-          title: '0 to $10M ARR Scale for FinTech Challenger',
-          client_or_brand: 'VaultPay',
-          metrics_achieved: '420% YoY Growth, CAC decreased from $185 to $64',
-          description: 'Re-architected the full paid acquisition stack, moving from fragmented single-interest ad sets into consolidated broad Advantage+ structures.'
-        }
-      ],
-      ai_tools: ['Midjourney for Ad Creatives', 'ChatGPT API for Copy Variants', 'ElevenLabs for UGC Voiceovers', 'Runway Gen-2'],
-      certifications: ['Google Ads Professional Certified', 'Meta Certified Media Planning Specialist', 'Reforge Growth Series Graduate']
-    },
-    {
-      id: 'demo-marcus-vance',
-      full_name: 'Marcus Vance',
-      slug: 'marcus-vance',
-      headline: 'Lifecycle & Retention Automation Architect',
-      role_title: 'Enterprise Klaviyo & CRM Automation Director',
-      bio: 'Specialist in high-LTV lifecycle marketing, churn modeling, and transactional customer journey automation for 8-figure eCommerce and SaaS ecosystems.',
-      location: 'Austin, TX',
-      remote_preference: 'Remote',
-      is_remote: true,
-      years_experience: 6,
-      years_of_experience: 6,
-      primary_specialization: 'Email & Lifecycle Automation',
-      specialty: 'Email & Lifecycle Automation',
-      profile_picture_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
-      contact_email: 'marcus.v@digitalcampux.talent',
-      email: 'marcus.v@digitalcampux.talent',
-      phone_number: '+1 (512) 843-9201',
-      whatsapp_number: '+1 (512) 843-9201',
-      cv_url: 'https://storage.googleapis.com/demo-cvs/marcus-vance-cv.pdf',
-      portfolio_url: 'https://marcusvance.io',
-      linkedin_url: 'https://linkedin.com/in/marcus-vance-crm',
-      placement_status: 'AVAILABLE',
-      availability_status: 'available',
-      is_verified_badge: true,
-      phase_1_status: 'PASSED',
-      phase_2_status: 'COMPLETED',
-      phase_3_status: 'VERIFIED',
-      skills: ['Klaviyo Enterprise', 'Customer.io', 'Segment', 'Cohort Retention', 'Email Deliverability', 'SMS Compliance'],
-      verified_skills: [
-        { category: 'Email & Lifecycle Automation', score: 98, passed: true },
-        { category: 'Analytics & Attribution', score: 89, passed: true },
-        { category: 'CRO & Conversion Optimization', score: 87, passed: true },
-        { category: 'Growth Marketing Strategy', score: 85, passed: true },
-        { category: 'AI & Automation Strategy', score: 92, passed: true }
-      ],
-      work_history: [
-        {
-          company: 'OmniRetain Solutions',
-          role: 'Lead Lifecycle Strategist',
-          duration: '2022 - Present',
-          description: 'Designed 40+ personalized retention workflows generating $8.5M in attributable Klaviyo email & SMS revenue.'
-        }
-      ],
-      education: [
-        {
-          school: 'University of Texas at Austin',
-          degree: 'B.A. in Communications & Information Systems',
-          year: '2019'
-        }
-      ],
-      case_studies: [
-        {
-          title: '34% Churn Reduction for Subscription Box Brand',
-          client_or_brand: 'Kona Artisan Club',
-          metrics_achieved: '+48% Repeat Purchase Rate within 90 Days',
-          description: 'Deployed predictive churn-risk triggers in Customer.io integrated with custom webhook discount thresholds.'
-        }
-      ],
-      ai_tools: ['Claude 3.5 Sonnet for Lifecycle Copywriting', 'Zapier Central AI Agents', 'Make.com Custom Webhooks'],
-      certifications: ['Klaviyo Enterprise Certified Partner', 'Customer.io Specialist Certification']
-    },
-    {
-      id: 'demo-elena-rostova',
-      full_name: 'Elena Rostova',
-      slug: 'elena-rostova',
-      headline: 'Technical SEO & Programmatic Search Lead',
-      role_title: 'Senior Technical SEO & Organic Inbound Architect',
-      bio: 'Architect of organic inbound growth engines driving over 4M+ monthly visits. Specializing in semantic content architecture, headless CMS rendering, and programmatic indexing.',
-      location: 'Berlin, Germany',
-      remote_preference: 'Remote',
-      is_remote: true,
-      years_experience: 5,
-      years_of_experience: 5,
-      primary_specialization: 'SEO & Organic Growth',
-      specialty: 'SEO & Organic Growth',
-      profile_picture_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
-      contact_email: 'elena.rostova@digitalcampux.talent',
-      email: 'elena.rostova@digitalcampux.talent',
-      phone_number: '+49 30 901820',
-      whatsapp_number: '+49 30 901820',
-      cv_url: 'https://storage.googleapis.com/demo-cvs/elena-rostova-cv.pdf',
-      portfolio_url: 'https://elena-seo.tech',
-      linkedin_url: 'https://linkedin.com/in/elena-rostova-seo',
-      github_url: 'https://github.com/elena-organic-growth',
-      placement_status: 'AVAILABLE',
-      availability_status: 'available',
-      is_verified_badge: true,
-      phase_1_status: 'PASSED',
-      phase_2_status: 'COMPLETED',
-      phase_3_status: 'VERIFIED',
-      skills: ['Programmatic SEO', 'Core Web Vitals', 'Semantic Indexing', 'Information Architecture', 'Hreflang Migrations'],
-      verified_skills: [
-        { category: 'SEO & Organic Growth', score: 95, passed: true },
-        { category: 'Growth Marketing Strategy', score: 88, passed: true },
-        { category: 'CRO & Conversion Optimization', score: 91, passed: true },
-        { category: 'Analytics & Attribution', score: 84, passed: true },
-        { category: 'Full-Stack Digital Marketing', score: 87, passed: true }
-      ],
-      work_history: [
-        {
-          company: 'Nexus Organic Labs',
-          role: 'Principal SEO Consultant',
-          duration: '2021 - Present',
-          description: 'Led technical migrations for 4 high-traffic portals with zero traffic loss and a 65% bump in top-3 search rankings.'
-        }
-      ],
-      education: [
-        {
-          school: 'Technical University of Munich',
-          degree: 'B.Sc. in Computer Science & Media',
-          year: '2020'
-        }
-      ],
-      case_studies: [
-        {
-          title: 'Programmatic Directory 1.2M Organic Traffic Engine',
-          client_or_brand: 'RemoteWorkHub',
-          metrics_achieved: '0 to 1.2M Monthly Search Visits in 9 Months',
-          description: 'Constructed an automated schema-validated data pipeline populating 14,000 dynamic location and category landing pages.'
-        }
-      ],
-      ai_tools: ['Custom Python BERT Cluster Scripts', 'Ahrefs API with GPT-4 Embeddings', 'Screaming Frog Custom Regex'],
-      certifications: ['Google Analytics Individual Qualification', 'DeepCrawl Technical SEO Specialist']
-    },
-    {
-      id: 'demo-david-okafor',
-      full_name: 'David Okafor',
-      slug: 'david-okafor',
-      headline: 'Full-Funnel CRO & Landing Page Strategist',
-      role_title: 'Conversion Rate Optimization & Funnel Architect',
-      bio: 'Data-informed experimentalist driving high-velocity A/B testing programs with statistical rigor across checkout, pricing, and high-volume acquisition landing pages.',
-      location: 'Toronto, Canada',
-      remote_preference: 'Remote',
-      is_remote: true,
-      years_experience: 5,
-      years_of_experience: 5,
-      primary_specialization: 'CRO & Conversion Optimization',
-      specialty: 'CRO & Conversion Optimization',
-      profile_picture_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
-      contact_email: 'david.okafor@digitalcampux.talent',
-      email: 'david.okafor@digitalcampux.talent',
-      phone_number: '+1 (416) 555-0199',
-      whatsapp_number: '+1 (416) 555-0199',
-      cv_url: 'https://storage.googleapis.com/demo-cvs/david-okafor-cv.pdf',
-      portfolio_url: 'https://okaforcro.com',
-      linkedin_url: 'https://linkedin.com/in/david-okafor-cro',
-      placement_status: 'AVAILABLE',
-      availability_status: 'available',
-      is_verified_badge: true,
-      phase_1_status: 'PASSED',
-      phase_2_status: 'COMPLETED',
-      phase_3_status: 'VERIFIED',
-      skills: ['VWO', 'Optimizely', 'Behavior Analytics', 'Wireframing', 'Checkout Optimization', 'Statistical Significance'],
-      verified_skills: [
-        { category: 'CRO & Conversion Optimization', score: 94, passed: true },
-        { category: 'Growth Marketing Strategy', score: 90, passed: true },
-        { category: 'Paid Media & PPC', score: 86, passed: true },
-        { category: 'Analytics & Attribution', score: 92, passed: true },
-        { category: 'AI & Automation Strategy', score: 88, passed: true }
-      ],
-      work_history: [
-        {
-          company: 'ConvertWise Consulting',
-          role: 'Senior CRO Specialist',
-          duration: '2022 - Present',
-          description: 'Conducted 120+ controlled Bayesian experiments across 15 enterprise clients, delivering an aggregate +27% conversion lift.'
-        }
-      ],
-      education: [
-        {
-          school: 'University of Toronto',
-          degree: 'B.Sc. in Cognitive Science & Human-Computer Interaction',
-          year: '2020'
-        }
-      ],
-      case_studies: [
-        {
-          title: '+41% Checkout Conversion Rate for B2B SaaS',
-          client_or_brand: 'CloudStack Pro',
-          metrics_achieved: '$1.4M ARR incremental value added',
-          description: 'Simplified the 3-step checkout into an inline single-screen friction-free flow with live plan comparison toggles.'
-        }
-      ],
-      ai_tools: ['Midjourney for Variant Mockups', 'Hotjar AI Heatmap Summarizer', 'VWO SmartStats Engine'],
-      certifications: ['CXL Certified Conversion Optimizer', 'Google Optimize / GA4 Advanced']
-    }
-  ], []);
-
-  // ----------------------------------------------------------------------------
-  // Fetch Real Candidates from Supabase with Null-Safety
+  // Fetch Real Candidates from Supabase & Saved Admin/Local State (No Demo Profiles)
   // ----------------------------------------------------------------------------
   const fetchCandidates = useCallback(async () => {
     setLoading(true);
-    if (!supabase) {
-      setCandidates(getFallbackCandidates());
-      setLoading(false);
-      return;
-    }
-
+    setFetchError(null);
     try {
-      // 1. Fetch Talent Profiles
-      const { data: talentData, error: talentErr } = await supabase
-        .from('talent_profiles')
-        .select('*')
-        .order('is_verified_badge', { ascending: false });
+      let loadedCandidates: TalentProfile[] = [];
 
-      if (talentErr) {
-        console.warn('[TalentDirectory] Supabase profiles fetch note:', talentErr.message);
-        setCandidates(getFallbackCandidates());
-        return;
-      }
+      // 1. Fetch from Supabase talent_profiles table without strict gating filters
+      if (supabase) {
+        try {
+          // Primary query: fetch all profiles (no restrictive vetting_status or phase filters)
+          let { data: talentData, error: talentErr } = await supabase
+            .from('talent_profiles')
+            .select('*')
+            .order('created_at', { ascending: false });
 
-      // 2. Fetch Quiz Attempts to attach verified diagnostics
-      let diagnosticsMap: Record<string, SkillDiagnostic[]> = {};
-      try {
-        const { data: quizData } = await supabase
-          .from('quiz_attempts')
-          .select('talent_id, skill_category, score_percentage, passed')
-          .eq('passed', true);
-
-        if (quizData && Array.isArray(quizData)) {
-          quizData.forEach((q: any) => {
-            if (!q || !q.talent_id) return;
-            if (!diagnosticsMap[q.talent_id]) {
-              diagnosticsMap[q.talent_id] = [];
+          // Fallback if ordering by created_at errors due to column variations
+          if (talentErr && talentErr.code !== 'PGRST116') {
+            console.warn('[TalentDirectory] Retrying fetch without order:', talentErr.message);
+            const fallbackRes = await supabase.from('talent_profiles').select('*');
+            if (!fallbackRes.error && fallbackRes.data) {
+              talentData = fallbackRes.data;
+              talentErr = null;
             }
-            if (!diagnosticsMap[q.talent_id].some((d) => d.category === q.skill_category)) {
-              diagnosticsMap[q.talent_id].push({
-                category: q.skill_category,
-                score: Number(q.score_percentage || 85),
-                passed: Boolean(q.passed),
-                attemptDate: q.created_at || undefined
-              });
-            }
-          });
-        }
-      } catch (quizErr) {
-        console.warn('[TalentDirectory] Quiz attempts note:', quizErr);
-      }
-
-      if (talentData && Array.isArray(talentData) && talentData.length > 0) {
-        const mapped: TalentProfile[] = talentData.map((t: any) => {
-          if (!t || typeof t !== 'object') {
-            return {
-              id: `gen-${Math.random().toString(36).substring(2, 9)}`,
-              full_name: 'Digital Specialist',
-              is_verified_badge: false
-            };
           }
 
-          const attachedDiagnostics = diagnosticsMap[t.id] || [];
-          const isVerified = Boolean(
-            t.is_verified_badge || 
-            t.phase_3_status === 'VERIFIED' || 
-            t.phase_3_fee_paid ||
-            t.vetting_status === 'verified'
-          );
+          if (talentErr) {
+            console.error("Error fetching directory:", talentErr);
+            setFetchError(talentErr.message || 'Unable to retrieve talent records from Supabase');
+          } else if (Array.isArray(talentData) && talentData.length > 0) {
+            // Fetch Quiz Attempts to attach verified diagnostics (graceful fallback if table is empty/unconfigured)
+            let diagnosticsMap: Record<string, SkillDiagnostic[]> = {};
+            try {
+              const { data: quizData, error: quizErr } = await supabase
+                .from('quiz_attempts')
+                .select('talent_id, skill_category, score_percentage, passed, created_at')
+                .eq('passed', true);
 
-          return {
-            id: t.id || `candidate-${Math.random().toString(36).substring(2, 9)}`,
-            user_id: t.user_id,
-            full_name: t.full_name || 'Marketing Specialist',
-            slug: t.slug || t.id,
-            headline: t.headline || t.role_title || t.specialty || 'Growth & Acquisition Specialist',
-            role_title: t.role_title || t.headline || 'Growth Specialist',
-            bio: t.bio || 'Experienced digital marketing practitioner verified across diagnostic quizzes and portfolio reviews.',
-            location: t.location || 'Remote Global',
-            remote_preference: t.remote_preference || 'Remote',
-            is_remote: true,
-            years_experience: Number(t.years_experience || t.years_of_experience || 4),
-            years_of_experience: Number(t.years_of_experience || t.years_experience || 4),
-            primary_specialization: t.primary_specialization || t.specialty || 'Growth Marketing Strategy',
-            specialty: t.specialty || t.primary_specialization || 'Growth Marketing Strategy',
-            profile_picture_url: t.profile_picture_url || t.avatar_url || null,
-            avatar_url: t.avatar_url || t.profile_picture_url || null,
-            contact_email: t.contact_email || t.email || null,
-            email: t.email || t.contact_email || null,
-            phone_number: t.phone_number || null,
-            whatsapp_number: t.whatsapp_number || null,
-            cv_url: t.cv_url || t.resume_url || null,
-            resume_url: t.resume_url || t.cv_url || null,
-            portfolio_url: t.portfolio_url || null,
-            github_url: t.github_url || null,
-            linkedin_url: t.linkedin_url || null,
-            skills: Array.isArray(t.skills) && t.skills.length > 0 ? t.skills : ['Growth Strategy', 'Performance Ads', 'Analytics', 'Conversion Optimization'],
-            work_history: Array.isArray(t.work_history) ? t.work_history : null,
-            education: Array.isArray(t.education) ? t.education : null,
-            case_studies: Array.isArray(t.case_studies) ? t.case_studies : null,
-            ai_tools: Array.isArray(t.ai_tools) ? t.ai_tools : null,
-            certifications: Array.isArray(t.certifications) ? t.certifications : null,
-            placement_status: (t.placement_status || (t.availability_status === 'hired' ? 'HIRED' : 'AVAILABLE')) as any,
-            availability_status: t.availability_status || (t.placement_status === 'HIRED' ? 'hired' : 'available'),
-            is_verified_badge: isVerified,
-            phase_1_status: t.phase_1_status || (isVerified ? 'PASSED' : 'IN_PROGRESS'),
-            phase_2_status: t.phase_2_status || (isVerified ? 'COMPLETED' : 'LOCKED'),
-            phase_3_status: t.phase_3_status || (isVerified ? 'VERIFIED' : 'LOCKED'),
-            verified_skills: attachedDiagnostics.length > 0 ? attachedDiagnostics : (
-              isVerified ? [
-                { category: 'Growth Marketing Strategy', score: 94, passed: true },
-                { category: 'Paid Media & PPC', score: 88, passed: true },
-                { category: 'Analytics & Attribution', score: 91, passed: true },
-                { category: 'CRO & Conversion Optimization', score: 86, passed: true },
-                { category: 'Email & Lifecycle Automation', score: 90, passed: true }
-              ] : []
-            ),
-            created_at: t.created_at || new Date().toISOString()
-          };
-        });
+              if (quizErr) {
+                console.warn('[TalentDirectory] Note fetching quiz attempts:', quizErr.message);
+              } else if (quizData && Array.isArray(quizData)) {
+                quizData.forEach((q: any) => {
+                  if (!q || !q.talent_id) return;
+                  const key = String(q.talent_id);
+                  if (!diagnosticsMap[key]) {
+                    diagnosticsMap[key] = [];
+                  }
+                  if (!diagnosticsMap[key].some((d) => d.category === q.skill_category)) {
+                    diagnosticsMap[key].push({
+                      category: q.skill_category,
+                      score: Number(q.score_percentage || 85),
+                      passed: Boolean(q.passed),
+                      attemptDate: q.created_at || undefined
+                    });
+                  }
+                });
+              }
+            } catch (quizCatchErr) {
+              console.warn('[TalentDirectory] Quiz diagnostics exception:', quizCatchErr);
+            }
 
-        // If returned rows are fewer than 2, blend in fallback for full showcase
-        if (mapped.length < 2) {
-          setCandidates([...mapped, ...getFallbackCandidates().slice(mapped.length)]);
-        } else {
-          setCandidates(mapped);
+            // Map all standard and alias database columns
+            const mapped: TalentProfile[] = talentData.map((t: any) => {
+              const profileId = String(t.id || '');
+              const userId = t.user_id ? String(t.user_id) : '';
+              const attachedDiagnostics = diagnosticsMap[profileId] || (userId ? diagnosticsMap[userId] : []) || [];
+              
+              const isVerified = Boolean(
+                t.is_verified_badge || 
+                t.phase_3_status === 'VERIFIED' || 
+                t.phase_3_fee_paid ||
+                t.vetting_status === 'verified'
+              );
+
+              // Parse skills properly (array or comma-delimited string)
+              let parsedSkills: string[] = [];
+              if (Array.isArray(t.skills)) {
+                parsedSkills = t.skills.filter(Boolean);
+              } else if (typeof t.skills === 'string' && t.skills.trim()) {
+                parsedSkills = t.skills.split(',').map((s: string) => s.trim()).filter(Boolean);
+              }
+
+              // Parse work availability types
+              let parsedWorkTypes: string[] = ['Full-Time', 'Freelance'];
+              if (Array.isArray(t.work_availability_type) && t.work_availability_type.length > 0) {
+                parsedWorkTypes = t.work_availability_type;
+              } else if (typeof t.work_availability_type === 'string' && t.work_availability_type.trim()) {
+                parsedWorkTypes = [t.work_availability_type.trim()];
+              } else if (Array.isArray(t.work_types) && t.work_types.length > 0) {
+                parsedWorkTypes = t.work_types;
+              }
+
+              const resolvedSpecialty = t.specialty || t.primary_specialization || t.specialization || 'Growth Marketing Strategy';
+              const resolvedRole = t.role_title || t.primary_role || t.role || t.headline || resolvedSpecialty;
+              const resolvedLocation = t.location || t.city || t.country || 'Remote';
+              const resolvedAvailability = t.availability_status || (t.placement_status === 'HIRED' ? 'hired' : 'available');
+
+              return {
+                id: profileId || `profile-${Math.random().toString(36).substring(2, 9)}`,
+                user_id: t.user_id,
+                full_name: t.full_name || t.name || 'Registered Specialist',
+                slug: t.slug || profileId || (t.full_name ? t.full_name.toLowerCase().replace(/\s+/g, '-') : 'specialist'),
+                headline: t.headline || resolvedRole,
+                role_title: resolvedRole,
+                specialty: resolvedSpecialty,
+                primary_specialization: resolvedSpecialty,
+                location: resolvedLocation,
+                remote_preference: t.remote_preference || (t.is_remote !== false ? 'Remote' : 'Hybrid'),
+                is_remote: t.remote_preference !== 'On-site' && t.is_remote !== false,
+                skills: parsedSkills,
+                availability_status: resolvedAvailability,
+                placement_status: (t.placement_status || (resolvedAvailability === 'hired' ? 'HIRED' : 'AVAILABLE')) as any,
+                work_availability_type: parsedWorkTypes,
+                years_experience: Number(t.years_experience || t.years_of_experience || t.experience_years || 0),
+                years_of_experience: Number(t.years_of_experience || t.years_experience || t.experience_years || 0),
+                bio: t.bio || t.summary || t.about || '',
+                profile_picture_url: t.profile_picture_url || t.avatar_url || t.photo_url || null,
+                avatar_url: t.avatar_url || t.profile_picture_url || t.photo_url || null,
+                contact_email: t.contact_email || t.email || null,
+                email: t.email || t.contact_email || null,
+                phone_number: t.phone_number || t.phone || null,
+                whatsapp_number: t.whatsapp_number || t.whatsapp || null,
+                cv_url: t.cv_url || t.resume_url || null,
+                resume_url: t.resume_url || t.cv_url || null,
+                portfolio_url: t.portfolio_url || t.website_url || null,
+                github_url: t.github_url || null,
+                linkedin_url: t.linkedin_url || null,
+                work_history: Array.isArray(t.work_history) ? t.work_history : null,
+                education: Array.isArray(t.education) ? t.education : null,
+                case_studies: Array.isArray(t.case_studies) ? t.case_studies : null,
+                ai_tools: Array.isArray(t.ai_tools) ? t.ai_tools : null,
+                certifications: Array.isArray(t.certifications) ? t.certifications : null,
+                is_verified_badge: isVerified,
+                phase_1_status: t.phase_1_status || (t.phase_1_completed || isVerified ? 'PASSED' : 'PENDING'),
+                phase_2_status: t.phase_2_status || (isVerified ? 'COMPLETED' : 'LOCKED'),
+                phase_3_status: t.phase_3_status || (isVerified ? 'VERIFIED' : 'LOCKED'),
+                verified_skills: attachedDiagnostics,
+                created_at: t.created_at || new Date().toISOString()
+              };
+            });
+
+            loadedCandidates = mapped;
+          }
+        } catch (dbErr) {
+          console.error("Error fetching directory:", dbErr);
+          setFetchError(dbErr instanceof Error ? dbErr.message : 'Database request failure');
         }
-      } else {
-        setCandidates(getFallbackCandidates());
       }
+
+      // 2. Check local storage for real candidate profiles created during local sessions / admin updates
+      if (typeof window !== 'undefined') {
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('mock_talent_profiles_')) {
+              const raw = localStorage.getItem(key);
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                if (
+                  parsed &&
+                  parsed.id &&
+                  !parsed.id.startsWith('demo-') &&
+                  !loadedCandidates.some((c) => c.id === parsed.id || (parsed.user_id && c.user_id === parsed.user_id))
+                ) {
+                  const spec = parsed.primary_specialization || parsed.specialty || 'Growth Marketing Strategy';
+                  const role = parsed.role_title || parsed.headline || spec;
+                  loadedCandidates.push({
+                    id: parsed.id,
+                    user_id: parsed.user_id,
+                    full_name: parsed.full_name || parsed.name || 'Marketing Specialist',
+                    slug: parsed.slug || parsed.id,
+                    headline: parsed.headline || role,
+                    role_title: role,
+                    specialty: spec,
+                    primary_specialization: spec,
+                    bio: parsed.bio || '',
+                    location: parsed.location || 'Remote',
+                    remote_preference: parsed.remote_preference || 'Remote',
+                    is_remote: parsed.remote_preference !== 'On-site',
+                    years_experience: Number(parsed.years_experience || parsed.years_of_experience || 0),
+                    years_of_experience: Number(parsed.years_of_experience || parsed.years_experience || 0),
+                    profile_picture_url: parsed.profile_picture_url || parsed.avatar_url || null,
+                    avatar_url: parsed.avatar_url || parsed.profile_picture_url || null,
+                    contact_email: parsed.contact_email || parsed.email || null,
+                    email: parsed.email || parsed.contact_email || null,
+                    phone_number: parsed.phone_number || null,
+                    whatsapp_number: parsed.whatsapp_number || null,
+                    cv_url: parsed.cv_url || parsed.resume_url || null,
+                    resume_url: parsed.resume_url || parsed.cv_url || null,
+                    portfolio_url: parsed.portfolio_url || null,
+                    github_url: parsed.github_url || null,
+                    linkedin_url: parsed.linkedin_url || null,
+                    skills: Array.isArray(parsed.skills) ? parsed.skills : [],
+                    work_availability_type: Array.isArray(parsed.work_availability_type)
+                      ? parsed.work_availability_type
+                      : ['Full-Time', 'Freelance'],
+                    work_history: Array.isArray(parsed.work_history) ? parsed.work_history : null,
+                    education: Array.isArray(parsed.education) ? parsed.education : null,
+                    case_studies: Array.isArray(parsed.case_studies) ? parsed.case_studies : null,
+                    ai_tools: Array.isArray(parsed.ai_tools) ? parsed.ai_tools : null,
+                    certifications: Array.isArray(parsed.certifications) ? parsed.certifications : null,
+                    placement_status: parsed.placement_status || 'AVAILABLE',
+                    availability_status: parsed.availability_status || 'available',
+                    is_verified_badge: Boolean(parsed.is_verified_badge || parsed.phase_3_status === 'VERIFIED'),
+                    phase_1_status: parsed.phase_1_status || 'PENDING',
+                    phase_2_status: parsed.phase_2_status || 'LOCKED',
+                    phase_3_status: parsed.phase_3_status || 'LOCKED',
+                    verified_skills: Array.isArray(parsed.verified_skills) ? parsed.verified_skills : [],
+                    created_at: parsed.created_at || new Date().toISOString()
+                  });
+                }
+              }
+            }
+          }
+        } catch (lsErr) {
+          console.warn('[TalentDirectory] localStorage check note:', lsErr);
+        }
+      }
+
+      setCandidates(loadedCandidates);
     } catch (err) {
-      console.error('[TalentDirectory] Error loading talent profiles:', err);
-      setCandidates(getFallbackCandidates());
+      console.error("Error fetching directory:", err);
+      setFetchError(err instanceof Error ? err.message : 'Unexpected directory query error');
+      setCandidates([]);
     } finally {
       setLoading(false);
     }
-  }, [supabase, getFallbackCandidates]);
+  }, [supabase]);
 
   useEffect(() => {
     fetchCandidates();
@@ -719,14 +553,14 @@ export default function TalentDirectory({
       {/* ========================================================================= */}
       {/* 1. HERO & SEARCH HEADER */}
       {/* ========================================================================= */}
-      <section id="directory-hero-section" className="bg-slate-900 text-white pt-12 pb-16 px-4 sm:px-6 lg:px-8 border-b border-slate-800 relative overflow-hidden">
+      <section id="directory-hero-section" className="w-full bg-slate-900 text-white pt-12 pb-16 px-4 sm:px-6 lg:px-8 xl:px-12 border-b border-slate-800 relative overflow-hidden">
         {/* Subtle decorative background glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-full pointer-events-none opacity-20">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[1600px] h-full pointer-events-none opacity-20">
           <div className="absolute top-[-20%] left-[20%] w-[500px] h-[500px] rounded-full bg-emerald-500 blur-[120px]" />
           <div className="absolute bottom-[-20%] right-[20%] w-[500px] h-[500px] rounded-full bg-indigo-500 blur-[120px]" />
         </div>
 
-        <div className="max-w-7xl mx-auto relative z-10 space-y-6 text-center sm:text-left">
+        <div className="w-full max-w-[1600px] mx-auto relative z-10 space-y-6 text-center sm:text-left">
           
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-2">
@@ -849,7 +683,7 @@ export default function TalentDirectory({
       {/* ========================================================================= */}
       {/* 2. CANDIDATE CARDS GRID */}
       {/* ========================================================================= */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10">
+      <main className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 pt-10">
         
         {/* Results Header */}
         <div className="flex items-center justify-between gap-4 mb-6">
@@ -875,6 +709,28 @@ export default function TalentDirectory({
           </button>
         </div>
 
+        {/* Fetch Error Warning Banner if Supabase returned an error */}
+        {fetchError && (
+          <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start justify-between gap-3 shadow-2xs">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold">Database Notice: {fetchError}</p>
+                <p className="text-amber-700 mt-0.5">
+                  Showing any locally cached or test profiles. Check your Supabase console to confirm table permissions (RLS) if you are missing newly registered talent.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={fetchCandidates}
+              className="px-2.5 py-1 bg-amber-200/80 hover:bg-amber-200 text-amber-900 font-semibold rounded-lg shrink-0 transition"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* Loading State */}
         {loading ? (
           <div className="py-24 text-center space-y-4">
@@ -884,8 +740,29 @@ export default function TalentDirectory({
             <p className="text-sm font-bold text-slate-800">Loading candidate directory roster...</p>
             <p className="text-xs text-slate-500">Querying verified credentials and diagnostic scores from the network.</p>
           </div>
+        ) : candidates.length === 0 ? (
+          /* Empty Database State */
+          <div className="py-20 bg-white rounded-3xl border border-slate-200/80 p-8 text-center space-y-4 shadow-xs">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-100">
+              <Users className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-slate-900">No Candidate Profiles in Directory</h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                No active talent profiles found in the database. Real candidate profiles created in the Talent Portal or saved via the Admin Dashboard will automatically populate here.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={fetchCandidates}
+              className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition cursor-pointer inline-flex items-center gap-2"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Refresh Directory</span>
+            </button>
+          </div>
         ) : filteredCandidates.length === 0 ? (
-          /* Empty Search State */
+          /* Empty Filter State */
           <div className="py-20 bg-white rounded-3xl border border-slate-200/80 p-8 text-center space-y-4 shadow-xs">
             <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
               <Search className="w-6 h-6" />
@@ -910,8 +787,8 @@ export default function TalentDirectory({
             </button>
           </div>
         ) : (
-          /* Candidate Cards Grid */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          /* Candidate Cards Grid - Full Width Responsive */
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredCandidates.map((candidate) => {
               const displayName = candidate.full_name || 'Marketing Specialist';
               const roleTitle = candidate.role_title || candidate.headline || 'Growth Specialist';
@@ -1016,6 +893,21 @@ export default function TalentDirectory({
                             </span>
                           ))}
                         </div>
+                      </div>
+                    )}
+
+                    {/* Work Preference Badges */}
+                    {Array.isArray(candidate.work_availability_type) && candidate.work_availability_type.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        {candidate.work_availability_type.map((type, wIdx) => (
+                          <span
+                            key={wIdx}
+                            className="bg-slate-100 text-slate-700 font-medium rounded-full px-2.5 py-0.5 text-[10px] flex items-center gap-1 border border-slate-200/60"
+                          >
+                            <span className="w-1 h-1 rounded-full bg-emerald-500" />
+                            <span>{type}</span>
+                          </span>
+                        ))}
                       </div>
                     )}
 
@@ -1150,6 +1042,22 @@ export default function TalentDirectory({
                         {activePortfolioCandidate.remote_preference || 'Remote Preference'}
                       </span>
                     </div>
+
+                    {/* Work Type Availability Badges */}
+                    {Array.isArray(activePortfolioCandidate.work_availability_type) && activePortfolioCandidate.work_availability_type.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5 pt-2">
+                        <span className="text-[11px] font-semibold text-slate-600">Open To:</span>
+                        {activePortfolioCandidate.work_availability_type.map((type, wIdx) => (
+                          <span
+                            key={wIdx}
+                            className="bg-slate-100 text-slate-700 font-medium rounded-full px-3 py-0.5 text-xs flex items-center gap-1.5 border border-slate-200"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            <span>{type}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
