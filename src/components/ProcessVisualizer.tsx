@@ -154,7 +154,13 @@ export function HeroInteractivePipeline() {
           </div>
 
           <a
-            href="#live-talent-directory"
+            href="/directory"
+            onClick={(e) => {
+              e.preventDefault();
+              window.history.pushState({}, '', '/directory');
+              window.dispatchEvent(new Event('popstate'));
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
             className="flex-shrink-0 inline-flex items-center gap-2 text-xs font-mono font-bold bg-neutral-900 text-white hover:bg-neutral-800 px-4 py-2.5 rounded-xl self-start sm:self-center transition"
           >
             <span>See Active Candidates</span>

@@ -91,8 +91,8 @@ export default function PublicPortfolio({
     const fetchTalentProfile = async () => {
       setLoading(true);
       const targetSlug = activeSlug || 
-        window.location.hash.replace(/^#\/p\//, '').replace(/^#\//, '').trim() ||
-        window.location.pathname.replace(/^\/p\//, '').replace(/^\//, '').trim();
+        window.location.pathname.replace(/^\/p\//, '').replace(/^\//, '').trim() ||
+        window.location.hash.replace(/^#\/p\//, '').replace(/^#\//, '').trim();
 
       try {
         if (targetSlug && targetSlug !== 'directory' && targetSlug !== 'profile' && targetSlug !== 'talent-profile') {

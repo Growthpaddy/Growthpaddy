@@ -125,6 +125,7 @@ export interface TalentProfile {
   is_verified_badge?: boolean;
   phase_1_quizzes_passed?: number;
   phase_1_completed?: boolean;
+  phase_2_unlocked?: boolean;
   phase_1_status?: Phase1Status;
   phase_2_status?: Phase2Status;
   phase_3_status?: Phase3Status;
@@ -494,6 +495,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
           is_verified_badge: false,
           phase_1_quizzes_passed: 0,
           phase_1_completed: false,
+          phase_2_unlocked: false,
           phase_1_status: 'IN_PROGRESS',
           phase_2_status: 'LOCKED',
           phase_3_status: 'LOCKED'
@@ -583,6 +585,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         skills: dynamicAccreditedSkills,
         phase_1_quizzes_passed: passedCount,
         phase_1_completed: isPhase1Passed,
+        phase_2_unlocked: isPhase1Passed || Boolean(profileData.phase_2_unlocked),
         phase_1_status: isPhase1Passed ? 'PASSED' : (profileData.phase_1_status || 'IN_PROGRESS'),
         phase_2_status: isPhase1Passed && (!profileData.phase_2_status || profileData.phase_2_status === 'LOCKED')
           ? 'PENDING_SCHEDULE'
@@ -957,11 +960,13 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
       const isPhase1Completed = distinctPassedCount >= 5;
       const newDynamicSkills = distinctPassedCategories.slice(0, 5);
 
-      // Update talent_profiles columns: phase_1_quizzes_passed, phase_1_completed, phase_1_status
-      const profileUpdates: Partial<TalentProfile> = {
+      // Update talent_profiles columns: phase_1_quizzes_passed, phase_1_completed, phase_2_unlocked, phase_1_status
+      const isPhase2Unlocked = isPhase1Completed;
+      const profileUpdates: Record<string, any> = {
         phase_1_quizzes_passed: distinctPassedCount,
         phase_1_completed: isPhase1Completed,
-        phase_1_status: isPhase1Completed ? 'passed' : (profile.phase_1_status || 'IN_PROGRESS'),
+        phase_2_unlocked: isPhase2Unlocked,
+        phase_1_status: isPhase1Completed ? 'PASSED' : (profile.phase_1_status || 'IN_PROGRESS'),
         skills: newDynamicSkills,
         updated_at: new Date().toISOString()
       };
@@ -979,8 +984,24 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         console.error('Error updating talent_profiles after quiz pass:', profileUpdateError);
       }
 
-      // Re-fetch the user's talent_profiles record from Supabase immediately to ensure progress bar updates instantly
-      await fetchTalentProfile();
+      // Update local profile state immediately for instantaneous header and pipeline sync
+      setProfile((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          phase_1_quizzes_passed: distinctPassedCount,
+          phase_1_completed: isPhase1Completed,
+          phase_2_unlocked: isPhase2Unlocked,
+          phase_1_status: isPhase1Completed ? 'PASSED' : (prev.phase_1_status || 'IN_PROGRESS'),
+          phase_2_status: isPhase1Completed && (!prev.phase_2_status || prev.phase_2_status === 'LOCKED')
+            ? 'PENDING_SCHEDULE'
+            : prev.phase_2_status,
+          skills: newDynamicSkills
+        };
+      });
+
+      // Immediate re-fetch of the user's talent_profiles record from Supabase so all sub-components update
+      await fetchTalentProfile(true);
 
       setQuizScoreResult({
         scorePercentage,
@@ -992,7 +1013,8 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         cooldownDays
       });
 
-      setQuizModalStep('RESULT');
+      // Transition modal to Results View (do NOT close modal immediately)
+      setQuizModalStep('RESULTS');
     } catch (err: any) {
       console.error('Quiz submission error:', err);
     } finally {
@@ -2790,14 +2812,14 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
               <div className="space-y-6">
                 
                 {/* Result Hero Banner */}
-                <div className={`p-6 rounded-3xl border text-center space-y-3 ${
+                <div className={`p-6 rounded-3xl border text-center space-y-4 ${
                   quizScoreResult.passed
                     ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
                     : quizScoreResult.isNowLocked
                     ? 'bg-rose-50 border-rose-300 text-rose-950'
                     : 'bg-amber-50 border-amber-300 text-amber-950'
                 }`}>
-                  <div className="inline-flex p-3 rounded-2xl bg-white shadow-xs">
+                  <div className="inline-flex p-3.5 rounded-2xl bg-white shadow-xs">
                     {quizScoreResult.passed ? (
                       <CheckCircle2 className="w-8 h-8 text-emerald-600" />
                     ) : quizScoreResult.isNowLocked ? (
@@ -2807,36 +2829,52 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     )}
                   </div>
 
-                  <div>
+                  <div className="space-y-2">
+                    {/* Status Banner */}
+                    <div className="flex justify-center">
+                      <span className={`inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold font-mono tracking-wide ${
+                        quizScoreResult.passed
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : quizScoreResult.isNowLocked
+                          ? 'bg-rose-600 text-white shadow-xs'
+                          : 'bg-amber-600 text-white shadow-xs'
+                      }`}>
+                        {quizScoreResult.passed
+                          ? 'Congratulations! You Passed'
+                          : 'Skill Check Not Passed'}
+                      </span>
+                    </div>
+
                     <h3 className="text-xl font-bold">
                       {quizScoreResult.passed
-                        ? 'Diagnostic Passed & Accredited! 🎉'
+                        ? `${activeDef.category} Verified!`
                         : quizScoreResult.isNowLocked
                         ? 'Assessment Failed — 90-Day Cooldown'
-                        : 'Assessment Did Not Meet 80% Benchmark'}
+                        : '80% Benchmark Not Met'}
                     </h3>
-                    <p className="text-xs mt-1 font-medium opacity-85">
+
+                    {/* Next Steps Messaging */}
+                    <p className="text-xs font-medium opacity-90 max-w-md mx-auto leading-relaxed">
                       {quizScoreResult.passed
-                        ? 'This skill has been added to your accredited specialties list.'
-                        : quizScoreResult.isNowLocked
-                        ? '2 consecutive attempts have been used. This category is now locked for 90 days.'
-                        : 'You scored below the 80% passing threshold. You have 1 retake attempt remaining.'}
+                        ? 'This topic is now marked as verified. Complete 5 distinct skill checks to unlock Phase 2.'
+                        : 'You need 80% or higher to verify this skill. Review the topic material and try again.'}
                     </p>
                   </div>
 
+                  {/* Final Score: Percentage & Score Fraction */}
                   <div className="flex items-center justify-center gap-6 pt-2 font-mono">
-                    <div>
-                      <p className="text-[10px] uppercase font-bold text-slate-500">Score</p>
+                    <div className="text-center">
+                      <p className="text-[10px] uppercase font-bold text-slate-500">Final Score</p>
                       <p className="text-2xl font-black">{quizScoreResult.scorePercentage}%</p>
                     </div>
                     <div className="h-8 w-px bg-slate-200" />
-                    <div>
-                      <p className="text-[10px] uppercase font-bold text-slate-500">Correct</p>
+                    <div className="text-center">
+                      <p className="text-[10px] uppercase font-bold text-slate-500">Score Fraction</p>
                       <p className="text-2xl font-black">{quizScoreResult.correctCount} / {quizScoreResult.totalCount}</p>
                     </div>
                     <div className="h-8 w-px bg-slate-200" />
-                    <div>
-                      <p className="text-[10px] uppercase font-bold text-slate-500">Benchmark</p>
+                    <div className="text-center">
+                      <p className="text-[10px] uppercase font-bold text-slate-500">Passing Benchmark</p>
                       <p className="text-2xl font-black">80%</p>
                     </div>
                   </div>
@@ -2915,7 +2953,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     <button
                       type="button"
                       onClick={handleStartLiveQuiz}
-                      className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs"
+                      className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs transition"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                       <span>Retake Quiz Now (Attempt 2)</span>
@@ -2925,9 +2963,9 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                   <button
                     type="button"
                     onClick={handleCloseQuizModal}
-                    className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer"
+                    className="px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer shadow-xs transition"
                   >
-                    Return to Profile Dossier
+                    Back to Dashboard
                   </button>
                 </div>
 

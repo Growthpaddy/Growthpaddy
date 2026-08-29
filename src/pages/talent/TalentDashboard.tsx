@@ -314,7 +314,7 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
   };
 
   const handleCopyProfileLink = () => {
-    const fullUrl = `${window.location.origin}/#/p/${slug}`;
+    const fullUrl = `${window.location.origin}/p/${slug}`;
     navigator.clipboard.writeText(fullUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 3000);
@@ -349,7 +349,7 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
               <span>{copiedLink ? 'Link Copied' : 'Share Public CV'}</span>
             </button>
             <a
-              href={`/#/p/${slug}`}
+              href={`/p/${slug}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer shadow-xs"

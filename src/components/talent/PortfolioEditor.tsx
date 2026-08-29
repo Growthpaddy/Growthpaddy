@@ -156,7 +156,7 @@ export const PortfolioEditor: React.FC<PortfolioEditorProps> = ({
     if (onTakeQuizForCategory) {
       onTakeQuizForCategory(category);
     } else {
-      window.location.href = `/#/quiz?category=${encodeURIComponent(category)}`;
+      window.location.href = `/assessment?category=${encodeURIComponent(category)}`;
     }
   };
 

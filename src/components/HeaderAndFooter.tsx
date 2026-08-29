@@ -63,13 +63,33 @@ export function Header({
   const menuRef = useRef<HTMLDivElement>(null);
   const avatarRef = useRef<HTMLDivElement>(null);
 
+  const pageToRoutePath = (id: PageType): string => {
+    switch (id) {
+      case 'home': return '/';
+      case 'directory': return '/directory';
+      case 'employer': return '/employer';
+      case 'recruiter-signup': return '/recruiter/signup';
+      case 'recruiter-login': return '/recruiter/login';
+      case 'recruiter-dashboard': return '/recruiter/dashboard';
+      case 'talent': return '/talent-profile';
+      case 'assessment': return '/assessment';
+      case 'pricing': return '/pricing';
+      case 'admin': return '/admin';
+      case 'admin-dashboard': return '/admin/dashboard';
+      case 'admin-login': return '/admin/login';
+      case 'admin-register': return '/admin/register';
+      case 'admin-approvals': return '/admin/approvals';
+      default: return `/${id}`;
+    }
+  };
+
   const handleNavClick = (id: PageType) => {
     setIsMenuOpen(false);
     setIsAvatarOpen(false);
     if (setCurrentPage) {
       setCurrentPage(id);
     }
-    const targetPath = id === 'home' ? '/' : `/${id}`;
+    const targetPath = pageToRoutePath(id);
     window.history.pushState({}, '', targetPath);
     window.dispatchEvent(new Event('popstate'));
     window.scrollTo({ top: 0, behavior: 'smooth' });

@@ -34,7 +34,7 @@ export default function TalentPortfolioModal({
           <div className="flex items-center gap-3">
             {publicSlug && (
               <a
-                href={`/#/p/${publicSlug}`}
+                href={`/p/${publicSlug}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs font-mono font-bold text-slate-600 hover:text-emerald-700 bg-slate-50 border border-slate-200 px-3 py-1 rounded-xl transition flex items-center gap-1.5 shadow-2xs"

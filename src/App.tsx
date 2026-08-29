@@ -198,14 +198,14 @@ export default function App() {
     }
   });
 
-  // 1. Initial Load and popstate/hashchange listener
+  // 1. Initial Load and popstate listener
   useEffect(() => {
     const syncRouteFromURL = () => {
       const route = getRouteFromLocation();
 
       if (route.slug) {
-        // Ensure hash URL is kept as /#/p/slug so edge proxies always hit index.html (no 404 on direct hit/refresh)
-        window.history.replaceState(null, '', `/#/p/${route.slug}`);
+        // Standard clean browser route /p/:slug (no hash)
+        window.history.replaceState(null, '', `/p/${route.slug}`);
         setSelectedPublicSlug(route.slug);
         setIsPortfolioModalOpen(true);
       } else {
@@ -217,7 +217,8 @@ export default function App() {
           setSignupPackage(route.packageType);
         }
 
-        if (window.location.hash && !window.location.hash.includes('/p/')) {
+        // Clean up any legacy hash URL into standard browser pathname
+        if (window.location.hash) {
           const targetPath = pageToPath(route.page);
           const currentFull = route.packageType ? `${targetPath}?package=${route.packageType}` : targetPath;
           window.history.replaceState(null, '', currentFull);
@@ -1027,7 +1028,7 @@ export default function App() {
         onClose={() => {
           setIsPortfolioModalOpen(false);
           setSelectedPublicSlug(undefined);
-          if (window.location.hash.includes('/p/') || window.location.pathname.startsWith('/p/')) {
+          if (window.location.pathname.startsWith('/p/') || window.location.hash.includes('/p/')) {
             window.history.pushState(null, '', pageToPath(currentPage));
           }
         }}
