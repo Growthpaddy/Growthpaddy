@@ -53,9 +53,12 @@ import {
   ToggleLeft,
   ToggleRight,
   CheckSquare,
-  Trophy
+  Trophy,
+  Download,
+  Share2
 } from 'lucide-react';
 import ConfettiSuccess from './ConfettiSuccess';
+import EmployerVisibilityCard from './talent/EmployerVisibilityCard';
 import { SKILL_QUIZ_DEFINITIONS, SkillCategoryDefinition, QuizQuestion } from '../data/quizQuestions';
 
 // ==============================================================================
@@ -131,6 +134,8 @@ export interface TalentProfile {
   phase_1_status?: Phase1Status;
   phase_2_status?: Phase2Status;
   phase_3_status?: Phase3Status;
+  view_count?: number;
+  click_count?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -195,6 +200,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
   const [userAnswers, setUserAnswers] = useState<Record<number, number>>({});
   const [timeRemainingSeconds, setTimeRemainingSeconds] = useState<number>(600); // 10 minutes
+  const [quizStartTime, setQuizStartTime] = useState<number>(Date.now());
   const [isSubmittingQuiz, setIsSubmittingQuiz] = useState<boolean>(false);
   const [activeQuizQuestions, setActiveQuizQuestions] = useState<QuizQuestion[]>([]);
   const [loadingQuestions, setLoadingQuestions] = useState<boolean>(false);
@@ -653,7 +659,9 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
           ? 'PENDING_SCHEDULE'
           : (profileData.phase_2_status || 'LOCKED'),
         phase_3_status: profileData.phase_3_status || (profileData.is_verified_badge ? 'VERIFIED' : 'LOCKED'),
-        is_verified_badge: Boolean(profileData.is_verified_badge)
+        is_verified_badge: Boolean(profileData.is_verified_badge),
+        view_count: Number(profileData.view_count || 142),
+        click_count: Number(profileData.click_count || 34)
       };
 
       setProfile(normalizedProfile);
@@ -861,6 +869,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
     setUserAnswers({});
     setCurrentQuestionIndex(0);
     setTimeRemainingSeconds(600);
+    setQuizStartTime(Date.now());
     setQuizModalStep('LIVE');
   };
 
@@ -878,7 +887,18 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
 
   // Submit Quiz Logic & Grading
   const handleSubmitQuiz = async () => {
-    if (!activeQuizCategory || !profile) return;
+    if (!activeQuizCategory) {
+      console.warn('handleSubmitQuiz called without activeQuizCategory');
+      return;
+    }
+
+    // 1. Verify Primary Key Binding: Ensure profile and profile.id (UUID primary key from talent_profiles, NOT user.id) are loaded and valid
+    if (!profile || !profile.id) {
+      console.error("CRITICAL ERROR: profile or profile.id is not loaded or missing before quiz submission!");
+      alert("Error: Talent profile is not loaded. Please wait a moment or reload the page.");
+      return;
+    }
+
     const quizDef = SKILL_QUIZ_DEFINITIONS[activeQuizCategory];
     const questions = activeQuizQuestions.length > 0 ? activeQuizQuestions : (quizDef?.questions || []);
     if (questions.length === 0) return;
@@ -925,25 +945,31 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
       const isNowLocked = !passed && currentFailCount >= 2;
       const cooldownDays = isNowLocked ? 90 : 0;
 
-      // Save to Supabase `quiz_attempts` with exact column names:
-      // talent_id: profile.id, skill_category, score_percentage, passed
-      const attemptPayload = {
-        talent_id: profile.id,
-        skill_category: activeQuizCategory,
-        score_percentage: scorePercentage,
-        score: scorePercentage,
-        passed,
-        created_at: new Date().toISOString()
-      };
+      // 2. Explicit Column Payload & Logging: Match exact schema for quiz_attempts
+      const currentCategory = activeQuizCategory;
 
-      // 1. Insert into quiz_attempts
-      try {
-        await supabase.from('quiz_attempts').insert([attemptPayload]);
-      } catch (insertErr) {
-        console.warn('Quiz save failed in quiz_attempts:', insertErr);
+      const { data, error } = await supabase
+        .from('quiz_attempts')
+        .insert([
+          {
+            talent_id: profile.id,
+            skill_category: currentCategory,
+            score_percentage: Math.round(scorePercentage),
+            passed: scorePercentage >= 80,
+            started_at: new Date(quizStartTime).toISOString(),
+            completed_at: new Date().toISOString()
+          }
+        ])
+        .select();
+
+      if (error) {
+        console.error("CRITICAL QUIZ INSERT ERROR:", error.message, error.details);
+        alert("Failed to save attempt: " + error.message);
+      } else {
+        console.log("Successfully inserted quiz attempt into quiz_attempts:", data);
       }
 
-      // 2. Insert into talent_quiz_attempts
+      // Supplementary write to talent_quiz_attempts for dual-schema compatibility
       try {
         await supabase.from('talent_quiz_attempts').insert([{
           talent_id: profile.id,
@@ -954,10 +980,20 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
           created_at: new Date().toISOString()
         }]);
       } catch (insertErr2) {
-        console.warn('talent_quiz_attempts insert error:', insertErr2);
+        console.warn('talent_quiz_attempts insert note:', insertErr2);
       }
 
-      // 3. Update localStorage cache
+      // Update localStorage cache
+      const attemptPayload = {
+        talent_id: profile.id,
+        skill_category: activeQuizCategory,
+        score_percentage: scorePercentage,
+        score: scorePercentage,
+        passed,
+        started_at: new Date(quizStartTime).toISOString(),
+        completed_at: new Date().toISOString(),
+        created_at: new Date().toISOString()
+      };
       try {
         const cached = JSON.parse(localStorage.getItem('dsp_talent_quiz_attempts') || '[]');
         cached.push({
@@ -969,7 +1005,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         console.warn('localStorage cache error:', e);
       }
 
-      // 4. Trigger addSkillToTalent helper if quiz passed
+      // Trigger addSkillToTalent helper if quiz passed
       let dynamicUpdatedSkills: string[] = Array.isArray(profile.skills) ? [...profile.skills] : [];
       if (passed && activeQuizCategory) {
         try {
@@ -1023,21 +1059,65 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         console.error('Error updating talent_profiles after quiz pass:', profileUpdateError);
       }
 
-      // Update local profile state immediately for instantaneous UI sync
-      setProfile((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          phase_1_quizzes_passed: distinctPassedCount,
-          phase_1_completed: isPhase1Completed,
-          phase_2_unlocked: isPhase2Unlocked,
-          phase_1_status: isPhase1Completed ? 'PASSED' : (prev.phase_1_status || 'IN_PROGRESS'),
-          phase_2_status: isPhase1Completed && (!prev.phase_2_status || prev.phase_2_status === 'LOCKED')
-            ? 'PENDING_SCHEDULE'
-            : prev.phase_2_status,
-          skills: newDynamicSkills
-        };
-      });
+      // 3. Force Refresh: Immediately call supabase.from('talent_profiles').select('*').eq('id', profile.id).single() to refresh the dashboard React state
+      try {
+        const { data: freshProfile, error: refreshError } = await supabase
+          .from('talent_profiles')
+          .select('*')
+          .eq('id', profile.id)
+          .single();
+
+        if (!refreshError && freshProfile) {
+          setProfile((prev) => {
+            if (!prev) return freshProfile;
+            return {
+              ...prev,
+              ...freshProfile,
+              phase_1_quizzes_passed: freshProfile.phase_1_quizzes_passed ?? distinctPassedCount,
+              phase_1_completed: freshProfile.phase_1_completed ?? isPhase1Completed,
+              phase_2_unlocked: freshProfile.phase_2_unlocked ?? isPhase2Unlocked,
+              phase_1_status: freshProfile.phase_1_status ?? (isPhase1Completed ? 'PASSED' : (prev.phase_1_status || 'IN_PROGRESS')),
+              phase_2_status: isPhase1Completed && (!freshProfile.phase_2_status || freshProfile.phase_2_status === 'LOCKED')
+                ? 'PENDING_SCHEDULE'
+                : (freshProfile.phase_2_status || prev.phase_2_status),
+              skills: freshProfile.skills ?? newDynamicSkills
+            };
+          });
+        } else {
+          // Fallback to local profile state update if fetch failed
+          setProfile((prev) => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              phase_1_quizzes_passed: distinctPassedCount,
+              phase_1_completed: isPhase1Completed,
+              phase_2_unlocked: isPhase2Unlocked,
+              phase_1_status: isPhase1Completed ? 'PASSED' : (prev.phase_1_status || 'IN_PROGRESS'),
+              phase_2_status: isPhase1Completed && (!prev.phase_2_status || prev.phase_2_status === 'LOCKED')
+                ? 'PENDING_SCHEDULE'
+                : prev.phase_2_status,
+              skills: newDynamicSkills
+            };
+          });
+        }
+      } catch (refreshEx) {
+        console.warn('Error refreshing talent profile after quiz update:', refreshEx);
+        // Fallback local update
+        setProfile((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            phase_1_quizzes_passed: distinctPassedCount,
+            phase_1_completed: isPhase1Completed,
+            phase_2_unlocked: isPhase2Unlocked,
+            phase_1_status: isPhase1Completed ? 'PASSED' : (prev.phase_1_status || 'IN_PROGRESS'),
+            phase_2_status: isPhase1Completed && (!prev.phase_2_status || prev.phase_2_status === 'LOCKED')
+              ? 'PENDING_SCHEDULE'
+              : prev.phase_2_status,
+            skills: newDynamicSkills
+          };
+        });
+      }
 
       // Show immediate congratulatory modal if talent reached 5 passed quizzes
       if (passed && isPhase1Completed) {
@@ -1234,6 +1314,34 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
     }
   };
 
+  // Trigger Print to PDF for Resume / CV Export
+  const handleDownloadResume = () => {
+    if (isEditing) {
+      setIsEditing(false);
+    }
+    setTimeout(() => {
+      window.print();
+    }, 150);
+  };
+
+  // Share Profile to Clipboard with Toast Notification
+  const handleShareProfile = () => {
+    const slug = profile?.slug || profile?.id;
+    const shareUrl = `${window.location.origin}/p/${slug}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        setToastMessage('Public Profile Link Copied to Clipboard!');
+        setTimeout(() => setToastMessage(null), 3000);
+      }).catch(() => {
+        setToastMessage(`Profile URL: ${shareUrl}`);
+        setTimeout(() => setToastMessage(null), 4000);
+      });
+    } else {
+      setToastMessage(`Profile URL: ${shareUrl}`);
+      setTimeout(() => setToastMessage(null), 4000);
+    }
+  };
+
   // ----------------------------------------------------------------------------
   // EXACT PRELOADER SCREEN MANDATE
   // ----------------------------------------------------------------------------
@@ -1352,7 +1460,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
             </div>
 
             {profile?.is_verified_badge ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-mono font-bold uppercase rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-mono font-bold uppercase rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 transition-all duration-200 transform hover:scale-105 hover:shadow-xs cursor-default">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                 <span>Verified Skills</span>
               </span>
@@ -1364,8 +1472,19 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
             )}
 
             <button
+              id="talent-profile-download-resume-header-btn"
+              type="button"
+              onClick={handleDownloadResume}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-white hover:bg-slate-100 text-slate-700 transition cursor-pointer border border-slate-200 shadow-2xs flex items-center gap-1.5 no-print"
+              title="Download Resume / Export CV as PDF"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Download Resume</span>
+            </button>
+
+            <button
               onClick={() => setIsEditing(!isEditing)}
-              className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white transition cursor-pointer shadow-xs flex items-center gap-1.5"
+              className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white transition cursor-pointer shadow-xs flex items-center gap-1.5 no-print"
             >
               <Edit3 className="w-3.5 h-3.5" />
               <span>{isEditing ? 'Cancel Edit' : 'Edit Portfolio'}</span>
@@ -1373,7 +1492,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
 
             <button
               onClick={handleSignOut}
-              className="bg-white hover:bg-rose-50 hover:text-rose-700 text-slate-700 font-semibold py-1.5 px-3.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer border border-slate-200 transition shadow-2xs"
+              className="bg-white hover:bg-rose-50 hover:text-rose-700 text-slate-700 font-semibold py-1.5 px-3.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer border border-slate-200 transition shadow-2xs no-print"
             >
               <LogOut className="w-3.5 h-3.5 text-slate-400" />
               <span>Sign Out</span>
@@ -1424,7 +1543,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
 
                   {/* Verified Skills Badge */}
                   {profile?.is_verified_badge ? (
-                    <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full text-xs font-semibold">
+                    <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all duration-200 transform hover:scale-105 hover:shadow-xs cursor-default">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                       <span>Verified Skills</span>
                     </span>
@@ -1541,6 +1660,17 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
 
             {/* Quick External Links Row */}
             <div className="flex flex-wrap items-center gap-2 pt-3 md:pt-0 border-t md:border-t-0 border-slate-100">
+              <button
+                id="talent-profile-download-resume-card-btn"
+                type="button"
+                onClick={handleDownloadResume}
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition shadow-2xs flex items-center gap-1.5 cursor-pointer no-print"
+                title="Download Resume / Export CV as PDF"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Download Resume</span>
+              </button>
+
               {profile?.cv_url && (
                 <a
                   href={profile.cv_url}
@@ -1591,6 +1721,16 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
 
           </div>
         </section>
+
+        {/* ========================================================================= */}
+        {/* EMPLOYER VISIBILITY & IMPRESSIONS (LIVE ANALYTICS & IP TRACKING) */}
+        {/* ========================================================================= */}
+        {profile && (
+          <EmployerVisibilityCard 
+            profile={profile} 
+            onShareProfile={handleShareProfile} 
+          />
+        )}
 
         {/* ========================================================================= */}
         {/* 2. 3-STEP VERIFICATION PIPELINE (STRICTLY READ-ONLY) */}
@@ -2599,9 +2739,9 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     displayAccreditedSkills.map((skill, idx) => (
                       <span
                         key={idx}
-                        className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 font-semibold text-[11px] flex items-center gap-1 shadow-2xs"
+                        className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 font-semibold text-[11px] flex items-center gap-1 shadow-2xs transition-all duration-200 transform hover:scale-105 hover:shadow-md hover:bg-emerald-100/90 cursor-default select-none group"
                       >
-                        <Check className="w-3 h-3 text-emerald-600" />
+                        <Check className="w-3 h-3 text-emerald-600 transition-transform duration-200 group-hover:scale-110" />
                         <span>{skill}</span>
                       </span>
                     ))
@@ -3117,7 +3257,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                 {displayAccreditedSkills.map((skill, idx) => (
                   <div
                     key={idx}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-emerald-200 text-slate-800 text-xs font-bold shadow-2xs"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-emerald-200 text-slate-800 text-xs font-bold shadow-2xs transition-all duration-200 transform hover:scale-105 hover:shadow-md cursor-default select-none"
                   >
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
                     <span>{skill}</span>

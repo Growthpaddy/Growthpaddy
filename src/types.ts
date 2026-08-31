@@ -97,6 +97,10 @@ export interface TalentCandidate {
   about: string;
   slug?: string;
   profilePictureUrl?: string;
+  view_count?: number;
+  viewCount?: number;
+  click_count?: number;
+  clickCount?: number;
   projects?: ProjectData[];
   caseStudies?: CaseStudy[];
   case_studies?: CaseStudyItem[];

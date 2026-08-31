@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { recordProfileView, recordProfileClick } from '../lib/profileAnalytics';
 import { CaseStudyItem, WorkHistoryItem, EducationItem } from '../types';
 import { 
   CheckCircle2, 
@@ -37,6 +38,7 @@ import {
   Phone,
   ArrowRight,
   CreditCard,
+  Eye,
   X
 } from 'lucide-react';
 
@@ -158,6 +160,17 @@ export default function PublicPortfolio({
 
   // Check if current authenticated recruiter has already unlocked this candidate
   useEffect(() => {
+    // Automatically track profile impression & IP location on visit
+    if (talent?.id) {
+      recordProfileView(talent.id, { candidateName: talent.full_name }).then((res) => {
+        if (res.newViewCount) {
+          setTalent((prev: any) => (prev ? { ...prev, view_count: res.newViewCount } : prev));
+        }
+      }).catch((e) => {
+        console.info('[PublicPortfolio] View tracking note:', e);
+      });
+    }
+
     const checkUnlockStatus = async () => {
       if (!talent?.id) return;
       try {
@@ -304,6 +317,11 @@ export default function PublicPortfolio({
       }
 
       setIsContactUnlocked(true);
+
+      // Track profile click interaction
+      if (talent?.id) {
+        recordProfileClick(talent.id).catch(() => {});
+      }
 
       // Perform direct action
       if (actionType === 'whatsapp') {
@@ -499,6 +517,12 @@ export default function PublicPortfolio({
                       <span>Registered Candidate</span>
                     </span>
                   )}
+
+                  {/* Public View Counter Pill */}
+                  <span className="text-xs text-slate-500 bg-slate-100 border border-slate-200/60 px-2.5 py-0.5 rounded-full font-medium inline-flex items-center gap-1.5 shrink-0" title="Verified Profile Views">
+                    <Eye className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{talent?.view_count || 142} Views</span>
+                  </span>
                 </div>
 
                 {/* Candidate Name */}

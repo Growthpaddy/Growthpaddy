@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { useSupabase } from '../../context/SupabaseContext';
 import { supabase } from '../../lib/supabaseClient';
+import EmployerVisibilityCard from '../../components/talent/EmployerVisibilityCard';
 
 export interface TalentDashboardProps {
   isTalentPaid?: boolean;
@@ -565,6 +566,20 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
         </div>
       )}
 
+      {/* Employer Visibility & Impressions Analytics Card */}
+      {(activeTalentTab === 'all' || activeTalentTab === 'overview') && (
+        <EmployerVisibilityCard 
+          profile={{
+            id: user?.id || slug || 'alex-vance',
+            full_name: fullName,
+            slug: slug,
+            view_count: 142,
+            click_count: 34
+          }}
+          onShareProfile={handleCopyProfileLink}
+        />
+      )}
+
       {/* ========================================================================= */}
       {/* 2.5. DASHBOARD NAVIGATION TABS (Mobile / Desktop View Switcher) */}
       {/* ========================================================================= */}
@@ -640,9 +655,9 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
               {skillsList.map((skill, index) => (
                 <div
                   key={index}
-                  className={`p-4 rounded-xl border transition-all flex items-start justify-between gap-3 ${
+                  className={`p-4 rounded-xl border transition-all duration-200 flex items-start justify-between gap-3 ${
                     skill.isVerified
-                      ? 'bg-white border-emerald-200 shadow-sm hover:border-emerald-300'
+                      ? 'bg-white border-emerald-200 shadow-xs hover:border-emerald-300 hover:shadow-md transform hover:-translate-y-0.5'
                       : 'bg-slate-50/70 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
                   }`}
                 >

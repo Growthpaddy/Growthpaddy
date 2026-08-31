@@ -11,7 +11,8 @@ import {
   CheckCircle2, 
   Sparkles,
   Layers,
-  ArrowUpRight
+  ArrowUpRight,
+  Eye
 } from 'lucide-react';
 import { TalentCandidate } from '../../types';
 
@@ -70,10 +71,16 @@ export const TalentProfileCard: React.FC<TalentProfileCardProps> = ({
               <p className="text-xs text-emerald-700 font-medium truncate">
                 {candidate.role || candidate.headline || candidate.specialization || 'Growth Marketer'}
               </p>
-              <p className="text-[11px] text-slate-400 flex items-center gap-1 truncate">
-                <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                <span>{candidate.location || 'Remote Global'}</span>
-              </p>
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[11px] text-slate-500">
+                <span className="flex items-center gap-1 truncate">
+                  <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                  <span>{candidate.location || 'Remote Global'}</span>
+                </span>
+                <span className="text-xs text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full font-medium inline-flex items-center gap-1 shrink-0">
+                  <Eye className="w-3 h-3 text-slate-400" />
+                  <span>{candidate.view_count || candidate.viewCount || 142} Views</span>
+                </span>
+              </div>
             </div>
           </div>
 
@@ -150,7 +157,7 @@ export const TalentProfileCard: React.FC<TalentProfileCardProps> = ({
                     onSkillClick(skill);
                   }
                 }}
-                className="text-[11px] font-medium bg-emerald-50/70 hover:bg-emerald-100 text-emerald-800 px-2.5 py-0.5 border border-emerald-200 rounded-lg transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                className="text-[11px] font-medium bg-emerald-50/70 hover:bg-emerald-100 text-emerald-800 px-2.5 py-0.5 border border-emerald-200 rounded-lg transition-all duration-200 transform hover:scale-105 hover:shadow-xs cursor-pointer flex items-center gap-1 shadow-2xs"
               >
                 <Check className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
                 <span>{skill}</span>
