@@ -131,6 +131,11 @@ export interface TalentProfile {
   phase_1_quizzes_passed?: number;
   phase_1_completed?: boolean;
   phase_2_unlocked?: boolean;
+  manual_phase_2_unlocked?: boolean;
+  phase_3_unlocked?: boolean;
+  manual_phase_3_unlocked?: boolean;
+  admin_unlocked_categories?: string[] | null;
+  phase_2_calendar_link?: string | null;
   phase_1_status?: Phase1Status;
   phase_2_status?: Phase2Status;
   phase_3_status?: Phase3Status;
@@ -144,6 +149,7 @@ export interface SkillCategoryItem {
   category: string;
   totalQuestions: number;
   isPassed: boolean;
+  isAdminBypassed?: boolean;
   bestScore?: number;
   failCount: number;
   attemptsCount: number;
@@ -374,7 +380,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
   // ----------------------------------------------------------------------------
   // Helper: Aggregate Skill Matrix from Quiz Attempts
   // ----------------------------------------------------------------------------
-  const buildSkillMatrix = useCallback((attempts: any[], customCounts?: Record<string, number>, currentSkills?: string[]) => {
+  const buildSkillMatrix = useCallback((attempts: any[], customCounts?: Record<string, number>, currentSkills?: string[], adminBypassed?: string[]) => {
     const now = Date.now();
     return DEFAULT_SKILL_CATEGORIES.map((catName) => {
       const catAttempts = (attempts || [])
@@ -385,7 +391,8 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
           return timeB - timeA;
         });
 
-      const hasPassed = catAttempts.some((a: any) => a.passed === true || Number(a.score_percentage ?? a.score ?? 0) >= 80) ||
+      const isAdminBypassed = Array.isArray(adminBypassed) && adminBypassed.includes(catName);
+      const hasPassed = isAdminBypassed || catAttempts.some((a: any) => a.passed === true || Number(a.score_percentage ?? a.score ?? 0) >= 80) ||
         (Array.isArray(currentSkills) && currentSkills.includes(catName));
 
       const bestScore = catAttempts.length > 0 
@@ -418,6 +425,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         category: catName,
         totalQuestions: totalQCount,
         isPassed: hasPassed,
+        isAdminBypassed,
         bestScore,
         failCount,
         attemptsCount,
@@ -588,10 +596,15 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         .map((a: any) => a.skill_category || a.category || a.specialty)
         .filter(Boolean);
 
-      // Merge with any skills already saved on the profile record
+      // Extract admin bypassed categories
+      const adminBypassedCats: string[] = Array.isArray(profileData.admin_unlocked_categories)
+        ? profileData.admin_unlocked_categories
+        : [];
+
+      // Merge with any skills already saved on the profile record and admin bypassed categories
       const existingProfileSkills = Array.isArray(profileData.skills) ? profileData.skills : [];
       const distinctPassedCategories = Array.from(
-        new Set([...passedFromAttempts, ...existingProfileSkills])
+        new Set([...passedFromAttempts, ...existingProfileSkills, ...adminBypassedCats])
       );
 
       const passedCount = Math.max(
@@ -599,12 +612,24 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         Number(profileData.phase_1_quizzes_passed || 0)
       );
 
-      const isPhase1Passed = passedCount >= 5 || Boolean(profileData.phase_1_completed) || String(profileData.phase_1_status || '').toLowerCase() === 'passed';
+      const isManualPhase2 = Boolean(profileData.manual_phase_2_unlocked);
+      const isManualPhase3 = Boolean(profileData.manual_phase_3_unlocked);
 
-      // Accredited skills from passed quizzes (Max 5)
+      const isPhase1Passed = passedCount >= 5 || 
+        Boolean(profileData.phase_1_completed) || 
+        isManualPhase2 || 
+        String(profileData.phase_1_status || '').toLowerCase() === 'passed';
+
+      const isPhase2Unlocked = isPhase1Passed || 
+        Boolean(profileData.phase_2_unlocked) || 
+        isManualPhase2;
+
+      const isPhase3Unlocked = Boolean(profileData.phase_3_unlocked) || isManualPhase3;
+
+      // Accredited skills from passed quizzes and admin overrides (Max 5)
       const dynamicAccreditedSkills = distinctPassedCategories.slice(0, 5);
 
-      // Automatically sync completed flags to Supabase if 5 quizzes passed
+      // Automatically sync completed flags to Supabase if 5 quizzes passed or manual override
       if (isPhase1Passed && (!profileData.phase_1_completed || !profileData.phase_2_unlocked || profileData.phase_1_status !== 'PASSED' || (profileData.phase_1_quizzes_passed || 0) < passedCount)) {
         try {
           await supabase
@@ -624,7 +649,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         }
       }
 
-      const matrix = buildSkillMatrix(allMergedAttempts, liveQuestionCounts, dynamicAccreditedSkills);
+      const matrix = buildSkillMatrix(allMergedAttempts, liveQuestionCounts, dynamicAccreditedSkills, adminBypassedCats);
       setSkillMatrix(matrix);
 
       const normalizedProfile: TalentProfile = {
@@ -651,13 +676,18 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         ai_tools: Array.isArray(profileData.ai_tools) ? profileData.ai_tools : ['ChatGPT', 'Midjourney', 'Zapier AI'],
         certifications: Array.isArray(profileData.certifications) ? profileData.certifications : ['Google Ads Search', 'Meta Media Buyer'],
         skills: dynamicAccreditedSkills,
+        admin_unlocked_categories: adminBypassedCats,
+        manual_phase_2_unlocked: isManualPhase2,
+        manual_phase_3_unlocked: isManualPhase3,
+        phase_3_unlocked: isPhase3Unlocked,
+        phase_2_calendar_link: profileData.phase_2_calendar_link || null,
         phase_1_quizzes_passed: passedCount,
         phase_1_completed: isPhase1Passed,
-        phase_2_unlocked: isPhase1Passed || Boolean(profileData.phase_2_unlocked),
+        phase_2_unlocked: isPhase2Unlocked,
         phase_1_status: isPhase1Passed ? 'PASSED' : (profileData.phase_1_status || 'IN_PROGRESS'),
-        phase_2_status: isPhase1Passed && (!profileData.phase_2_status || profileData.phase_2_status === 'LOCKED')
+        phase_2_status: isPhase2Unlocked && (!profileData.phase_2_status || profileData.phase_2_status === 'LOCKED')
           ? 'PENDING_SCHEDULE'
-          : (profileData.phase_2_status || 'LOCKED'),
+          : (profileData.phase_2_status || (isPhase2Unlocked ? 'PENDING_SCHEDULE' : 'LOCKED')),
         phase_3_status: profileData.phase_3_status || (profileData.is_verified_badge ? 'VERIFIED' : 'LOCKED'),
         is_verified_badge: Boolean(profileData.is_verified_badge),
         view_count: Number(profileData.view_count || 142),
@@ -1817,10 +1847,12 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
             </div>
 
             {/* STEP 2: Specialist Interview */}
-            <div className={`bg-white rounded-xl p-6 border transition-all duration-200 shadow-sm hover:shadow-md flex flex-col justify-between ${
+            <div 
+              id="step-2-verification-card"
+              className={`bg-white rounded-xl p-6 border transition-all duration-200 shadow-sm hover:shadow-md flex flex-col justify-between ${
               profile?.phase_2_status === 'COMPLETED'
                 ? 'border-emerald-300 bg-emerald-50/20'
-                : profile?.phase_2_status === 'PENDING_SCHEDULE'
+                : profile?.phase_2_status === 'PENDING_SCHEDULE' || profile?.phase_2_unlocked || isPhase1Done
                 ? 'border-indigo-300 ring-2 ring-indigo-500/10'
                 : profile?.phase_2_status === 'FAILED'
                 ? 'border-rose-200 bg-rose-50/20'
@@ -1832,7 +1864,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ${
                       profile?.phase_2_status === 'COMPLETED'
                         ? 'bg-emerald-100 text-emerald-800'
-                        : profile?.phase_2_status === 'PENDING_SCHEDULE'
+                        : profile?.phase_2_status === 'PENDING_SCHEDULE' || profile?.phase_2_unlocked || isPhase1Done
                         ? 'bg-indigo-100 text-indigo-800'
                         : 'bg-slate-100 text-slate-700'
                     }`}>
@@ -1846,9 +1878,9 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       Passed
                     </span>
-                  ) : profile?.phase_2_status === 'PENDING_SCHEDULE' ? (
+                  ) : profile?.phase_2_status === 'PENDING_SCHEDULE' || profile?.phase_2_unlocked || isPhase1Done ? (
                     <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200 animate-pulse">
-                      Pending Schedule
+                      Ready to Schedule
                     </span>
                   ) : profile?.phase_2_status === 'FAILED' ? (
                     <span className="text-[11px] font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
@@ -1865,6 +1897,27 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                 <p className="text-xs font-normal text-slate-600 leading-relaxed">
                   30-minute technical evaluation on execution velocity, campaign strategy, and growth architecture.
                 </p>
+
+                {/* Interactive Book Review Button when Phase 2 is Unlocked */}
+                {(profile?.phase_2_unlocked || profile?.phase_2_status === 'PENDING_SCHEDULE' || isPhase1Done) && profile?.phase_2_status !== 'COMPLETED' && (
+                  <div className="pt-2">
+                    <a
+                      href={profile?.phase_2_calendar_link || 'https://calendly.com/talent-specialist/30min'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2.5 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer shadow-md shadow-indigo-600/20"
+                    >
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>Book Your Phase 2 Panel Review</span>
+                      <ExternalLink className="w-3 h-3 opacity-80" />
+                    </a>
+                    {profile?.phase_2_calendar_link && (
+                      <p className="text-[10px] text-slate-400 text-center mt-1 font-mono truncate">
+                        Linked to panel calendar
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 border-t border-slate-100 mt-4 text-[11px] font-normal text-slate-500 flex items-center gap-1">
@@ -1977,7 +2030,12 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                         </h3>
                       </div>
 
-                      {item.isPassed ? (
+                      {item.isAdminBypassed ? (
+                        <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          Admin Verified
+                        </span>
+                      ) : item.isPassed ? (
                         <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
                           <CheckCircle2 className="w-3 h-3" />
                           Passed

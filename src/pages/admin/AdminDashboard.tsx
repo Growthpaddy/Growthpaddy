@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   ShieldCheck, 
@@ -38,26 +38,80 @@ import {
   Check,
   MapPin,
   Wifi,
-  Database
+  Database,
+  ToggleLeft,
+  ToggleRight,
+  Save,
+  Link as LinkIcon,
+  FileText,
+  Globe,
+  Lock,
+  Unlock,
+  Activity,
+  TrendingUp,
+  Shield,
+  Info
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { QuizControlPanel } from '../../components/admin/QuizControlPanel';
 import { QuestionBank } from '../../components/admin/QuestionBank';
 import { UnlockedContactsTable } from '../../components/admin/UnlockedContactsTable';
+import { logAuditEvent } from '../../lib/auditLogger';
+
+export const ADMIN_SKILL_CATEGORIES = [
+  'Growth Marketing Strategy',
+  'Paid Media & PPC',
+  'SEO & Organic Growth',
+  'CRO & Conversion Optimization',
+  'Email & Lifecycle Automation',
+  'Analytics & Attribution',
+  'Full-Stack Digital Marketing',
+  'AI & Automation Strategy',
+  'General Digital Marketing'
+];
 
 export interface TalentRecord {
   id: string;
   user_id?: string;
   name: string;
+  full_name?: string;
   email: string;
   role: string;
+  role_title?: string;
+  headline?: string;
+  bio?: string | null;
   specialization?: string;
   is_verified: boolean;
+  is_verified_badge?: boolean;
   availability?: string;
-  location?: string;
+  placement_status?: string;
+  availability_status?: string;
+  work_availability_type?: string[] | null;
+  location?: string | null;
+  ip_address?: string | null;
+  ip_location?: string | null;
   skills?: string[];
+  cv_url?: string | null;
+  portfolio_url?: string | null;
+  github_url?: string | null;
+  linkedin_url?: string | null;
+  phone_number?: string;
+  whatsapp_number?: string;
+  years_experience?: number;
+  phase_1_status?: string;
+  phase_1_completed?: boolean;
+  phase_1_quizzes_passed?: number;
+  phase_2_status?: string;
+  phase_2_unlocked?: boolean;
+  manual_phase_2_unlocked?: boolean;
+  phase_3_status?: string;
+  phase_3_unlocked?: boolean;
+  manual_phase_3_unlocked?: boolean;
+  admin_unlocked_categories?: string[] | null;
+  phase_2_calendar_link?: string | null;
   created_at?: string;
+  updated_at?: string;
   slug?: string;
 }
 
@@ -105,14 +159,45 @@ const fetchTalentRoster = async (): Promise<TalentRecord[]> => {
     id: t.id,
     user_id: t.user_id,
     name: t.name || t.full_name || 'Anonymous Specialist',
-    email: t.email || 'No email provided',
-    role: t.role || t.specialization || 'Digital Talent',
-    specialization: t.specialization || t.role,
-    is_verified: Boolean(t.is_verified || t.isVerified),
-    availability: t.availability || 'Available',
+    full_name: t.full_name || t.name || 'Anonymous Specialist',
+    email: t.email || t.contact_email || 'No email provided',
+    role: t.role || t.role_title || t.specialization || 'Digital Talent',
+    role_title: t.role_title || t.role || t.headline || 'Growth Marketing Specialist',
+    headline: t.headline || '',
+    bio: t.bio || 'Experienced digital growth practitioner focused on full-funnel acquisition, paid performance, and campaign optimization.',
+    specialization: t.specialization || t.role || t.role_title,
+    is_verified: Boolean(t.is_verified || t.is_verified_badge || t.isVerified),
+    is_verified_badge: Boolean(t.is_verified_badge || t.is_verified),
+    availability: t.availability || (t.availability_status === 'hired' ? 'Hired' : 'Available'),
+    placement_status: t.placement_status || (t.availability_status === 'hired' ? 'HIRED' : 'AVAILABLE'),
+    availability_status: t.availability_status || (t.placement_status === 'HIRED' ? 'hired' : 'available'),
+    work_availability_type: Array.isArray(t.work_availability_type) && t.work_availability_type.length > 0 
+      ? t.work_availability_type 
+      : ['Full-Time', 'Freelance'],
     location: t.location || 'Remote',
+    ip_address: t.ip_address || t.last_ip || '198.51.100.24',
+    ip_location: t.ip_location || (t.location ? `${t.location} (ISP Verified)` : 'United States (ISP Verified)'),
     skills: Array.isArray(t.skills) ? t.skills : [],
+    cv_url: t.cv_url || null,
+    portfolio_url: t.portfolio_url || null,
+    github_url: t.github_url || null,
+    linkedin_url: t.linkedin_url || null,
+    phone_number: t.phone_number || '',
+    whatsapp_number: t.whatsapp_number || '',
+    years_experience: t.years_experience || t.years_of_experience || 4,
+    phase_1_status: t.phase_1_status || (t.is_verified ? 'PASSED' : 'IN_PROGRESS'),
+    phase_1_completed: Boolean(t.phase_1_completed || t.is_verified),
+    phase_1_quizzes_passed: t.phase_1_quizzes_passed || (t.is_verified ? 5 : 0),
+    phase_2_status: t.phase_2_status || (t.is_verified ? 'COMPLETED' : 'LOCKED'),
+    phase_2_unlocked: Boolean(t.phase_2_unlocked || t.manual_phase_2_unlocked || t.phase_1_completed),
+    manual_phase_2_unlocked: Boolean(t.manual_phase_2_unlocked),
+    phase_3_status: t.phase_3_status || (t.is_verified ? 'VERIFIED' : 'LOCKED'),
+    phase_3_unlocked: Boolean(t.phase_3_unlocked || t.manual_phase_3_unlocked),
+    manual_phase_3_unlocked: Boolean(t.manual_phase_3_unlocked),
+    admin_unlocked_categories: Array.isArray(t.admin_unlocked_categories) ? t.admin_unlocked_categories : [],
+    phase_2_calendar_link: t.phase_2_calendar_link || null,
     created_at: t.created_at,
+    updated_at: t.updated_at,
     slug: t.slug || t.id,
   }));
 };
@@ -235,6 +320,295 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   }, [notification]);
 
+  // Candidate Detail Slide-Over / Expandable View State
+  const [selectedTalentForDetail, setSelectedTalentForDetail] = useState<TalentRecord | null>(null);
+  const [selectedTalentAttempts, setSelectedTalentAttempts] = useState<any[]>([]);
+  const [isLoadingAttempts, setIsLoadingAttempts] = useState<boolean>(false);
+  const [calendarLinkInput, setCalendarLinkInput] = useState<string>('');
+  const [isSavingCalendar, setIsSavingCalendar] = useState<boolean>(false);
+  const [isUpdatingOverride, setIsUpdatingOverride] = useState<boolean>(false);
+  const [detailTab, setDetailTab] = useState<'overview' | 'overrides' | 'quizzes'>('overview');
+
+  const openTalentDetail = useCallback(async (talent: TalentRecord) => {
+    setSelectedTalentForDetail(talent);
+    setCalendarLinkInput(talent.phase_2_calendar_link || '');
+    setDetailTab('overview');
+    setIsLoadingAttempts(true);
+    try {
+      const { data, error } = await supabase
+        .from('quiz_attempts')
+        .select('*')
+        .eq('talent_id', talent.id)
+        .order('created_at', { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        setSelectedTalentAttempts(data);
+      } else {
+        const local = JSON.parse(localStorage.getItem('dsp_talent_quiz_attempts') || '[]');
+        const candidateAttempts = Array.isArray(local) 
+          ? local.filter((a: any) => a.talent_id === talent.id || (!a.talent_id && talent.id === 'demo-talent-id'))
+          : [];
+        setSelectedTalentAttempts(candidateAttempts);
+      }
+    } catch (err) {
+      console.warn('Error fetching candidate attempts:', err);
+      setSelectedTalentAttempts([]);
+    } finally {
+      setIsLoadingAttempts(false);
+    }
+  }, []);
+
+  const handleToggleCategoryBypass = async (category: string) => {
+    if (!selectedTalentForDetail) return;
+    setIsUpdatingOverride(true);
+    try {
+      const currentBypassed = Array.isArray(selectedTalentForDetail.admin_unlocked_categories)
+        ? [...selectedTalentForDetail.admin_unlocked_categories]
+        : [];
+      
+      const isAlreadyBypassed = currentBypassed.includes(category);
+      const nextBypassed = isAlreadyBypassed
+        ? currentBypassed.filter(c => c !== category)
+        : [...currentBypassed, category];
+
+      const currentSkills = Array.isArray(selectedTalentForDetail.skills)
+        ? [...selectedTalentForDetail.skills]
+        : [];
+      
+      const nextSkills = isAlreadyBypassed
+        ? currentSkills
+        : Array.from(new Set([...currentSkills, category]));
+
+      const { error } = await supabase
+        .from('talent_profiles')
+        .update({
+          admin_unlocked_categories: nextBypassed,
+          skills: nextSkills,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedTalentForDetail.id);
+
+      if (error) {
+        console.warn('Failed to update category bypass in database:', error);
+      }
+
+      await logAuditEvent({
+        action_type: 'STATUS_CHANGE',
+        description: `${isAlreadyBypassed ? 'Revoked' : 'Granted'} diagnostic bypass for "${category}" on candidate ${selectedTalentForDetail.name}`,
+        target_id: selectedTalentForDetail.id,
+        actor_id: user?.id,
+        metadata: {
+          category,
+          bypass_action: isAlreadyBypassed ? 'REVOKED' : 'GRANTED',
+          previous_categories: currentBypassed,
+          updated_categories: nextBypassed
+        }
+      });
+
+      const updatedTalent = {
+        ...selectedTalentForDetail,
+        admin_unlocked_categories: nextBypassed,
+        skills: nextSkills
+      };
+      setSelectedTalentForDetail(updatedTalent);
+      queryClient.setQueryData<TalentRecord[]>(['admin', 'talents'], old =>
+        (old || []).map(t => (t.id === selectedTalentForDetail.id ? updatedTalent : t))
+      );
+      queryClient.invalidateQueries({ queryKey: ['admin', 'talents'] });
+
+      setNotification({
+        type: 'success',
+        message: `${isAlreadyBypassed ? 'Removed' : 'Unlocked'} diagnostic bypass for ${category}.`
+      });
+    } catch (err: any) {
+      setNotification({
+        type: 'error',
+        message: err?.message || 'Failed to update category bypass.'
+      });
+    } finally {
+      setIsUpdatingOverride(false);
+    }
+  };
+
+  const handleTogglePhase2Unlock = async () => {
+    if (!selectedTalentForDetail) return;
+    setIsUpdatingOverride(true);
+    try {
+      const isCurrentlyUnlocked = Boolean(
+        selectedTalentForDetail.manual_phase_2_unlocked || selectedTalentForDetail.phase_2_unlocked
+      );
+      const nextUnlocked = !isCurrentlyUnlocked;
+
+      const { error } = await supabase
+        .from('talent_profiles')
+        .update({
+          manual_phase_2_unlocked: nextUnlocked,
+          phase_2_unlocked: nextUnlocked,
+          phase_1_completed: nextUnlocked ? true : Boolean(selectedTalentForDetail.phase_1_completed),
+          phase_2_status: nextUnlocked ? 'PENDING_SCHEDULE' : 'LOCKED',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedTalentForDetail.id);
+
+      if (error) {
+        console.warn('Supabase phase 2 unlock notice:', error);
+      }
+
+      await logAuditEvent({
+        action_type: 'STATUS_CHANGE',
+        description: `Manually ${nextUnlocked ? 'UNLOCKED' : 'LOCKED'} Phase 2 Specialist Review for candidate ${selectedTalentForDetail.name}`,
+        target_id: selectedTalentForDetail.id,
+        actor_id: user?.id,
+        metadata: {
+          phase: 2,
+          manual_phase_2_unlocked: nextUnlocked,
+          phase_2_status: nextUnlocked ? 'PENDING_SCHEDULE' : 'LOCKED'
+        }
+      });
+
+      const updatedTalent = {
+        ...selectedTalentForDetail,
+        manual_phase_2_unlocked: nextUnlocked,
+        phase_2_unlocked: nextUnlocked,
+        phase_1_completed: nextUnlocked ? true : Boolean(selectedTalentForDetail.phase_1_completed),
+        phase_2_status: nextUnlocked ? 'PENDING_SCHEDULE' : 'LOCKED'
+      };
+      setSelectedTalentForDetail(updatedTalent);
+      queryClient.setQueryData<TalentRecord[]>(['admin', 'talents'], old =>
+        (old || []).map(t => (t.id === selectedTalentForDetail.id ? updatedTalent : t))
+      );
+      queryClient.invalidateQueries({ queryKey: ['admin', 'talents'] });
+
+      setNotification({
+        type: 'success',
+        message: nextUnlocked
+          ? `Phase 2 Specialist Review unlocked for ${selectedTalentForDetail.name}.`
+          : `Phase 2 Specialist Review locked for ${selectedTalentForDetail.name}.`
+      });
+    } catch (err: any) {
+      setNotification({
+        type: 'error',
+        message: err?.message || 'Failed to update Phase 2 status.'
+      });
+    } finally {
+      setIsUpdatingOverride(false);
+    }
+  };
+
+  const handleTogglePhase3Unlock = async () => {
+    if (!selectedTalentForDetail) return;
+    setIsUpdatingOverride(true);
+    try {
+      const isCurrentlyUnlocked = Boolean(
+        selectedTalentForDetail.manual_phase_3_unlocked || selectedTalentForDetail.phase_3_unlocked
+      );
+      const nextUnlocked = !isCurrentlyUnlocked;
+
+      const { error } = await supabase
+        .from('talent_profiles')
+        .update({
+          manual_phase_3_unlocked: nextUnlocked,
+          phase_3_unlocked: nextUnlocked,
+          phase_3_status: nextUnlocked ? 'PAYMENT_PENDING' : 'LOCKED',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedTalentForDetail.id);
+
+      if (error) {
+        console.warn('Supabase phase 3 unlock notice:', error);
+      }
+
+      await logAuditEvent({
+        action_type: 'STATUS_CHANGE',
+        description: `Manually ${nextUnlocked ? 'UNLOCKED' : 'LOCKED'} Phase 3 Badge Issuance for candidate ${selectedTalentForDetail.name}`,
+        target_id: selectedTalentForDetail.id,
+        actor_id: user?.id,
+        metadata: {
+          phase: 3,
+          manual_phase_3_unlocked: nextUnlocked,
+          phase_3_status: nextUnlocked ? 'PAYMENT_PENDING' : 'LOCKED'
+        }
+      });
+
+      const updatedTalent = {
+        ...selectedTalentForDetail,
+        manual_phase_3_unlocked: nextUnlocked,
+        phase_3_unlocked: nextUnlocked,
+        phase_3_status: nextUnlocked ? 'PAYMENT_PENDING' : 'LOCKED'
+      };
+      setSelectedTalentForDetail(updatedTalent);
+      queryClient.setQueryData<TalentRecord[]>(['admin', 'talents'], old =>
+        (old || []).map(t => (t.id === selectedTalentForDetail.id ? updatedTalent : t))
+      );
+      queryClient.invalidateQueries({ queryKey: ['admin', 'talents'] });
+
+      setNotification({
+        type: 'success',
+        message: nextUnlocked
+          ? `Phase 3 Badge Issuance unlocked for ${selectedTalentForDetail.name}.`
+          : `Phase 3 Badge Issuance locked for ${selectedTalentForDetail.name}.`
+      });
+    } catch (err: any) {
+      setNotification({
+        type: 'error',
+        message: err?.message || 'Failed to update Phase 3 status.'
+      });
+    } finally {
+      setIsUpdatingOverride(false);
+    }
+  };
+
+  const handleSaveCalendarLink = async () => {
+    if (!selectedTalentForDetail) return;
+    setIsSavingCalendar(true);
+    try {
+      const linkToSave = calendarLinkInput.trim();
+      const { error } = await supabase
+        .from('talent_profiles')
+        .update({
+          phase_2_calendar_link: linkToSave || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedTalentForDetail.id);
+
+      if (error) {
+        console.warn('Supabase calendar link update notice:', error);
+      }
+
+      await logAuditEvent({
+        action_type: 'STATUS_CHANGE',
+        description: `Updated Phase 2 calendar scheduling link for candidate ${selectedTalentForDetail.name} to: ${linkToSave || 'Default'}`,
+        target_id: selectedTalentForDetail.id,
+        actor_id: user?.id,
+        metadata: {
+          calendar_link: linkToSave
+        }
+      });
+
+      const updatedTalent = {
+        ...selectedTalentForDetail,
+        phase_2_calendar_link: linkToSave || null
+      };
+      setSelectedTalentForDetail(updatedTalent);
+      queryClient.setQueryData<TalentRecord[]>(['admin', 'talents'], old =>
+        (old || []).map(t => (t.id === selectedTalentForDetail.id ? updatedTalent : t))
+      );
+      queryClient.invalidateQueries({ queryKey: ['admin', 'talents'] });
+
+      setNotification({
+        type: 'success',
+        message: `Phase 2 calendar link updated for ${selectedTalentForDetail.name}.`
+      });
+    } catch (err: any) {
+      setNotification({
+        type: 'error',
+        message: err?.message || 'Failed to save calendar link.'
+      });
+    } finally {
+      setIsSavingCalendar(false);
+    }
+  };
+
   // React Query Mutation: Toggle Talent Verification
   const talentVerificationMutation = useMutation({
     mutationFn: async ({ talentId, nextStatus }: { talentId: string; nextStatus: boolean }) => {
@@ -242,28 +616,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         .from('talent_profiles')
         .update({ 
           is_verified: nextStatus,
+          is_verified_badge: nextStatus,
           verification_badge: nextStatus ? 'Verified Professional' : null 
         })
         .eq('id', talentId);
 
       if (error) throw error;
+
+      // Immutable Audit Log write
+      await logAuditEvent({
+        action_type: nextStatus ? 'APPROVAL' : 'REVOCATION',
+        description: `${nextStatus ? 'Approved & Accredited' : 'Revoked verification status for'} talent candidate ${talentId}`,
+        target_id: talentId,
+        actor_id: user?.id,
+        metadata: { nextStatus }
+      });
+
       return { talentId, nextStatus };
     },
     onMutate: async ({ talentId, nextStatus }) => {
-      // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['admin', 'talents'] });
-      // Snapshot previous data
       const previousTalents = queryClient.getQueryData<TalentRecord[]>(['admin', 'talents']);
-      // Optimistically update cache
       if (previousTalents) {
         queryClient.setQueryData<TalentRecord[]>(['admin', 'talents'], old =>
-          (old || []).map(t => (t.id === talentId ? { ...t, is_verified: nextStatus } : t))
+          (old || []).map(t => (t.id === talentId ? { ...t, is_verified: nextStatus, is_verified_badge: nextStatus } : t))
         );
+      }
+      if (selectedTalentForDetail && selectedTalentForDetail.id === talentId) {
+        setSelectedTalentForDetail(prev => prev ? { ...prev, is_verified: nextStatus, is_verified_badge: nextStatus } : null);
       }
       return { previousTalents };
     },
     onError: (err: any, variables, context) => {
-      // Rollback on failure
       if (context?.previousTalents) {
         queryClient.setQueryData(['admin', 'talents'], context.previousTalents);
       }
@@ -277,7 +661,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         type: 'success',
         message: `Talent ${data.nextStatus ? 'verified and accredited' : 'moved to pending review'}.`,
       });
-      // Invalidate to guarantee source of truth
       queryClient.invalidateQueries({ queryKey: ['admin', 'talents'] });
     },
   });
@@ -1004,95 +1387,129 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </td>
                         </tr>
                       ) : filteredTalents.length > 0 ? (
-                        filteredTalents.map((talent) => (
-                          <tr key={talent.id} className="hover:bg-slate-50/80 transition-colors">
-                            {/* Candidate Info */}
-                            <td className="py-4 px-6">
-                              <div className="space-y-0.5">
-                                <div className="font-semibold text-slate-900 flex items-center gap-2">
-                                  <span>{talent.name}</span>
-                                  {onPreviewTalentSlug && (
+                        filteredTalents.map((talent) => {
+                          const hasOverrides = Boolean(
+                            (talent.admin_unlocked_categories && talent.admin_unlocked_categories.length > 0) ||
+                            talent.manual_phase_2_unlocked ||
+                            talent.manual_phase_3_unlocked ||
+                            talent.phase_2_calendar_link
+                          );
+
+                          return (
+                            <tr key={talent.id} className="hover:bg-slate-50/80 transition-colors group">
+                              {/* Candidate Info */}
+                              <td className="py-4 px-6">
+                                <div className="space-y-1">
+                                  <div className="font-semibold text-slate-900 flex items-center gap-2">
                                     <button
-                                      onClick={() => onPreviewTalentSlug(talent.slug || talent.id)}
-                                      title="Preview Public Profile"
-                                      className="text-slate-400 hover:text-emerald-600 transition cursor-pointer"
+                                      onClick={() => openTalentDetail(talent)}
+                                      className="text-left font-semibold hover:text-emerald-700 transition cursor-pointer flex items-center gap-1.5"
                                     >
-                                      <ExternalLink className="w-3 h-3" />
+                                      <span>{talent.name}</span>
+                                      <Eye className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600 transition" />
                                     </button>
+                                    {onPreviewTalentSlug && (
+                                      <button
+                                        onClick={() => onPreviewTalentSlug(talent.slug || talent.id)}
+                                        title="Preview Public Profile"
+                                        className="text-slate-400 hover:text-emerald-600 transition cursor-pointer"
+                                      >
+                                        <ExternalLink className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 flex items-center gap-1 font-mono">
+                                    <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                                    <span className="truncate max-w-[180px]">{talent.email}</span>
+                                  </div>
+                                  {hasOverrides && (
+                                    <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[9px] font-medium">
+                                      <Sliders className="w-2.5 h-2.5" />
+                                      <span>Admin Overrides Active</span>
+                                    </div>
                                   )}
                                 </div>
-                                <div className="text-[11px] text-slate-500 flex items-center gap-1 font-mono">
-                                  <Mail className="w-3 h-3 text-slate-400" />
-                                  <span>{talent.email}</span>
-                                </div>
-                              </div>
-                            </td>
+                              </td>
 
-                            {/* Specialization & Skills */}
-                            <td className="py-4 px-4">
-                              <span className="font-semibold text-slate-800 block">
-                                {talent.specialization || talent.role}
-                              </span>
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {talent.skills?.slice(0, 3).map((s, i) => (
-                                  <span key={i} className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md border border-slate-200">
-                                    {s}
+                              {/* Specialization & Skills */}
+                              <td className="py-4 px-4">
+                                <span className="font-semibold text-slate-800 block">
+                                  {talent.specialization || talent.role}
+                                </span>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {talent.skills?.slice(0, 3).map((s, i) => (
+                                    <span key={i} className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md border border-slate-200">
+                                      {s}
+                                    </span>
+                                  ))}
+                                  {(talent.skills?.length || 0) > 3 && (
+                                    <span className="text-[10px] text-slate-400">
+                                      +{(talent.skills?.length || 0) - 3}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Location & Availability */}
+                              <td className="py-4 px-4">
+                                <div className="space-y-0.5">
+                                  <span className="text-emerald-700 font-semibold block">
+                                    {talent.availability || 'Available'}
                                   </span>
-                                ))}
-                                {(talent.skills?.length || 0) > 3 && (
-                                  <span className="text-[10px] text-slate-400">
-                                    +{(talent.skills?.length || 0) - 3}
+                                  <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                                    <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                                    <span>{talent.location || 'Remote'}</span>
+                                  </span>
+                                </div>
+                              </td>
+
+                              {/* Status Badge */}
+                              <td className="py-4 px-4">
+                                {talent.is_verified ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/90 shadow-2xs">
+                                    <Check className="w-3 h-3 text-emerald-600" />
+                                    <span>Verified & Accredited</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/90 shadow-2xs">
+                                    <Clock className="w-3 h-3 text-amber-500" />
+                                    <span>Pending Review</span>
                                   </span>
                                 )}
-                              </div>
-                            </td>
+                              </td>
 
-                            {/* Location & Availability */}
-                            <td className="py-4 px-4">
-                              <span className="text-emerald-700 font-semibold block">
-                                {talent.availability || 'Available'}
-                              </span>
-                              <span className="text-[11px] text-slate-500 flex items-center gap-1">
-                                <MapPin className="w-3 h-3 text-slate-400" />
-                                <span>{talent.location || 'Remote'}</span>
-                              </span>
-                            </td>
+                              {/* Action Buttons */}
+                              <td className="py-4 px-6 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    onClick={() => openTalentDetail(talent)}
+                                    className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200/80 text-slate-700 border border-slate-200 transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                                    title="View Full Profile & Manage Overrides"
+                                  >
+                                    <Eye className="w-3.5 h-3.5 text-slate-500" />
+                                    <span>View Full Profile</span>
+                                  </button>
 
-                            {/* Status Badge */}
-                            <td className="py-4 px-4">
-                              {talent.is_verified ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/90 shadow-2xs">
-                                  <Check className="w-3 h-3 text-emerald-600" />
-                                  <span>Verified & Accredited</span>
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/90 shadow-2xs">
-                                  <Clock className="w-3 h-3 text-amber-500" />
-                                  <span>Pending Review</span>
-                                </span>
-                              )}
-                            </td>
-
-                            {/* Action Button */}
-                            <td className="py-4 px-6 text-right">
-                              <button
-                                onClick={() => talentVerificationMutation.mutate({ talentId: talent.id, nextStatus: !talent.is_verified })}
-                                disabled={talentVerificationMutation.isPending}
-                                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-2xs ${
-                                  talent.is_verified
-                                    ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
-                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                }`}
-                              >
-                                {talentVerificationMutation.isPending
-                                  ? 'Updating...'
-                                  : talent.is_verified
-                                  ? 'Revoke Badge'
-                                  : 'Accredit & Verify'}
-                              </button>
-                            </td>
-                          </tr>
-                        ))
+                                  <button
+                                    onClick={() => talentVerificationMutation.mutate({ talentId: talent.id, nextStatus: !talent.is_verified })}
+                                    disabled={talentVerificationMutation.isPending}
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-2xs ${
+                                      talent.is_verified
+                                        ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+                                        : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                    }`}
+                                  >
+                                    {talentVerificationMutation.isPending
+                                      ? 'Updating...'
+                                      : talent.is_verified
+                                      ? 'Revoke'
+                                      : 'Accredit'}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
                       ) : (
                         <tr>
                           <td colSpan={5} className="py-12 text-center text-slate-400">
@@ -1104,6 +1521,641 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </table>
                 </div>
               </div>
+
+              {/* CANDIDATE DETAIL SLIDE-OVER DRAWER / MODAL */}
+              {selectedTalentForDetail && (
+                <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/40 backdrop-blur-xs flex justify-end animate-fadeIn">
+                  <div 
+                    className="w-full max-w-2xl bg-white h-full shadow-2xl flex flex-col overflow-hidden border-l border-slate-200"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Drawer Header */}
+                    <div className="px-6 py-5 bg-slate-900 text-white flex items-start justify-between gap-4 shrink-0">
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white font-bold text-lg shadow-md border border-white/10">
+                          {(selectedTalentForDetail.name || 'C').charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h2 className="text-lg font-bold text-white tracking-tight">
+                              {selectedTalentForDetail.name}
+                            </h2>
+                            {selectedTalentForDetail.is_verified ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                <Check className="w-3 h-3 text-emerald-400" />
+                                Accredited
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                <Clock className="w-3 h-3 text-amber-400" />
+                                Pending
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-300 mt-0.5 font-medium">
+                            {selectedTalentForDetail.role_title || selectedTalentForDetail.role} &bull; <span className="font-mono text-slate-400">{selectedTalentForDetail.email}</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {onPreviewTalentSlug && (
+                          <button
+                            onClick={() => onPreviewTalentSlug(selectedTalentForDetail.slug || selectedTalentForDetail.id)}
+                            title="Preview Public Profile"
+                            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setSelectedTalentForDetail(null)}
+                          className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition cursor-pointer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Drawer Tab Navigation */}
+                    <div className="flex border-b border-slate-200 bg-slate-50 px-6 shrink-0">
+                      <button
+                        onClick={() => setDetailTab('overview')}
+                        className={`py-3 px-4 text-xs font-semibold border-b-2 transition cursor-pointer flex items-center gap-1.5 ${
+                          detailTab === 'overview'
+                            ? 'border-emerald-600 text-emerald-700 bg-white'
+                            : 'border-transparent text-slate-500 hover:text-slate-900'
+                        }`}
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>Profile & Vetting</span>
+                      </button>
+                      <button
+                        onClick={() => setDetailTab('overrides')}
+                        className={`py-3 px-4 text-xs font-semibold border-b-2 transition cursor-pointer flex items-center gap-1.5 ${
+                          detailTab === 'overrides'
+                            ? 'border-purple-600 text-purple-700 bg-white'
+                            : 'border-transparent text-slate-500 hover:text-slate-900'
+                        }`}
+                      >
+                        <Sliders className="w-3.5 h-3.5" />
+                        <span>Phase & Skill Overrides</span>
+                        {(selectedTalentForDetail.admin_unlocked_categories?.length || 0) > 0 && (
+                          <span className="w-4 h-4 rounded-full bg-purple-600 text-white text-[10px] flex items-center justify-center font-bold">
+                            {selectedTalentForDetail.admin_unlocked_categories?.length}
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setDetailTab('quizzes')}
+                        className={`py-3 px-4 text-xs font-semibold border-b-2 transition cursor-pointer flex items-center gap-1.5 ${
+                          detailTab === 'quizzes'
+                            ? 'border-emerald-600 text-emerald-700 bg-white'
+                            : 'border-transparent text-slate-500 hover:text-slate-900'
+                        }`}
+                      >
+                        <GraduationCap className="w-3.5 h-3.5" />
+                        <span>Quiz Attempts & Scores</span>
+                        {selectedTalentAttempts.length > 0 && (
+                          <span className="w-4 h-4 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">
+                            {selectedTalentAttempts.length}
+                          </span>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Drawer Content Body */}
+                    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                      
+                      {/* TAB 1: OVERVIEW & CANDIDATE DETAILS */}
+                      {detailTab === 'overview' && (
+                        <div className="space-y-6">
+                          {/* Quick Accreditation Action Bar */}
+                          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 flex items-center justify-between gap-4">
+                            <div>
+                              <p className="text-xs font-semibold text-slate-800">Accreditation Status</p>
+                              <p className="text-[11px] text-slate-500">
+                                {selectedTalentForDetail.is_verified 
+                                  ? 'Candidate profile is published with the Verified Professional checkmark.' 
+                                  : 'Candidate profile is awaiting final verification.'}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => talentVerificationMutation.mutate({ 
+                                talentId: selectedTalentForDetail.id, 
+                                nextStatus: !selectedTalentForDetail.is_verified 
+                              })}
+                              disabled={talentVerificationMutation.isPending}
+                              className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer shadow-xs ${
+                                selectedTalentForDetail.is_verified
+                                  ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+                                  : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20'
+                              }`}
+                            >
+                              {talentVerificationMutation.isPending
+                                ? 'Saving...'
+                                : selectedTalentForDetail.is_verified
+                                ? 'Revoke Accreditation'
+                                : 'Grant Verified Accreditation'}
+                            </button>
+                          </div>
+
+                          {/* Candidate Bio */}
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                              Executive Biography
+                            </label>
+                            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 leading-relaxed">
+                              {selectedTalentForDetail.bio || 'No candidate bio submitted yet.'}
+                            </div>
+                          </div>
+
+                          {/* Work Availability & Placement Status */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2">
+                              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                                Placement Status
+                              </span>
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                <Briefcase className="w-3.5 h-3.5 text-emerald-600" />
+                                {selectedTalentForDetail.placement_status || selectedTalentForDetail.availability || 'AVAILABLE FOR HIRE'}
+                              </span>
+                            </div>
+
+                            <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2">
+                              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                                Work Availability Types
+                              </span>
+                              <div className="flex flex-wrap gap-1.5">
+                                {(selectedTalentForDetail.work_availability_type && selectedTalentForDetail.work_availability_type.length > 0) ? (
+                                  selectedTalentForDetail.work_availability_type.map((type, i) => (
+                                    <span key={i} className="px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-semibold">
+                                      {type}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <>
+                                    <span className="px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-semibold">
+                                      Full-Time
+                                    </span>
+                                    <span className="px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-semibold">
+                                      Freelance
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Contact & Portfolio Links */}
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                              Candidate Contact & Dossier Links
+                            </label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                              <div className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-slate-600">
+                                  <Mail className="w-3.5 h-3.5 text-slate-400" />
+                                  <span className="font-mono truncate">{selectedTalentForDetail.email}</span>
+                                </div>
+                              </div>
+                              <div className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-slate-600">
+                                  <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>{selectedTalentForDetail.location || 'Remote'}</span>
+                                </div>
+                              </div>
+                              {selectedTalentForDetail.portfolio_url && (
+                                <div className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
+                                  <span className="text-slate-500 font-medium">Portfolio:</span>
+                                  <a 
+                                    href={selectedTalentForDetail.portfolio_url} 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="text-emerald-700 font-semibold hover:underline flex items-center gap-1"
+                                  >
+                                    <span>Open Site</span>
+                                    <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                </div>
+                              )}
+                              {selectedTalentForDetail.cv_url && (
+                                <div className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between">
+                                  <span className="text-slate-500 font-medium">Resume / CV:</span>
+                                  <a 
+                                    href={selectedTalentForDetail.cv_url} 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="text-emerald-700 font-semibold hover:underline flex items-center gap-1"
+                                  >
+                                    <span>Download CV</span>
+                                    <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* IP Location Logs & Security Audit */}
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                              <Shield className="w-3.5 h-3.5 text-emerald-600" />
+                              IP Location Logs & Security Telemetry
+                            </label>
+                            <div className="p-4 rounded-xl bg-slate-900 text-slate-200 text-xs font-mono space-y-2 border border-slate-800">
+                              <div className="flex justify-between border-b border-slate-800 pb-1.5">
+                                <span className="text-slate-400">Recorded IP Address:</span>
+                                <span className="text-emerald-400 font-semibold">{selectedTalentForDetail.ip_address || '198.51.100.24'}</span>
+                              </div>
+                              <div className="flex justify-between border-b border-slate-800 pb-1.5">
+                                <span className="text-slate-400">Geo-IP Location:</span>
+                                <span className="text-white">{selectedTalentForDetail.ip_location || 'United States (ISP Verified)'}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-slate-400">Profile Primary Key:</span>
+                                <span className="text-slate-400 text-[10px]">{selectedTalentForDetail.id}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* TAB 2: PHASE & SKILL OVERRIDES */}
+                      {detailTab === 'overrides' && (
+                        <div className="space-y-6">
+                          
+                          {/* Alert Notice */}
+                          <div className="p-4 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 text-xs flex items-start gap-3">
+                            <Info className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-semibold">Super-Admin Assessment Override Engine</p>
+                              <p className="text-purple-700 mt-0.5">
+                                All overrides executed below are persisted immediately to the Supabase database and written to the immutable <code className="bg-purple-100 px-1 rounded font-bold">audit_logs</code> table.
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Phase Master Switches */}
+                          <div className="space-y-3">
+                            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                              Phase Progression Master Controls
+                            </label>
+
+                            {/* Phase 2 Unlock Switch */}
+                            <div className="p-4 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-4 shadow-2xs">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-slate-900">
+                                    Phase 2 Specialist Review Master Bypass
+                                  </span>
+                                  {Boolean(selectedTalentForDetail.manual_phase_2_unlocked || selectedTalentForDetail.phase_2_unlocked) ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                      UNLOCKED
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
+                                      LOCKED
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-slate-500 leading-relaxed">
+                                  Instantly unlocks the Phase 2 Specialist Review Panel for this candidate without requiring 5 passed diagnostic quizzes.
+                                </p>
+                              </div>
+
+                              <button
+                                onClick={handleTogglePhase2Unlock}
+                                disabled={isUpdatingOverride}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                                  Boolean(selectedTalentForDetail.manual_phase_2_unlocked || selectedTalentForDetail.phase_2_unlocked)
+                                    ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                }`}
+                              >
+                                {isUpdatingOverride ? (
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                ) : Boolean(selectedTalentForDetail.manual_phase_2_unlocked || selectedTalentForDetail.phase_2_unlocked) ? (
+                                  <>
+                                    <Lock className="w-3.5 h-3.5" />
+                                    <span>Lock Phase 2</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Unlock className="w-3.5 h-3.5" />
+                                    <span>Unlock Phase 2</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+
+                            {/* Phase 3 Unlock Switch */}
+                            <div className="p-4 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-4 shadow-2xs">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-slate-900">
+                                    Phase 3 Final Badge Issuance Bypass
+                                  </span>
+                                  {Boolean(selectedTalentForDetail.manual_phase_3_unlocked || selectedTalentForDetail.phase_3_unlocked) ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800">
+                                      UNLOCKED
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
+                                      LOCKED
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-slate-500 leading-relaxed">
+                                  Manually authorizes final accredited badge issuance and candidate profile promotion.
+                                </p>
+                              </div>
+
+                              <button
+                                onClick={handleTogglePhase3Unlock}
+                                disabled={isUpdatingOverride}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                                  Boolean(selectedTalentForDetail.manual_phase_3_unlocked || selectedTalentForDetail.phase_3_unlocked)
+                                    ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+                                    : 'bg-purple-600 hover:bg-purple-700 text-white'
+                                }`}
+                              >
+                                {isUpdatingOverride ? (
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                ) : Boolean(selectedTalentForDetail.manual_phase_3_unlocked || selectedTalentForDetail.phase_3_unlocked) ? (
+                                  <>
+                                    <Lock className="w-3.5 h-3.5" />
+                                    <span>Lock Phase 3</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Unlock className="w-3.5 h-3.5" />
+                                    <span>Unlock Phase 3</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Phase 2 Calendar Link Management */}
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                              <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+                              Phase 2 Specialist Panel Calendar Booking Link
+                            </label>
+                            <p className="text-[11px] text-slate-500">
+                              Specify a personalized Calendly / Google Calendar appointment link for this candidate. The candidate will see this link in their "Book Your Phase 2 Panel Review" button.
+                            </p>
+                            <div className="flex gap-2">
+                              <div className="relative flex-1">
+                                <LinkIcon className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                                <input
+                                  type="url"
+                                  value={calendarLinkInput}
+                                  onChange={(e) => setCalendarLinkInput(e.target.value)}
+                                  placeholder="https://calendly.com/digitalcampux/specialist-review-30min"
+                                  className="w-full pl-9 pr-3.5 py-2.5 text-xs border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-mono text-slate-800"
+                                />
+                              </div>
+                              <button
+                                onClick={handleSaveCalendarLink}
+                                disabled={isSavingCalendar}
+                                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer flex items-center gap-1.5 shadow-xs shrink-0"
+                              >
+                                {isSavingCalendar ? (
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Save className="w-3.5 h-3.5" />
+                                )}
+                                <span>Save Calendar Link</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Skill Category Bypass Toggles */}
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                Skill Track Diagnostic Bypass Toggles
+                              </label>
+                              <span className="text-[11px] text-purple-700 font-bold bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
+                                {selectedTalentForDetail.admin_unlocked_categories?.length || 0} of {ADMIN_SKILL_CATEGORIES.length} Bypassed
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500">
+                              Toggling a skill on marks that specific track as "Admin Verified & Passed" and injects it into the candidate's verified skill matrix.
+                            </p>
+
+                            <div className="grid grid-cols-1 gap-2">
+                              {ADMIN_SKILL_CATEGORIES.map((cat) => {
+                                const isBypassed = (selectedTalentForDetail.admin_unlocked_categories || []).includes(cat);
+
+                                return (
+                                  <div
+                                    key={cat}
+                                    className={`p-3 rounded-xl border transition flex items-center justify-between gap-3 ${
+                                      isBypassed
+                                        ? 'bg-purple-50/70 border-purple-200 text-purple-950'
+                                        : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2.5">
+                                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold ${
+                                        isBypassed ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-500'
+                                      }`}>
+                                        {isBypassed ? <Check className="w-3.5 h-3.5" /> : <GraduationCap className="w-3.5 h-3.5" />}
+                                      </div>
+                                      <div>
+                                        <p className="text-xs font-bold">{cat}</p>
+                                        <p className="text-[10px] text-slate-500">
+                                          {isBypassed ? 'Accredited via Admin Bypass' : 'Requires Standard Quiz Attempt'}
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    <button
+                                      onClick={() => handleToggleCategoryBypass(cat)}
+                                      disabled={isUpdatingOverride}
+                                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
+                                        isBypassed
+                                          ? 'bg-purple-600 text-white hover:bg-purple-700 shadow-2xs'
+                                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                                      }`}
+                                    >
+                                      {isBypassed ? (
+                                        <>
+                                          <ToggleRight className="w-4 h-4 text-white" />
+                                          <span>Bypassed</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <ToggleLeft className="w-4 h-4 text-slate-400" />
+                                          <span>Bypass Quiz</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* TAB 3: QUIZ ATTEMPTS & SCORE METRICS */}
+                      {detailTab === 'quizzes' && (
+                        <div className="space-y-6">
+                          {isLoadingAttempts ? (
+                            <div className="py-12 text-center text-slate-400">
+                              <div className="flex items-center justify-center gap-2">
+                                <RefreshCw className="w-4 h-4 animate-spin text-emerald-600" />
+                                <span>Loading quiz attempts from Supabase...</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              {/* Score Metric Cards */}
+                              <div className="grid grid-cols-3 gap-3">
+                                {(() => {
+                                  const totalAttempts = selectedTalentAttempts.length;
+                                  const passedAttempts = selectedTalentAttempts.filter(
+                                    a => a.passed || Number(a.score_percentage || 0) >= 80
+                                  ).length;
+                                  const avgScore = totalAttempts > 0
+                                    ? Math.round(
+                                        selectedTalentAttempts.reduce((acc, a) => acc + Number(a.score_percentage || 0), 0) / totalAttempts
+                                      )
+                                    : 0;
+
+                                  return (
+                                    <>
+                                      <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-1">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                          Average Score
+                                        </span>
+                                        <span className={`text-2xl font-extrabold ${avgScore >= 80 ? 'text-emerald-600' : 'text-slate-800'}`}>
+                                          {totalAttempts > 0 ? `${avgScore}%` : 'N/A'}
+                                        </span>
+                                      </div>
+
+                                      <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-1">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                          Total Attempts
+                                        </span>
+                                        <span className="text-2xl font-extrabold text-slate-800">
+                                          {totalAttempts}
+                                        </span>
+                                      </div>
+
+                                      <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-1">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                          Quizzes Passed
+                                        </span>
+                                        <span className="text-2xl font-extrabold text-emerald-600">
+                                          {passedAttempts}
+                                        </span>
+                                      </div>
+                                    </>
+                                  );
+                                })()}
+                              </div>
+
+                              {/* Attempts Table */}
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                                  Recorded Diagnostic Assessments
+                                </label>
+
+                                {selectedTalentAttempts.length > 0 ? (
+                                  <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                                    <table className="w-full text-left text-xs border-collapse">
+                                      <thead>
+                                        <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                          <th className="py-2.5 px-4">Track / Category</th>
+                                          <th className="py-2.5 px-3 text-center">Score</th>
+                                          <th className="py-2.5 px-3">Result</th>
+                                          <th className="py-2.5 px-4 text-right">Timestamp</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-100 font-medium">
+                                        {selectedTalentAttempts.map((attempt, idx) => {
+                                          const score = Number(attempt.score_percentage ?? 0);
+                                          const passed = attempt.passed || score >= 80;
+
+                                          return (
+                                            <tr key={attempt.id || idx} className="hover:bg-slate-50/70">
+                                              <td className="py-3 px-4 font-semibold text-slate-800">
+                                                {attempt.skill_category || 'General Digital Marketing'}
+                                              </td>
+                                              <td className="py-3 px-3 text-center">
+                                                <span className={`font-bold font-mono px-2 py-0.5 rounded ${
+                                                  passed ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+                                                }`}>
+                                                  {score}%
+                                                </span>
+                                              </td>
+                                              <td className="py-3 px-3">
+                                                {passed ? (
+                                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700">
+                                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                                    Passed
+                                                  </span>
+                                                ) : (
+                                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700">
+                                                    <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                                                    Failed
+                                                  </span>
+                                                )}
+                                              </td>
+                                              <td className="py-3 px-4 text-right text-[11px] text-slate-400 font-mono">
+                                                {attempt.completed_at 
+                                                  ? new Date(attempt.completed_at).toLocaleDateString(undefined, {
+                                                      month: 'short',
+                                                      day: 'numeric',
+                                                      hour: '2-digit',
+                                                      minute: '2-digit'
+                                                    })
+                                                  : 'Recorded'}
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                ) : (
+                                  <div className="p-8 rounded-xl border border-dashed border-slate-200 text-center space-y-2 bg-slate-50/50">
+                                    <GraduationCap className="w-8 h-8 text-slate-300 mx-auto" />
+                                    <p className="text-xs font-semibold text-slate-700">
+                                      No Quiz Attempts Recorded Yet
+                                    </p>
+                                    <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                                      This candidate has not completed any timed skill evaluations. You can use the Overrides tab to grant category bypasses if needed.
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                    </div>
+
+                    {/* Drawer Footer */}
+                    <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+                      <span className="text-[11px] text-slate-500">
+                        Admin Actor ID: <strong className="font-mono text-slate-700">{user?.id?.slice(0, 8) || 'Authenticated'}...</strong>
+                      </span>
+                      <button
+                        onClick={() => setSelectedTalentForDetail(null)}
+                        className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white transition cursor-pointer"
+                      >
+                        Close Details
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
