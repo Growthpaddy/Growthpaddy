@@ -246,18 +246,8 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
     setNewSkillName('');
   };
 
-  // Launch Skill Quiz
-  const handleLaunchQuiz = (skill: SkillItem) => {
-    setSelectedSkillForQuiz(skill);
-    setCurrentQuestionIdx(0);
-    setSelectedAnswer(null);
-    setQuizScore(null);
-    setQuizFinished(false);
-    setIsQuizModalOpen(true);
-  };
-
-  // Sample Quiz Questions for the Diagnostic Modal
-  const sampleQuizQuestions = useMemo(() => [
+  // Sample Quiz Questions for the Diagnostic Modal with randomized option shuffling
+  const rawSampleQuizQuestions = useMemo(() => [
     {
       q: `When scaling production ${selectedSkillForQuiz?.name || 'Automation'} workflows, what is the best practice for handling asynchronous API rate-limit responses (HTTP 429)?`,
       options: [
@@ -290,9 +280,47 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
     }
   ], [selectedSkillForQuiz]);
 
+  const [activeSampleQuestions, setActiveSampleQuestions] = useState<any[]>([]);
+
+  // Launch Skill Quiz with randomized option shuffling
+  const handleLaunchQuiz = (skill: SkillItem) => {
+    setSelectedSkillForQuiz(skill);
+    setCurrentQuestionIdx(0);
+    setSelectedAnswer(null);
+    setQuizScore(null);
+    setQuizFinished(false);
+
+    // Shuffle options across A, B, C, D using Fisher-Yates
+    const shuffled = rawSampleQuizQuestions.map((q) => {
+      const optionsWithMeta = q.options.map((opt, idx) => ({
+        text: opt,
+        isCorrect: idx === q.correct
+      }));
+      for (let i = optionsWithMeta.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [optionsWithMeta[i], optionsWithMeta[j]] = [optionsWithMeta[j], optionsWithMeta[i]];
+      }
+      const newCorrectIdx = optionsWithMeta.findIndex(o => o.isCorrect);
+      const optionLetters = ['A', 'B', 'C', 'D'];
+      return {
+        ...q,
+        shuffledOptions: optionsWithMeta.map(o => o.text),
+        correctAnswerIndex: newCorrectIdx >= 0 ? newCorrectIdx : 0,
+        correctAnswerLetter: optionLetters[newCorrectIdx] || 'A'
+      };
+    });
+
+    setActiveSampleQuestions(shuffled);
+    setIsQuizModalOpen(true);
+  };
+
+  const sampleQuizQuestions = activeSampleQuestions.length > 0 ? activeSampleQuestions : rawSampleQuizQuestions;
+
   const handleAnswerSubmit = () => {
     if (selectedAnswer === null) return;
-    const isCorrect = selectedAnswer === sampleQuizQuestions[currentQuestionIdx].correct;
+    const currentQ = sampleQuizQuestions[currentQuestionIdx];
+    const targetCorrectIdx = currentQ?.correctAnswerIndex ?? currentQ?.correct ?? 0;
+    const isCorrect = selectedAnswer === targetCorrectIdx;
 
     if (currentQuestionIdx + 1 < sampleQuizQuestions.length) {
       setCurrentQuestionIdx(prev => prev + 1);
@@ -908,20 +936,29 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
                   </p>
 
                   <div className="space-y-2 pt-2">
-                    {sampleQuizQuestions[currentQuestionIdx].options.map((opt, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setSelectedAnswer(idx)}
-                        className={`w-full text-left p-3 rounded-xl border text-xs transition cursor-pointer ${
-                          selectedAnswer === idx
-                            ? 'bg-emerald-50 border-emerald-400 text-emerald-950 font-medium'
-                            : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:bg-slate-100/80'
-                        }`}
-                      >
-                        {opt}
-                      </button>
-                    ))}
+                    {((sampleQuizQuestions[currentQuestionIdx] as any).shuffledOptions || sampleQuizQuestions[currentQuestionIdx].options).map((opt: string, idx: number) => {
+                      const optionLetters = ['A', 'B', 'C', 'D'];
+                      const isSelected = selectedAnswer === idx;
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setSelectedAnswer(idx)}
+                          className={`w-full text-left p-3 rounded-xl border text-xs transition cursor-pointer flex items-start gap-2.5 ${
+                            isSelected
+                              ? 'bg-emerald-50 border-emerald-400 text-emerald-950 font-medium ring-1 ring-emerald-400'
+                              : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:bg-slate-100/80'
+                          }`}
+                        >
+                          <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${
+                            isSelected ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
+                          }`}>
+                            {optionLetters[idx] || String.fromCharCode(65 + idx)}
+                          </span>
+                          <span className="flex-1">{opt}</span>
+                        </button>
+                      );
+                    })}
                   </div>
 
                   <button

@@ -353,28 +353,74 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
   };
 
   // ----------------------------------------------------------------------------
-  // Question Options Shuffler (Scatters answers across A, B, C, D)
+  // Question Options Shuffler (Scatters correct answers dynamically across A, B, C, D)
   // ----------------------------------------------------------------------------
-  const shuffleQuestionOptions = (q: QuizQuestion): QuizQuestion & { correct_answer_text?: string } => {
-    const rawOptions = Array.isArray(q.options) && q.options.length > 0 ? [...q.options] : ['Option A', 'Option B', 'Option C', 'Option D'];
-    const validIdx = typeof q.correctIdx === 'number' && q.correctIdx >= 0 && q.correctIdx < rawOptions.length ? q.correctIdx : 0;
-    const correctText = rawOptions[validIdx] || rawOptions[0];
+  const shuffleQuestionOptions = (questions: any[]): (QuizQuestion & {
+    shuffledOptions: string[];
+    correctAnswerLetter: string;
+    correctAnswerIndex: number;
+    correct_answer_text?: string;
+    correct_answer?: string;
+    correct_answer_index?: number;
+  })[] => {
+    if (!Array.isArray(questions)) return [];
+    return questions.map((q: any) => {
+      // Determine the raw options array
+      const rawOptions: string[] = Array.isArray(q.options) && q.options.length > 0
+        ? q.options.map((opt: any) => (typeof opt === 'string' ? opt : (opt?.text || opt?.label || String(opt))))
+        : (Array.isArray(q.shuffledOptions) && q.shuffledOptions.length > 0
+          ? q.shuffledOptions
+          : ['Option A', 'Option B', 'Option C', 'Option D']);
 
-    // Fisher-Yates shuffle algorithm
-    const shuffled = [...rawOptions];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
+      // Determine the original correct index or answer text from various schemas
+      let origCorrectIdx = 0;
+      if (typeof q.correctAnswerIndex === 'number' && q.correctAnswerIndex >= 0 && q.correctAnswerIndex < rawOptions.length) {
+        origCorrectIdx = q.correctAnswerIndex;
+      } else if (typeof q.correct_answer_index === 'number' && q.correct_answer_index >= 0 && q.correct_answer_index < rawOptions.length) {
+        origCorrectIdx = q.correct_answer_index;
+      } else if (typeof q.correctIdx === 'number' && q.correctIdx >= 0 && q.correctIdx < rawOptions.length) {
+        origCorrectIdx = q.correctIdx;
+      } else if (q.correct_option_id !== undefined && q.correct_option_id !== null) {
+        const rawId = String(q.correct_option_id).trim();
+        if (['A', 'B', 'C', 'D'].includes(rawId.toUpperCase())) {
+          origCorrectIdx = rawId.toUpperCase().charCodeAt(0) - 65;
+        } else if (!isNaN(Number(rawId)) && Number(rawId) >= 0 && Number(rawId) < rawOptions.length) {
+          origCorrectIdx = Number(rawId);
+        }
+      }
 
-    const newCorrectIdx = shuffled.indexOf(correctText);
+      const correctText = q.correct_answer || q.correct_answer_text || rawOptions[origCorrectIdx] || rawOptions[0];
 
-    return {
-      ...q,
-      options: shuffled,
-      correctIdx: newCorrectIdx >= 0 ? newCorrectIdx : 0,
-      correct_answer_text: correctText
-    };
+      // Combine options with their original index or correct flag
+      const optionsWithMetadata = rawOptions.map((optionText: string, idx: number) => ({
+        text: optionText,
+        isCorrect: idx === origCorrectIdx || (correctText && optionText.trim().toLowerCase() === String(correctText).trim().toLowerCase()),
+      }));
+
+      // Fisher-Yates Shuffle algorithm for options
+      for (let i = optionsWithMetadata.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [optionsWithMetadata[i], optionsWithMetadata[j]] = [optionsWithMetadata[j], optionsWithMetadata[i]];
+      }
+
+      // Find the new index of the correct answer post-shuffle
+      let newCorrectIndex = optionsWithMetadata.findIndex((opt: any) => opt.isCorrect);
+      if (newCorrectIndex === -1) newCorrectIndex = 0;
+      const optionLetters = ['A', 'B', 'C', 'D', 'E', 'F'];
+      const shuffledOptions = optionsWithMetadata.map((opt: any) => opt.text);
+
+      return {
+        ...q,
+        options: shuffledOptions,
+        shuffledOptions,
+        correctAnswerLetter: optionLetters[newCorrectIndex] || 'A',
+        correctAnswerIndex: newCorrectIndex,
+        correctIdx: newCorrectIndex,
+        correct_answer_index: newCorrectIndex,
+        correct_answer: correctText,
+        correct_answer_text: correctText,
+      };
+    });
   };
 
   // ----------------------------------------------------------------------------
@@ -853,7 +899,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         });
 
         // Shuffle question options so correct answers are randomly scattered across A, B, C, D
-        const shuffledQuestions = loadedQuestions.map(shuffleQuestionOptions);
+        const shuffledQuestions = shuffleQuestionOptions(loadedQuestions);
 
         // Ensure ALL questions are loaded into state without truncation
         setActiveQuizQuestions(shuffledQuestions);
@@ -867,7 +913,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         );
       } else {
         // Fallback to static quiz questions definition with randomized option shuffling
-        const fallback = (SKILL_QUIZ_DEFINITIONS[categoryName]?.questions || []).map(shuffleQuestionOptions);
+        const fallback = shuffleQuestionOptions(SKILL_QUIZ_DEFINITIONS[categoryName]?.questions || []);
         setActiveQuizQuestions(fallback);
         setCategoryQuestionCounts((prev) => ({ ...prev, [categoryName]: fallback.length }));
         setSkillMatrix((prev) =>
@@ -880,7 +926,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
       }
     } catch (err) {
       console.warn('Error fetching questions from Supabase, falling back to static questions:', err);
-      const fallback = (SKILL_QUIZ_DEFINITIONS[categoryName]?.questions || []).map(shuffleQuestionOptions);
+      const fallback = shuffleQuestionOptions(SKILL_QUIZ_DEFINITIONS[categoryName]?.questions || []);
       setActiveQuizQuestions(fallback);
       setCategoryQuestionCounts((prev) => ({ ...prev, [categoryName]: fallback.length }));
       setSkillMatrix((prev) =>
@@ -900,6 +946,13 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
     setCurrentQuestionIndex(0);
     setTimeRemainingSeconds(600);
     setQuizStartTime(Date.now());
+    // Reshuffle question options on every attempt to ensure random distribution across A, B, C, D
+    setActiveQuizQuestions((prevQuestions) => {
+      const source = prevQuestions.length > 0
+        ? prevQuestions
+        : (activeQuizCategory && SKILL_QUIZ_DEFINITIONS[activeQuizCategory]?.questions) || [];
+      return shuffleQuestionOptions(source);
+    });
     setQuizModalStep('LIVE');
   };
 
@@ -937,16 +990,33 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
     try {
       let correctCount = 0;
 
-      // Resilient answer validation comparing option index and exact answer text
+      // Resilient answer validation comparing option index, correctAnswerLetter, and exact answer text
       questions.forEach((q: any, idx) => {
         const userChoice = userAnswers[idx];
         if (userChoice !== undefined && userChoice !== null) {
-          const chosenText = q.options?.[userChoice];
-          const expectedText = q.correct_answer_text || q.options?.[q.correctIdx];
-          if (
-            userChoice === q.correctIdx ||
-            (chosenText && expectedText && chosenText.trim().toLowerCase() === expectedText.trim().toLowerCase())
-          ) {
+          const optionList = q.shuffledOptions || q.options || [];
+          const chosenText = optionList[userChoice];
+          const optionLetters = ['A', 'B', 'C', 'D', 'E', 'F'];
+          const userChosenLetter = optionLetters[userChoice];
+
+          const targetCorrectIndex = typeof q.correctAnswerIndex === 'number'
+            ? q.correctAnswerIndex
+            : typeof q.correctIdx === 'number'
+            ? q.correctIdx
+            : q.correct_answer_index;
+
+          const targetCorrectLetter = q.correctAnswerLetter || (typeof targetCorrectIndex === 'number' ? optionLetters[targetCorrectIndex] : 'A');
+          const expectedText = q.correct_answer_text || q.correct_answer || optionList[targetCorrectIndex];
+
+          const isIndexMatch = userChoice === targetCorrectIndex;
+          const isLetterMatch = userChosenLetter && targetCorrectLetter && userChosenLetter === targetCorrectLetter;
+          const isTextMatch = Boolean(
+            chosenText &&
+            expectedText &&
+            chosenText.trim().toLowerCase() === String(expectedText).trim().toLowerCase()
+          );
+
+          if (isIndexMatch || isLetterMatch || isTextMatch) {
             correctCount += 1;
           }
         }
@@ -2998,8 +3068,10 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     </h3>
 
                     <div className="space-y-2.5">
-                      {activeQuestions[currentQuestionIndex].options.map((opt, optIdx) => {
+                      {(activeQuestions[currentQuestionIndex].shuffledOptions || activeQuestions[currentQuestionIndex].options || []).map((opt, optIdx) => {
                         const isSelected = userAnswers[currentQuestionIndex] === optIdx;
+                        const optionLetters = ['A', 'B', 'C', 'D', 'E', 'F'];
+                        const optionLetter = optionLetters[optIdx] || String.fromCharCode(65 + optIdx);
                         return (
                           <button
                             key={optIdx}
@@ -3014,7 +3086,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                             <span className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${
                               isSelected ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'
                             }`}>
-                              {String.fromCharCode(65 + optIdx)}
+                              {optionLetter}
                             </span>
                             <span className="flex-1">{opt}</span>
                           </button>
@@ -3146,9 +3218,18 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                   </h4>
 
                   <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
-                    {activeQuestions.map((q, idx) => {
+                    {activeQuestions.map((q: any, idx) => {
                       const userChoice = userAnswers[idx];
-                      const isCorrect = userChoice === q.correctIdx;
+                      const optionList = q.shuffledOptions || q.options || [];
+                      const targetCorrectIndex = typeof q.correctAnswerIndex === 'number'
+                        ? q.correctAnswerIndex
+                        : typeof q.correctIdx === 'number'
+                        ? q.correctIdx
+                        : 0;
+                      const optionLetters = ['A', 'B', 'C', 'D', 'E', 'F'];
+                      const isCorrect = userChoice === targetCorrectIndex;
+                      const userLetter = userChoice !== undefined ? optionLetters[userChoice] : null;
+                      const correctLetter = q.correctAnswerLetter || optionLetters[targetCorrectIndex] || 'A';
 
                       return (
                         <div key={idx} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
@@ -3158,7 +3239,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                             </p>
                             {isCorrect ? (
                               <span className="shrink-0 flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                                <Check className="w-3 h-3" /> Correct
+                                <Check className="w-3 h-3" /> Correct ({correctLetter})
                               </span>
                             ) : (
                               <span className="shrink-0 flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full">
@@ -3168,10 +3249,10 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                           </div>
 
                           <div className="text-[11px] space-y-1 text-slate-600">
-                            <p><strong>Your Answer:</strong> {userChoice !== undefined ? q.options[userChoice] : 'Not answered'}</p>
+                            <p><strong>Your Answer:</strong> {userChoice !== undefined ? `[${userLetter}] ${optionList[userChoice]}` : 'Not answered'}</p>
                             {!isCorrect && (
                               <p className="text-emerald-700 font-semibold">
-                                <strong>Correct Answer:</strong> {q.options[q.correctIdx]}
+                                <strong>Correct Answer:</strong> [{correctLetter}] {optionList[targetCorrectIndex] || q.correct_answer_text || q.correct_answer}
                               </p>
                             )}
                             <p className="text-slate-500 italic bg-white p-2 rounded-xl border border-slate-200 mt-1">
