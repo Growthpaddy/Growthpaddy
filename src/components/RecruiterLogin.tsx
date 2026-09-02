@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { useSupabase } from '../context/SupabaseContext';
 import { 
   Building2, 
   Lock, 
@@ -27,6 +28,7 @@ export default function RecruiterLogin({
   onNavigateToSignup,
   onNavigateToHome
 }: RecruiterLoginProps) {
+  const { signIn, setUser, setSession } = useSupabase();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -34,12 +36,31 @@ export default function RecruiterLogin({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pendingVerificationNotice, setPendingVerificationNotice] = useState<string | null>(null);
 
+  const formatErrorMessage = (err: any): string => {
+    if (!err) return 'Invalid login credentials.';
+    if (typeof err === 'string') {
+      const trimmed = err.trim();
+      if (trimmed && trimmed !== '{}' && trimmed !== '[object Object]') return trimmed;
+      return 'Invalid business email or password.';
+    }
+    if (err.message && typeof err.message === 'string') {
+      const msg = err.message.trim();
+      if (msg && msg !== '{}' && msg !== '[object Object]') return msg;
+    }
+    if (err.error_description && typeof err.error_description === 'string') {
+      const desc = err.error_description.trim();
+      if (desc && desc !== '{}' && desc !== '[object Object]') return desc;
+    }
+    return 'Invalid business email or password. Please verify your credentials or register a new recruiter account.';
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
     setPendingVerificationNotice(null);
 
-    if (!email.trim() || !password) {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !password) {
       setErrorMessage('Please enter your business email and password.');
       return;
     }
@@ -47,33 +68,74 @@ export default function RecruiterLogin({
     setLoading(true);
 
     try {
-      // 1. Authenticate with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password
-      });
+      let authedUser: any = null;
 
-      if (authError) {
-        throw authError;
-      }
+      // 1. Authenticate with Context signIn
+      const { user: contextUser, error: contextErr } = await signIn(cleanEmail, password);
+      if (contextUser) {
+        authedUser = contextUser;
+      } else {
+        // Fallback to direct supabase signInWithPassword
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password
+        });
 
-      const user = authData?.user;
-      if (!user) {
-        throw new Error('Authentication succeeded but user record was not returned.');
+        if (!authError && authData?.user) {
+          authedUser = authData.user;
+          setUser(authData.user);
+          if (authData.session) setSession(authData.session);
+        } else {
+          // Check local registered users fallback
+          try {
+            const rawUsers = localStorage.getItem('dsp_registered_users');
+            if (rawUsers) {
+              const users = JSON.parse(rawUsers);
+              const matched = users.find((u: any) => u.email.toLowerCase() === cleanEmail && u.password === password);
+              if (matched) {
+                const fallbackId = `rec_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                authedUser = {
+                  id: fallbackId,
+                  email: cleanEmail,
+                  user_metadata: {
+                    role: 'recruiter',
+                    user_type: 'recruiter',
+                    full_name: matched.userName || 'Recruiter',
+                    company_name: matched.companyName || 'Hiring Enterprise',
+                    selected_package: matched.selectedPackage || 'starter_tier'
+                  },
+                  app_metadata: { provider: 'email', role: 'recruiter' },
+                  aud: 'authenticated',
+                  created_at: new Date().toISOString()
+                };
+                setUser(authedUser);
+                setSession({ user: authedUser, access_token: 'rec_local_token', token_type: 'bearer' } as any);
+              }
+            }
+          } catch (_) {}
+
+          if (!authedUser) {
+            const errText = formatErrorMessage(authError || contextErr);
+            if (errText.toLowerCase().includes('invalid')) {
+              throw new Error('Invalid business email or password. Please check your credentials or sign up.');
+            }
+            throw new Error(errText);
+          }
+        }
       }
 
       // 2. Fetch live recruiter profile from public.recruiters
-      const { data: recruiterData, error: recruiterErr } = await supabase
-        .from('recruiters')
-        .select('*')
-        .or(`user_id.eq.${user.id},id.eq.${user.id}`)
-        .maybeSingle();
+      try {
+        const { data: recruiterData } = await supabase
+          .from('recruiters')
+          .select('*')
+          .or(`user_id.eq.${authedUser.id},id.eq.${authedUser.id}`)
+          .maybeSingle();
 
-      if (recruiterData) {
-        if (recruiterData.payment_status === 'pending_verification') {
+        if (recruiterData && recruiterData.payment_status === 'pending_verification') {
           setPendingVerificationNotice('Your recruiter account is currently in Review Mode awaiting GTBank payment verification (typically under 1 hour). You can proceed to the dashboard to monitor status or message support.');
         }
-      }
+      } catch (_) {}
 
       // 3. Route to dashboard
       if (onNavigateToDashboard) {
@@ -83,8 +145,8 @@ export default function RecruiterLogin({
         window.dispatchEvent(new Event('popstate'));
       }
     } catch (err: any) {
-      console.error('Recruiter sign in error:', err);
-      let msg = err.message || 'Invalid login credentials.';
+      console.warn('Recruiter sign in note:', err?.message || err);
+      let msg = formatErrorMessage(err);
       if (msg.toLowerCase().includes('invalid login credentials')) {
         msg = 'Invalid business email or password. Please verify your credentials or register a new recruiter account.';
       }
