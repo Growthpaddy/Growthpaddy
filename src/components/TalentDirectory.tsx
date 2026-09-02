@@ -125,6 +125,7 @@ export interface TalentProfile {
   phase_2_status?: Phase2Status;
   phase_3_status?: Phase3Status;
   verified_skills?: SkillDiagnostic[] | null;
+  profile_views_count?: number;
   view_count?: number;
   click_count?: number;
   created_at?: string;
@@ -367,8 +368,9 @@ export default function TalentDirectory({
                 phase_2_status: t.phase_2_status || (isVerified ? 'COMPLETED' : 'LOCKED'),
                 phase_3_status: t.phase_3_status || (isVerified ? 'VERIFIED' : 'LOCKED'),
                 verified_skills: attachedDiagnostics,
-                view_count: Number(t.view_count || (profileId ? (Math.abs(profileId.split('').reduce((acc: number, char: string) => ((acc << 5) - acc) + char.charCodeAt(0), 0)) % 180 + 85) : 142)),
-                click_count: Number(t.click_count || Math.round((Number(t.view_count) || 142) * 0.22)),
+                profile_views_count: Number(t.profile_views_count ?? t.view_count ?? 0),
+                view_count: Number(t.profile_views_count ?? t.view_count ?? 0),
+                click_count: Number(t.click_count || 0),
                 created_at: t.created_at || new Date().toISOString()
               };
             });
@@ -440,8 +442,9 @@ export default function TalentDirectory({
                     phase_2_status: parsed.phase_2_status || 'LOCKED',
                     phase_3_status: parsed.phase_3_status || 'LOCKED',
                     verified_skills: Array.isArray(parsed.verified_skills) ? parsed.verified_skills : [],
-                    view_count: Number(parsed.view_count || 142),
-                    click_count: Number(parsed.click_count || 32),
+                    profile_views_count: Number(parsed.profile_views_count ?? parsed.view_count ?? 0),
+                    view_count: Number(parsed.profile_views_count ?? parsed.view_count ?? 0),
+                    click_count: Number(parsed.click_count || 0),
                     created_at: parsed.created_at || new Date().toISOString()
                   });
                 }
@@ -465,7 +468,48 @@ export default function TalentDirectory({
 
   useEffect(() => {
     fetchCandidates();
-  }, [fetchCandidates]);
+
+    // Supabase Realtime subscription on talent_profiles table for live view updates
+    if (supabase) {
+      const channel = supabase
+        .channel('talent_directory_realtime_channel')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'talent_profiles'
+          },
+          (payload) => {
+            if (payload.eventType === 'UPDATE' && payload.new) {
+              const updated = payload.new;
+              setCandidates((prev) =>
+                prev.map((c) => {
+                  if (c.id === updated.id) {
+                    return {
+                      ...c,
+                      profile_views_count: Number(updated.profile_views_count ?? updated.view_count ?? c.profile_views_count ?? 0),
+                      view_count: Number(updated.profile_views_count ?? updated.view_count ?? c.view_count ?? 0),
+                      click_count: Number(updated.click_count ?? c.click_count ?? 0),
+                      availability_status: updated.availability_status ?? c.availability_status,
+                      placement_status: updated.placement_status ?? c.placement_status
+                    };
+                  }
+                  return c;
+                })
+              );
+            } else if (payload.eventType === 'INSERT') {
+              fetchCandidates(true);
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [fetchCandidates, supabase]);
 
   // If slug is passed in props or URL, automatically open that candidate's portfolio
   useEffect(() => {
@@ -528,18 +572,58 @@ export default function TalentDirectory({
     });
   }, [candidates, selectedCategory, verifiedOnly, availableOnly, remoteOnly, searchQuery]);
 
+  // Record View Function with Geolocation
+  const recordView = async (talentId: string) => {
+    try {
+      const res = await fetch('https://ipapi.co/json/');
+      const geo = await res.json();
+
+      await supabase.rpc('record_talent_view', {
+        p_talent_id: talentId,
+        p_event_type: 'profile_view',
+        p_country: geo.country_name || 'Unknown',
+        p_country_code: geo.country_code || 'XX',
+        p_city: geo.city || 'Unknown'
+      });
+    } catch (err) {
+      // Fallback if IP API is blocked
+      try {
+        await supabase.rpc('record_talent_view', { p_talent_id: talentId });
+      } catch (e) {
+        try {
+          await supabase.from('analytics_events').insert({
+            talent_id: talentId,
+            event_type: 'profile_view',
+            country: 'Unknown',
+            country_code: 'XX',
+            city: 'Unknown',
+            created_at: new Date().toISOString()
+          });
+        } catch {}
+      }
+    }
+  };
+
   // Handle Opening Candidate Portfolio
   const handleOpenPortfolio = (candidate: TalentProfile) => {
     setActivePortfolioCandidate(candidate);
     
-    // Automatically track profile impression & IP location
+    // Capture Live Location on Visitor/Employer Views
     if (candidate.id) {
-      recordProfileView(candidate.id, { candidateName: candidate.full_name }).then((res) => {
-        if (res.newViewCount) {
-          setCandidates((prev) =>
-            prev.map((c) => (c.id === candidate.id ? { ...c, view_count: res.newViewCount } : c))
-          );
-        }
+      recordView(candidate.id).then(() => {
+        setCandidates((prev) =>
+          prev.map((c) => {
+            if (c.id === candidate.id) {
+              const nextViews = (c.profile_views_count ?? c.view_count ?? 0) + 1;
+              return {
+                ...c,
+                profile_views_count: nextViews,
+                view_count: nextViews
+              };
+            }
+            return c;
+          })
+        );
       }).catch((err) => {
         console.info('[TalentDirectory] Profile view tracking:', err);
       });
@@ -869,9 +953,8 @@ export default function TalentDirectory({
                             </span>
                             <span className="w-1 h-1 rounded-full bg-slate-300" />
                             <span>{yearsExp}+ yrs exp</span>
-                            <span className="text-xs text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full font-medium inline-flex items-center gap-1.5 shrink-0 ml-auto sm:ml-0" title="Verified Profile Views">
-                              <Eye className="w-3.5 h-3.5 text-slate-400" />
-                              <span>{candidate.view_count || 142} Views</span>
+                            <span className="text-[11px] text-slate-600 bg-slate-100 border border-slate-200/60 px-2.5 py-0.5 rounded-full font-medium inline-flex items-center gap-1 shrink-0 ml-auto sm:ml-0" title="Live Profile Impressions">
+                              👁️ {candidate.profile_views_count ?? candidate.view_count ?? 0} Views
                             </span>
                           </div>
                         </div>
@@ -1048,6 +1131,9 @@ export default function TalentDirectory({
                       {activePortfolioCandidate.is_verified_badge && (
                         <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
                       )}
+                      <span className="text-[11px] text-slate-600 bg-slate-100 border border-slate-200/80 px-2.5 py-0.5 rounded-full font-medium inline-flex items-center gap-1 ml-1" title="Live Profile Impressions">
+                        👁️ {activePortfolioCandidate.profile_views_count ?? activePortfolioCandidate.view_count ?? 0} Views
+                      </span>
                     </div>
                     <p className="text-sm font-semibold text-slate-700">
                       {activePortfolioCandidate.role_title || activePortfolioCandidate.headline}

@@ -10,44 +10,26 @@ import {
   ShieldCheck, 
   Sparkles,
   ArrowUpRight,
-  Clock,
-  ExternalLink,
-  Users
+  Users,
+  Radio
 } from 'lucide-react';
-import { getProfileAnalytics, ProfileAnalyticsData, VisitorLocationStat } from '../../lib/profileAnalytics';
+import { supabase } from '../../lib/supabaseClient';
+import { 
+  getProfileAnalytics, 
+  getCountryFlag, 
+  ProfileAnalyticsData 
+} from '../../lib/profileAnalytics';
 
 interface EmployerVisibilityCardProps {
   profile: any;
   onShareProfile?: () => void;
 }
 
-// Country flag emojis / labels helper
-const getCountryFlag = (code?: string, countryName?: string): string => {
-  if (!code && !countryName) return '🌐';
-  const c = (countryName || '').toLowerCase();
-  const cd = (code || '').toUpperCase();
-
-  if (cd === 'GB' || c.includes('united kingdom') || c.includes('uk') || c.includes('britain') || c.includes('england')) return '🇬🇧';
-  if (cd === 'US' || c.includes('united states') || c.includes('usa') || c.includes('america')) return '🇺🇸';
-  if (cd === 'DE' || c.includes('germany') || c.includes('deutschland')) return '🇩🇪';
-  if (cd === 'CA' || c.includes('canada')) return '🇨🇦';
-  if (cd === 'SG' || c.includes('singapore')) return '🇸🇬';
-  if (cd === 'NG' || c.includes('nigeria')) return '🇳🇬';
-  if (cd === 'FR' || c.includes('france')) return '🇫🇷';
-  if (cd === 'NL' || c.includes('netherlands') || c.includes('amsterdam')) return '🇳🇱';
-  if (cd === 'AU' || c.includes('australia')) return '🇦🇺';
-  if (cd === 'IN' || c.includes('india')) return '🇮🇳';
-  if (cd === 'IE' || c.includes('ireland')) return '🇮🇪';
-  if (cd === 'ZA' || c.includes('south africa')) return '🇿🇦';
-  if (cd === 'AE' || c.includes('emirates') || c.includes('dubai')) return '🇦🇪';
-  return '🌍';
-};
-
 export default function EmployerVisibilityCard({ profile, onShareProfile }: EmployerVisibilityCardProps) {
   const [analytics, setAnalytics] = useState<ProfileAnalyticsData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
-  const [timeframe, setTimeframe] = useState<'7d' | '30d' | 'all'>('30d');
+  const [timeframe, setTimeframe] = useState<'7d' | '30d' | 'all'>('all');
 
   const loadAnalytics = useCallback(async (isSilent = false) => {
     if (!profile?.id) return;
@@ -63,33 +45,53 @@ export default function EmployerVisibilityCard({ profile, onShareProfile }: Empl
     }
   }, [profile]);
 
+  // Initial load and Supabase Realtime Channel subscription on analytics_events
   useEffect(() => {
+    if (!profile?.id) return;
+
     loadAnalytics();
-  }, [loadAnalytics]);
+
+    // Supabase Realtime Channel subscription on analytics_events for INSERT operations matching talent_id
+    const channel = supabase
+      .channel(`analytics_events_channel_${profile.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'analytics_events',
+          filter: `talent_id=eq.${profile.id}`
+        },
+        (payload) => {
+          console.info('[Realtime] New analytics view event received:', payload);
+          // Automatically update impressions badge and visitor location list in real-time with zero page refresh
+          loadAnalytics(true);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.id, loadAnalytics]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
     loadAnalytics(true);
   };
 
-  // Adjust metrics based on selected timeframe filter
-  const timeframeMultiplier = timeframe === '7d' ? 0.35 : timeframe === '30d' ? 0.85 : 1.0;
-  
-  const displayViews = analytics 
-    ? Math.max(1, Math.round((profile?.view_count || analytics.totalViews) * timeframeMultiplier))
-    : (profile?.view_count || 142);
-    
-  const displayClicks = analytics 
-    ? Math.max(1, Math.round((profile?.click_count || analytics.totalClicks) * timeframeMultiplier))
-    : (profile?.click_count || 34);
+  const totalImpressions = analytics?.totalViews ?? (profile?.profile_views_count ?? profile?.view_count ?? 0);
+  const totalClicks = analytics?.totalClicks ?? (profile?.click_count ?? 0);
+  const topLocations = analytics?.topLocations || [];
+  const topCountries = analytics?.topCountries || [];
 
-  const displayUnique = analytics 
-    ? Math.max(1, Math.round((analytics.uniqueVisitors) * timeframeMultiplier))
-    : Math.round(displayViews * 0.82);
+  const displayViews = timeframe === '7d' 
+    ? (analytics?.recentViews ?? totalImpressions)
+    : totalImpressions;
 
   const displayCtr = displayViews > 0 
-    ? Number(((displayClicks / displayViews) * 100).toFixed(1)) 
-    : 23.9;
+    ? Number(((totalClicks / displayViews) * 100).toFixed(1)) 
+    : 0;
 
   return (
     <section 
@@ -106,13 +108,13 @@ export default function EmployerVisibilityCard({ profile, onShareProfile }: Empl
             <h2 className="text-base sm:text-lg font-bold font-display text-slate-900">
               Employer Visibility & Impressions
             </h2>
-            <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+              <Radio className="w-3 h-3 text-emerald-600 animate-pulse" />
               Live Telemetry
             </span>
           </div>
           <p className="text-xs text-slate-500">
-            Real-time candidate profile impressions, recruiter interaction volume, and global visitor locations.
+            Real-time candidate profile impressions, recruiter interaction volume, and live IP geolocation tracking.
           </p>
         </div>
 
@@ -168,11 +170,11 @@ export default function EmployerVisibilityCard({ profile, onShareProfile }: Empl
 
       {/* Key Metric Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Metric 1: Total Profile Views */}
+        {/* Metric 1: Total Profile Views / Impressions */}
         <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-4 sm:p-5 transition hover:border-emerald-300 hover:bg-emerald-50/10">
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono font-medium text-slate-500 uppercase tracking-wider">
-              Total Profile Views
+              Total Impressions
             </span>
             <div className="p-1.5 rounded-lg bg-emerald-100/80 text-emerald-700">
               <Eye className="w-3.5 h-3.5" />
@@ -182,17 +184,19 @@ export default function EmployerVisibilityCard({ profile, onShareProfile }: Empl
             <span className="text-2xl sm:text-3xl font-extrabold font-display text-slate-900">
               {displayViews.toLocaleString()}
             </span>
-            <span className="inline-flex items-center gap-0.5 text-xs font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
-              <TrendingUp className="w-3 h-3" />
-              +18.4%
-            </span>
+            {displayViews > 0 && (
+              <span className="inline-flex items-center gap-0.5 text-xs font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+                <TrendingUp className="w-3 h-3" />
+                Live
+              </span>
+            )}
           </div>
           <p className="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1">
             <span>Logged via directory & public dossier</span>
           </p>
         </div>
 
-        {/* Metric 2: Profile Clicks & Interactions */}
+        {/* Metric 2: Employer Clicks & Interactions */}
         <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-4 sm:p-5 transition hover:border-emerald-300 hover:bg-emerald-50/10">
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono font-medium text-slate-500 uppercase tracking-wider">
@@ -204,12 +208,14 @@ export default function EmployerVisibilityCard({ profile, onShareProfile }: Empl
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-2xl sm:text-3xl font-extrabold font-display text-slate-900">
-              {displayClicks.toLocaleString()}
+              {totalClicks.toLocaleString()}
             </span>
-            <span className="inline-flex items-center gap-0.5 text-xs font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
-              <TrendingUp className="w-3 h-3" />
-              +12.6%
-            </span>
+            {totalClicks > 0 && (
+              <span className="inline-flex items-center gap-0.5 text-xs font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+                <TrendingUp className="w-3 h-3" />
+                Live
+              </span>
+            )}
           </div>
           <p className="text-[11px] text-slate-400 mt-1.5">
             Direct unlocks, CV downloads & contact taps
@@ -231,7 +237,7 @@ export default function EmployerVisibilityCard({ profile, onShareProfile }: Empl
               {displayCtr}%
             </span>
             <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-md">
-              Top 15%
+              Live Ratio
             </span>
           </div>
           <p className="text-[11px] text-slate-400 mt-1.5">
@@ -239,11 +245,11 @@ export default function EmployerVisibilityCard({ profile, onShareProfile }: Empl
           </p>
         </div>
 
-        {/* Metric 4: Unique Visitors */}
+        {/* Metric 4: Top Country / Location Reach */}
         <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-4 sm:p-5 transition hover:border-emerald-300 hover:bg-emerald-50/10">
           <div className="flex items-center justify-between">
             <span className="text-xs font-mono font-medium text-slate-500 uppercase tracking-wider">
-              Unique Visitors
+              Global Reach
             </span>
             <div className="p-1.5 rounded-lg bg-emerald-100/80 text-emerald-700">
               <Users className="w-3.5 h-3.5" />
@@ -251,23 +257,23 @@ export default function EmployerVisibilityCard({ profile, onShareProfile }: Empl
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-2xl sm:text-3xl font-extrabold font-display text-slate-900">
-              {displayUnique.toLocaleString()}
+              {topCountries.length}
             </span>
             <span className="text-[11px] font-medium text-slate-500">
-              recruiter hosts
+              countries
             </span>
           </div>
           <p className="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1">
             <Globe2 className="w-3 h-3 text-slate-400" />
-            <span>Across {analytics?.topCountries?.length || 5} countries</span>
+            <span>Across {topLocations.length} cities</span>
           </p>
         </div>
       </div>
 
-      {/* Main Dual Grid: Top Visitor Locations Breakdown & Weekly Traffic Momentum */}
+      {/* Main Dual Grid: Top Visitor Locations Breakdown & Weekly Momentum */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
         
-        {/* LEFT COLUMN: Top Visitor Locations Table / Breakdown (8 cols) */}
+        {/* LEFT COLUMN: Top Visitor Locations Table / Breakdown (7 cols) */}
         <div className="lg:col-span-7 bg-slate-50/60 border border-slate-200/80 rounded-2xl p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -281,17 +287,17 @@ export default function EmployerVisibilityCard({ profile, onShareProfile }: Empl
             </span>
           </div>
 
-          {/* Quick Country Pills */}
-          {analytics?.topCountries && analytics.topCountries.length > 0 && (
+          {/* Quick Country Pills with Real Flags & Percentages */}
+          {topCountries.length > 0 && (
             <div className="flex flex-wrap gap-1.5 pb-1">
-              {analytics.topCountries.slice(0, 5).map((c, i) => (
+              {topCountries.slice(0, 6).map((c, i) => (
                 <span
                   key={i}
                   className="inline-flex items-center gap-1 text-[11px] bg-white border border-slate-200/80 px-2.5 py-1 rounded-full text-slate-700 font-medium shadow-2xs"
                 >
-                  <span>{getCountryFlag(c.code, c.country)}</span>
+                  <span className="text-sm">{getCountryFlag(c.code, c.country)}</span>
                   <span className="font-semibold">{c.country}</span>
-                  <span className="text-slate-400 text-[10px]">({c.percentage}%)</span>
+                  <span className="text-slate-500 text-[10px] font-mono font-bold">({c.percentage}%)</span>
                 </span>
               ))}
             </div>
@@ -299,13 +305,16 @@ export default function EmployerVisibilityCard({ profile, onShareProfile }: Empl
 
           {/* Detailed Locations Table / Breakdown List */}
           <div className="space-y-3">
-            {(!analytics?.topLocations || analytics.topLocations.length === 0) ? (
-              <div className="py-8 text-center text-slate-400 text-xs">
-                <Globe2 className="w-8 h-8 mx-auto text-slate-300 mb-2" />
-                <p>Collecting global impression logs as recruiters view your profile...</p>
+            {topLocations.length === 0 ? (
+              <div className="py-10 text-center text-slate-400 text-xs space-y-2">
+                <Globe2 className="w-8 h-8 mx-auto text-slate-300" />
+                <p className="font-medium text-slate-600">No visitor impressions recorded yet.</p>
+                <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+                  Geolocation telemetry logs will appear here in real time with country flags and percentage shares when recruiters view your portfolio.
+                </p>
               </div>
             ) : (
-              analytics.topLocations.slice(0, 6).map((loc, idx) => (
+              topLocations.slice(0, 6).map((loc, idx) => (
                 <div 
                   key={idx}
                   className="bg-white border border-slate-200/80 rounded-xl p-3 shadow-2xs hover:border-slate-300 transition"
@@ -314,14 +323,14 @@ export default function EmployerVisibilityCard({ profile, onShareProfile }: Empl
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-base shrink-0">{getCountryFlag(loc.countryCode, loc.country)}</span>
                       <span className="font-bold text-slate-800 truncate">
-                        {loc.city}, {loc.country}
+                        {loc.city && loc.city !== 'Unknown' ? `${loc.city}, ` : ''}{loc.country}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-2">
                       <span className="font-mono font-bold text-slate-900">
-                        {Math.max(1, Math.round(loc.count * timeframeMultiplier))} views
+                        {loc.count} view{loc.count > 1 ? 's' : ''}
                       </span>
-                      <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                      <span className="text-[10px] font-mono text-slate-600 bg-slate-100 font-bold px-1.5 py-0.5 rounded">
                         {loc.percentage}%
                       </span>
                     </div>
@@ -331,7 +340,7 @@ export default function EmployerVisibilityCard({ profile, onShareProfile }: Empl
                   <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                     <div 
                       className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                      style={{ width: `${Math.max(8, loc.percentage)}%` }}
+                      style={{ width: `${Math.max(5, loc.percentage)}%` }}
                     />
                   </div>
                 </div>
@@ -351,28 +360,20 @@ export default function EmployerVisibilityCard({ profile, onShareProfile }: Empl
                 <span>Weekly Momentum</span>
               </h3>
               <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                Peak Days: Tue - Thu
+                Live 7-Day Trend
               </span>
             </div>
 
             {/* Mini Activity Bar Grid */}
             <div className="grid grid-cols-7 gap-1.5 pt-2 items-end h-24">
-              {(analytics?.weeklyTrend || [
-                { day: 'Mon', views: 18, clicks: 4 },
-                { day: 'Tue', views: 28, clicks: 8 },
-                { day: 'Wed', views: 32, clicks: 9 },
-                { day: 'Thu', views: 26, clicks: 6 },
-                { day: 'Fri', views: 22, clicks: 5 },
-                { day: 'Sat', views: 10, clicks: 2 },
-                { day: 'Sun', views: 12, clicks: 3 },
-              ]).map((item, dIdx) => {
-                const maxVal = 35;
-                const heightPct = Math.min(100, Math.max(15, Math.round((item.views / maxVal) * 100)));
+              {(analytics?.weeklyTrend || []).map((item, dIdx) => {
+                const maxVal = Math.max(...(analytics?.weeklyTrend.map((t) => t.views) || [1]), 1);
+                const heightPct = item.views > 0 ? Math.min(100, Math.max(15, Math.round((item.views / maxVal) * 100))) : 8;
                 return (
                   <div key={dIdx} className="flex flex-col items-center gap-1 group">
                     <div className="w-full bg-slate-200/80 rounded-t-md h-20 flex items-end justify-center p-0.5 relative">
                       <div 
-                        className="w-full bg-emerald-500 rounded-t-sm transition-all duration-300 group-hover:bg-emerald-600"
+                        className={`w-full rounded-t-sm transition-all duration-300 ${item.views > 0 ? 'bg-emerald-500 group-hover:bg-emerald-600' : 'bg-slate-300'}`}
                         style={{ height: `${heightPct}%` }}
                       />
                       {/* Tooltip on hover */}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { recordProfileView, recordProfileClick } from '../lib/profileAnalytics';
+import { recordProfileClick } from '../lib/profileAnalytics';
 import { CaseStudyItem, WorkHistoryItem, EducationItem } from '../types';
 import { 
   CheckCircle2, 
@@ -158,14 +158,62 @@ export default function PublicPortfolio({
     fetchTalentProfile();
   }, [activeSlug, initialData]);
 
+  // Record View Function with Geolocation
+  const recordView = async (talentId: string) => {
+    try {
+      const res = await fetch('https://ipapi.co/json/');
+      const geo = await res.json();
+
+      await supabase.rpc('record_talent_view', {
+        p_talent_id: talentId,
+        p_event_type: 'profile_view',
+        p_country: geo.country_name || 'Unknown',
+        p_country_code: geo.country_code || 'XX',
+        p_city: geo.city || 'Unknown'
+      });
+    } catch (err) {
+      // Fallback if IP API is blocked
+      try {
+        await supabase.rpc('record_talent_view', { p_talent_id: talentId });
+      } catch (e) {
+        try {
+          await supabase.from('analytics_events').insert({
+            talent_id: talentId,
+            event_type: 'profile_view',
+            country: 'Unknown',
+            country_code: 'XX',
+            city: 'Unknown',
+            created_at: new Date().toISOString()
+          });
+        } catch {}
+      }
+    }
+  };
+
   // Check if current authenticated recruiter has already unlocked this candidate
   useEffect(() => {
     // Automatically track profile impression & IP location on visit
     if (talent?.id) {
-      recordProfileView(talent.id, { candidateName: talent.full_name }).then((res) => {
-        if (res.newViewCount) {
-          setTalent((prev: any) => (prev ? { ...prev, view_count: res.newViewCount } : prev));
-        }
+      recordView(talent.id).then(() => {
+        supabase
+          .from('talent_profiles')
+          .select('profile_views_count, view_count')
+          .eq('id', talent.id)
+          .maybeSingle()
+          .then(({ data }) => {
+            if (data) {
+              const liveCount = data.profile_views_count ?? data.view_count ?? 0;
+              setTalent((prev: any) =>
+                prev
+                  ? {
+                      ...prev,
+                      profile_views_count: liveCount,
+                      view_count: liveCount
+                    }
+                  : prev
+              );
+            }
+          });
       }).catch((e) => {
         console.info('[PublicPortfolio] View tracking note:', e);
       });
@@ -521,7 +569,7 @@ export default function PublicPortfolio({
                   {/* Public View Counter Pill */}
                   <span className="text-xs text-slate-500 bg-slate-100 border border-slate-200/60 px-2.5 py-0.5 rounded-full font-medium inline-flex items-center gap-1.5 shrink-0" title="Verified Profile Views">
                     <Eye className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{talent?.view_count || 142} Views</span>
+                    <span>{talent?.profile_views_count ?? talent?.view_count ?? 0} Views</span>
                   </span>
                 </div>
 
