@@ -59,6 +59,7 @@ import {
 } from 'lucide-react';
 import ConfettiSuccess from './ConfettiSuccess';
 import EmployerVisibilityCard from './talent/EmployerVisibilityCard';
+import TalentProfileEditForm from './TalentProfileEditForm';
 import { SKILL_QUIZ_DEFINITIONS, SkillCategoryDefinition, QuizQuestion } from '../data/quizQuestions';
 
 // ==============================================================================
@@ -66,6 +67,30 @@ import { SKILL_QUIZ_DEFINITIONS, SkillCategoryDefinition, QuizQuestion } from '.
 // ==============================================================================
 export const WORK_TYPE_OPTIONS = ['Full-Time', 'Freelance', 'Internship', 'Volunteer'] as const;
 export type WorkTypeOption = typeof WORK_TYPE_OPTIONS[number];
+
+export interface ProfileFormData {
+  profile_picture_url: string;
+  role_title: string;
+  headline: string;
+  bio: string;
+  years_experience: number;
+  location: string;
+  remote_preference: string;
+  availability_status: string;
+  work_availability_type: string[];
+  contact_email: string;
+  phone_number: string;
+  whatsapp_number: string;
+  cv_url: string;
+  portfolio_url: string;
+  github_url: string;
+  linkedin_url: string;
+  work_history: WorkHistoryItem[];
+  education: EducationItem[];
+  case_studies: CaseStudyItem[];
+  ai_tools_input: string;
+  certifications_input: string;
+}
 
 // ==============================================================================
 // INLINE TYPES & INTERFACES (MATCHING SUPABASE talent_profiles SCHEMA)
@@ -1424,6 +1449,20 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
     }, 150);
   };
 
+  // Toggle or activate portfolio edit form and smooth scroll into view
+  const handleToggleEdit = (targetState?: boolean) => {
+    const next = targetState !== undefined ? targetState : !isEditing;
+    setIsEditing(next);
+    if (next) {
+      setTimeout(() => {
+        const el = document.getElementById('edit-portfolio-dossier-section');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    }
+  };
+
   // Share Profile to Clipboard with Toast Notification
   const handleShareProfile = () => {
     const slug = profile?.slug || profile?.id;
@@ -1583,11 +1622,13 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
             </button>
 
             <button
-              onClick={() => setIsEditing(!isEditing)}
+              id="talent-profile-header-edit-btn"
+              type="button"
+              onClick={handleToggleEdit}
               className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white transition cursor-pointer shadow-xs flex items-center gap-1.5 no-print"
             >
               <Edit3 className="w-3.5 h-3.5" />
-              <span>{isEditing ? 'Cancel Edit' : 'Edit Portfolio'}</span>
+              <span>{isEditing ? 'Close Edit Form' : 'Edit Portfolio'}</span>
             </button>
 
             <button
@@ -1823,7 +1864,72 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         </section>
 
         {/* ========================================================================= */}
-        {/* EMPLOYER VISIBILITY & IMPRESSIONS (LIVE ANALYTICS & IP TRACKING) */}
+        {/* 1. EDIT PORTFOLIO DOSSIER & RESUME (COMES FIRST AS REQUESTED) */}
+        {/* ========================================================================= */}
+        <section id="portfolio-dossier-resume-section" className="space-y-4">
+          {isEditing ? (
+            <TalentProfileEditForm
+              formData={formData}
+              setFormData={setFormData}
+              isSaving={isSaving}
+              initials={initials}
+              onCancel={() => setIsEditing(false)}
+              onSave={handleSaveProfile}
+              onAddWorkHistory={handleAddWorkHistory}
+              onUpdateWorkHistory={handleUpdateWorkHistory}
+              onRemoveWorkHistory={handleRemoveWorkHistory}
+              onAddEducation={handleAddEducation}
+              onUpdateEducation={handleUpdateEducation}
+              onRemoveEducation={handleRemoveEducation}
+              onAddCaseStudy={handleAddCaseStudy}
+              onUpdateCaseStudy={handleUpdateCaseStudy}
+              onRemoveCaseStudy={handleRemoveCaseStudy}
+            />
+          ) : (
+            <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-7 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base font-bold text-slate-900">1. Edit Portfolio Dossier & Resume</h2>
+                    <span className="text-[10px] font-mono font-bold uppercase bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full border border-slate-200">
+                      Editable Section
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 font-normal leading-relaxed max-w-2xl">
+                    Manage your public avatar, professional headline, CV documents, live case study portfolios, external URLs, and work experience entries.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2.5 shrink-0">
+                  {profile?.cv_url && (
+                    <a
+                      href={profile.cv_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                      title="Open CV Document in new tab"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>View CV</span>
+                      <ExternalLink className="w-3 h-3 text-slate-400" />
+                    </a>
+                  )}
+                  <button
+                    id="talent-profile-open-edit-dossier-btn"
+                    type="button"
+                    onClick={handleToggleEdit}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer shadow-xs flex items-center gap-1.5"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Edit Portfolio & Resume</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* ========================================================================= */}
+        {/* 2. EMPLOYER VISIBILITY & IMPRESSIONS (LIVE ANALYTICS & IP TRACKING) */}
         {/* ========================================================================= */}
         {profile && (
           <EmployerVisibilityCard 
@@ -1833,7 +1939,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         )}
 
         {/* ========================================================================= */}
-        {/* 2. 3-STEP VERIFICATION PIPELINE (STRICTLY READ-ONLY) */}
+        {/* 3. 3-STEP CANDIDATE VERIFICATION PIPELINE */}
         {/* ========================================================================= */}
         <section className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -2207,555 +2313,100 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         </section>
 
         {/* ========================================================================= */}
-        {/* 4. EDITABLE PORTFOLIO & RESUME MANAGEMENT FORM */}
+        {/* 4. FEATURED GROWTH CASE STUDIES & PORTFOLIO DOSSIER */}
         {/* ========================================================================= */}
-        {isEditing ? (
-          <form onSubmit={handleSaveProfile} className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xs space-y-8 animate-fadeIn">
-            
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">Edit Portfolio Dossier & Resume</h2>
-                <p className="text-xs text-slate-500">Update your avatar, public profile, external links, career history, and toolkits.</p>
-              </div>
-
+        <section id="featured-case-studies-portfolio-showcase" className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+            <div>
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 border border-slate-200 cursor-pointer"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="px-5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer shadow-xs flex items-center gap-1.5"
-                >
-                  {isSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                  <span>Save Changes</span>
-                </button>
+                <h2 className="text-base font-bold text-slate-900">4. Featured Growth Case Studies & Portfolio Dossier</h2>
+                <span className="text-[10px] font-mono font-bold uppercase bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200">
+                  Career Showcase
+                </span>
               </div>
+              <p className="text-xs text-slate-500 font-normal leading-relaxed">
+                Audited case study breakthroughs, verifiable campaign metrics, career timeline, and verified skill specializations.
+              </p>
             </div>
+            <button
+              type="button"
+              onClick={handleToggleEdit}
+              className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Update Dossier Entries</span>
+            </button>
+          </div>
 
-            {/* Profile Picture URL Field & Live Preview */}
-            <div className="p-4 bg-slate-50/80 border border-slate-200/80 rounded-2xl space-y-3">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">
-                <Camera className="w-4 h-4 text-emerald-600" />
-                <span>Profile Picture URL Management</span>
+          {/* Featured Growth Case Studies Top Showcase */}
+          <section className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-indigo-600" />
+                <h3 className="text-sm font-bold text-slate-900">Featured Growth Case Studies</h3>
               </div>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-200 shrink-0 border border-slate-300 flex items-center justify-center">
-                  {formData.profile_picture_url.trim() ? (
-                    <img
-                      src={formData.profile_picture_url.trim()}
-                      alt="Avatar Preview"
-                      referrerPolicy="no-referrer"
-                      onError={(e) => {
-                        (e.target as HTMLElement).style.display = 'none';
-                      }}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-sm font-bold text-slate-500">
-                      {initials}
-                    </span>
-                  )}
-                </div>
-                <div className="flex-1 w-full space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Avatar Image URL (Direct link to PNG, JPG, WebP)</label>
-                  <input
-                    type="url"
-                    value={formData.profile_picture_url}
-                    onChange={(e) => setFormData({ ...formData, profile_picture_url: e.target.value })}
-                    placeholder="https://images.unsplash.com/... or hosted picture link"
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
-                  />
-                  <p className="text-[11px] text-slate-500">If empty or unreachable, the header automatically displays your initials ({initials}).</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Work Status / Availability Toggle in Edit Form */}
-            <div className="p-4 bg-slate-50/80 border border-slate-200 rounded-xl space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">
-                    <Sliders className="w-4 h-4 text-emerald-600" />
-                    <span>Work Status & Placement Availability</span>
-                  </div>
-                  <p className="text-xs font-normal text-slate-500">
-                    Control whether recruiters can contact you for immediate roles and interview opportunities.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className={`text-xs font-semibold ${
-                    formData.availability_status === 'available' ? 'text-emerald-700 font-bold' : 'text-slate-600'
-                  }`}>
-                    {formData.availability_status === 'available' ? 'Available for Placement' : 'Hired / In Placement'}
-                  </span>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={formData.availability_status === 'available'}
-                    onClick={() => {
-                      const nextStatus = formData.availability_status === 'available' ? 'hired' : 'available';
-                      setFormData(prev => ({ ...prev, availability_status: nextStatus }));
-                    }}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${
-                      formData.availability_status === 'available' ? 'bg-emerald-600' : 'bg-slate-300'
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
-                        formData.availability_status === 'available' ? 'translate-x-5' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Work Type Availability / Open To Multi-Select in Edit Form */}
-            <div className="p-4 bg-slate-50/80 border border-slate-200 rounded-xl space-y-3">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">
-                  <Briefcase className="w-4 h-4 text-emerald-600" />
-                  <span>Work Preference & Engagement Type (Open To)</span>
-                </div>
-                <p className="text-xs font-normal text-slate-500">
-                  Select all employment arrangements you are available and actively looking for.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                {WORK_TYPE_OPTIONS.map((type) => {
-                  const currentSelected = Array.isArray(formData.work_availability_type)
-                    ? formData.work_availability_type
-                    : ['Full-Time', 'Freelance'];
-                  const isChecked = currentSelected.includes(type);
-
-                  return (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => {
-                        const updated = isChecked
-                          ? currentSelected.filter((t) => t !== type)
-                          : [...currentSelected, type];
-                        setFormData((prev) => ({ ...prev, work_availability_type: updated }));
-                      }}
-                      className={`px-3.5 py-1.5 text-xs font-medium rounded-full border transition-all cursor-pointer flex items-center gap-2 ${
-                        isChecked
-                          ? 'bg-slate-900 text-white border-slate-900 shadow-2xs font-semibold'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${isChecked ? 'bg-emerald-400' : 'bg-slate-300'}`} />
-                      <span>{type}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Basic Info Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Role Title</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.role_title}
-                  onChange={(e) => setFormData({ ...formData, role_title: e.target.value })}
-                  placeholder="e.g. Senior Growth Marketer"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50/50"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Years of Experience</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="40"
-                  required
-                  value={formData.years_experience}
-                  onChange={(e) => setFormData({ ...formData, years_experience: Number(e.target.value) })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50/50"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Location</label>
-                <input
-                  type="text"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="e.g. Lagos, Nigeria / London, UK"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50/50"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Remote Preference</label>
-                <select
-                  value={formData.remote_preference}
-                  onChange={(e) => setFormData({ ...formData, remote_preference: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50/50"
-                >
-                  <option value="Remote">Remote Only</option>
-                  <option value="Hybrid">Hybrid</option>
-                  <option value="On-site">On-site</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Headline & Bio */}
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Professional Headline</label>
-                <input
-                  type="text"
-                  value={formData.headline}
-                  onChange={(e) => setFormData({ ...formData, headline: e.target.value })}
-                  placeholder="Short impact summary"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50/50"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Executive Bio & Career Summary</label>
-                <textarea
-                  rows={4}
-                  value={formData.bio}
-                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                  placeholder="Describe your core domain specializations, past campaign sizes, and key achievements..."
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50/50"
-                />
-              </div>
-            </div>
-
-            {/* Contact & External Links */}
-            <div className="space-y-3">
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">Contact & External Dossier Links</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-slate-600">Contact Email</label>
-                  <input
-                    type="email"
-                    value={formData.contact_email}
-                    onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50/50"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-slate-600">Phone Number</label>
-                  <input
-                    type="text"
-                    value={formData.phone_number}
-                    onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-                    placeholder="+1 555 123 4567"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50/50"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-slate-600">WhatsApp Number</label>
-                  <input
-                    type="text"
-                    value={formData.whatsapp_number}
-                    onChange={(e) => setFormData({ ...formData, whatsapp_number: e.target.value })}
-                    placeholder="+234 800 000 0000"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50/50"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-slate-600">CV Document URL</label>
-                  <input
-                    type="url"
-                    value={formData.cv_url}
-                    onChange={(e) => setFormData({ ...formData, cv_url: e.target.value })}
-                    placeholder="https://drive.google.com/... or Notion link"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50/50"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-slate-600">Portfolio Website URL</label>
-                  <input
-                    type="url"
-                    value={formData.portfolio_url}
-                    onChange={(e) => setFormData({ ...formData, portfolio_url: e.target.value })}
-                    placeholder="https://yourportfolio.com"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50/50"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-slate-600">LinkedIn Profile URL</label>
-                  <input
-                    type="url"
-                    value={formData.linkedin_url}
-                    onChange={(e) => setFormData({ ...formData, linkedin_url: e.target.value })}
-                    placeholder="https://linkedin.com/in/username"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50/50"
-                  />
-                </div>
-
-                <div className="space-y-1 sm:col-span-2 lg:col-span-3">
-                  <label className="text-[11px] font-semibold text-slate-600">GitHub Profile URL</label>
-                  <input
-                    type="url"
-                    value={formData.github_url}
-                    onChange={(e) => setFormData({ ...formData, github_url: e.target.value })}
-                    placeholder="https://github.com/username"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50/50"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Work History Builder */}
-            <div className="space-y-3 pt-2 border-t border-slate-100">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">Work Experience History</h3>
-                <button
-                  type="button"
-                  onClick={handleAddWorkHistory}
-                  className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Experience</span>
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {formData.work_history.map((work, idx) => (
-                  <div key={idx} className="p-4 bg-slate-50/70 border border-slate-200 rounded-2xl space-y-2.5 relative">
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveWorkHistory(idx)}
-                      className="absolute top-3 right-3 text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
-                      title="Remove experience"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pr-6">
-                      <input
-                        type="text"
-                        placeholder="Company Name"
-                        value={work.company}
-                        onChange={(e) => handleUpdateWorkHistory(idx, 'company', e.target.value)}
-                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Role / Title"
-                        value={work.role}
-                        onChange={(e) => handleUpdateWorkHistory(idx, 'role', e.target.value)}
-                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Duration (e.g. 2022 - Present)"
-                        value={work.duration}
-                        onChange={(e) => handleUpdateWorkHistory(idx, 'duration', e.target.value)}
-                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white"
-                      />
-                    </div>
-                    <textarea
-                      rows={2}
-                      placeholder="Key accomplishments, budget managed, conversion metrics achieved..."
-                      value={work.description}
-                      onChange={(e) => handleUpdateWorkHistory(idx, 'description', e.target.value)}
-                      className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Education Builder */}
-            <div className="space-y-3 pt-2 border-t border-slate-100">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">Education & Academic Degrees</h3>
-                <button
-                  type="button"
-                  onClick={handleAddEducation}
-                  className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Degree</span>
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {formData.education.map((edu, idx) => (
-                  <div key={idx} className="p-4 bg-slate-50/70 border border-slate-200 rounded-2xl grid grid-cols-1 sm:grid-cols-3 gap-2 relative">
-                    <input
-                      type="text"
-                      placeholder="University / School"
-                      value={edu.school}
-                      onChange={(e) => handleUpdateEducation(idx, 'school', e.target.value)}
-                      className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Degree / Major"
-                      value={edu.degree}
-                      onChange={(e) => handleUpdateEducation(idx, 'degree', e.target.value)}
-                      className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white"
-                    />
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        placeholder="Year (e.g. 2021)"
-                        value={edu.year}
-                        onChange={(e) => handleUpdateEducation(idx, 'year', e.target.value)}
-                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white flex-1"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveEducation(idx)}
-                        className="text-slate-400 hover:text-rose-600 p-1.5 cursor-pointer"
-                        title="Remove degree"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Case Studies Builder */}
-            <div className="space-y-3 pt-2 border-t border-slate-100">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">Case Studies & Growth Highlights</h3>
-                <button
-                  type="button"
-                  onClick={handleAddCaseStudy}
-                  className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Case Study</span>
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {formData.case_studies.map((cs, idx) => (
-                  <div key={idx} className="p-4 bg-slate-50/70 border border-slate-200 rounded-2xl space-y-2.5 relative">
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveCaseStudy(idx)}
-                      className="absolute top-3 right-3 text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
-                      title="Remove case study"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pr-6">
-                      <input
-                        type="text"
-                        placeholder="Case Study Title"
-                        value={cs.title}
-                        onChange={(e) => handleUpdateCaseStudy(idx, 'title', e.target.value)}
-                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Client / Brand"
-                        value={cs.client_or_brand}
-                        onChange={(e) => handleUpdateCaseStudy(idx, 'client_or_brand', e.target.value)}
-                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Metrics Achieved (e.g. +140% ROAS)"
-                        value={cs.metrics_achieved}
-                        onChange={(e) => handleUpdateCaseStudy(idx, 'metrics_achieved', e.target.value)}
-                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white"
-                      />
-                    </div>
-                    <textarea
-                      rows={2}
-                      placeholder="Execution strategy, funnel mechanics, optimization results..."
-                      value={cs.description}
-                      onChange={(e) => handleUpdateCaseStudy(idx, 'description', e.target.value)}
-                      className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white"
-                    />
-                    <input
-                      type="url"
-                      placeholder="Case Study Link (optional)"
-                      value={cs.link || ''}
-                      onChange={(e) => handleUpdateCaseStudy(idx, 'link', e.target.value)}
-                      className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-white"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* AI Tools & Certifications */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">AI Growth Tools (Comma-separated)</label>
-                <input
-                  type="text"
-                  value={formData.ai_tools_input}
-                  onChange={(e) => setFormData({ ...formData, ai_tools_input: e.target.value })}
-                  placeholder="ChatGPT Plus, Midjourney, Claude 3.5, Make.com"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-slate-50/50"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Certifications (Comma-separated)</label>
-                <input
-                  type="text"
-                  value={formData.certifications_input}
-                  onChange={(e) => setFormData({ ...formData, certifications_input: e.target.value })}
-                  placeholder="Google Ads Search Certified, Meta Certified Buyer"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-slate-50/50"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
               <button
                 type="button"
-                onClick={() => setIsEditing(false)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 border border-slate-200 cursor-pointer"
+                onClick={handleToggleEdit}
+                className="text-xs font-semibold text-emerald-700 hover:underline cursor-pointer"
               >
-                Cancel
-              </button>
-
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="px-6 py-2.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer shadow-xs flex items-center gap-1.5"
-              >
-                {isSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                <span>Save Profile Dossier</span>
+                + Add / Manage Case Studies
               </button>
             </div>
 
-          </form>
-        ) : (
-          /* ========================================================================= */
-          /* 5. READ-ONLY DISPLAY OF PORTFOLIO, CAREER & DYNAMIC ACCREDITED SKILLS */
-          /* ========================================================================= */
+            {(profile?.case_studies || []).length === 0 ? (
+              <div className="p-6 rounded-2xl bg-slate-50/80 border border-slate-200 text-center space-y-2">
+                <p className="text-xs text-slate-600 font-medium">No featured case studies added to your portfolio dossier yet.</p>
+                <button
+                  type="button"
+                  onClick={handleToggleEdit}
+                  className="text-xs font-bold text-emerald-700 hover:underline inline-flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add your first case study</span>
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(profile?.case_studies || []).map((cs, idx) => (
+                  <div key={idx} className="p-5 rounded-2xl bg-slate-50/70 border border-slate-200/80 space-y-3 flex flex-col justify-between hover:border-slate-300 transition shadow-2xs">
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-900">{cs.title}</h4>
+                          <p className="text-[11px] text-slate-500 font-medium">{cs.client_or_brand}</p>
+                        </div>
+                        {cs.metrics_achieved && (
+                          <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] shrink-0">
+                            {cs.metrics_achieved}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-600 leading-relaxed">{cs.description}</p>
+                    </div>
+                    {cs.link && (
+                      <div className="pt-2 border-t border-slate-200/60">
+                        <a
+                          href={cs.link}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:underline"
+                        >
+                          <span>View Live Project</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Dossier Detail Two-Column Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            {/* Left Column: Work History & Case Studies */}
+            {/* Left Column: Work Experience */}
             <div className="lg:col-span-2 space-y-6">
-              
-              {/* Work History */}
               <section className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xs space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <div className="flex items-center gap-2">
@@ -2763,7 +2414,8 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     <h3 className="text-sm font-bold text-slate-900">Career & Work Experience</h3>
                   </div>
                   <button
-                    onClick={() => setIsEditing(true)}
+                    type="button"
+                    onClick={handleToggleEdit}
                     className="text-xs font-semibold text-emerald-700 hover:underline cursor-pointer"
                   >
                     Edit
@@ -2775,10 +2427,10 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     <p className="text-xs text-slate-400 italic">No work history entries added yet.</p>
                   ) : (
                     (profile?.work_history || []).map((work, idx) => (
-                      <div key={idx} className="space-y-1.5 border-b border-slate-100 last:border-0 pb-3 last:pb-0">
+                      <div key={idx} className="space-y-1.5 border-b border-slate-100 last:border-0 pb-3.5 last:pb-0">
                         <div className="flex items-center justify-between">
                           <h4 className="text-xs font-bold text-slate-900">{work.role}</h4>
-                          <span className="text-[10px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{work.duration}</span>
+                          <span className="text-[10px] font-mono text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">{work.duration}</span>
                         </div>
                         <p className="text-xs font-semibold text-emerald-700">{work.company}</p>
                         {work.description && (
@@ -2789,51 +2441,11 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                   )}
                 </div>
               </section>
-
-              {/* Case Studies */}
-              {(profile?.case_studies || []).length > 0 && (
-                <section className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xs space-y-4">
-                  <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-                    <TrendingUp className="w-4 h-4 text-indigo-600" />
-                    <h3 className="text-sm font-bold text-slate-900">Featured Growth Case Studies</h3>
-                  </div>
-
-                  <div className="space-y-4">
-                    {(profile?.case_studies || []).map((cs, idx) => (
-                      <div key={idx} className="p-4 rounded-2xl bg-slate-50/70 border border-slate-100 space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <h4 className="text-xs font-bold text-slate-900">{cs.title}</h4>
-                            <p className="text-[11px] text-slate-500">{cs.client_or_brand}</p>
-                          </div>
-                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">
-                            {cs.metrics_achieved}
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-600 leading-relaxed">{cs.description}</p>
-                        {cs.link && (
-                          <a
-                            href={cs.link}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:underline pt-1"
-                          >
-                            <span>View Case Study</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-
             </div>
 
-            {/* Right Column: Skills, AI Tools, Education */}
+            {/* Right Column: Skills, AI Tools, Certifications, Education */}
             <div className="space-y-6">
-              
-              {/* Accredited Skills (Strictly Dynamic from Passed Quizzes only - Max 5) */}
+              {/* Accredited Skills (Diagnostic Verified) */}
               <section className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-xs space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
                   <div className="flex items-center gap-1.5">
@@ -2877,7 +2489,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                 </div>
               </section>
 
-              {/* AI Growth Toolkit */}
+              {/* AI Growth Tooling */}
               <section className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-xs space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
                   <div className="flex items-center gap-1.5">
@@ -2932,11 +2544,9 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                   ))}
                 </div>
               </section>
-
             </div>
-
           </div>
-        )}
+        </section>
 
       </main>
 

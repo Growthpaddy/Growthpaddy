@@ -119,10 +119,13 @@ export const AdminRegister: React.FC<RegisterProps> = ({
       setIsSuccess(true);
     } catch (err: any) {
       console.error('[AdminRegister] Registration error:', err);
-      if (err.message?.includes('User already registered') || err.code === 'user_already_exists') {
+      let rawMsg = typeof err === 'string' ? err : err?.message || err?.error_description || '';
+      if (rawMsg.toLowerCase().includes('already registered') || rawMsg.toLowerCase().includes('already exists') || err.code === 'user_already_exists') {
         setErrorMessage('An account with this email address already exists. Please proceed to sign in.');
+      } else if (rawMsg && rawMsg !== '{}' && rawMsg !== '[object Object]') {
+        setErrorMessage(rawMsg);
       } else {
-        setErrorMessage(err.message || 'An unexpected error occurred during registration. Please try again.');
+        setErrorMessage('An unexpected error occurred during registration. Please try again.');
       }
     } finally {
       setLoading(false);

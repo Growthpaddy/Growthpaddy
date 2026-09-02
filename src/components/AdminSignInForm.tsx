@@ -318,7 +318,11 @@ export default function AdminSignInForm({
 
     } catch (err: any) {
       console.error('[AdminSignInForm] Sign up error:', err);
-      setErrorMessage(err.message || 'Registration failed. Please contact technical support.');
+      let rawMsg = typeof err === 'string' ? err : err?.message || err?.error_description || '';
+      if (!rawMsg || rawMsg === '{}' || rawMsg === '[object Object]') {
+        rawMsg = 'Registration failed. Please verify your credentials and try again.';
+      }
+      setErrorMessage(rawMsg);
     } finally {
       setIsLoading(false);
     }

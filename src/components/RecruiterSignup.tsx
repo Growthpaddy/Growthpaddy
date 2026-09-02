@@ -180,7 +180,11 @@ export default function RecruiterSignup({
       setSuccessSubmitted(true);
     } catch (err: any) {
       console.error('Recruiter registration failed:', err);
-      setErrorMessage(err.message || 'Unable to register recruiter account. Please try again.');
+      let msg = typeof err === 'string' ? err : err?.message || err?.error_description || '';
+      if (!msg || msg === '{}' || msg === '[object Object]') {
+        msg = 'Unable to register recruiter account. Please verify your connection or try again.';
+      }
+      setErrorMessage(msg);
     } finally {
       setLoading(false);
     }
