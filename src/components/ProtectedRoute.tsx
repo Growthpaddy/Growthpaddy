@@ -145,11 +145,19 @@ export default function ProtectedRoute({
             try {
               const { data } = await supabase
                 .from('recruiter_profiles')
-                .select('id')
-                .eq('id', supUser.id)
+                .select('*')
+                .or(`user_id.eq.${supUser.id},id.eq.${supUser.id}`)
                 .maybeSingle();
-              if (data?.id) {
+              if (data?.id || data?.user_id) {
                 supRecruiter = true;
+              } else {
+                const cached = localStorage.getItem('dsp_recruiter_profile');
+                if (cached) {
+                  const p = JSON.parse(cached);
+                  if (p?.user_id === supUser.id || p?.id === supUser.id) {
+                    supRecruiter = true;
+                  }
+                }
               }
             } catch {
               // ignore

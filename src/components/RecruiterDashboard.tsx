@@ -104,44 +104,54 @@ export default function RecruiterDashboard({
     try {
       setRefreshing(true);
 
-      // 1. Fetch recruiter profile from public.recruiters
+      // 1. Fetch recruiter profile from public.recruiter_profiles first
+      let { data: profileData } = await supabase
+        .from('recruiter_profiles')
+        .select('*')
+        .or(`user_id.eq.${user.id},id.eq.${user.id}`)
+        .maybeSingle();
+
+      if (!profileData) {
+        const cached = localStorage.getItem('dsp_recruiter_profile');
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            if (parsed.user_id === user.id || parsed.id === user.id) {
+              profileData = parsed;
+            }
+          } catch (_) {}
+        }
+      }
+
+      // 2. Fetch from public.recruiters for unlocked count and payment status
       let { data: recData, error: recError } = await supabase
         .from('recruiters')
         .select('*')
         .or(`user_id.eq.${user.id},id.eq.${user.id}`)
         .maybeSingle();
 
-      // Self-healing fallback if record missing in recruiters
-      if (!recData) {
-        const companyName = user.user_metadata?.company_name || 'Hiring Enterprise';
-        const contactName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Recruiter';
-        const selectedPkg = user.user_metadata?.selected_package || 'starter_tier';
+      const companyName = profileData?.company_name || profileData?.organization_name || recData?.company_name || user.user_metadata?.company_name || 'Hiring Enterprise';
+      const contactName = recData?.contact_person || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Recruiter';
+      const selectedPkg = profileData?.subscribed_package || profileData?.selected_package || recData?.selected_package || user.user_metadata?.subscribed_package || 'Starter';
+      const maxContacts = (selectedPkg === 'Enterprise' || selectedPkg === 'annual_unlimited') ? 99999 : (selectedPkg === 'Growth') ? 25 : 5;
 
-        const fallbackRecruiter = {
-          user_id: user.id,
-          id: user.id,
-          company_name: companyName,
-          contact_person: contactName,
-          business_email: user.email,
-          phone_number: user.user_metadata?.phone_number || '',
-          selected_package: selectedPkg,
-          payment_status: user.user_metadata?.payment_status || 'pending_verification',
-          contacts_unlocked_count: 0,
-          max_contacts: selectedPkg === 'starter_tier' ? 5 : 99999,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
+      const mergedRecruiter = {
+        id: recData?.id || profileData?.id || user.id,
+        user_id: user.id,
+        company_name: companyName,
+        contact_person: contactName,
+        business_email: user.email,
+        phone_number: recData?.phone_number || '',
+        selected_package: selectedPkg,
+        subscribed_package: selectedPkg,
+        payment_status: recData?.payment_status || 'verified',
+        contacts_unlocked_count: recData?.contacts_unlocked_count || 0,
+        max_contacts: profileData?.max_contacts || maxContacts,
+        created_at: profileData?.created_at || recData?.created_at || new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
 
-        const { data: createdRec } = await supabase
-          .from('recruiters')
-          .insert([fallbackRecruiter])
-          .select()
-          .single();
-
-        recData = createdRec || fallbackRecruiter;
-      }
-
-      setRecruiter(recData);
+      setRecruiter(mergedRecruiter);
 
       // 2. Fetch all unlocked contacts for this recruiter
       const { data: unlockedRows, error: unlockedErr } = await supabase
@@ -242,9 +252,10 @@ export default function RecruiterDashboard({
   });
 
   const isPendingVerification = recruiter?.payment_status === 'pending_verification';
-  const isAnnual = recruiter?.selected_package === 'annual_unlimited';
+  const isAnnual = recruiter?.selected_package === 'annual_unlimited' || recruiter?.selected_package === 'Enterprise' || recruiter?.subscribed_package === 'Enterprise';
+  const isGrowth = recruiter?.selected_package === 'Growth' || recruiter?.subscribed_package === 'Growth';
   const unlockedCount = recruiter?.contacts_unlocked_count || unlockedTalents.length || 0;
-  const maxContacts = isAnnual ? 99999 : 5;
+  const maxContacts = recruiter?.max_contacts || (isAnnual ? 99999 : isGrowth ? 25 : 5);
 
   if (loading) {
     return <Preloader />;
@@ -418,7 +429,7 @@ export default function RecruiterDashboard({
             </span>
             <div className="flex items-center justify-between">
               <h3 className="font-display font-bold text-base text-slate-900">
-                {isAnnual ? 'Annual Scale & Co-Pilot' : 'Starter Hiring Pack'}
+                {isAnnual ? 'Enterprise Scale & Co-Pilot' : isGrowth ? 'Growth Hiring Pack' : 'Starter Hiring Pack'}
               </h3>
               <span className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full uppercase ${
                 isPendingVerification
@@ -429,7 +440,7 @@ export default function RecruiterDashboard({
               </span>
             </div>
             <p className="text-xs text-slate-500">
-              {isAnnual ? '365 Days Unlimited Unlocks & Support' : '5 Contact Unlocks Included'}
+              {isAnnual ? '365 Days Unlimited Unlocks & Support' : isGrowth ? '25 Contact Unlocks Included' : '5 Contact Unlocks Included'}
             </p>
           </div>
 
@@ -444,7 +455,7 @@ export default function RecruiterDashboard({
               </span>
               {!isAnnual && (
                 <span className="text-xs text-slate-500 font-mono">
-                  {Math.max(0, 5 - unlockedCount)} remaining
+                  {Math.max(0, maxContacts - unlockedCount)} remaining
                 </span>
               )}
             </div>
@@ -453,7 +464,7 @@ export default function RecruiterDashboard({
               <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                 <div 
                   className="bg-emerald-600 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(100, (unlockedCount / 5) * 100)}%` }}
+                  style={{ width: `${Math.min(100, (unlockedCount / maxContacts) * 100)}%` }}
                 />
               </div>
             ) : (

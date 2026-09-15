@@ -1,276 +1,200 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { useSupabase } from '../context/SupabaseContext';
 import { 
   Building2, 
   User, 
   Mail, 
-  Phone, 
   Lock, 
   ShieldCheck, 
   CheckCircle2, 
   AlertCircle, 
-  Copy, 
   Check, 
   ArrowRight, 
   Sparkles, 
   Eye, 
   EyeOff,
-  Clock,
-  Layers,
-  Infinity as InfinityIcon,
   Zap,
-  CreditCard
+  Briefcase,
+  Users,
+  Layers
 } from 'lucide-react';
 
+export interface RecruiterSignupFormData {
+  email: string;
+  password: string;
+  companyName: string;
+  companySize: string;
+  industry: string;
+  targetTalentType: 'full_time' | 'contract' | 'part_time'; // matches public.placement_type ENUM
+  selectedPackage: 'Starter' | 'Growth' | 'Enterprise';
+}
+
+// Step 2: Recruiter Signup Handler (exact implementation)
+export const handleRecruiterSignUp = async (formData: {
+  email: string;
+  password: string;
+  companyName: string;
+  companySize: string;
+  industry: string;
+  targetTalentType: 'full_time' | 'contract' | 'part_time'; // matches public.placement_type ENUM
+  selectedPackage: 'Starter' | 'Growth' | 'Enterprise';
+}) => {
+  // 1. Sign up user with metadata
+  const { data, error } = await supabase.auth.signUp({
+    email: formData.email,
+    password: formData.password,
+    options: {
+      data: {
+        role: 'recruiter', // Triggers public.handle_new_recruiter_signup()
+        company_name: formData.companyName,
+        company_size: formData.companySize,
+        industry: formData.industry,
+        target_talent_type: formData.targetTalentType,
+        subscribed_package: formData.selectedPackage,
+      },
+    },
+  });
+
+  if (error) {
+    alert(`Signup Error: ${error.message}`);
+    return;
+  }
+
+  // Local sandbox backup sync
+  const userId = data?.user?.id || `rec_${formData.email.replace(/[^a-zA-Z0-9]/g, '_')}`;
+  const profileRecord = {
+    id: userId,
+    user_id: userId,
+    company_name: formData.companyName,
+    organization_name: formData.companyName,
+    company_size: formData.companySize,
+    organization_size: formData.companySize,
+    industry: formData.industry,
+    industry_vertical: formData.industry,
+    target_talent_type: formData.targetTalentType,
+    subscribed_package: formData.selectedPackage,
+    selected_package: formData.selectedPackage,
+    max_contacts: formData.selectedPackage === 'Starter' ? 5 : formData.selectedPackage === 'Growth' ? 25 : 99999,
+    contacts_unlocked_count: 0,
+    created_at: new Date().toISOString()
+  };
+
+  try {
+    localStorage.setItem(`mock_recruiter_profiles_${userId}`, JSON.stringify(profileRecord));
+    localStorage.setItem('dsp_recruiter_profile', JSON.stringify(profileRecord));
+    const rawUsers = localStorage.getItem('dsp_registered_users');
+    const users = rawUsers ? JSON.parse(rawUsers) : [];
+    const cleanEmail = formData.email.toLowerCase();
+    const idx = users.findIndex((u: any) => u.email?.toLowerCase() === cleanEmail);
+    const regUser = {
+      email: formData.email,
+      password: formData.password,
+      userName: formData.companyName,
+      userType: 'recruiter',
+      companyName: formData.companyName,
+      selectedPackage: formData.selectedPackage,
+      onboarding: profileRecord
+    };
+    if (idx >= 0) users[idx] = regUser; else users.push(regUser);
+    localStorage.setItem('dsp_registered_users', JSON.stringify(users));
+
+    // Optional direct write to recruiter_profiles in case trigger is disabled or table exists
+    if (data?.user?.id) {
+      await supabase.from('recruiter_profiles').upsert(profileRecord, { onConflict: 'user_id' });
+    }
+  } catch (_) {}
+
+  // 2. Sign out immediately so recruiter is not auto-logged in
+  await supabase.auth.signOut();
+
+  // 3. Redirect to Recruiter Login page with success message
+  alert('Account created successfully! Please sign in with your credentials to access your recruiter dashboard.');
+  window.location.href = '/recruiter-login';
+};
+
 interface RecruiterSignupProps {
-  initialPackage?: 'starter_tier' | 'annual_unlimited';
+  initialPackage?: 'Starter' | 'Growth' | 'Enterprise' | 'starter_tier' | 'annual_unlimited';
   onNavigateToLogin?: () => void;
   onNavigateToHome?: () => void;
 }
 
 export default function RecruiterSignup({
-  initialPackage = 'starter_tier',
+  initialPackage = 'Starter',
   onNavigateToLogin,
   onNavigateToHome
 }: RecruiterSignupProps) {
-  // Read package from query params if available
-  const [selectedPackage, setSelectedPackage] = useState<'starter_tier' | 'annual_unlimited'>(() => {
+  // Parse package from query params or props
+  const [selectedPackage, setSelectedPackage] = useState<'Starter' | 'Growth' | 'Enterprise'>(() => {
     const params = new URLSearchParams(window.location.search);
     const pkg = params.get('package');
-    if (pkg === 'annual_unlimited' || pkg === 'annual') return 'annual_unlimited';
-    if (pkg === 'starter_tier' || pkg === 'starter') return 'starter_tier';
-    return initialPackage;
+    if (pkg === 'Enterprise' || pkg === 'annual_unlimited' || pkg === 'annual') return 'Enterprise';
+    if (pkg === 'Growth') return 'Growth';
+    if (pkg === 'Starter' || pkg === 'starter_tier' || pkg === 'starter') return 'Starter';
+    if (initialPackage === 'annual_unlimited' || initialPackage === 'Enterprise') return 'Enterprise';
+    if (initialPackage === 'Growth') return 'Growth';
+    return 'Starter';
   });
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const pkg = params.get('package');
-    if (pkg === 'annual_unlimited' || pkg === 'annual') {
-      setSelectedPackage('annual_unlimited');
-    } else if (pkg === 'starter_tier' || pkg === 'starter') {
-      setSelectedPackage('starter_tier');
+    if (pkg === 'Enterprise' || pkg === 'annual_unlimited' || pkg === 'annual') {
+      setSelectedPackage('Enterprise');
+    } else if (pkg === 'Growth') {
+      setSelectedPackage('Growth');
+    } else if (pkg === 'Starter' || pkg === 'starter_tier' || pkg === 'starter') {
+      setSelectedPackage('Starter');
     } else if (initialPackage) {
-      setSelectedPackage(initialPackage);
+      if (initialPackage === 'annual_unlimited' || initialPackage === 'Enterprise') setSelectedPackage('Enterprise');
+      else if (initialPackage === 'Growth') setSelectedPackage('Growth');
+      else setSelectedPackage('Starter');
     }
   }, [initialPackage]);
 
-  const { signUp, signIn, setUser, setSession } = useSupabase();
-  const [companyName, setCompanyName] = useState('');
-  const [contactPerson, setContactPerson] = useState('');
-  const [businessEmail, setBusinessEmail] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  // Form Fields
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [companyName, setCompanyName] = useState('');
+  const [companySize, setCompanySize] = useState('11-50');
+  const [industry, setIndustry] = useState('Software & AI Technology');
+  const [targetTalentType, setTargetTalentType] = useState<'full_time' | 'contract' | 'part_time'>('full_time');
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successSubmitted, setSuccessSubmitted] = useState(false);
-  const [copiedAccount, setCopiedAccount] = useState(false);
 
-  const handleCopyAccount = () => {
-    navigator.clipboard.writeText('3003427360');
-    setCopiedAccount(true);
-    setTimeout(() => setCopiedAccount(false), 3000);
-  };
-
-  const formatErrorMessage = (err: any): string => {
-    if (!err) return 'Unable to complete recruiter registration. Please try again.';
-    if (typeof err === 'string') {
-      const trimmed = err.trim();
-      if (trimmed && trimmed !== '{}' && trimmed !== '[object Object]') return trimmed;
-      return 'Unable to register recruiter account. Please verify your connection or try again.';
-    }
-    if (err.message && typeof err.message === 'string') {
-      const msg = err.message.trim();
-      if (msg && msg !== '{}' && msg !== '[object Object]') return msg;
-    }
-    if (err.error_description && typeof err.error_description === 'string') {
-      const desc = err.error_description.trim();
-      if (desc && desc !== '{}' && desc !== '[object Object]') return desc;
-    }
-    if (err.error?.message && typeof err.error.message === 'string') {
-      return err.error.message.trim();
-    }
-    return 'Unable to register recruiter account. Please verify your connection or try again.';
-  };
-
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
+    const cleanEmail = email.trim().toLowerCase();
     const cleanCompany = companyName.trim();
-    const cleanContact = contactPerson.trim();
-    const cleanEmail = businessEmail.trim().toLowerCase();
-    const cleanPhone = phoneNumber.trim();
 
-    if (!cleanCompany || !cleanContact || !cleanEmail || !cleanPhone || !password) {
-      setErrorMessage('Please complete all required fields.');
+    if (!cleanEmail || !password || !cleanCompany || !companySize || !industry || !targetTalentType) {
+      alert('Please fill out all required fields.');
       return;
     }
 
     if (password.length < 6) {
-      setErrorMessage('Password must be at least 6 characters.');
+      alert('Password must be at least 6 characters.');
       return;
     }
 
     setLoading(true);
 
     try {
-      const metadata = {
-        role: 'recruiter',
-        user_type: 'recruiter',
-        full_name: cleanContact,
-        company_name: cleanCompany,
-        phone_number: cleanPhone,
-        selected_package: selectedPackage,
-        payment_status: 'pending_verification'
-      };
-
-      let authedUser: any = null;
-      let userId: string = '';
-
-      // 1. Attempt signup via context
-      const { user: signedUpUser, error: signUpError } = await signUp(cleanEmail, password, {
-        data: metadata
+      await handleRecruiterSignUp({
+        email: cleanEmail,
+        password,
+        companyName: cleanCompany,
+        companySize,
+        industry,
+        targetTalentType,
+        selectedPackage,
       });
-
-      if (signedUpUser) {
-        authedUser = signedUpUser;
-        userId = signedUpUser.id;
-      } else {
-        const errorText = formatErrorMessage(signUpError).toLowerCase();
-        const isExistingUser =
-          errorText.includes('already registered') ||
-          errorText.includes('already exists') ||
-          errorText.includes('user already') ||
-          errorText.includes('email_exists');
-
-        if (isExistingUser) {
-          const { user: signedInUser, error: signInErr } = await signIn(cleanEmail, password);
-          if (signedInUser) {
-            authedUser = signedInUser;
-            userId = signedInUser.id;
-          } else {
-            const signErrText = formatErrorMessage(signInErr).toLowerCase();
-            if (signErrText.includes('invalid') || signErrText.includes('credentials') || signErrText.includes('password')) {
-              setErrorMessage('An account with this email already exists. Please sign in or use a different business email.');
-              setLoading(false);
-              return;
-            }
-          }
-        }
-      }
-
-      // Direct fallback if signUp/signIn returned empty
-      if (!userId) {
-        try {
-          const { data: directData } = await supabase.auth.signUp({
-            email: cleanEmail,
-            password,
-            options: { data: metadata }
-          });
-          if (directData?.user) {
-            authedUser = directData.user;
-            userId = directData.user.id;
-            setUser(directData.user);
-            if (directData.session) setSession(directData.session);
-          }
-        } catch (_) {}
-      }
-
-      // Resilient fallback ID if auth service is in sandbox/offline mode
-      if (!userId) {
-        const fallbackId = `rec_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
-        userId = fallbackId;
-        authedUser = {
-          id: fallbackId,
-          email: cleanEmail,
-          user_metadata: metadata,
-          app_metadata: { provider: 'email', role: 'recruiter' },
-          aud: 'authenticated',
-          created_at: new Date().toISOString()
-        };
-        setUser(authedUser);
-        setSession({ user: authedUser, access_token: 'rec_local_token', token_type: 'bearer' } as any);
-      }
-
-      // 2. Persist record into public.recruiters & localStorage
-      const recruiterPayload = {
-        user_id: userId,
-        id: userId,
-        company_name: cleanCompany,
-        contact_person: cleanContact,
-        business_email: cleanEmail,
-        phone_number: cleanPhone,
-        selected_package: selectedPackage,
-        payment_status: 'pending_verification',
-        contacts_unlocked_count: 0,
-        max_contacts: selectedPackage === 'starter_tier' ? 5 : 99999,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
-      try {
-        localStorage.setItem(`dsp_recruiter_${userId}`, JSON.stringify(recruiterPayload));
-        localStorage.setItem('dsp_recruiter_profile', JSON.stringify(recruiterPayload));
-
-        const rawUsers = localStorage.getItem('dsp_registered_users');
-        const users = rawUsers ? JSON.parse(rawUsers) : [];
-        if (!users.some((u: any) => u.email.toLowerCase() === cleanEmail)) {
-          users.push({
-            email: cleanEmail,
-            password,
-            userName: cleanContact,
-            userType: 'recruiter',
-            companyName: cleanCompany,
-            selectedPackage
-          });
-          localStorage.setItem('dsp_registered_users', JSON.stringify(users));
-        }
-      } catch (e) {
-        console.warn('Local storage sync warning:', e);
-      }
-
-      try {
-        const { error: recruiterDbError } = await supabase
-          .from('recruiters')
-          .upsert(recruiterPayload, { onConflict: 'user_id' });
-
-        if (recruiterDbError) {
-          console.warn('Upsert recruiters error, retrying id:', recruiterDbError.message);
-          await supabase
-            .from('recruiters')
-            .upsert({ ...recruiterPayload, id: userId });
-        }
-      } catch (dbErr) {
-        console.warn('Recruiter DB sync note:', dbErr);
-      }
-
-      // 3. Upsert user_roles & recruiter_profiles for backwards ecosystem compatibility
-      try {
-        await supabase
-          .from('user_roles')
-          .upsert({ user_id: userId, role: 'recruiter' });
-
-        await supabase
-          .from('recruiter_profiles')
-          .upsert({
-            id: userId,
-            organization_name: cleanCompany,
-            email: cleanEmail,
-            industry_vertical: 'Digital Growth / Tech',
-            needed_talent_role: 'Full-Time Dedicated Talent',
-            updated_at: new Date().toISOString()
-          });
-      } catch (legacyErr) {
-        console.warn('Legacy table sync warning:', legacyErr);
-      }
-
-      setSuccessSubmitted(true);
     } catch (err: any) {
-      console.warn('Recruiter registration note:', err?.message || err);
-      const msg = formatErrorMessage(err);
+      const msg = err?.message || 'An unexpected error occurred during signup.';
+      alert(`Signup Error: ${msg}`);
       setErrorMessage(msg);
     } finally {
       setLoading(false);
@@ -281,8 +205,7 @@ export default function RecruiterSignup({
     if (onNavigateToLogin) {
       onNavigateToLogin();
     } else {
-      window.history.pushState({}, '', '/recruiter/login');
-      window.dispatchEvent(new Event('popstate'));
+      window.location.href = '/recruiter-login';
     }
   };
 
@@ -304,401 +227,369 @@ export default function RecruiterSignup({
           </p>
         </div>
 
-        {successSubmitted ? (
-          /* REGISTRATION SUCCESS CARD WITH GTBANK INSTRUCTIONS */
-          <div className="bg-white border-2 border-emerald-500 rounded-3xl p-6 sm:p-10 shadow-lg space-y-6 animate-fadeIn">
-            <div className="w-14 h-14 bg-emerald-100 text-emerald-700 rounded-2xl flex items-center justify-center mx-auto">
-              <CheckCircle2 className="w-8 h-8" />
-            </div>
+        {/* REGISTRATION FORM */}
+        <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-10 shadow-sm space-y-8">
+          
+          {/* Package Selection Toggles */}
+          <div className="space-y-3">
+            <label className="block text-xs font-mono font-bold uppercase text-slate-700">
+              1. Select Your Hiring Sourcing Package:
+            </label>
 
-            <div className="text-center space-y-2">
-              <h2 className="text-2xl font-bold font-display text-slate-900">
-                Registration Submitted Successfully!
-              </h2>
-              <p className="text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
-                Your recruiter account for <strong>{companyName}</strong> has been registered with the <strong>{selectedPackage === 'starter_tier' ? 'Starter Hiring Pack (₦35,000)' : 'Annual Scale & Co-Pilot Access (₦250,000)'}</strong>.
-              </p>
-            </div>
-
-            {/* Bank Transfer Box */}
-            <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-7 space-y-4 border border-slate-800 shadow-md">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <div className="flex items-center gap-2">
-                  <CreditCard className="w-5 h-5 text-emerald-400" />
-                  <span className="font-mono text-xs font-bold uppercase tracking-wider text-emerald-400">
-                    GTBank Official Account Transfer
-                  </span>
-                </div>
-                <span className="bg-emerald-500/20 text-emerald-300 text-xs font-mono font-bold px-3 py-1 rounded-lg">
-                  {selectedPackage === 'starter_tier' ? '₦35,000' : '₦250,000'}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                <div>
-                  <span className="text-slate-400 uppercase font-mono text-[10px] block">Bank Name</span>
-                  <span className="font-bold text-sm text-white">Guaranty Trust Bank (GTBank)</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 uppercase font-mono text-[10px] block">Account Name</span>
-                  <span className="font-bold text-sm text-white">DSP Academy Ltd</span>
-                  <span className="text-[10px] text-slate-400 block">(Parent Training Organization)</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 uppercase font-mono text-[10px] block">Account Number</span>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="font-mono font-black text-xl text-emerald-400 tracking-wider">3003427360</span>
-                    <button
-                      type="button"
-                      onClick={handleCopyAccount}
-                      className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 hover:text-white transition cursor-pointer"
-                      title="Copy Account Number"
-                    >
-                      {copiedAccount ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <span className="text-slate-400 uppercase font-mono text-[10px] block">Transfer Reference</span>
-                  <span className="font-mono text-xs text-slate-300 block mt-1">
-                    {companyName.replace(/\s+/g, '')}-{businessEmail.split('@')[0]}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Warning Policy Box */}
-            <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 sm:p-5 flex items-start gap-3.5 text-amber-950 text-xs">
-              <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <p className="font-bold uppercase font-mono text-[11px] text-amber-900">
-                  Verification Policy Notice
-                </p>
-                <p className="leading-relaxed">
-                  <strong>IMPORTANT:</strong> All recruiter accounts remain in Review Mode upon registration until payment is verified by our team (typically within 1 hour). Once verified, full contact unlock features will automatically activate upon sign-in.
-                </p>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              
+              {/* Package 1: Starter */}
               <button
                 type="button"
-                onClick={navToLogin}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 px-8 rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md transition"
+                onClick={() => setSelectedPackage('Starter')}
+                className={`p-5 rounded-2xl border-2 text-left transition flex flex-col justify-between space-y-3 cursor-pointer ${
+                  selectedPackage === 'Starter'
+                    ? 'border-emerald-600 bg-emerald-50/40 shadow-xs'
+                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                }`}
               >
-                <span>Proceed to Recruiter Sign-In</span>
-                <ArrowRight className="w-4 h-4" />
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded">
+                      Pay-As-You-Go
+                    </span>
+                    {selectedPackage === 'Starter' && (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                    )}
+                  </div>
+                  <h3 className="font-display font-bold text-lg text-slate-900">
+                    Starter
+                  </h3>
+                  <p className="text-2xl font-black text-slate-900 font-display">
+                    ₦35,000 <span className="text-xs font-normal text-slate-500">/ One-Time</span>
+                  </p>
+                </div>
+
+                <ul className="text-xs text-slate-600 space-y-1.5 pt-2 border-t border-slate-200/70">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span><strong>5 Pre-Vetted</strong> Contact Unlocks</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Direct WhatsApp & verified email</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>0% Ongoing placement fees</span>
+                  </li>
+                </ul>
               </button>
 
-              <a
-                href={`https://wa.me/2348169664607?text=${encodeURIComponent(`Hello Digital Campux Support, I just registered a recruiter account for ${companyName} (${businessEmail}) and completed the GTBank transfer for ${selectedPackage === 'starter_tier' ? '₦35,000' : '₦250,000'}. Please verify my account.`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-semibold py-3.5 px-6 rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer transition shadow-xs"
+              {/* Package 2: Growth */}
+              <button
+                type="button"
+                onClick={() => setSelectedPackage('Growth')}
+                className={`p-5 rounded-2xl border-2 text-left transition flex flex-col justify-between space-y-3 cursor-pointer relative ${
+                  selectedPackage === 'Growth'
+                    ? 'border-emerald-600 bg-emerald-50/40 shadow-xs'
+                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                }`}
               >
-                <span>Send Transfer Proof on WhatsApp</span>
-              </a>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-blue-900 bg-blue-100/80 px-2 py-0.5 rounded">
+                      Multi-Hire
+                    </span>
+                    {selectedPackage === 'Growth' && (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                    )}
+                  </div>
+                  <h3 className="font-display font-bold text-lg text-slate-900">
+                    Growth
+                  </h3>
+                  <p className="text-2xl font-black text-slate-900 font-display">
+                    ₦120,000 <span className="text-xs font-normal text-slate-500">/ Quarter</span>
+                  </p>
+                </div>
+
+                <ul className="text-xs text-slate-600 space-y-1.5 pt-2 border-t border-slate-200/70">
+                  <li className="flex items-center gap-2 text-slate-900 font-medium">
+                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span><strong>25 Pre-Vetted</strong> Contact Unlocks</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Priority Matching & Pipeline Support</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Full dossier & portfolio access</span>
+                  </li>
+                </ul>
+              </button>
+
+              {/* Package 3: Enterprise */}
+              <button
+                type="button"
+                onClick={() => setSelectedPackage('Enterprise')}
+                className={`p-5 rounded-2xl border-2 text-left transition flex flex-col justify-between space-y-3 cursor-pointer relative ${
+                  selectedPackage === 'Enterprise'
+                    ? 'border-emerald-600 bg-emerald-50/40 shadow-xs'
+                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                }`}
+              >
+                <div className="absolute -top-3 right-4 bg-emerald-600 text-white text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-xs">
+                  Recommended
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-900 bg-amber-100/80 px-2 py-0.5 rounded">
+                      Scale Hiring
+                    </span>
+                    {selectedPackage === 'Enterprise' && (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                    )}
+                  </div>
+                  <h3 className="font-display font-bold text-lg text-slate-900">
+                    Enterprise
+                  </h3>
+                  <p className="text-2xl font-black text-slate-900 font-display">
+                    ₦250,000 <span className="text-xs font-normal text-slate-500">/ Year</span>
+                  </p>
+                </div>
+
+                <ul className="text-xs text-slate-600 space-y-1.5 pt-2 border-t border-slate-200/70">
+                  <li className="flex items-center gap-2 text-slate-900 font-medium">
+                    <Zap className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span><strong>UNLIMITED</strong> Talent Unlocks (365 Days)</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span><strong>3-Month Co-Supervision</strong> Support</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Dedicated Talent Matchmaker</span>
+                  </li>
+                </ul>
+              </button>
+
             </div>
           </div>
-        ) : (
-          /* REGISTRATION FORM */
-          <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-10 shadow-sm space-y-8">
-            
-            {/* Package Selection Toggles */}
-            <div className="space-y-3">
+
+          {/* Error Message */}
+          {errorMessage && (
+            <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
+          {/* Form Fields */}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-4">
               <label className="block text-xs font-mono font-bold uppercase text-slate-700">
-                1. Select Your Hiring Sourcing Tier:
+                2. Organization & Hiring Requirements:
               </label>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                
-                {/* Starter Hiring Pack */}
-                <button
-                  type="button"
-                  onClick={() => setSelectedPackage('starter_tier')}
-                  className={`p-5 rounded-2xl border-2 text-left transition flex flex-col justify-between space-y-3 cursor-pointer ${
-                    selectedPackage === 'starter_tier'
-                      ? 'border-emerald-600 bg-emerald-50/40 shadow-xs'
-                      : 'border-slate-200 hover:border-slate-300 bg-white'
-                  }`}
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded">
-                        Pay-As-You-Go
-                      </span>
-                      {selectedPackage === 'starter_tier' && (
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                      )}
-                    </div>
-                    <h3 className="font-display font-bold text-lg text-slate-900">
-                      Starter Hiring Pack
-                    </h3>
-                    <p className="text-2xl font-black text-slate-900 font-display">
-                      ₦35,000 <span className="text-xs font-normal text-slate-500">/ One-Time</span>
-                    </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Company Name */}
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Company Name <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      placeholder="e.g. Acme Corporation"
+                      className="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50 focus:bg-white transition"
+                    />
                   </div>
+                </div>
 
-                  <ul className="text-xs text-slate-600 space-y-1.5 pt-2 border-t border-slate-200/70">
-                    <li className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span><strong>5 Pre-Vetted Talent</strong> Contact Unlocks</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span>Direct WhatsApp & verified email access</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span>0% Ongoing placement fees or commissions</span>
-                    </li>
-                  </ul>
-                </button>
-
-                {/* Annual Scale & Co-Pilot Access */}
-                <button
-                  type="button"
-                  onClick={() => setSelectedPackage('annual_unlimited')}
-                  className={`p-5 rounded-2xl border-2 text-left transition flex flex-col justify-between space-y-3 cursor-pointer relative ${
-                    selectedPackage === 'annual_unlimited'
-                      ? 'border-emerald-600 bg-emerald-50/40 shadow-xs'
-                      : 'border-slate-200 hover:border-slate-300 bg-white'
-                  }`}
-                >
-                  <div className="absolute -top-3 right-4 bg-emerald-600 text-white text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-xs">
-                    Recommended Scale
+                {/* Company Size */}
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Company Size <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Users className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <select
+                      value={companySize}
+                      onChange={(e) => setCompanySize(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50 focus:bg-white transition cursor-pointer"
+                    >
+                      <option value="1-10">1-10 Employees (Seed / Early Stage)</option>
+                      <option value="11-50">11-50 Employees (Startup / Growth)</option>
+                      <option value="51-200">51-200 Employees (Scaleup / Mid-Market)</option>
+                      <option value="201-500">201-500 Employees (Enterprise)</option>
+                      <option value="500+">500+ Employees (Global Enterprise)</option>
+                    </select>
                   </div>
+                </div>
 
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-900 bg-amber-100/80 px-2 py-0.5 rounded">
-                        Co-Pilot Included
-                      </span>
-                      {selectedPackage === 'annual_unlimited' && (
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                      )}
-                    </div>
-                    <h3 className="font-display font-bold text-lg text-slate-900">
-                      Annual Scale & Co-Pilot Access
-                    </h3>
-                    <p className="text-2xl font-black text-slate-900 font-display">
-                      ₦250,000 <span className="text-xs font-normal text-slate-500">/ Year</span>
-                    </p>
+                {/* Industry */}
+                <div className="space-y-1 sm:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Industry Vertical <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Briefcase className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <select
+                      value={industry}
+                      onChange={(e) => setIndustry(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50 focus:bg-white transition cursor-pointer"
+                    >
+                      <option value="Software & AI Technology">Software & AI Technology</option>
+                      <option value="Fintech & Financial Services">Fintech & Financial Services</option>
+                      <option value="Digital Marketing & Growth Agency">Digital Marketing & Growth Agency</option>
+                      <option value="E-Commerce & Retail">E-Commerce & Retail</option>
+                      <option value="Healthcare & HealthTech">Healthcare & HealthTech</option>
+                      <option value="EdTech & Education">EdTech & Education</option>
+                      <option value="Logistics & Supply Chain">Logistics & Supply Chain</option>
+                      <option value="Consulting & Professional Services">Consulting & Professional Services</option>
+                      <option value="Other">Other</option>
+                    </select>
                   </div>
-
-                  <ul className="text-xs text-slate-600 space-y-1.5 pt-2 border-t border-slate-200/70">
-                    <li className="flex items-center gap-2 text-slate-900 font-medium">
-                      <Zap className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span><strong>UNLIMITED</strong> Talent Contact Unlocks (365 Days)</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span><strong>3-Month Talent Integration Co-Supervision</strong></span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span>Dedicated Talent Matchmaker Account Support</span>
-                    </li>
-                  </ul>
-                </button>
-
+                </div>
               </div>
-            </div>
 
-            {/* Error Message */}
-            {errorMessage && (
-              <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                <span>{errorMessage}</span>
+              {/* Target Talent Placement Type (matches public.placement_type ENUM) */}
+              <div className="space-y-2 pt-2">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Target Talent Placement Type <span className="text-rose-500">*</span>
+                  <span className="ml-2 font-mono text-[10px] text-slate-400 font-normal">
+                    (matches public.placement_type ENUM)
+                  </span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setTargetTalentType('full_time')}
+                    className={`py-3 px-4 rounded-xl border text-xs font-medium cursor-pointer transition flex items-center justify-between ${
+                      targetTalentType === 'full_time'
+                        ? 'border-emerald-600 bg-emerald-50 text-emerald-900 font-bold shadow-2xs'
+                        : 'border-slate-200 hover:border-slate-300 text-slate-700 bg-white'
+                    }`}
+                  >
+                    <span>Full-Time (full_time)</span>
+                    {targetTalentType === 'full_time' && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTargetTalentType('contract')}
+                    className={`py-3 px-4 rounded-xl border text-xs font-medium cursor-pointer transition flex items-center justify-between ${
+                      targetTalentType === 'contract'
+                        ? 'border-emerald-600 bg-emerald-50 text-emerald-900 font-bold shadow-2xs'
+                        : 'border-slate-200 hover:border-slate-300 text-slate-700 bg-white'
+                    }`}
+                  >
+                    <span>Contract (contract)</span>
+                    {targetTalentType === 'contract' && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTargetTalentType('part_time')}
+                    className={`py-3 px-4 rounded-xl border text-xs font-medium cursor-pointer transition flex items-center justify-between ${
+                      targetTalentType === 'part_time'
+                        ? 'border-emerald-600 bg-emerald-50 text-emerald-900 font-bold shadow-2xs'
+                        : 'border-slate-200 hover:border-slate-300 text-slate-700 bg-white'
+                    }`}
+                  >
+                    <span>Part-Time (part_time)</span>
+                    {targetTalentType === 'part_time' && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                  </button>
+                </div>
               </div>
-            )}
 
-            {/* Form Fields */}
-            <form onSubmit={handleSignup} className="space-y-6">
-              <div className="space-y-4">
+              {/* Login Credentials Section */}
+              <div className="border-t border-slate-100 pt-4 space-y-4">
                 <label className="block text-xs font-mono font-bold uppercase text-slate-700">
-                  2. Organization & Contact Details:
+                  3. Account Credentials:
                 </label>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Company Name */}
+                  {/* Email */}
                   <div className="space-y-1">
                     <label className="block text-xs font-semibold text-slate-700">
-                      Company / Organization Name <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        required
-                        value={companyName}
-                        onChange={(e) => setCompanyName(e.target.value)}
-                        placeholder="e.g. Sterling Ventures, Acme SaaS"
-                        className="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50 focus:bg-white transition"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Contact Person Name */}
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-slate-700">
-                      Hiring Manager / Recruiter Full Name <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        required
-                        value={contactPerson}
-                        onChange={(e) => setContactPerson(e.target.value)}
-                        placeholder="e.g. Marcus Sterling"
-                        className="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50 focus:bg-white transition"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Business Email */}
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-slate-700">
-                      Business Work Email <span className="text-rose-500">*</span>
+                      Work Email <span className="text-rose-500">*</span>
                     </label>
                     <div className="relative">
                       <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
                         type="email"
                         required
-                        value={businessEmail}
-                        onChange={(e) => setBusinessEmail(e.target.value)}
-                        placeholder="e.g. marcus@sterlingventures.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="recruiter@company.com"
                         className="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50 focus:bg-white transition"
                       />
                     </div>
                   </div>
 
-                  {/* Phone / WhatsApp Number */}
+                  {/* Password */}
                   <div className="space-y-1">
                     <label className="block text-xs font-semibold text-slate-700">
-                      Phone / WhatsApp Number <span className="text-rose-500">*</span>
+                      Create Password <span className="text-rose-500">*</span>
                     </label>
                     <div className="relative">
-                      <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
-                        type="tel"
+                        type={showPassword ? 'text' : 'password'}
                         required
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        placeholder="e.g. +234 812 345 6789"
-                        className="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50 focus:bg-white transition"
+                        minLength={6}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Minimum 6 characters"
+                        className="w-full pl-9 pr-10 py-2.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50 focus:bg-white transition"
                       />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Password */}
-                <div className="space-y-1">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Create Secure Password <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      minLength={6}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Minimum 6 characters"
-                      className="w-full pl-9 pr-10 py-2.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50 focus:bg-white transition"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* GTBank Details Preview Banner */}
-              <div className="bg-slate-900 text-white rounded-2xl p-5 sm:p-6 space-y-3 border border-slate-800 shadow-xs">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                  <span className="font-mono text-[11px] font-bold uppercase text-emerald-400">
-                    Official GTBank Payment Account
-                  </span>
-                  <span className="text-xs font-bold text-slate-300">
-                    Amount: {selectedPackage === 'starter_tier' ? '₦35,000' : '₦250,000'}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                  <div>
-                    <span className="text-slate-400 text-[10px] uppercase font-mono block">Bank</span>
-                    <span className="font-semibold text-white">Guaranty Trust Bank (GTBank)</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[10px] uppercase font-mono block">Account Name</span>
-                    <span className="font-semibold text-white">DSP Academy Ltd</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[10px] uppercase font-mono block">Account Number</span>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="font-mono font-bold text-sm text-emerald-400">3003427360</span>
                       <button
                         type="button"
-                        onClick={handleCopyAccount}
-                        className="text-slate-400 hover:text-white"
-                        title="Copy Account Number"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
                       >
-                        {copiedAccount ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Verification Policy Notice */}
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-900 flex items-start gap-2.5">
-                <Clock className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-                <p className="leading-relaxed">
-                  <strong>IMPORTANT:</strong> All recruiter accounts remain in Review Mode upon registration until payment is verified by our team (typically within 1 hour). Once verified, full contact unlock features will automatically activate upon sign-in.
-                </p>
-              </div>
+            {/* Submit CTA */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-3.5 px-6 rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md transition"
+            >
+              {loading ? (
+                <span>Registering Recruiter Account...</span>
+              ) : (
+                <>
+                  <span>Complete Signup & Redirect to Login ({selectedPackage} Package)</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
 
-              {/* Submit CTA */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-3.5 px-6 rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md transition"
-              >
-                {loading ? (
-                  <span>Registering Recruiter Account...</span>
-                ) : (
-                  <>
-                    <span>Complete Registration ({selectedPackage === 'starter_tier' ? '₦35,000 Starter' : '₦250,000 Annual'})</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
+            <div className="text-center pt-2">
+              <p className="text-xs text-slate-500">
+                Already have an active employer account?{' '}
+                <button
+                  type="button"
+                  onClick={navToLogin}
+                  className="font-bold text-emerald-700 hover:underline cursor-pointer"
+                >
+                  Sign In to Recruiter Portal
+                </button>
+              </p>
+            </div>
+          </form>
 
-              <div className="text-center pt-2">
-                <p className="text-xs text-slate-500">
-                  Already have an active employer account?{' '}
-                  <button
-                    type="button"
-                    onClick={navToLogin}
-                    className="font-bold text-emerald-700 hover:underline cursor-pointer"
-                  >
-                    Sign In to Recruiter Portal
-                  </button>
-                </p>
-              </div>
-            </form>
-
-          </div>
-        )}
+        </div>
 
       </div>
     </div>
