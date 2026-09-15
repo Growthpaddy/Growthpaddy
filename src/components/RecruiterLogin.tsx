@@ -133,7 +133,7 @@ export default function RecruiterLogin({
           .maybeSingle();
 
         if (recruiterData && recruiterData.payment_status === 'pending_verification') {
-          setPendingVerificationNotice('Your recruiter account is currently in Review Mode awaiting GTBank payment verification (typically under 1 hour). You can proceed to the dashboard to monitor status or message support.');
+          setPendingVerificationNotice('Your recruiter account is currently in Review Mode awaiting payment verification (typically under 1 hour). You can proceed to the dashboard to monitor status or message support.');
         }
       } catch (_) {}
 

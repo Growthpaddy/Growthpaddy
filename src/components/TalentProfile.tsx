@@ -1439,14 +1439,14 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
     }
   };
 
-  // Trigger Print to PDF for Resume / CV Export
-  const handleDownloadResume = () => {
-    if (isEditing) {
-      setIsEditing(false);
+  // Trigger Clean 10-Field PDF Resume Download in New Tab
+  const handleDownloadResume = (talentId?: string) => {
+    const targetId = talentId || profile?.id || user?.id || '';
+    if (!targetId) {
+      console.warn('No talent ID available for resume download');
+      return;
     }
-    setTimeout(() => {
-      window.print();
-    }, 150);
+    window.open(`/api/resume/download?talent_id=${targetId}`, '_blank');
   };
 
   // Toggle or activate portfolio edit form and smooth scroll into view
@@ -1613,7 +1613,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
             <button
               id="talent-profile-download-resume-header-btn"
               type="button"
-              onClick={handleDownloadResume}
+              onClick={() => handleDownloadResume(profile?.id || user?.id)}
               className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-white hover:bg-slate-100 text-slate-700 transition cursor-pointer border border-slate-200 shadow-2xs flex items-center gap-1.5 no-print"
               title="Download Resume / Export CV as PDF"
             >
@@ -1804,7 +1804,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
               <button
                 id="talent-profile-download-resume-card-btn"
                 type="button"
-                onClick={handleDownloadResume}
+                onClick={() => handleDownloadResume(profile?.id || user?.id)}
                 className="px-3.5 py-2 rounded-xl text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition shadow-2xs flex items-center gap-1.5 cursor-pointer no-print"
                 title="Download Resume / Export CV as PDF"
               >

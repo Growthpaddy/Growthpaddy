@@ -375,7 +375,7 @@ export default function RecruiterSignup({
                   Verification Policy Notice
                 </p>
                 <p className="leading-relaxed">
-                  <strong>IMPORTANT:</strong> All recruiter accounts remain in Review Mode upon registration until GTBank payment is verified by our team (typically within 1 hour). Once verified, full contact unlock features will automatically activate upon sign-in.
+                  <strong>IMPORTANT:</strong> All recruiter accounts remain in Review Mode upon registration until payment is verified by our team (typically within 1 hour). Once verified, full contact unlock features will automatically activate upon sign-in.
                 </p>
               </div>
             </div>
@@ -663,7 +663,7 @@ export default function RecruiterSignup({
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-900 flex items-start gap-2.5">
                 <Clock className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
                 <p className="leading-relaxed">
-                  <strong>IMPORTANT:</strong> All recruiter accounts remain in Review Mode upon registration until GTBank payment is verified by our team (typically within 1 hour). Once verified, full contact unlock features will automatically activate upon sign-in.
+                  <strong>IMPORTANT:</strong> All recruiter accounts remain in Review Mode upon registration until payment is verified by our team (typically within 1 hour). Once verified, full contact unlock features will automatically activate upon sign-in.
                 </p>
               </div>
 

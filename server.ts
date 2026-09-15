@@ -3,7 +3,10 @@ import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
+import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
+import { generateResumePdfStream, StrictResumeData } from "./src/server/generateResumePdf";
+import { MOCK_TALENT } from "./src/data/mockTalent";
 
 dotenv.config();
 
@@ -33,6 +36,13 @@ function getGeminiClient(): GoogleGenAI {
     });
   }
   return geminiClient;
+}
+
+// Lazy initializer for Supabase client
+function getSupabaseClient() {
+  const url = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder-ref.supabase.co";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-anon-key";
+  return createClient(url, key);
 }
 
 // ========================================================
@@ -190,6 +200,183 @@ ${passed ? "They passed! Praise their systems knowledge and welcome them to Phas
         error: error.message || "Failed to evaluate the quiz."
       });
     }
+  }
+});
+
+// 3. Clean 10-Field Resume PDF Generation & Download Endpoint
+app.get("/api/resume/download", async (req, res) => {
+  try {
+    const talentId = (req.query.talent_id || req.query.id) as string;
+    if (!talentId || typeof talentId !== "string" || !talentId.trim()) {
+      return res.status(400).send("Error: talent_id query parameter is required.");
+    }
+
+    const cleanTalentId = talentId.trim();
+
+    // 1. Query Supabase talent_profiles
+    const supabase = getSupabaseClient();
+    let profileData: any = null;
+
+    try {
+      const { data, error } = await supabase
+        .from("talent_profiles")
+        .select("*")
+        .or(`id.eq.${cleanTalentId},user_id.eq.${cleanTalentId},slug.eq.${cleanTalentId}`)
+        .maybeSingle();
+
+      if (!error && data) {
+        profileData = data;
+      }
+    } catch (dbErr) {
+      console.warn("Supabase query warning:", dbErr);
+    }
+
+    // 2. Fallback to MOCK_TALENT if DB is empty or profile not yet saved to cloud DB
+    if (!profileData) {
+      const mockCandidate = MOCK_TALENT.find(
+        (t) =>
+          t.id === cleanTalentId ||
+          t.id.toLowerCase() === cleanTalentId.toLowerCase() ||
+          t.name.toLowerCase() === cleanTalentId.toLowerCase()
+      );
+      if (mockCandidate) {
+        profileData = mockCandidate;
+      }
+    }
+
+    if (!profileData) {
+      return res.status(404).send("Talent candidate profile not found.");
+    }
+
+    // 3. STRICT SCHEMA FILTER: Pick ONLY the 10 requested fields
+    // Exclude all platform diagnostics (quiz scores, phase completion status, admin override states, profile view counts)
+    const fullName = profileData.full_name || profileData.name || "Candidate";
+    const roleTitle =
+      profileData.role_title ||
+      profileData.role ||
+      profileData.headline ||
+      profileData.specialization ||
+      "Professional Specialist";
+    const location = profileData.location || "";
+    const bio = profileData.bio || profileData.about || "";
+    const email = profileData.email || "";
+    const phone = profileData.phone || "";
+    const linkedinUrl = profileData.linkedin_url || profileData.linkedinUrl || "";
+
+    // Parse & normalize experience_history
+    let rawExperiences =
+      profileData.experience_history ||
+      profileData.work_history ||
+      profileData.workHistory ||
+      profileData.projects ||
+      [];
+
+    if (typeof rawExperiences === "string") {
+      try {
+        rawExperiences = JSON.parse(rawExperiences);
+      } catch (_) {
+        rawExperiences = [];
+      }
+    }
+
+    const experienceHistory = Array.isArray(rawExperiences)
+      ? rawExperiences.map((exp: any) => ({
+          role: exp.role || exp.title || exp.role_title || "Specialist",
+          company: exp.company || exp.organization || exp.client || "",
+          dates:
+            exp.dates ||
+            (exp.startDate
+              ? `${exp.startDate} - ${exp.endDate || "Present"}`
+              : exp.year || ""),
+          location: exp.location || "",
+          description: exp.description || "",
+          bullets: Array.isArray(exp.bullets)
+            ? exp.bullets
+            : Array.isArray(exp.highlights)
+            ? exp.highlights
+            : exp.metrics
+            ? [exp.metrics]
+            : [],
+        }))
+      : [];
+
+    // Parse & normalize tools (formatted as comma-separated list)
+    let rawTools =
+      profileData.tools ||
+      profileData.skills ||
+      profileData.ai_tools ||
+      profileData.aiTools ||
+      profileData.tech_stack ||
+      [];
+
+    if (typeof rawTools === "string") {
+      try {
+        rawTools = JSON.parse(rawTools);
+      } catch (_) {
+        rawTools = rawTools.split(",").map((s: string) => s.trim());
+      }
+    }
+
+    const tools = Array.isArray(rawTools)
+      ? rawTools
+          .map((t: any) => (typeof t === "string" ? t.trim() : t?.name || ""))
+          .filter(Boolean)
+      : [];
+
+    // Parse & normalize certifications
+    let rawCerts =
+      profileData.certifications ||
+      profileData.certificates ||
+      profileData.accreditations ||
+      [];
+
+    if (typeof rawCerts === "string") {
+      try {
+        rawCerts = JSON.parse(rawCerts);
+      } catch (_) {
+        rawCerts = rawCerts.split(",").map((s: string) => s.trim());
+      }
+    }
+
+    const certifications = Array.isArray(rawCerts)
+      ? rawCerts
+          .map((c: any) => {
+            if (typeof c === "string") return c.trim();
+            if (c && typeof c === "object") {
+              const name = c.name || c.title || "";
+              const issuer = c.issuer ? ` - ${c.issuer}` : "";
+              const year = c.year ? ` (${c.year})` : "";
+              return `${name}${issuer}${year}`.trim();
+            }
+            return "";
+          })
+          .filter(Boolean)
+      : [];
+
+    const strictData: StrictResumeData = {
+      full_name: fullName,
+      role_title: roleTitle,
+      location,
+      bio,
+      email,
+      phone,
+      linkedin_url: linkedinUrl,
+      experience_history: experienceHistory,
+      tools,
+      certifications,
+    };
+
+    // 4. Set strict Response Headers
+    const safeFilename = fullName.replace(/[^a-zA-Z0-9_\-]/g, "_");
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="${safeFilename}_Resume.pdf"`);
+
+    // 5. Generate and stream PDF to client
+    const pdfStream = generateResumePdfStream(strictData);
+    pdfStream.pipe(res);
+  } catch (error: any) {
+    console.error("Error generating resume PDF:", error);
+    res.status(500).send(`Failed to generate resume: ${error.message || "Unknown error"}`);
   }
 });
 

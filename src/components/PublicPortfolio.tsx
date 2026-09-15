@@ -29,6 +29,7 @@ import {
   Zap, 
   AlertTriangle,
   Printer,
+  Download,
   Lock,
   Unlock,
   MessageSquare,
@@ -313,7 +314,7 @@ export default function PublicPortfolio({
 
     // 3. Check recruiter payment status
     if (recruiterData.payment_status === 'pending_verification') {
-      setVerificationNotice('Your recruiter account is currently undergoing GTBank payment verification (typically under 1 hour). Approval is required before unlocking candidate contact channels.');
+      setVerificationNotice('Your recruiter account is currently undergoing payment verification (typically under 1 hour). Approval is required before unlocking candidate contact channels.');
       return;
     }
 
@@ -397,6 +398,15 @@ export default function PublicPortfolio({
     }, 2500);
   };
 
+  const handleDownloadResume = (talentIdParam?: string) => {
+    const idToUse = talentIdParam || talent?.id || talent?.user_id || activeSlug || '';
+    if (!idToUse) {
+      console.warn('No talent ID available for resume download');
+      return;
+    }
+    window.open(`/api/resume/download?talent_id=${idToUse}`, '_blank');
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -462,11 +472,12 @@ export default function PublicPortfolio({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={handlePrint}
-              className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-1.5 rounded-xl transition cursor-pointer shadow-2xs"
+              onClick={() => handleDownloadResume(talent?.id || activeSlug)}
+              className="flex items-center gap-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3.5 py-1.5 rounded-xl transition cursor-pointer shadow-2xs"
+              title="Download Clean PDF Resume"
             >
-              <Printer className="w-3.5 h-3.5 text-slate-500" />
-              <span>Export PDF</span>
+              <Download className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Download Resume</span>
             </button>
 
             <button

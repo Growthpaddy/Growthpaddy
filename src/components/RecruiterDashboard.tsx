@@ -317,7 +317,7 @@ export default function RecruiterDashboard({
             </div>
 
             <p className="text-xs text-amber-900 leading-relaxed max-w-4xl">
-              All recruiter accounts remain in <strong>Review Mode</strong> upon registration until GTBank payment is verified by our team (typically within 1 hour). Once verified, full WhatsApp & email contact unlock features will automatically activate.
+              All recruiter accounts remain in <strong>Review Mode</strong> upon registration until payment is verified by our team (typically within 1 hour). Once verified, full WhatsApp & email contact unlock features will automatically activate.
             </p>
 
             <div className="bg-white/80 border border-amber-200 rounded-2xl p-4 text-xs grid grid-cols-1 sm:grid-cols-3 gap-3">

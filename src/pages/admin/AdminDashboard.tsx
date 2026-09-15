@@ -270,6 +270,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
+  // Multi-select & Bulk Action State for Candidates
+  const [selectedTalentIds, setSelectedTalentIds] = useState<string[]>([]);
+  const [isBulkOperating, setIsBulkOperating] = useState<boolean>(false);
+
   // React Query: Talent Roster with caching and background refetching
   const {
     data: talents = [],
@@ -767,6 +771,137 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return matchesSearch && matchesStatus;
     });
   }, [talents, searchQuery, statusFilter]);
+
+  // Multi-select & Bulk Action Calculations & Handlers for Candidates
+  const isAllFilteredSelected = filteredTalents.length > 0 && filteredTalents.every(t => selectedTalentIds.includes(t.id));
+  const isSomeFilteredSelected = filteredTalents.some(t => selectedTalentIds.includes(t.id));
+  const isIndeterminate = isSomeFilteredSelected && !isAllFilteredSelected;
+
+  const toggleSelectTalent = (id: string) => {
+    setSelectedTalentIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllFilteredToggle = () => {
+    if (isAllFilteredSelected) {
+      const currentFilteredIds = new Set(filteredTalents.map(t => t.id));
+      setSelectedTalentIds(prev => prev.filter(id => !currentFilteredIds.has(id)));
+    } else {
+      const currentFilteredIds = filteredTalents.map(t => t.id);
+      setSelectedTalentIds(prev => Array.from(new Set([...prev, ...currentFilteredIds])));
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedTalentIds([]);
+  };
+
+  const handleBulkAccredit = async () => {
+    if (selectedTalentIds.length === 0) return;
+    setIsBulkOperating(true);
+    try {
+      const { error } = await supabase
+        .from('talent_profiles')
+        .update({
+          is_verified: true,
+          is_verified_badge: true,
+          verification_badge: 'Verified Professional',
+          phase_3_status: 'VERIFIED',
+          phase_3_fee_paid: true,
+          updated_at: new Date().toISOString()
+        })
+        .in('id', selectedTalentIds);
+
+      if (error) {
+        console.warn('Bulk accredit DB warning:', error);
+      }
+
+      await logAuditEvent({
+        action_type: 'APPROVAL',
+        description: `Bulk accredited ${selectedTalentIds.length} candidate(s)`,
+        target_id: selectedTalentIds.join(','),
+        actor_id: user?.id,
+        metadata: { count: selectedTalentIds.length, candidate_ids: selectedTalentIds }
+      });
+
+      const selectedSet = new Set(selectedTalentIds);
+      queryClient.setQueryData<TalentRecord[]>(['admin', 'talents'], old =>
+        (old || []).map(t =>
+          selectedSet.has(t.id)
+            ? { ...t, is_verified: true, is_verified_badge: true, verification_badge: 'Verified Professional' }
+            : t
+        )
+      );
+      queryClient.invalidateQueries({ queryKey: ['admin', 'talents'] });
+
+      setNotification({
+        type: 'success',
+        message: `Bulk Action: Successfully approved & accredited ${selectedTalentIds.length} candidate${selectedTalentIds.length > 1 ? 's' : ''}!`
+      });
+      setSelectedTalentIds([]);
+    } catch (err: any) {
+      setNotification({
+        type: 'error',
+        message: err?.message || 'Failed to bulk accredit candidates.'
+      });
+    } finally {
+      setIsBulkOperating(false);
+    }
+  };
+
+  const handleBulkRevoke = async () => {
+    if (selectedTalentIds.length === 0) return;
+    setIsBulkOperating(true);
+    try {
+      const { error } = await supabase
+        .from('talent_profiles')
+        .update({
+          is_verified: false,
+          is_verified_badge: false,
+          verification_badge: null,
+          phase_3_status: 'PAYMENT_PENDING',
+          phase_3_fee_paid: false,
+          updated_at: new Date().toISOString()
+        })
+        .in('id', selectedTalentIds);
+
+      if (error) {
+        console.warn('Bulk revoke DB warning:', error);
+      }
+
+      await logAuditEvent({
+        action_type: 'REVOCATION',
+        description: `Bulk revoked verification for ${selectedTalentIds.length} candidate(s)`,
+        target_id: selectedTalentIds.join(','),
+        actor_id: user?.id,
+        metadata: { count: selectedTalentIds.length, candidate_ids: selectedTalentIds }
+      });
+
+      const selectedSet = new Set(selectedTalentIds);
+      queryClient.setQueryData<TalentRecord[]>(['admin', 'talents'], old =>
+        (old || []).map(t =>
+          selectedSet.has(t.id)
+            ? { ...t, is_verified: false, is_verified_badge: false, verification_badge: null }
+            : t
+        )
+      );
+      queryClient.invalidateQueries({ queryKey: ['admin', 'talents'] });
+
+      setNotification({
+        type: 'success',
+        message: `Bulk Action: Revoked verification status for ${selectedTalentIds.length} candidate${selectedTalentIds.length > 1 ? 's' : ''}.`
+      });
+      setSelectedTalentIds([]);
+    } catch (err: any) {
+      setNotification({
+        type: 'error',
+        message: err?.message || 'Failed to bulk revoke candidates.'
+      });
+    } finally {
+      setIsBulkOperating(false);
+    }
+  };
 
   // Filtered Recruiters
   const filteredRecruiters = useMemo(() => {
@@ -1363,13 +1498,82 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
+              {/* Multi-Select Status & Quick Bar */}
+              {selectedTalentIds.length > 0 && (
+                <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-3.5 px-4.5 flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in duration-150">
+                  <div className="flex items-center gap-2.5">
+                    <span className="bg-emerald-600 text-white font-mono font-bold text-xs px-2.5 py-0.5 rounded-full shadow-2xs">
+                      {selectedTalentIds.length}
+                    </span>
+                    <span className="font-semibold text-emerald-950">
+                      Candidate{selectedTalentIds.length > 1 ? 's' : ''} selected
+                    </span>
+                    <span className="text-emerald-700/80 text-[11px] hidden sm:inline">
+                      • Choose a bulk action below
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleBulkAccredit}
+                      disabled={isBulkOperating}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition cursor-pointer flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
+                    >
+                      {isBulkOperating ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                      <span>Approve & Accredit ({selectedTalentIds.length})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleBulkRevoke}
+                      disabled={isBulkOperating}
+                      className="px-3 py-1.5 rounded-xl bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 font-semibold text-xs transition cursor-pointer flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
+                    >
+                      <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                      <span>Revoke ({selectedTalentIds.length})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleClearSelection}
+                      className="px-2.5 py-1.5 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-emerald-100/60 transition cursor-pointer text-xs"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Clean Data Table */}
               <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
                       <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
-                        <th className="py-3.5 px-6">Candidate</th>
+                        <th className="py-3.5 pl-5 pr-2 w-12 text-center">
+                          <button
+                            type="button"
+                            id="master-select-talents-checkbox"
+                            onClick={handleSelectAllFilteredToggle}
+                            className="inline-flex items-center justify-center p-1 rounded-md hover:bg-slate-200/70 transition cursor-pointer"
+                            title={isAllFilteredSelected ? 'Deselect all candidates' : 'Select all candidates in this view'}
+                          >
+                            <div
+                              className={`w-4 h-4 rounded border flex items-center justify-center transition ${
+                                isAllFilteredSelected
+                                  ? 'bg-emerald-600 border-emerald-600 text-white'
+                                  : isIndeterminate
+                                  ? 'bg-emerald-50 border-emerald-600 text-emerald-700'
+                                  : 'bg-white border-slate-300 hover:border-slate-400'
+                              }`}
+                            >
+                              {isAllFilteredSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                              {isIndeterminate && <div className="w-2 h-0.5 bg-emerald-700 rounded-xs" />}
+                            </div>
+                          </button>
+                        </th>
+                        <th className="py-3.5 px-4">Candidate</th>
                         <th className="py-3.5 px-4">Specialization</th>
                         <th className="py-3.5 px-4">Location & Availability</th>
                         <th className="py-3.5 px-4">Status</th>
@@ -1379,7 +1583,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <tbody className="divide-y divide-slate-100">
                       {isTalentsLoading ? (
                         <tr>
-                          <td colSpan={5} className="py-12 text-center text-slate-400">
+                          <td colSpan={6} className="py-12 text-center text-slate-400">
                             <div className="flex items-center justify-center gap-2">
                               <RefreshCw className="w-4 h-4 animate-spin text-emerald-600" />
                               <span>Loading talent records from database...</span>
@@ -1388,6 +1592,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </tr>
                       ) : filteredTalents.length > 0 ? (
                         filteredTalents.map((talent) => {
+                          const isSelected = selectedTalentIds.includes(talent.id);
                           const hasOverrides = Boolean(
                             (talent.admin_unlocked_categories && talent.admin_unlocked_categories.length > 0) ||
                             talent.manual_phase_2_unlocked ||
@@ -1396,9 +1601,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           );
 
                           return (
-                            <tr key={talent.id} className="hover:bg-slate-50/80 transition-colors group">
+                            <tr
+                              key={talent.id}
+                              id={`talent-row-${talent.id}`}
+                              className={`hover:bg-slate-50/80 transition-colors group ${
+                                isSelected ? 'bg-emerald-50/50 border-l-4 border-emerald-600' : ''
+                              }`}
+                            >
+                              {/* Row Selection Checkbox */}
+                              <td className="py-4 pl-5 pr-2 w-12 text-center">
+                                <button
+                                  type="button"
+                                  id={`select-talent-${talent.id}`}
+                                  onClick={() => toggleSelectTalent(talent.id)}
+                                  className="inline-flex items-center justify-center p-1 rounded-md hover:bg-slate-200/70 transition cursor-pointer"
+                                  title={isSelected ? 'Deselect candidate' : 'Select candidate for bulk action'}
+                                >
+                                  <div
+                                    className={`w-4 h-4 rounded border flex items-center justify-center transition ${
+                                      isSelected
+                                        ? 'bg-emerald-600 border-emerald-600 text-white shadow-2xs'
+                                        : 'bg-white border-slate-300 hover:border-emerald-500'
+                                    }`}
+                                  >
+                                    {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                  </div>
+                                </button>
+                              </td>
+
                               {/* Candidate Info */}
-                              <td className="py-4 px-6">
+                              <td className="py-4 px-4">
                                 <div className="space-y-1">
                                   <div className="font-semibold text-slate-900 flex items-center gap-2">
                                     <button
@@ -1512,7 +1744,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         })
                       ) : (
                         <tr>
-                          <td colSpan={5} className="py-12 text-center text-slate-400">
+                          <td colSpan={6} className="py-12 text-center text-slate-400">
                             No candidates found matching criteria.
                           </td>
                         </tr>
@@ -2395,6 +2627,70 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         </div>
       </main>
+
+      {/* ========================================================================= */}
+      {/* FLOATING BULK ACTION BAR (VISIBLE WHEN >= 1 CANDIDATE IS SELECTED) */}
+      {/* ========================================================================= */}
+      {activeTab === 'talents' && selectedTalentIds.length > 0 && (
+        <aside
+          id="admin-candidate-bulk-action-bar"
+          aria-label="Bulk Candidate Approvals Bar"
+          className="fixed bottom-6 inset-x-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 z-50 bg-slate-900/95 text-white px-5 py-3 rounded-2xl sm:rounded-full shadow-2xl border border-slate-700/80 backdrop-blur-xl flex flex-col sm:flex-row items-center gap-3.5 animate-in fade-in slide-in-from-bottom-5 duration-200"
+        >
+          {/* Selected Count Badge */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            <span className="bg-emerald-500 text-slate-950 text-xs font-mono font-bold px-2.5 py-0.5 rounded-full shadow-2xs">
+              {selectedTalentIds.length}
+            </span>
+            <span className="text-xs font-semibold text-slate-100">
+              Candidate{selectedTalentIds.length > 1 ? 's' : ''} Selected
+            </span>
+          </div>
+
+          <div className="h-4 w-px bg-slate-700 hidden sm:block" />
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2 flex-wrap justify-center">
+            {/* Bulk Approve & Accredit */}
+            <button
+              type="button"
+              id="bulk-accredit-selected-btn"
+              disabled={isBulkOperating}
+              onClick={handleBulkAccredit}
+              className="px-4 py-1.5 rounded-xl sm:rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition cursor-pointer shadow-xs flex items-center gap-1.5 disabled:opacity-50"
+            >
+              {isBulkOperating ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+              <span>Approve & Accredit Selected</span>
+            </button>
+
+            {/* Bulk Revoke Verification */}
+            <button
+              type="button"
+              id="bulk-revoke-selected-btn"
+              disabled={isBulkOperating}
+              onClick={handleBulkRevoke}
+              className="px-3.5 py-1.5 rounded-xl sm:rounded-full bg-slate-800 hover:bg-rose-950/80 text-slate-200 hover:text-rose-200 border border-slate-700 hover:border-rose-800/80 text-xs font-medium transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <XCircle className="w-3.5 h-3.5" />
+              <span>Revoke Selected</span>
+            </button>
+          </div>
+
+          <div className="h-4 w-px bg-slate-700 hidden sm:block" />
+
+          {/* Clear Selection */}
+          <button
+            type="button"
+            id="bulk-deselect-all-btn"
+            onClick={handleClearSelection}
+            title="Deselect all candidates"
+            className="px-2.5 py-1 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer flex items-center gap-1 text-xs"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span className="text-xs">Deselect All</span>
+          </button>
+        </aside>
+      )}
     </div>
   );
 };
