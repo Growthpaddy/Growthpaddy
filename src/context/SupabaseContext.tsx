@@ -416,16 +416,23 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    setError(null);
     try {
-      const { error: authError } = await supabase.auth.signOut();
-      if (authError) console.warn('Supabase remote sign out warning:', authError);
-    } catch (err: any) {
-      console.warn('Supabase signOut error:', err);
-    } finally {
+      // 1. Sign out from Supabase Auth
+      await supabase.auth.signOut();
+
+      // 2. Clear local storage / session storage
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // 3. Reset local component state
       setUser(null);
       setSession(null);
-      localStorage.removeItem('dsp_local_auth_session');
+
+      // 4. Force hard redirect to home or login page to wipe memory cache
+      window.location.href = '/recruiter-login';
+    } catch (error) {
+      console.error('Logout error:', error);
+      window.location.href = '/recruiter-login';
     }
     return { error: null };
   };

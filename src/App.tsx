@@ -564,19 +564,25 @@ export default function App() {
 
   const handleGlobalSignOut = useCallback(async () => {
     try {
+      // 1. Sign out from Supabase Auth
       await supabase.auth.signOut();
-    } catch (e) {
-      // Ignore
+      try {
+        await adminSignOut();
+      } catch (_) {}
+
+      // 2. Clear local storage / session storage
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // 3. Reset local component state
+      setOnboardingDataState(null);
+
+      // 4. Force hard redirect to home or login page to wipe memory cache
+      window.location.href = '/recruiter-login';
+    } catch (error) {
+      console.error('Logout error:', error);
+      window.location.href = '/recruiter-login';
     }
-    try {
-      await adminSignOut();
-    } catch (e) {
-      // Ignore
-    }
-    localStorage.removeItem('dsp_active_onboarding');
-    localStorage.removeItem('dsp_simulated_admin');
-    setOnboardingDataState(null);
-    navigateToPage('home');
   }, [adminSignOut]);
 
   return (

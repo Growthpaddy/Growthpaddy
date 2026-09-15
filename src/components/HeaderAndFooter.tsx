@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { supabase } from '../lib/supabaseClient';
 import { 
   ShieldCheck, 
   Menu, 
@@ -60,8 +61,53 @@ export function Header({
 }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAvatarOpen, setIsAvatarOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const avatarRef = useRef<HTMLDivElement>(null);
+
+  // Listen to onAuthStateChange in the Global Navbar
+  useEffect(() => {
+    // Initial fetch of session and profile
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+        supabase
+          .from('recruiter_profiles')
+          .select('*')
+          .or(`user_id.eq.${session.user.id},id.eq.${session.user.id}`)
+          .maybeSingle()
+          .then(({ data: recProfile }) => {
+            if (recProfile) setProfile(recProfile);
+          })
+          .catch(() => {});
+      } else {
+        setUser(null);
+        setProfile(null);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        setUser(null);
+        setProfile(null);
+      } else if (session?.user) {
+        setUser(session.user);
+        // Fetch updated profile info here
+        supabase
+          .from('recruiter_profiles')
+          .select('*')
+          .or(`user_id.eq.${session.user.id},id.eq.${session.user.id}`)
+          .maybeSingle()
+          .then(({ data: recProfile }) => {
+            if (recProfile) setProfile(recProfile);
+          })
+          .catch(() => {});
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const pageToRoutePath = (id: PageType): string => {
     switch (id) {
@@ -135,18 +181,33 @@ export function Header({
     }
   };
 
-  const handleSignOut = () => {
-    setIsMenuOpen(false);
-    setIsAvatarOpen(false);
-    if (onSignOutClick) {
-      onSignOutClick();
-    } else {
-      if (setCurrentPage) {
-        setCurrentPage('home');
+  const handleSignOut = async () => {
+    try {
+      setIsMenuOpen(false);
+      setIsAvatarOpen(false);
+
+      // 1. Sign out from Supabase Auth
+      await supabase.auth.signOut();
+
+      // 2. Clear local storage / session storage
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // 3. Reset local component state
+      setUser(null);
+      setProfile(null);
+
+      if (onSignOutClick) {
+        try {
+          onSignOutClick();
+        } catch (_) {}
       }
-      window.history.pushState({}, '', '/');
-      window.dispatchEvent(new Event('popstate'));
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      // 4. Force hard redirect to home or login page to wipe memory cache
+      window.location.href = '/recruiter-login';
+    } catch (error) {
+      console.error('Logout error:', error);
+      window.location.href = '/recruiter-login';
     }
   };
 
@@ -173,15 +234,20 @@ export function Header({
     return name.slice(0, 2).toUpperCase();
   };
 
+  const effectiveUserType = profile ? 'recruiter' : user?.user_metadata?.role === 'recruiter' ? 'recruiter' : userType;
+
+  // The avatar pill is rendered only when an authenticated session exists and user is not null
+  const isUserLoggedIn = Boolean(user || (isLoggedIn && user !== null));
+
   const getRoleInfo = () => {
-    if (userType === 'recruiter') {
+    if (effectiveUserType === 'recruiter') {
       return {
         label: 'Recruiter Dashboard',
         badge: 'Recruiter',
         badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200'
       };
     }
-    if (userType === 'admin') {
+    if (effectiveUserType === 'admin') {
       return {
         label: 'Admin Command Center',
         badge: 'Admin',
@@ -196,7 +262,15 @@ export function Header({
   };
 
   const roleInfo = getRoleInfo();
-  const displayName = userName || (userType === 'recruiter' ? 'Recruiter' : userType === 'admin' ? 'Admin Staff' : 'Talent Specialist');
+  const displayName = 
+    profile?.company_name || 
+    profile?.organization_name || 
+    user?.user_metadata?.company_name || 
+    user?.user_metadata?.full_name || 
+    userName || 
+    (effectiveUserType === 'recruiter' ? 'Recruiter' : effectiveUserType === 'admin' ? 'Admin Staff' : 'Talent Specialist');
+
+  const displayEmail = user?.email || profile?.business_email || userEmail || '';
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-slate-200/80 transition-all shadow-xs">
@@ -225,7 +299,7 @@ export function Header({
         <div className="flex items-center gap-2.5">
           
           {/* User Avatar & Dropdown (When Logged In) */}
-          {isLoggedIn && (
+          {isUserLoggedIn && (
             <div className="relative" ref={avatarRef}>
               <button
                 onClick={() => {
@@ -272,9 +346,9 @@ export function Header({
                           <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase ${roleInfo.badgeClass}`}>
                             {roleInfo.badge}
                           </span>
-                          {userEmail && (
+                          {displayEmail && (
                             <span className="text-[10px] text-slate-400 truncate max-w-[100px]">
-                              {userEmail}
+                              {displayEmail}
                             </span>
                           )}
                         </div>
@@ -411,7 +485,7 @@ export function Header({
                 </div>
 
                 {/* Sign In CTA when not logged in */}
-                {!isLoggedIn && (
+                {!isUserLoggedIn && (
                   <div className="p-2">
                     <button
                       onClick={handleSignInClick}
