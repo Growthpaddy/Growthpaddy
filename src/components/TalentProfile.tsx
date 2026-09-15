@@ -38,6 +38,7 @@ import {
   Phone,
   MessageSquare,
   Cpu,
+  LogIn,
   Layers,
   Check,
   TrendingUp,
@@ -139,7 +140,9 @@ export interface TalentProfile {
   availability_status?: 'available' | 'hired' | string;
   work_availability_type?: string[] | null;
   contact_email?: string;
+  email?: string;
   phone_number?: string;
+  phone?: string;
   whatsapp_number?: string;
   cv_url?: string | null;
   portfolio_url?: string | null;
@@ -147,14 +150,18 @@ export interface TalentProfile {
   linkedin_url?: string | null;
   profile_picture_url?: string | null;
   work_history?: WorkHistoryItem[] | null;
+  experience_history?: any[] | null;
   education?: EducationItem[] | null;
   case_studies?: CaseStudyItem[] | null;
   ai_tools?: string[] | null;
+  tools?: string[] | null;
   certifications?: string[] | null;
   skills?: string[] | null;
   is_verified_badge?: boolean;
   phase_1_quizzes_passed?: number;
   phase_1_completed?: boolean;
+  phase_2_completed?: boolean;
+  phase_3_completed?: boolean;
   phase_2_unlocked?: boolean;
   manual_phase_2_unlocked?: boolean;
   phase_3_unlocked?: boolean;
@@ -166,6 +173,7 @@ export interface TalentProfile {
   phase_3_status?: Phase3Status;
   view_count?: number;
   click_count?: number;
+  profile_views_count?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -522,6 +530,47 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
       const currentAuthUser = authData?.user || user;
 
       if (!currentAuthUser) {
+        // Check active onboarding
+        const onb = localStorage.getItem('dsp_active_onboarding');
+        if (onb) {
+          try {
+            const parsed = JSON.parse(onb);
+            if (parsed?.userType === 'talent') {
+              const localTalentProfile: TalentProfile = {
+                id: 'talent-local',
+                full_name: parsed.userName || 'Candidate Specialist',
+                role_title: parsed.specialty || parsed.careerGoal || 'AI Automation Specialist',
+                location: 'Remote, Global',
+                bio: 'Vetted candidate in the Data Skills Pool directory.',
+                email: parsed.email || 'candidate@dataskillspool.com',
+                phone: '+1 (555) 019-2831',
+                linkedin_url: 'https://linkedin.com',
+                tools: ['Python', 'SQL', 'Prompt Engineering', 'LangChain', 'OpenAI API'],
+                skills: ['Core Technical Reasoning', 'Data Pipeline Hygiene'],
+                experience_history: [
+                  {
+                    title: parsed.specialty || 'Data Operations Specialist',
+                    company: 'Data Skills Pool Cohort',
+                    period: '2024 - Present',
+                    description: 'Engaged in real-world scenario testing and automated pipeline verification.'
+                  }
+                ],
+                certifications: ['DSP Certified Specialist', 'Phase 1 Core Accreditation'],
+                phase_1_completed: false,
+                phase_2_completed: false,
+                phase_3_completed: false,
+                phase_1_quizzes_passed: 1,
+                profile_views_count: 14,
+                created_at: new Date().toISOString()
+              };
+              setProfile(localTalentProfile);
+              setLoading(false);
+              return;
+            }
+          } catch {
+            // ignore
+          }
+        }
         setLoading(false);
         return;
       }
@@ -1490,6 +1539,49 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
         <div className="flex flex-col items-center gap-3">
           <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
           <p className="text-sm font-semibold text-slate-700">Loading Candidate Profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // HARD GUARD: If no profile exists and not authenticated, block all dashboard access
+  if (!profile) {
+    return (
+      <div className="min-h-[75vh] bg-slate-50 flex items-center justify-center p-6 font-sans text-left">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200/90 p-8 shadow-xl space-y-6">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-950 text-emerald-400 flex items-center justify-center shadow-xs">
+            <Lock className="w-6 h-6" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-display font-black text-slate-900 tracking-tight">
+              Candidate Login Required
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+              The talent vetting dashboard contains your private assessment results, accreditation scorecards, and public profile settings. Please sign in to your candidate account to access this hub.
+            </p>
+          </div>
+          <div className="space-y-2.5 pt-2">
+            <button
+              onClick={() => {
+                if (navigateToPage) navigateToPage('home');
+                else window.location.pathname = '/';
+              }}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+              id="talent-hard-gate-signin-btn"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Sign In to Candidate Portal</span>
+            </button>
+            <button
+              onClick={() => {
+                if (navigateToPage) navigateToPage('directory');
+                else window.location.pathname = '/directory';
+              }}
+              className="w-full text-slate-500 hover:text-slate-800 font-semibold py-2 px-4 rounded-xl text-xs text-center transition-colors cursor-pointer"
+            >
+              Browse Public Talent Directory
+            </button>
+          </div>
         </div>
       </div>
     );

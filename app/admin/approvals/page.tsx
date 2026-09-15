@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../../src/lib/supabaseClient';
 import { logAuditEvent, AuditActionType } from '../../../src/lib/auditLogger';
+import { useAdminAuth } from '../../../src/context/AdminAuthContext';
 
 export type AdminRole = 'super_admin' | 'admin';
 
@@ -728,6 +729,67 @@ export default function SuperAdminApprovalsPage() {
       return true;
     });
   }, [profiles, activeTab, roleFilter, searchQuery]);
+
+  const { user: currentAdminUser, profile: currentAdminProfile, loading: currentAdminLoading } = useAdminAuth();
+
+  let hasSimulatedSuperAdmin = false;
+  try {
+    const sim = localStorage.getItem('dsp_simulated_admin');
+    if (sim) {
+      const parsed = JSON.parse(sim);
+      if (parsed?.role === 'super_admin' && parsed.is_active) {
+        hasSimulatedSuperAdmin = true;
+      }
+    }
+  } catch {}
+
+  const isAuthorizedSuperAdmin = Boolean(
+    (currentAdminUser && currentAdminProfile?.role === 'super_admin' && currentAdminProfile.is_active) ||
+    hasSimulatedSuperAdmin
+  );
+
+  if (currentAdminLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center font-sans">
+        <RefreshCw className="w-8 h-8 text-emerald-400 animate-spin mb-4" />
+        <p className="text-sm font-semibold text-slate-300">Verifying Super Admin Clearance...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthorizedSuperAdmin) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 font-sans text-left">
+        <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6 text-slate-100">
+          <div className="w-12 h-12 rounded-2xl bg-purple-950 text-purple-400 flex items-center justify-center shadow-xs">
+            <Lock className="w-6 h-6" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-display font-black text-white">
+              Super Admin Clearance Required
+            </h2>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Access to staff approvals, role promotions, and platform candidate revocations is strictly restricted to authenticated Super Administrators.
+            </p>
+          </div>
+          <div className="space-y-2 pt-2">
+            <button
+              onClick={() => { window.location.pathname = '/admin/login'; }}
+              className="w-full bg-purple-900 hover:bg-purple-800 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <span>Sign In to Admin Portal</span>
+            </button>
+            <button
+              onClick={() => { window.location.pathname = '/admin/dashboard'; }}
+              className="w-full text-slate-400 hover:text-white font-semibold py-2 px-4 rounded-xl text-xs text-center transition-colors cursor-pointer"
+            >
+              Return to Admin Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 sm:p-8 font-sans selection:bg-emerald-500 selection:text-white">

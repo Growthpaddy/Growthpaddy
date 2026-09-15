@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ArrowRight, 
@@ -34,6 +34,7 @@ import { useSupabase } from './context/SupabaseContext';
 import { supabase } from './lib/supabaseClient';
 import AdminOperations from './components/AdminOperations';
 import AdminGuard from './components/AdminGuard';
+import { useAdminAuth } from './context/AdminAuthContext';
 import SuperAdminApprovalsPage from '../app/admin/approvals/page';
 import { useSecureLogin } from './hooks/useSecureLogin';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -286,8 +287,10 @@ export default function App() {
   const [talentForm, setTalentForm] = useState({ name: '', email: '', track: 'Internship Track', skills: '' });
   const [talentSubmitted, setTalentSubmitted] = useState(false);
 
+  const { user: adminUser, profile: adminProfile, signOut: adminSignOut } = useAdminAuth();
+
   // Active Onboarded User State
-  const [onboardingData, setOnboardingData] = useState<{
+  const [onboardingData, setOnboardingDataState] = useState<{
     userType: 'talent' | 'recruiter' | 'admin' | null;
     userName: string;
     careerGoal?: string;
@@ -301,13 +304,65 @@ export default function App() {
     orgSize?: string;
     industry?: string;
     neededRole?: string;
-  } | null>(null);
+  } | null>(() => {
+    try {
+      const saved = localStorage.getItem('dsp_active_onboarding');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
 
-  // Seed default demo accounts in localStorage if not already present
+  const setOnboardingData = useCallback((data: any) => {
+    setOnboardingDataState(data);
+    if (data) {
+      try {
+        localStorage.setItem('dsp_active_onboarding', JSON.stringify(data));
+      } catch (e) {
+        console.warn('Failed to persist onboarding state:', e);
+      }
+    } else {
+      localStorage.removeItem('dsp_active_onboarding');
+    }
+  }, []);
+
+  // Seed default demo and master accounts in localStorage
   useEffect(() => {
-    const existing = localStorage.getItem('dsp_registered_users');
-    if (!existing) {
-      const demoUsers = [
+    try {
+      const rawUsers = localStorage.getItem('dsp_registered_users');
+      let users: any[] = rawUsers ? JSON.parse(rawUsers) : [];
+      if (!Array.isArray(users)) users = [];
+
+      const masterAccounts = [
+        {
+          email: 'dspacademyonline@gmail.com',
+          password: 'password123',
+          userName: 'DSP Academy Executive',
+          userType: 'admin',
+          onboarding: {
+            userType: 'admin',
+            userName: 'DSP Academy Executive',
+            email: 'dspacademyonline@gmail.com',
+            careerGoal: 'Executive Leadership & Talent Verification',
+            specialty: 'AI Automation Operations',
+            experienceLevel: 'Seasoned Professional',
+            orgName: 'DSP Academy Online',
+            orgSize: '50-200',
+            industry: 'Digital Skills & Talent Hub',
+            neededRole: 'Full-Time Dedicated Talent'
+          }
+        },
+        {
+          email: 'admin@dsp.com',
+          password: 'password123',
+          userName: 'Super Administrator',
+          userType: 'admin',
+          onboarding: {
+            userType: 'admin',
+            userName: 'Super Administrator',
+            email: 'admin@dsp.com'
+          }
+        },
         {
           email: 'recruiter@dsp.com',
           password: 'password123',
@@ -337,7 +392,45 @@ export default function App() {
           }
         }
       ];
-      localStorage.setItem('dsp_registered_users', JSON.stringify(demoUsers));
+
+      masterAccounts.forEach(account => {
+        const idx = users.findIndex((u: any) => u.email?.toLowerCase() === account.email.toLowerCase());
+        if (idx === -1) {
+          users.push(account);
+        } else {
+          users[idx] = { ...users[idx], ...account };
+        }
+      });
+
+      localStorage.setItem('dsp_registered_users', JSON.stringify(users));
+
+      // Seed simulated admins database
+      const rawAdmins = localStorage.getItem('dsp_simulated_admins_db');
+      let admins: any[] = rawAdmins ? JSON.parse(rawAdmins) : [];
+      if (!Array.isArray(admins)) admins = [];
+      const adminList = [
+        {
+          email: 'dspacademyonline@gmail.com',
+          password: 'password123',
+          fullName: 'DSP Academy Executive',
+          role: 'super_admin'
+        },
+        {
+          email: 'admin@dsp.com',
+          password: 'password123',
+          fullName: 'Super Administrator',
+          role: 'super_admin'
+        }
+      ];
+      adminList.forEach(admin => {
+        const idx = admins.findIndex((a: any) => a.email?.toLowerCase() === admin.email.toLowerCase());
+        if (idx === -1) {
+          admins.push(admin);
+        }
+      });
+      localStorage.setItem('dsp_simulated_admins_db', JSON.stringify(admins));
+    } catch (e) {
+      console.warn('Sandbox account initialization warning:', e);
     }
   }, []);
 
@@ -436,6 +529,9 @@ export default function App() {
         setIsSignInModalOpen(false);
         setSignInEmail('');
         setSignInPassword('');
+        try {
+          await signIn(email, password);
+        } catch (_) {}
         if (signInRole === 'admin') {
           setCurrentPage('admin');
         } else if (signInRole === 'recruiter') {
@@ -466,6 +562,23 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleGlobalSignOut = useCallback(async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      // Ignore
+    }
+    try {
+      await adminSignOut();
+    } catch (e) {
+      // Ignore
+    }
+    localStorage.removeItem('dsp_active_onboarding');
+    localStorage.removeItem('dsp_simulated_admin');
+    setOnboardingDataState(null);
+    navigateToPage('home');
+  }, [adminSignOut]);
+
   return (
     <div className="min-h-screen bg-white text-neutral-850 font-sans antialiased selection:bg-emerald-500/30 selection:text-neutral-900">
       
@@ -477,25 +590,19 @@ export default function App() {
           openHireModal={() => setIsHireModalOpen(true)}
           openTalentModal={() => setIsTalentModalOpen(true)}
           employerSlots={employerSlots}
-          isLoggedIn={Boolean(onboardingData !== null || user !== null)}
-          userName={onboardingData?.userName || (user?.user_metadata?.name as string) || (user?.email ? user.email.split('@')[0] : '')}
-          userEmail={onboardingData?.email || user?.email || ''}
-          userType={onboardingData?.userType || (user?.user_metadata?.role as any) || (user?.user_metadata?.userType as any) || 'talent'}
+          isLoggedIn={Boolean(onboardingData !== null || user !== null || (adminUser && adminProfile?.is_active))}
+          userName={onboardingData?.userName || adminProfile?.full_name || (user?.user_metadata?.name as string) || (user?.email ? user.email.split('@')[0] : '')}
+          userEmail={onboardingData?.email || adminProfile?.email || user?.email || ''}
+          userType={onboardingData?.userType || (adminProfile ? 'admin' : (user?.user_metadata?.role as any) || (user?.user_metadata?.userType as any) || 'talent')}
           onSignInClick={() => {
             setSignInError('');
             setIsSignInModalOpen(true);
           }}
-          onSignOutClick={async () => {
-            try {
-              await supabase.auth.signOut();
-            } catch (e) {
-              // Ignore
-            }
-            setOnboardingData(null);
-            navigateToPage('home');
-          }}
+          onSignOutClick={handleGlobalSignOut}
           onVisitDashboard={() => {
-            if (onboardingData?.userType === 'recruiter') {
+            if (adminProfile?.is_active) {
+              navigateToPage('admin');
+            } else if (onboardingData?.userType === 'recruiter' || user?.user_metadata?.role === 'recruiter') {
               navigateToPage('recruiter-dashboard');
             } else if (onboardingData?.userType === 'admin') {
               navigateToPage('admin');
@@ -565,28 +672,44 @@ export default function App() {
 
             {/* View 3: Recruiter Workspace Dashboard */}
             {currentPage === 'employer' && (
-              <section className="max-w-7xl mx-auto space-y-6">
-                <EmployerWorkspace 
-                  employerSlots={employerSlots}
-                  setEmployerSlots={setEmployerSlots}
-                  navigateToPage={navigateToPage}
-                  onSignOut={() => {
-                    setOnboardingData(null);
-                    navigateToPage('home');
-                  }}
-                  onNavigateToDirectory={() => navigateToPage('directory')}
-                />
-              </section>
+              <ProtectedRoute 
+                requiredRole="recruiter" 
+                onUnauthorized={() => navigateToPage('recruiter-login')}
+                onOpenSignIn={(role) => {
+                  setSignInRole(role);
+                  setIsSignInModalOpen(true);
+                }}
+                onNavigate={navigateToPage}
+              >
+                <section className="max-w-7xl mx-auto space-y-6">
+                  <EmployerWorkspace 
+                    employerSlots={employerSlots}
+                    setEmployerSlots={setEmployerSlots}
+                    navigateToPage={navigateToPage}
+                    onSignOut={handleGlobalSignOut}
+                    onNavigateToDirectory={() => navigateToPage('directory')}
+                  />
+                </section>
+              </ProtectedRoute>
             )}
 
             {/* View 4: Talent Vetting Hub Dashboard (/talent-profile) */}
             {currentPage === 'talent' && (
-              <ProtectedRoute requiredRole="talent" fallbackPage="/">
+              <ProtectedRoute 
+                requiredRole="talent" 
+                fallbackPage="/"
+                onUnauthorized={() => {
+                  setSignInRole('talent');
+                  setIsSignInModalOpen(true);
+                }}
+                onOpenSignIn={(role) => {
+                  setSignInRole(role);
+                  setIsSignInModalOpen(true);
+                }}
+                onNavigate={navigateToPage}
+              >
                 <TalentProfile 
-                  onSignOut={() => {
-                    setOnboardingData(null);
-                    setCurrentPage('home');
-                  }}
+                  onSignOut={handleGlobalSignOut}
                   navigateToPage={navigateToPage}
                 />
               </ProtectedRoute>
@@ -628,7 +751,11 @@ export default function App() {
 
             {/* View 9: Production Admin Dashboard & Control Hub (/admin or /admin/dashboard) - PROTECTED */}
             {(currentPage === 'admin-dashboard' || currentPage === 'admin') && (
-              <AdminProtectedRoute>
+              <ProtectedRoute 
+                requiredRole="admin"
+                onUnauthorized={() => navigateToPage('admin-login')}
+                onNavigate={navigateToPage}
+              >
                 <AdminDashboard 
                   onSignOutRedirect={() => navigateToPage('admin-login')} 
                   onNavigateHome={() => navigateToPage('home')} 
@@ -637,12 +764,17 @@ export default function App() {
                     setIsPortfolioModalOpen(true);
                   }}
                 />
-              </AdminProtectedRoute>
+              </ProtectedRoute>
             )}
 
             {/* View 10: Super Admin Approvals Gateway (/admin/approvals) - SUPER ADMIN ONLY */}
             {currentPage === 'admin-approvals' && (
-              <AdminProtectedRoute superAdminOnly={true}>
+              <ProtectedRoute 
+                requiredRole="admin" 
+                superAdminOnly={true}
+                onUnauthorized={() => navigateToPage('admin-login')}
+                onNavigate={navigateToPage}
+              >
                 <AdminDashboard 
                   onSignOutRedirect={() => navigateToPage('admin-login')} 
                   onNavigateHome={() => navigateToPage('home')} 
@@ -651,7 +783,7 @@ export default function App() {
                     setIsPortfolioModalOpen(true);
                   }}
                 />
-              </AdminProtectedRoute>
+              </ProtectedRoute>
             )}
 
             {/* View 9: Recruiter Registration & Sourcing Package Purchase (/recruiter/signup) */}
@@ -674,14 +806,26 @@ export default function App() {
 
             {/* View 11: Recruiter Direct Sourcing Dashboard (/recruiter/dashboard) */}
             {currentPage === 'recruiter-dashboard' && (
-              <RecruiterDashboard 
-                onSignOut={() => {
-                  setOnboardingData(null);
-                  navigateToPage('home');
+              <ProtectedRoute 
+                requiredRole="recruiter" 
+                onUnauthorized={() => navigateToPage('recruiter-login')}
+                onOpenSignIn={(role) => {
+                  setSignInRole(role);
+                  setIsSignInModalOpen(true);
                 }}
-                onNavigateToDirectory={() => navigateToPage('directory')}
-                onNavigateToPricing={() => navigateToPage('pricing')}
-              />
+                onNavigate={navigateToPage}
+              >
+                <RecruiterDashboard 
+                  onSignOut={handleGlobalSignOut}
+                  onNavigateHome={() => navigateToPage('home')}
+                  onNavigateToDirectory={() => navigateToPage('directory')}
+                  onNavigateToPricing={() => navigateToPage('pricing')}
+                  onOpenCandidatePortfolio={(slug) => {
+                    setSelectedPublicSlug(slug);
+                    setIsPortfolioModalOpen(true);
+                  }}
+                />
+              </ProtectedRoute>
             )}
 
           </motion.div>

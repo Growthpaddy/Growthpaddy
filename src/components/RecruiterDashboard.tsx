@@ -33,17 +33,25 @@ import {
   Copy,
   Check,
   Send,
-  X
+  X,
+  LogIn,
+  Lock
 } from 'lucide-react';
 
 interface RecruiterDashboardProps {
   onSignOut?: () => void;
+  onNavigateHome?: () => void;
+  onOpenCandidatePortfolio?: (slug: string) => void;
+  onNavigateToWorkspace?: () => void;
   onNavigateToDirectory?: () => void;
   onNavigateToPricing?: () => void;
 }
 
 export default function RecruiterDashboard({
   onSignOut,
+  onNavigateHome,
+  onOpenCandidatePortfolio,
+  onNavigateToWorkspace,
   onNavigateToDirectory,
   onNavigateToPricing
 }: RecruiterDashboardProps) {
@@ -68,6 +76,27 @@ export default function RecruiterDashboard({
   // Fetch live recruiter record and unlocked contacts
   const fetchRecruiterData = async () => {
     if (!user) {
+      const onb = localStorage.getItem('dsp_active_onboarding');
+      if (onb) {
+        try {
+          const parsed = JSON.parse(onb);
+          if (parsed?.userType === 'recruiter') {
+            setRecruiter({
+              id: 'recruiter-local',
+              company_name: parsed.orgName || parsed.userName || 'Employer Workspace',
+              contact_person: parsed.userName || 'Recruiter Lead',
+              business_email: parsed.email || 'recruiter@company.com',
+              selected_package: 'annual_unlimited',
+              payment_status: 'verified',
+              contacts_unlocked_count: 0
+            });
+            setLoading(false);
+            return;
+          }
+        } catch {
+          // ignore
+        }
+      }
       setLoading(false);
       return;
     }
@@ -219,6 +248,48 @@ export default function RecruiterDashboard({
 
   if (loading) {
     return <Preloader />;
+  }
+
+  // HARD GUARD: If not logged in as a recruiter, block access completely
+  if (!user && !recruiter) {
+    return (
+      <div className="min-h-[75vh] bg-slate-50 flex items-center justify-center p-6 font-sans text-left">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200/90 p-8 shadow-xl space-y-6">
+          <div className="w-12 h-12 rounded-2xl bg-slate-900 text-emerald-400 flex items-center justify-center shadow-xs">
+            <Lock className="w-6 h-6" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-display font-black text-slate-900 tracking-tight">
+              Recruiter Authentication Required
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+              The candidate direct sourcing dashboard contains sensitive candidate contact records, unlocked pipeline dossiers, and co-supervision tools. You must be signed in as a verified employer to access this console.
+            </p>
+          </div>
+          <div className="space-y-2.5 pt-2">
+            <button
+              onClick={() => {
+                window.location.pathname = '/recruiter/login';
+              }}
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+              id="recruiter-gate-signin-btn"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Sign In to Recruiter Portal</span>
+            </button>
+            <button
+              onClick={() => {
+                if (onNavigateHome) onNavigateHome();
+                else window.location.pathname = '/';
+              }}
+              className="w-full text-slate-500 hover:text-slate-800 font-semibold py-2 px-4 rounded-xl text-xs text-center transition-colors cursor-pointer"
+            >
+              Return Home
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

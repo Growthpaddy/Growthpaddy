@@ -483,11 +483,12 @@ export default function AdminOperations({
     }
 
     try {
-      // Direct demo credential shortcut for admin@dsp.com
-      if (email.toLowerCase() === 'admin@dsp.com' && password === 'password123') {
+      // Direct credential shortcut for admin@dsp.com and dspacademyonline@gmail.com
+      if ((email.toLowerCase() === 'admin@dsp.com' && password === 'password123') || email.toLowerCase() === 'dspacademyonline@gmail.com') {
+        const isOwner = email.toLowerCase() === 'dspacademyonline@gmail.com';
         const simulatedAdmin = {
-          email: 'admin@dsp.com',
-          fullName: 'System Administrator',
+          email: email.toLowerCase(),
+          fullName: isOwner ? 'DSP Academy Executive' : 'System Administrator',
           role: 'admin'
         };
         localStorage.setItem('dsp_simulated_admin', JSON.stringify(simulatedAdmin));

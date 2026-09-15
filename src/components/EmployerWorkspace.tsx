@@ -17,7 +17,9 @@ import {
   Plus,
   LogOut,
   Building2,
-  Users
+  Users,
+  Lock,
+  LogIn
 } from 'lucide-react';
 import { MOCK_TALENT } from '../data/mockTalent';
 import { useSupabase } from '../context/SupabaseContext';
@@ -152,6 +154,60 @@ export default function EmployerWorkspace({
   const deleteInterview = (id: string) => {
     setInterviews(prev => prev.filter(item => item.id !== id));
   };
+
+  const hasOnbRecruiter = (() => {
+    try {
+      const onb = localStorage.getItem('dsp_active_onboarding');
+      if (onb) {
+        const parsed = JSON.parse(onb);
+        return parsed?.userType === 'recruiter';
+      }
+    } catch {
+      return false;
+    }
+    return false;
+  })();
+
+  if (!user && !hasOnbRecruiter) {
+    return (
+      <div className="min-h-[70vh] bg-slate-50 flex items-center justify-center p-6 font-sans text-left">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200/90 p-8 shadow-xl space-y-6">
+          <div className="w-12 h-12 rounded-2xl bg-slate-900 text-emerald-400 flex items-center justify-center shadow-xs">
+            <Lock className="w-6 h-6" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-display font-black text-slate-900 tracking-tight">
+              Employer Account Required
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+              The employer workspace contains corporate preferences, shortlist pipelines, and interview calendars. Please sign in to your employer account to access this area.
+            </p>
+          </div>
+          <div className="space-y-2.5 pt-2">
+            <button
+              onClick={() => {
+                if (navigateToPage) navigateToPage('recruiter-login');
+                else window.location.pathname = '/recruiter/login';
+              }}
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Sign In to Employer Portal</span>
+            </button>
+            <button
+              onClick={() => {
+                if (navigateToPage) navigateToPage('home');
+                else window.location.pathname = '/';
+              }}
+              className="w-full text-slate-500 hover:text-slate-800 font-semibold py-2 px-4 rounded-xl text-xs text-center transition-colors cursor-pointer"
+            >
+              Return Home
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 text-left max-w-7xl mx-auto pb-16">

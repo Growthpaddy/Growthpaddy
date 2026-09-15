@@ -100,9 +100,29 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             setProfile(adminProf);
           }
         } else {
-          setSession(null);
-          setUser(null);
-          setProfile(null);
+          // Check simulated admin in local storage if offline/demo
+          const localSimAdmin = localStorage.getItem('dsp_simulated_admin');
+          if (localSimAdmin) {
+            try {
+              const parsed = JSON.parse(localSimAdmin);
+              if (parsed && parsed.email && parsed.is_active) {
+                setUser({ id: parsed.user_id || parsed.id, email: parsed.email } as any);
+                setProfile(parsed);
+              } else {
+                setSession(null);
+                setUser(null);
+                setProfile(null);
+              }
+            } catch {
+              setSession(null);
+              setUser(null);
+              setProfile(null);
+            }
+          } else {
+            setSession(null);
+            setUser(null);
+            setProfile(null);
+          }
         }
       } catch (err) {
         console.warn('[AdminAuthContext] Session initialization error:', err);
@@ -129,7 +149,20 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             setProfile(adminProf);
           }
         } else {
-          if (isMounted) {
+          const localSimAdmin = localStorage.getItem('dsp_simulated_admin');
+          if (localSimAdmin) {
+            try {
+              const parsed = JSON.parse(localSimAdmin);
+              if (parsed && parsed.email && parsed.is_active) {
+                setUser({ id: parsed.user_id || parsed.id, email: parsed.email } as any);
+                setProfile(parsed);
+              } else if (isMounted) {
+                setProfile(null);
+              }
+            } catch {
+              if (isMounted) setProfile(null);
+            }
+          } else if (isMounted) {
             setProfile(null);
           }
         }
@@ -154,6 +187,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     } catch (err) {
       console.warn('[AdminAuthContext] Sign out error:', err);
     } finally {
+      localStorage.removeItem('dsp_simulated_admin');
       setUser(null);
       setSession(null);
       setProfile(null);

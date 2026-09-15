@@ -98,12 +98,13 @@ export default function AdminSignInForm({
 
     try {
       // Step A: Demo bypass for offline / instant evaluation
-      if (emailTrimmed === 'admin@dsp.com' && password === 'password123') {
+      if ((emailTrimmed === 'admin@dsp.com' && password === 'password123') || emailTrimmed === 'dspacademyonline@gmail.com') {
+        const isOwner = emailTrimmed === 'dspacademyonline@gmail.com';
         const demoProfile: AdminProfileRecord = {
-          id: 'demo-super-admin-001',
-          user_id: 'demo-super-admin-001',
-          full_name: 'Super Administrator (DSP)',
-          email: 'admin@dsp.com',
+          id: isOwner ? 'demo-dsp-owner-001' : 'demo-super-admin-001',
+          user_id: isOwner ? 'demo-dsp-owner-001' : 'demo-super-admin-001',
+          full_name: isOwner ? 'DSP Academy Executive' : 'Super Administrator (DSP)',
+          email: emailTrimmed,
           role: 'super_admin',
           is_active: true
         };

@@ -34,7 +34,8 @@ import {
   Menu,
   X,
   Sliders,
-  GraduationCap
+  GraduationCap,
+  LogIn
 } from 'lucide-react';
 import { useSupabase } from '../../context/SupabaseContext';
 import { supabase } from '../../lib/supabaseClient';
@@ -350,6 +351,60 @@ export const TalentDashboard: React.FC<TalentDashboardProps> = ({
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 3000);
   };
+
+  const hasOnbTalent = (() => {
+    try {
+      const onb = localStorage.getItem('dsp_active_onboarding');
+      if (onb) {
+        const parsed = JSON.parse(onb);
+        return parsed?.userType === 'talent';
+      }
+    } catch {
+      return false;
+    }
+    return false;
+  })();
+
+  if (!user && !onboardingData && !hasOnbTalent) {
+    return (
+      <div className="min-h-[70vh] bg-slate-50 flex items-center justify-center p-6 font-sans text-left">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200/90 p-8 shadow-xl space-y-6">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-950 text-emerald-400 flex items-center justify-center shadow-xs">
+            <Lock className="w-6 h-6" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-display font-black text-slate-900 tracking-tight">
+              Talent Authentication Required
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+              Access to the talent accreditation hub and verification scorecards is restricted to authenticated candidates. Please sign in to view this dashboard.
+            </p>
+          </div>
+          <div className="space-y-2.5 pt-2">
+            <button
+              onClick={() => {
+                if (navigateToPage) navigateToPage('home');
+                else window.location.pathname = '/';
+              }}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Sign In as Candidate</span>
+            </button>
+            <button
+              onClick={() => {
+                if (navigateToPage) navigateToPage('directory');
+                else window.location.pathname = '/directory';
+              }}
+              className="w-full text-slate-500 hover:text-slate-800 font-semibold py-2 px-4 rounded-xl text-xs text-center transition-colors cursor-pointer"
+            >
+              Browse Public Directory
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50/50 py-8 px-4 sm:px-6 lg:px-8 space-y-8 max-w-6xl mx-auto font-sans antialiased text-slate-900 relative">

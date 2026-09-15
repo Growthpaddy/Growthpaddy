@@ -28,6 +28,7 @@ import {
   Mail,
   Phone,
   Calendar,
+  LogIn,
   Eye,
   GraduationCap,
   Key,
@@ -921,6 +922,60 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   }, [recruiters, searchQuery, statusFilter]);
 
   const pendingAdminApprovals = adminRequests.filter(a => !a.is_active).length;
+
+  let hasSimulatedAdmin = false;
+  try {
+    const sim = localStorage.getItem('dsp_simulated_admin');
+    if (sim) {
+      const parsed = JSON.parse(sim);
+      if (parsed?.email && parsed.is_active) {
+        hasSimulatedAdmin = true;
+      }
+    }
+  } catch {}
+
+  const isAuthedAdmin = Boolean((user && profile && profile.is_active === true) || hasSimulatedAdmin);
+
+  if (!isAuthedAdmin) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans text-left">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200/90 p-8 shadow-xl space-y-6">
+          <div className="w-12 h-12 rounded-2xl bg-purple-950 text-purple-400 flex items-center justify-center shadow-xs">
+            <Lock className="w-6 h-6" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-display font-black text-slate-900 tracking-tight">
+              Administrative Session Required
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+              Access to this console is restricted to authenticated platform administrators. Please sign in with your administrative credentials to continue.
+            </p>
+          </div>
+          <div className="space-y-2.5 pt-2">
+            <button
+              onClick={() => {
+                if (onSignOutRedirect) onSignOutRedirect();
+                else window.location.pathname = '/admin/login';
+              }}
+              className="w-full bg-purple-900 hover:bg-purple-800 text-white font-bold py-3 px-4 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Sign In to Admin Portal</span>
+            </button>
+            <button
+              onClick={() => {
+                if (onNavigateHome) onNavigateHome();
+                else window.location.pathname = '/';
+              }}
+              className="w-full text-slate-500 hover:text-slate-800 font-semibold py-2 px-4 rounded-xl text-xs text-center transition-colors cursor-pointer"
+            >
+              Return Home
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50/50 flex flex-col md:flex-row text-slate-900 font-sans antialiased">
