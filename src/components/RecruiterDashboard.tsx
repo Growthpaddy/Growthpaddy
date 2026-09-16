@@ -200,15 +200,24 @@ export default function RecruiterDashboard({
 
   const handleSignOutClick = async () => {
     try {
+      // 1. Sign out from Supabase Auth
       await supabase.auth.signOut();
+
+      // 2. Clear local storage / session storage
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // 3. Reset local component state
+      setRecruiter(null);
+
+      if (onSignOut) {
+        onSignOut();
+      } else {
+        window.location.href = '/recruiter-login';
+      }
     } catch (err) {
       console.warn('Sign out error:', err);
-    }
-    if (onSignOut) {
-      onSignOut();
-    } else {
-      window.history.pushState({}, '', '/');
-      window.dispatchEvent(new Event('popstate'));
+      window.location.href = '/recruiter-login';
     }
   };
 

@@ -68,19 +68,22 @@ export function Header({
 
   // Listen to onAuthStateChange in the Global Navbar
   useEffect(() => {
+    const fetchProfile = async (userId: string) => {
+      try {
+        const { data: recProfile } = await supabase
+          .from('recruiter_profiles')
+          .select('*')
+          .or(`user_id.eq.${userId},id.eq.${userId}`)
+          .maybeSingle();
+        if (recProfile) setProfile(recProfile);
+      } catch (_) {}
+    };
+
     // Initial fetch of session and profile
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         setUser(session.user);
-        supabase
-          .from('recruiter_profiles')
-          .select('*')
-          .or(`user_id.eq.${session.user.id},id.eq.${session.user.id}`)
-          .maybeSingle()
-          .then(({ data: recProfile }) => {
-            if (recProfile) setProfile(recProfile);
-          })
-          .catch(() => {});
+        fetchProfile(session.user.id);
       } else {
         setUser(null);
         setProfile(null);
@@ -94,15 +97,7 @@ export function Header({
       } else if (session?.user) {
         setUser(session.user);
         // Fetch updated profile info here
-        supabase
-          .from('recruiter_profiles')
-          .select('*')
-          .or(`user_id.eq.${session.user.id},id.eq.${session.user.id}`)
-          .maybeSingle()
-          .then(({ data: recProfile }) => {
-            if (recProfile) setProfile(recProfile);
-          })
-          .catch(() => {});
+        fetchProfile(session.user.id);
       }
     });
 
