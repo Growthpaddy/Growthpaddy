@@ -29,52 +29,69 @@ export interface RecruiterSignupFormData {
   selectedPackage: 'Starter' | 'Growth' | 'Enterprise';
 }
 
-// Step 2: Recruiter Signup Handler (exact implementation)
-export const handleRecruiterSignUp = async (formData: {
-  email: string;
-  password: string;
-  companyName: string;
-  companySize: string;
-  industry: string;
-  targetTalentType: 'full_time' | 'contract' | 'part_time'; // matches public.placement_type ENUM
-  selectedPackage: 'Starter' | 'Growth' | 'Enterprise';
-}) => {
-  // 1. Sign up user with metadata
+// Recruiter Registration Execution (RecruiterSignUp.tsx)
+// Submits registration via Supabase Auth with metadata required by the database trigger
+export const handleRecruiterSignUp = async (
+  formData: {
+    email: string;
+    password: string;
+    companyName: string;
+    companySize?: string;
+    industry?: string;
+    targetTalentType?: 'full_time' | 'contract' | 'part_time'; // matches public.placement_type ENUM
+    selectedPackage?: 'Starter' | 'Growth' | 'Enterprise' | string;
+  },
+  selectedPackage?: 'Starter' | 'Growth' | 'Enterprise' | string,
+  navigateFn?: (path: string) => void
+) => {
+  const chosenPackage = selectedPackage || formData.selectedPackage || 'Starter';
+
+  const navigate = navigateFn || ((path: string) => {
+    try {
+      window.history.pushState({}, '', path);
+      window.dispatchEvent(new Event('popstate'));
+      window.location.href = path;
+    } catch {
+      window.location.href = path;
+    }
+  });
+
+  // Submit registration via Supabase Auth with metadata required by database trigger handle_new_recruiter_signup()
   const { data, error } = await supabase.auth.signUp({
     email: formData.email,
     password: formData.password,
     options: {
       data: {
-        role: 'recruiter', // Triggers public.handle_new_recruiter_signup()
+        role: 'recruiter', // Triggers handle_new_recruiter_signup() in PostgreSQL
         company_name: formData.companyName,
-        company_size: formData.companySize,
-        industry: formData.industry,
-        target_talent_type: formData.targetTalentType,
-        subscribed_package: formData.selectedPackage,
+        company_size: formData.companySize || '1-10',
+        industry: formData.industry || 'Growth Marketing',
+        subscribed_package: chosenPackage || 'Starter',
       },
     },
   });
 
   if (error) {
-    alert(`Signup Error: ${error.message}`);
+    alert(`Signup failed: ${error.message}`);
     return;
   }
 
-  // Local sandbox backup sync
+  // Local state persistence for recruiter profile and verification status
   const userId = data?.user?.id || `rec_${formData.email.replace(/[^a-zA-Z0-9]/g, '_')}`;
   const profileRecord = {
     id: userId,
     user_id: userId,
     company_name: formData.companyName,
     organization_name: formData.companyName,
-    company_size: formData.companySize,
-    organization_size: formData.companySize,
-    industry: formData.industry,
-    industry_vertical: formData.industry,
-    target_talent_type: formData.targetTalentType,
-    subscribed_package: formData.selectedPackage,
-    selected_package: formData.selectedPackage,
-    max_contacts: formData.selectedPackage === 'Starter' ? 5 : formData.selectedPackage === 'Growth' ? 25 : 99999,
+    business_email: formData.email,
+    company_size: formData.companySize || '1-10',
+    industry: formData.industry || 'Growth Marketing',
+    target_talent_type: formData.targetTalentType || 'full_time',
+    subscribed_package: chosenPackage,
+    selected_package: chosenPackage,
+    verification_status: 'pending_verification',
+    status: 'pending_approval',
+    max_contacts: chosenPackage === 'Starter' ? 5 : chosenPackage === 'Growth' ? 15 : 99999,
     contacts_unlocked_count: 0,
     created_at: new Date().toISOString()
   };
@@ -92,36 +109,36 @@ export const handleRecruiterSignUp = async (formData: {
       userName: formData.companyName,
       userType: 'recruiter',
       companyName: formData.companyName,
-      selectedPackage: formData.selectedPackage,
+      selectedPackage: chosenPackage,
+      verification_status: 'pending_verification',
       onboarding: profileRecord
     };
     if (idx >= 0) users[idx] = regUser; else users.push(regUser);
     localStorage.setItem('dsp_registered_users', JSON.stringify(users));
 
-    // Optional direct write to recruiter_profiles in case trigger is disabled or table exists
     if (data?.user?.id) {
       await supabase.from('recruiter_profiles').upsert(profileRecord, { onConflict: 'user_id' });
     }
   } catch (_) {}
 
-  // 2. Sign out immediately so recruiter is not auto-logged in
-  await supabase.auth.signOut();
-
-  // 3. Redirect to Recruiter Login page with success message
-  alert('Account created successfully! Please sign in with your credentials to access your recruiter dashboard.');
-  window.location.href = '/recruiter-login';
+  // Immediately direct new recruiter to their dashboard
+  navigate('/recruiter-dashboard?status=pending_approval');
 };
 
-interface RecruiterSignupProps {
-  initialPackage?: 'Starter' | 'Growth' | 'Enterprise' | 'starter_tier' | 'annual_unlimited';
+export interface RecruiterSignupProps {
+  initialPackage?: 'Starter' | 'Growth' | 'Enterprise' | 'starter_tier' | 'annual_unlimited' | string;
   onNavigateToLogin?: () => void;
   onNavigateToHome?: () => void;
+  onNavigateToDashboard?: () => void;
+  navigate?: (path: string) => void;
 }
 
 export default function RecruiterSignup({
   initialPackage = 'Starter',
   onNavigateToLogin,
-  onNavigateToHome
+  onNavigateToHome,
+  onNavigateToDashboard,
+  navigate: customNavigate
 }: RecruiterSignupProps) {
   // Parse package from query params or props
   const [selectedPackage, setSelectedPackage] = useState<'Starter' | 'Growth' | 'Enterprise'>(() => {
@@ -163,6 +180,28 @@ export default function RecruiterSignup({
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const navigate = (path: string) => {
+    if (customNavigate) {
+      customNavigate(path);
+      return;
+    }
+    if (onNavigateToDashboard && path.includes('/recruiter-dashboard')) {
+      try {
+        window.history.pushState({}, '', path);
+        window.dispatchEvent(new Event('popstate'));
+      } catch (_) {}
+      onNavigateToDashboard();
+      return;
+    }
+    try {
+      window.history.pushState({}, '', path);
+      window.dispatchEvent(new Event('popstate'));
+      window.location.href = path;
+    } catch {
+      window.location.href = path;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -170,7 +209,7 @@ export default function RecruiterSignup({
     const cleanEmail = email.trim().toLowerCase();
     const cleanCompany = companyName.trim();
 
-    if (!cleanEmail || !password || !cleanCompany || !companySize || !industry || !targetTalentType) {
+    if (!cleanEmail || !password || !cleanCompany) {
       alert('Please fill out all required fields.');
       return;
     }
@@ -183,18 +222,21 @@ export default function RecruiterSignup({
     setLoading(true);
 
     try {
-      await handleRecruiterSignUp({
-        email: cleanEmail,
-        password,
-        companyName: cleanCompany,
-        companySize,
-        industry,
-        targetTalentType,
-        selectedPackage,
-      });
+      await handleRecruiterSignUp(
+        {
+          email: cleanEmail,
+          password,
+          companyName: cleanCompany,
+          companySize: companySize || '1-10',
+          industry: industry || 'Growth Marketing',
+          targetTalentType: targetTalentType || 'full_time',
+        },
+        selectedPackage || 'Starter',
+        navigate
+      );
     } catch (err: any) {
       const msg = err?.message || 'An unexpected error occurred during signup.';
-      alert(`Signup Error: ${msg}`);
+      alert(`Signup failed: ${msg}`);
       setErrorMessage(msg);
     } finally {
       setLoading(false);

@@ -75,8 +75,33 @@ export default function RecruiterDashboard({
 
   // Fetch live recruiter record and unlocked contacts
   const fetchRecruiterData = async () => {
+    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const urlStatus = urlParams?.get('status');
+
     if (!user) {
-      const onb = localStorage.getItem('dsp_active_onboarding');
+      const cached = typeof window !== 'undefined' ? localStorage.getItem('dsp_recruiter_profile') : null;
+      if (cached || urlStatus === 'pending_approval') {
+        try {
+          const parsed = cached ? JSON.parse(cached) : {};
+          setRecruiter({
+            id: parsed.id || parsed.user_id || 'rec_pending',
+            user_id: parsed.user_id || 'rec_pending',
+            company_name: parsed.company_name || parsed.organization_name || 'Employer Workspace',
+            contact_person: parsed.contact_person || 'Recruiter Lead',
+            business_email: parsed.business_email || parsed.email || 'recruiter@company.com',
+            selected_package: parsed.selected_package || parsed.subscribed_package || 'Starter',
+            subscribed_package: parsed.subscribed_package || parsed.selected_package || 'Starter',
+            verification_status: 'pending_verification',
+            payment_status: 'pending_verification',
+            status: 'pending_approval',
+            contacts_unlocked_count: 0
+          });
+          setLoading(false);
+          return;
+        } catch (_) {}
+      }
+
+      const onb = typeof window !== 'undefined' ? localStorage.getItem('dsp_active_onboarding') : null;
       if (onb) {
         try {
           const parsed = JSON.parse(onb);
@@ -87,7 +112,8 @@ export default function RecruiterDashboard({
               contact_person: parsed.userName || 'Recruiter Lead',
               business_email: parsed.email || 'recruiter@company.com',
               selected_package: 'annual_unlimited',
-              payment_status: 'verified',
+              verification_status: 'pending_verification',
+              payment_status: 'pending_verification',
               contacts_unlocked_count: 0
             });
             setLoading(false);
@@ -135,6 +161,13 @@ export default function RecruiterDashboard({
       const selectedPkg = profileData?.subscribed_package || profileData?.selected_package || recData?.selected_package || user.user_metadata?.subscribed_package || 'Starter';
       const maxContacts = (selectedPkg === 'Enterprise' || selectedPkg === 'annual_unlimited') ? 99999 : (selectedPkg === 'Growth') ? 25 : 5;
 
+      const verificationStatus = 
+        profileData?.verification_status || 
+        recData?.verification_status || 
+        (urlStatus === 'pending_approval' ? 'pending_verification' : undefined) ||
+        (profileData?.status === 'pending_approval' ? 'pending_verification' : undefined) ||
+        'pending_verification';
+
       const mergedRecruiter = {
         id: recData?.id || profileData?.id || user.id,
         user_id: user.id,
@@ -144,7 +177,8 @@ export default function RecruiterDashboard({
         phone_number: recData?.phone_number || '',
         selected_package: selectedPkg,
         subscribed_package: selectedPkg,
-        payment_status: recData?.payment_status || 'verified',
+        verification_status: verificationStatus,
+        payment_status: recData?.payment_status || verificationStatus || 'pending_verification',
         contacts_unlocked_count: recData?.contacts_unlocked_count || 0,
         max_contacts: profileData?.max_contacts || maxContacts,
         created_at: profileData?.created_at || recData?.created_at || new Date().toISOString(),
@@ -378,9 +412,12 @@ export default function RecruiterDashboard({
       {/* MAIN DASHBOARD CONTENT */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
         
-        {/* REVIEW MODE BANNER IF PENDING VERIFICATION */}
-        {isPendingVerification && (
-          <div className="bg-amber-50 border-2 border-amber-400 rounded-3xl p-6 sm:p-7 shadow-sm text-amber-950 space-y-4 animate-fadeIn">
+        {/* PENDING VERIFICATION AMBER ALERT BANNER */}
+        {(recruiter?.verification_status === 'pending_verification' || isPendingVerification) && (
+          <div 
+            id="pending-verification-alert-banner"
+            className="bg-amber-50 border-2 border-amber-400 rounded-3xl p-6 sm:p-7 shadow-sm text-amber-950 space-y-4 animate-fadeIn"
+          >
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-amber-100 text-amber-800 rounded-xl shrink-0">
@@ -388,19 +425,19 @@ export default function RecruiterDashboard({
                 </div>
                 <div>
                   <div className="inline-flex items-center gap-1.5 bg-amber-200/80 text-amber-900 font-mono text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full mb-1">
-                    <span>Account Status: Payment Verification in Progress</span>
+                    <span>Account Status: Pending Approval</span>
                   </div>
-                  <h2 className="font-display font-bold text-lg sm:text-xl text-amber-950">
-                    Review Mode: GTBank Payment Confirmation Pending
+                  <h2 className="font-display font-bold text-base sm:text-lg text-amber-950">
+                    Your recruiter account has been created successfully and is currently pending admin approval (estimated review time: 1 hour). Contact reveals will activate once verified.
                   </h2>
                 </div>
               </div>
 
               <a
-                href={`https://wa.me/2348169664607?text=${encodeURIComponent(`Hello Digital Campux, I have paid via GTBank for ${recruiter?.company_name} (${recruiter?.business_email}). Please expedite account activation.`)}`}
+                href={`https://wa.me/2348169664607?text=${encodeURIComponent(`Hello Digital Campux, I have registered ${recruiter?.company_name || 'my company'} (${recruiter?.business_email || ''}). Please expedite our recruiter account approval.`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hidden sm:flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow-xs whitespace-nowrap"
+                className="hidden sm:flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow-xs whitespace-nowrap shrink-0"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
                 <span>Expedite via WhatsApp</span>
@@ -408,7 +445,7 @@ export default function RecruiterDashboard({
             </div>
 
             <p className="text-xs text-amber-900 leading-relaxed max-w-4xl">
-              All recruiter accounts remain in <strong>Review Mode</strong> upon registration until payment is verified by our team (typically within 1 hour). Once verified, full WhatsApp & email contact unlock features will automatically activate.
+              All recruiter accounts remain in <strong>Review Mode</strong> upon registration until approved by our verification team (typically within 1 hour). Once verified, full WhatsApp & email contact unlock features will automatically activate.
             </p>
 
             <div className="bg-white/80 border border-amber-200 rounded-2xl p-4 text-xs grid grid-cols-1 sm:grid-cols-3 gap-3">

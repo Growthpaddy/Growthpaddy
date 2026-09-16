@@ -194,15 +194,24 @@ export default function TalentDirectory({
   }, []);
 
   // Safe Navigation Handler for Next.js and SPA routing
-  const navigateToRecruiterPackages = useCallback(() => {
+  const navigateToRecruiterPackages = useCallback((talentId?: string) => {
+    const targetUrl = talentId 
+      ? `/packages?intent=view_contact&talent_id=${encodeURIComponent(talentId)}`
+      : `/packages?intent=view_contact`;
     if (navigateToPricing) {
+      try {
+        window.history.pushState({}, '', targetUrl);
+        window.dispatchEvent(new Event('popstate'));
+      } catch (_) {}
       navigateToPricing();
       return;
     }
     try {
-      window.location.href = '/recruiter/packages';
+      window.history.pushState({}, '', targetUrl);
+      window.dispatchEvent(new Event('popstate'));
+      window.location.href = targetUrl;
     } catch {
-      window.location.pathname = '/recruiter/packages';
+      window.location.href = targetUrl;
     }
   }, [navigateToPricing]);
 
@@ -228,6 +237,35 @@ export default function TalentDirectory({
     setPaywallFieldLabel(fieldLabel);
     setShowPaywallModal(true);
   };
+
+  // Action Handler when visitor clicks View Contact on a talent card:
+  // When an unauthenticated visitor clicks View Contact on a talent card, redirect them directly to /packages?intent=view_contact&talent_id=${talent.id}
+  const handleViewContact = useCallback(async (candidate: TalentProfile) => {
+    try {
+      let activeSession = null;
+      if (supabase) {
+        const { data } = await supabase.auth.getSession();
+        activeSession = data?.session;
+      }
+
+      // Check if unauthenticated visitor
+      if (!activeSession?.user) {
+        const targetUrl = `/packages?intent=view_contact&talent_id=${encodeURIComponent(candidate.id)}`;
+        if (typeof window !== 'undefined') {
+          window.history.pushState({}, '', targetUrl);
+          window.dispatchEvent(new Event('popstate'));
+          window.location.href = targetUrl;
+        }
+        return;
+      }
+
+      // If authenticated, check employer quota or open contact details
+      triggerPaywall('Direct Candidate Contact');
+    } catch (err) {
+      const targetUrl = `/packages?intent=view_contact&talent_id=${encodeURIComponent(candidate.id)}`;
+      window.location.href = targetUrl;
+    }
+  }, [triggerPaywall]);
 
   // ----------------------------------------------------------------------------
   // Fetch Real Candidates from Supabase & Saved Admin/Local State (No Demo Profiles)
@@ -1054,12 +1092,12 @@ export default function TalentDirectory({
                     <button
                       type="button"
                       id={`direct-contact-btn-${candidate.id}`}
-                      onClick={() => triggerPaywall('Direct Candidate Contact')}
-                      className="px-3 py-2.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1 shrink-0"
-                      title="Contact Candidate (Recruiter Access Required)"
+                      onClick={() => handleViewContact(candidate)}
+                      className="px-3.5 py-2.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-emerald-700 text-xs font-semibold transition cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+                      title="View Contact (Recruiter Access Required)"
                     >
                       <Lock className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Contact</span>
+                      <span>View Contact</span>
                     </button>
                   </div>
 
@@ -1177,11 +1215,11 @@ export default function TalentDirectory({
                   <button
                     type="button"
                     id="contact-talent-modal-cta"
-                    onClick={() => triggerPaywall('Direct Talent Contact')}
+                    onClick={() => activePortfolioCandidate ? handleViewContact(activePortfolioCandidate) : triggerPaywall('Direct Talent Contact')}
                     className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-xs flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Lock className="w-3.5 h-3.5" />
-                    <span>Contact Candidate</span>
+                    <span>View Contact</span>
                   </button>
                 </div>
               </div>
@@ -1535,7 +1573,7 @@ export default function TalentDirectory({
               <button
                 type="button"
                 id="view-recruiter-packages-cta"
-                onClick={navigateToRecruiterPackages}
+                onClick={() => navigateToRecruiterPackages(activePortfolioCandidate?.id)}
                 className="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs sm:text-sm transition shadow-lg shadow-emerald-500/20 cursor-pointer flex items-center justify-center gap-2 group"
               >
                 <span>View Recruiter Packages & Pricing</span>

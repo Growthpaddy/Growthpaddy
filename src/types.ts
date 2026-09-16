@@ -141,6 +141,7 @@ export type PageType =
   | 'talent' 
   | 'assessment' 
   | 'pricing' 
+  | 'packages'
   | 'admin' 
   | 'admin-login'
   | 'admin-register'

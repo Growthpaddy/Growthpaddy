@@ -165,7 +165,19 @@ export default function ProtectedRoute({
           }
         }
 
-        const isAuthedRecruiter = onbRecruiter || supRecruiter;
+        // Check if redirected immediately after signup with status=pending_approval or cached profile
+        let pendingApproval = false;
+        try {
+          const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+          if (urlParams?.get('status') === 'pending_approval') {
+            pendingApproval = true;
+          }
+          if (typeof window !== 'undefined' && localStorage.getItem('dsp_recruiter_profile')) {
+            pendingApproval = true;
+          }
+        } catch (_) {}
+
+        const isAuthedRecruiter = onbRecruiter || supRecruiter || pendingApproval;
 
         if (isMounted) {
           setIsAuthenticated(isAuthedRecruiter);

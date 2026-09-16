@@ -48,6 +48,7 @@ import PublicPortfolio from './components/PublicPortfolio';
 import RecruiterSignup from './components/RecruiterSignup';
 import RecruiterLogin from './components/RecruiterLogin';
 import RecruiterDashboard from './components/RecruiterDashboard';
+import Packages from './components/Packages';
 import { PageType } from './types';
 
 export default function App() {
@@ -74,13 +75,14 @@ export default function App() {
     switch (page) {
       case 'home': return '/';
       case 'directory': return '/directory';
+      case 'packages': return '/packages';
       case 'employer': return '/employer';
       case 'recruiter-signup': return '/recruiter/signup';
       case 'recruiter-login': return '/recruiter/login';
       case 'recruiter-dashboard': return '/recruiter/dashboard';
       case 'talent': return '/talent-profile';
       case 'assessment': return '/assessment';
-      case 'pricing': return '/pricing';
+      case 'pricing': return '/packages';
       case 'admin': return '/admin';
       case 'admin-dashboard': return '/admin/dashboard';
       case 'admin-login': return '/admin/login';
@@ -132,6 +134,9 @@ export default function App() {
     const lower = cleaned.toLowerCase();
     if (lower === '' || lower === '/' || lower === '/index.html' || lower === '/index') return { page: 'home' };
     if (lower === '/directory') return { page: 'directory' };
+    if (lower === '/packages' || lower === '/recruiter/packages' || lower === '/recruiter-packages' || lower === '/pricing') {
+      return { page: 'packages' };
+    }
     if (lower === '/recruiter/signup' || lower === '/recruiter-signup' || lower === '/employer/signup' || lower === '/signup/recruiter') {
       return { page: 'recruiter-signup', packageType };
     }
@@ -144,7 +149,6 @@ export default function App() {
     if (lower === '/recruiter-profile' || lower === '/employer') return { page: 'employer' };
     if (lower === '/talent-profile' || lower === '/talent') return { page: 'talent' };
     if (lower === '/assessment') return { page: 'assessment' };
-    if (lower === '/pricing') return { page: 'pricing' };
     if (lower === '/admin/register' || lower === '/admin-register' || lower === '/admin/signup' || lower === '/signup/admin') {
       return { page: 'admin-register' };
     }
@@ -161,7 +165,8 @@ export default function App() {
     // Reserved keywords and static assets that should NEVER be treated as candidate slugs
     const reservedSlugs = [
       'index.html', 'index', 'favicon.ico', 'assets', 'api', 'manifest.json', 
-      'robots.txt', 'sitemap.xml', 'home', 'login', 'signup', 'dashboard'
+      'robots.txt', 'sitemap.xml', 'home', 'login', 'signup', 'dashboard',
+      'packages', 'pricing', 'directory', 'talent', 'assessment', 'admin', 'recruiter'
     ];
 
     // Direct candidate slug / name route: /[talent-name] or /[talent-slug]
@@ -728,11 +733,10 @@ export default function App() {
               </section>
             )}
 
-            {/* View 6: Pricing Plans & Slots Licensing */}
-            {currentPage === 'pricing' && (
-              <section className="max-w-7xl mx-auto py-16 px-4">
-                <PricingPlans 
-                  setEmployerSlots={setEmployerSlots}
+            {/* View 6: Pricing Plans & Recruiter Packages (/packages) */}
+            {(currentPage === 'packages' || currentPage === 'pricing') && (
+              <section className="max-w-7xl mx-auto py-8 px-4">
+                <Packages 
                   navigateToPage={navigateToPage}
                 />
               </section>

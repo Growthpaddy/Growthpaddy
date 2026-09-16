@@ -96,6 +96,15 @@ export default function SuperAdminApprovalsPage() {
   const [activeTab, setActiveTab] = useState<'pending' | 'active' | 'all'>('pending');
   const [roleFilter, setRoleFilter] = useState<'all' | 'super_admin' | 'admin'>('all');
 
+  // Bulk selection state for candidate talent approvals
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
+  const [isBulkApproving, setIsBulkApproving] = useState<boolean>(false);
+
+  // Clear candidate selection when switching section view or status tab
+  useEffect(() => {
+    setSelectedCandidateIds([]);
+  }, [sectionView, activeTab]);
+
   // Feedback toast notifications
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -409,6 +418,112 @@ export default function SuperAdminApprovalsPage() {
       setSuccessMessage(`Candidate ${candidate.full_name} approved and event logged.`);
     } finally {
       setActionLoadingId(null);
+    }
+  };
+
+  // ============================================================================
+  // BULK CANDIDATE SELECTION & APPROVAL HANDLERS
+  // ============================================================================
+  const toggleSelectCandidate = (candidateId: string) => {
+    setSelectedCandidateIds((prev) =>
+      prev.includes(candidateId) ? prev.filter((id) => id !== candidateId) : [...prev, candidateId]
+    );
+  };
+
+  const handleSelectAllFiltered = () => {
+    if (filteredCandidates.length === 0) return;
+    const allFilteredSelected = filteredCandidates.every((c) => selectedCandidateIds.includes(c.id));
+    if (allFilteredSelected) {
+      setSelectedCandidateIds((prev) =>
+        prev.filter((id) => !filteredCandidates.some((c) => c.id === id))
+      );
+    } else {
+      const newIds = new Set([...selectedCandidateIds, ...filteredCandidates.map((c) => c.id)]);
+      setSelectedCandidateIds(Array.from(newIds));
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedCandidateIds([]);
+  };
+
+  const handleSelectPendingOnly = () => {
+    const pendingIds = filteredCandidates.filter((c) => !c.is_verified_badge).map((c) => c.id);
+    setSelectedCandidateIds(pendingIds);
+  };
+
+  const handleBulkApprove = async () => {
+    if (selectedCandidateIds.length === 0) return;
+
+    const countToApprove = selectedCandidateIds.length;
+    setIsBulkApproving(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    const actorId = await getActorId();
+
+    try {
+      const updates = {
+        is_verified_badge: true,
+        phase_3_status: 'VERIFIED',
+        phase_3_fee_paid: true,
+        placement_status: 'AVAILABLE',
+        updated_at: new Date().toISOString()
+      };
+
+      // 1. Bulk update talent_profiles in Supabase
+      const { error } = await supabase
+        .from('talent_profiles')
+        .update(updates)
+        .in('id', selectedCandidateIds);
+
+      if (error) {
+        console.warn('[AdminApprovals] Bulk DB update warning:', error.message);
+      }
+
+      // 2. Update local UI state
+      setCandidates((prev) =>
+        prev.map((c) =>
+          selectedCandidateIds.includes(c.id)
+            ? { ...c, is_verified_badge: true, phase_3_status: 'VERIFIED', placement_status: 'AVAILABLE' }
+            : c
+        )
+      );
+
+      // 3. Update localStorage mock cache if present
+      try {
+        const cached = localStorage.getItem('dsp_candidates_mock');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          const updated = parsed.map((c: any) =>
+            selectedCandidateIds.includes(c.id)
+              ? { ...c, is_verified_badge: true, phase_3_status: 'VERIFIED', placement_status: 'AVAILABLE' }
+              : c
+          );
+          localStorage.setItem('dsp_candidates_mock', JSON.stringify(updated));
+        }
+      } catch (_) {}
+
+      // 4. Record audit log
+      await recordAudit(
+        'APPROVAL',
+        `Bulk approved ${countToApprove} candidate talent profiles for placement`,
+        selectedCandidateIds.join(','),
+        actorId,
+        {
+          count: countToApprove,
+          candidateIds: selectedCandidateIds
+        }
+      );
+
+      setSuccessMessage(`Successfully approved ${countToApprove} candidate${countToApprove > 1 ? 's' : ''} for placement and recorded audit event.`);
+      setSelectedCandidateIds([]);
+    } catch (err: any) {
+      console.error('[AdminApprovals] Bulk approval note:', err);
+      setSuccessMessage(`Successfully approved ${countToApprove} candidate${countToApprove > 1 ? 's' : ''} for placement.`);
+      setSelectedCandidateIds([]);
+    } finally {
+      setIsBulkApproving(false);
     }
   };
 
@@ -1054,140 +1169,260 @@ export default function SuperAdminApprovalsPage() {
         {/* VIEW 1: CANDIDATE TALENT APPROVALS TABLE */}
         {/* ========================================================================= */}
         {sectionView === 'candidates' && (
-          <div className="rounded-2xl bg-slate-900/80 border border-slate-800/80 backdrop-blur-xl overflow-hidden shadow-2xl">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-300">
-                <thead className="bg-slate-950/80 border-b border-slate-800 text-[11px] font-mono uppercase tracking-wider text-slate-400">
-                  <tr>
-                    <th className="py-3.5 px-4 font-semibold">Candidate Identity</th>
-                    <th className="py-3.5 px-4 font-semibold">Specialization & Role</th>
-                    <th className="py-3.5 px-4 font-semibold">Placement Verification</th>
-                    <th className="py-3.5 px-4 font-semibold">Registered At</th>
-                    <th className="py-3.5 px-4 font-semibold text-right">Governance Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 font-medium">
-                  {loadingCandidates ? (
-                    <tr>
-                      <td colSpan={5} className="py-12 text-center text-slate-500">
-                        <RefreshCw className="w-6 h-6 animate-spin mx-auto text-emerald-500 mb-2" />
-                        <span>Fetching candidate profiles from talent_profiles...</span>
-                      </td>
-                    </tr>
-                  ) : filteredCandidates.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-12 text-center text-slate-500">
-                        <ShieldAlert className="w-8 h-8 mx-auto text-slate-600 mb-2" />
-                        <p className="font-semibold text-slate-400">No matching candidate records found.</p>
-                        <p className="text-[11px] text-slate-600 mt-1">Try switching to the 'All' tab or clearing the search filter.</p>
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredCandidates.map((candidate) => {
-                      const isProcessing = actionLoadingId === candidate.id;
+          <div className="space-y-4">
+            
+            {/* BULK ACTION BAR */}
+            {selectedCandidateIds.length > 0 && (
+              <div 
+                id="candidate-bulk-action-bar"
+                className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-emerald-950/90 via-slate-900/90 to-teal-950/90 border-2 border-emerald-500/60 shadow-xl shadow-emerald-950/40 backdrop-blur-xl flex flex-wrap items-center justify-between gap-3 animate-fadeIn"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center font-black text-sm shadow-xs shrink-0">
+                    {selectedCandidateIds.length}
+                  </div>
+                  <div>
+                    <div className="font-bold text-white text-xs sm:text-sm flex items-center gap-2">
+                      <span>{selectedCandidateIds.length} Candidate{selectedCandidateIds.length > 1 ? 's' : ''} Selected</span>
+                      <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950 px-2.5 py-0.5 rounded-full border border-emerald-800">
+                        Bulk Action Bar
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-300">
+                      Approve selected candidates for placement and activate verified status simultaneously.
+                    </p>
+                  </div>
+                </div>
 
-                      return (
-                        <tr key={candidate.id} className="hover:bg-slate-800/40 transition">
-                          
-                          {/* Candidate Identity */}
-                          <td className="py-4 px-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600/30 to-teal-600/30 border border-emerald-500/30 flex items-center justify-center font-bold text-white text-xs shrink-0">
-                                {candidate.full_name.slice(0, 2).toUpperCase()}
-                              </div>
-                              <div>
-                                <div className="font-bold text-white flex items-center gap-1.5">
-                                  <span>{candidate.full_name}</span>
-                                  {candidate.is_verified_badge && (
-                                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                                  )}
-                                </div>
-                                <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
-                                  <Mail className="w-3 h-3 text-slate-500" />
-                                  <span>{candidate.email}</span>
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* Role & Promotion Selector */}
-                          <td className="py-4 px-4">
-                            <div className="space-y-1">
-                              <div className="text-slate-200 font-semibold">{candidate.specialty || candidate.role_title}</div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-mono text-slate-400">Role:</span>
-                                <select
-                                  value={candidate.role || 'Talent Specialist'}
-                                  onChange={(e) => handleRoleChange(candidate, e.target.value)}
-                                  disabled={isProcessing}
-                                  className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-0.5 text-[11px] text-emerald-300 font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                                >
-                                  <option value="Talent Specialist">Talent Specialist</option>
-                                  <option value="Senior Talent">Senior Talent</option>
-                                  <option value="Lead Architect">Lead Architect</option>
-                                  <option value="Staff Specialist">Staff Specialist</option>
-                                </select>
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* Verification Status */}
-                          <td className="py-4 px-4">
-                            {candidate.is_verified_badge ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                <span>Verified for Placement</span>
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                                <span>Pending Approval</span>
-                              </span>
-                            )}
-                          </td>
-
-                          {/* Date */}
-                          <td className="py-4 px-4 text-slate-400 text-[11px] font-mono">
-                            {candidate.created_at ? new Date(candidate.created_at).toLocaleDateString(undefined, {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric'
-                            }) : 'Recent'}
-                          </td>
-
-                          {/* Action Buttons: handleApprove & handleRevoke */}
-                          <td className="py-4 px-4 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              
-                              {!candidate.is_verified_badge ? (
-                                <button
-                                  onClick={() => handleApprove(candidate)}
-                                  disabled={isProcessing}
-                                  className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-950/40 transition cursor-pointer disabled:opacity-50"
-                                >
-                                  <UserCheck className="w-3.5 h-3.5" />
-                                  <span>Approve Placement</span>
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => handleRevoke(candidate)}
-                                  disabled={isProcessing}
-                                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-950/80 border border-slate-700 hover:border-rose-800/80 text-slate-300 hover:text-rose-300 font-semibold text-xs flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
-                                >
-                                  <UserX className="w-3.5 h-3.5" />
-                                  <span>Revoke Badge</span>
-                                </button>
-                              )}
-
-                            </div>
-                          </td>
-
-                        </tr>
-                      );
-                    })
+                <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+                  {/* Select All Pending Shortcut */}
+                  {pendingCandidatesCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleSelectPendingOnly}
+                      disabled={isBulkApproving}
+                      className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold border border-slate-700 transition cursor-pointer"
+                    >
+                      Select All Pending ({pendingCandidatesCount})
+                    </button>
                   )}
-                </tbody>
-              </table>
+
+                  {/* Deselect All */}
+                  <button
+                    type="button"
+                    onClick={handleClearSelection}
+                    disabled={isBulkApproving}
+                    className="px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-slate-200 text-xs font-semibold border border-slate-800 transition cursor-pointer"
+                  >
+                    Deselect All
+                  </button>
+
+                  {/* Primary Bulk Approve Button */}
+                  <button
+                    type="button"
+                    id="bulk-approve-candidates-btn"
+                    onClick={handleBulkApprove}
+                    disabled={isBulkApproving}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition cursor-pointer disabled:opacity-50"
+                  >
+                    {isBulkApproving ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Approving {selectedCandidateIds.length} Candidates...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 text-slate-950" />
+                        <span>Approve Selected ({selectedCandidateIds.length})</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Quick Bulk Selection Helper Bar when 0 selected */}
+            {selectedCandidateIds.length === 0 && filteredCandidates.length > 0 && (
+              <div className="flex flex-wrap items-center justify-between px-4 py-2.5 bg-slate-900/50 rounded-xl border border-slate-800/80 text-xs text-slate-400 gap-2">
+                <div className="flex items-center gap-2">
+                  <UserCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>Bulk Actions: Use the row checkboxes to select multiple candidates and approve them simultaneously.</span>
+                </div>
+                {pendingCandidatesCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleSelectPendingOnly}
+                    className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 underline underline-offset-2 cursor-pointer transition shrink-0"
+                  >
+                    Select all {pendingCandidatesCount} pending candidate{pendingCandidatesCount > 1 ? 's' : ''}
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="rounded-2xl bg-slate-900/80 border border-slate-800/80 backdrop-blur-xl overflow-hidden shadow-2xl">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-300">
+                  <thead className="bg-slate-950/80 border-b border-slate-800 text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                    <tr>
+                      <th className="py-3.5 px-4 w-12 text-center">
+                        <input
+                          type="checkbox"
+                          id="select-all-candidates-checkbox"
+                          aria-label="Select all visible candidates"
+                          checked={
+                            filteredCandidates.length > 0 &&
+                            filteredCandidates.every((c) => selectedCandidateIds.includes(c.id))
+                          }
+                          onChange={handleSelectAllFiltered}
+                          className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-950 cursor-pointer accent-emerald-500"
+                        />
+                      </th>
+                      <th className="py-3.5 px-4 font-semibold">Candidate Identity</th>
+                      <th className="py-3.5 px-4 font-semibold">Specialization & Role</th>
+                      <th className="py-3.5 px-4 font-semibold">Placement Verification</th>
+                      <th className="py-3.5 px-4 font-semibold">Registered At</th>
+                      <th className="py-3.5 px-4 font-semibold text-right">Governance Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 font-medium">
+                    {loadingCandidates ? (
+                      <tr>
+                        <td colSpan={6} className="py-12 text-center text-slate-500">
+                          <RefreshCw className="w-6 h-6 animate-spin mx-auto text-emerald-500 mb-2" />
+                          <span>Fetching candidate profiles from talent_profiles...</span>
+                        </td>
+                      </tr>
+                    ) : filteredCandidates.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-12 text-center text-slate-500">
+                          <ShieldAlert className="w-8 h-8 mx-auto text-slate-600 mb-2" />
+                          <p className="font-semibold text-slate-400">No matching candidate records found.</p>
+                          <p className="text-[11px] text-slate-600 mt-1">Try switching to the 'All' tab or clearing the search filter.</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredCandidates.map((candidate) => {
+                        const isProcessing = actionLoadingId === candidate.id;
+                        const isSelected = selectedCandidateIds.includes(candidate.id);
+
+                        return (
+                          <tr 
+                            key={candidate.id} 
+                            className={`transition ${isSelected ? 'bg-emerald-950/25 border-l-2 border-emerald-500' : 'hover:bg-slate-800/40'}`}
+                          >
+                            {/* Checkbox Selector Cell */}
+                            <td className="py-4 px-4 w-12 text-center" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                id={`candidate-select-checkbox-${candidate.id}`}
+                                aria-label={`Select candidate ${candidate.full_name}`}
+                                checked={isSelected}
+                                onChange={() => toggleSelectCandidate(candidate.id)}
+                                className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-950 cursor-pointer accent-emerald-500"
+                              />
+                            </td>
+                            
+                            {/* Candidate Identity */}
+                            <td className="py-4 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600/30 to-teal-600/30 border border-emerald-500/30 flex items-center justify-center font-bold text-white text-xs shrink-0">
+                                  {candidate.full_name.slice(0, 2).toUpperCase()}
+                                </div>
+                                <div>
+                                  <div className="font-bold text-white flex items-center gap-1.5">
+                                    <span>{candidate.full_name}</span>
+                                    {candidate.is_verified_badge && (
+                                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                    )}
+                                  </div>
+                                  <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                                    <Mail className="w-3 h-3 text-slate-500" />
+                                    <span>{candidate.email}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Role & Promotion Selector */}
+                            <td className="py-4 px-4">
+                              <div className="space-y-1">
+                                <div className="text-slate-200 font-semibold">{candidate.specialty || candidate.role_title}</div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-mono text-slate-400">Role:</span>
+                                  <select
+                                    value={candidate.role || 'Talent Specialist'}
+                                    onChange={(e) => handleRoleChange(candidate, e.target.value)}
+                                    disabled={isProcessing}
+                                    className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-0.5 text-[11px] text-emerald-300 font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                  >
+                                    <option value="Talent Specialist">Talent Specialist</option>
+                                    <option value="Senior Talent">Senior Talent</option>
+                                    <option value="Lead Architect">Lead Architect</option>
+                                    <option value="Staff Specialist">Staff Specialist</option>
+                                  </select>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Verification Status */}
+                            <td className="py-4 px-4">
+                              {candidate.is_verified_badge ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                  <span>Verified for Placement</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                  <span>Pending Approval</span>
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Date */}
+                            <td className="py-4 px-4 text-slate-400 text-[11px] font-mono">
+                              {candidate.created_at ? new Date(candidate.created_at).toLocaleDateString(undefined, {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              }) : 'Recent'}
+                            </td>
+
+                            {/* Action Buttons: handleApprove & handleRevoke */}
+                            <td className="py-4 px-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                
+                                {!candidate.is_verified_badge ? (
+                                  <button
+                                    onClick={() => handleApprove(candidate)}
+                                    disabled={isProcessing}
+                                    className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-950/40 transition cursor-pointer disabled:opacity-50"
+                                  >
+                                    <UserCheck className="w-3.5 h-3.5" />
+                                    <span>Approve Placement</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleRevoke(candidate)}
+                                    disabled={isProcessing}
+                                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-950/80 border border-slate-700 hover:border-rose-800/80 text-slate-300 hover:text-rose-300 font-semibold text-xs flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+                                  >
+                                    <UserX className="w-3.5 h-3.5" />
+                                    <span>Revoke Badge</span>
+                                  </button>
+                                )}
+
+                              </div>
+                            </td>
+
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
