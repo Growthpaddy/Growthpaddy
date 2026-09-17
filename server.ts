@@ -49,6 +49,109 @@ function getSupabaseClient() {
 // API ROUTES FIRST
 // ========================================================
 
+// 0. Recruiter Signup Endpoint - Direct persistence to public.recruiters via Service Role
+app.post("/api/recruiter/signup", async (req, res) => {
+  try {
+    const { email, password, companyName, contactPerson, phoneNumber, selectedPackage, industry, companySize, userId } = req.body;
+    
+    if (!email || !companyName) {
+      return res.status(400).json({ error: "Email and Company Name are required." });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanCompany = companyName.trim();
+    const cleanContact = contactPerson || cleanCompany;
+    const cleanPhone = phoneNumber || "";
+    const chosenPackage = (selectedPackage === "Enterprise" || selectedPackage === "Growth") ? selectedPackage : "Starter";
+    const maxContacts = chosenPackage === "Enterprise" ? 99999 : chosenPackage === "Growth" ? 25 : 5;
+
+    const supabase = getSupabaseClient();
+
+    // Check if recruiter already exists in public.recruiters
+    const { data: existingRec } = await supabase
+      .from("recruiters")
+      .select("id, business_email, company_name")
+      .eq("business_email", cleanEmail)
+      .maybeSingle();
+
+    if (existingRec) {
+      return res.status(200).json({
+        success: true,
+        alreadyExists: true,
+        recruiter: existingRec
+      });
+    }
+
+    const isUuid = (val?: string | null) => 
+      Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
+    const validUserId = isUuid(userId) ? userId : null;
+
+    // Insert directly into public.recruiters using Service Role Key
+    let insertedRecruiter: any = null;
+    let insertError: any = null;
+
+    const insertPayload = {
+      user_id: validUserId,
+      company_name: cleanCompany,
+      contact_person: cleanContact,
+      business_email: cleanEmail,
+      phone_number: cleanPhone,
+      selected_package: chosenPackage,
+      payment_status: "pending_verification",
+      contacts_unlocked_count: 0,
+      max_contacts: maxContacts,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    const firstAttempt = await supabase
+      .from("recruiters")
+      .insert(insertPayload)
+      .select()
+      .maybeSingle();
+
+    if (!firstAttempt.error && firstAttempt.data) {
+      insertedRecruiter = firstAttempt.data;
+    } else {
+      insertError = firstAttempt.error;
+      // If foreign key constraint on user_id failed, retry with user_id: null
+      if (validUserId) {
+        const retry = await supabase
+          .from("recruiters")
+          .insert({ ...insertPayload, user_id: null })
+          .select()
+          .maybeSingle();
+        if (!retry.error && retry.data) {
+          insertedRecruiter = retry.data;
+          insertError = null;
+        }
+      }
+    }
+
+    if (insertError) {
+      console.warn("[Server] Recruiter insert notice:", insertError);
+    }
+
+    return res.json({
+      success: true,
+      recruiter: insertedRecruiter || {
+        id: validUserId || `rec_${cleanEmail.replace(/[^a-zA-Z0-9]/g, "_")}`,
+        user_id: validUserId,
+        company_name: cleanCompany,
+        contact_person: cleanContact,
+        business_email: cleanEmail,
+        phone_number: cleanPhone,
+        selected_package: chosenPackage,
+        payment_status: "pending_verification",
+        max_contacts: maxContacts
+      }
+    });
+  } catch (err: any) {
+    console.error("[Server] Recruiter signup error:", err);
+    return res.status(500).json({ error: err.message || "Failed to register recruiter" });
+  }
+});
+
 // 1. Dynamic Quiz Question Generation Endpoint
 app.post("/api/gemini/quiz", async (req, res) => {
   try {

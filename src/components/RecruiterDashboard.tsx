@@ -132,18 +132,22 @@ export default function RecruiterDashboard({
       setRefreshing(true);
 
       // 1. Fetch recruiter profile directly from public.recruiters instead of recruiter_profiles
-      let { data: recruiter } = await supabase
-        .from('recruiters')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
+      let recruiter: any = null;
+      try {
+        const { data } = await supabase
+          .from('recruiters')
+          .select('*')
+          .or(`user_id.eq.${user.id},business_email.eq.${user.email || ''}`)
+          .maybeSingle();
+        if (data) recruiter = data;
+      } catch (_) {}
 
       if (!recruiter) {
-        const cached = localStorage.getItem('dsp_recruiter_profile');
+        const cached = localStorage.getItem('dsp_recruiter_profile') || localStorage.getItem(`mock_recruiter_profiles_${user.id}`);
         if (cached) {
           try {
             const parsed = JSON.parse(cached);
-            if (parsed.user_id === user.id || parsed.id === user.id) {
+            if (parsed.user_id === user.id || parsed.id === user.id || parsed.business_email === user.email) {
               recruiter = parsed;
             }
           } catch (_) {}
@@ -229,8 +233,8 @@ export default function RecruiterDashboard({
       const { data: recruiter, error } = await supabase
         .from('recruiters')
         .select('*')
-        .eq('user_id', user.id)
-        .single();
+        .or(`user_id.eq.${user.id},business_email.eq.${user.email || ''}`)
+        .maybeSingle();
 
       if (!error && recruiter) {
         setRecruiterProfile(recruiter);
