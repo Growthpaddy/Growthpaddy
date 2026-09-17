@@ -432,15 +432,24 @@ export default function SuperAdminApprovalsPage() {
 
   const handleSelectAllFiltered = () => {
     if (filteredCandidates.length === 0) return;
-    const allFilteredSelected = filteredCandidates.every((c) => selectedCandidateIds.includes(c.id));
-    if (allFilteredSelected) {
-      setSelectedCandidateIds((prev) =>
-        prev.filter((id) => !filteredCandidates.some((c) => c.id === id))
-      );
-    } else {
-      const newIds = new Set([...selectedCandidateIds, ...filteredCandidates.map((c) => c.id)]);
-      setSelectedCandidateIds(Array.from(newIds));
-    }
+
+    const filteredIds = filteredCandidates.map((c) => c.id);
+    const filteredIdSet = new Set(filteredIds);
+
+    setSelectedCandidateIds((prev) => {
+      // Determine if all currently filtered candidates are already selected in the latest state
+      const allSelected = filteredIds.length > 0 && filteredIds.every((id) => prev.includes(id));
+
+      if (allSelected) {
+        // Deselect all candidates matching the current filter
+        return prev.filter((id) => !filteredIdSet.has(id));
+      } else {
+        // Select all candidates matching the current filter, preserving any other selections
+        const nextSet = new Set(prev);
+        filteredIds.forEach((id) => nextSet.add(id));
+        return Array.from(nextSet);
+      }
+    });
   };
 
   const handleClearSelection = () => {
@@ -449,7 +458,11 @@ export default function SuperAdminApprovalsPage() {
 
   const handleSelectPendingOnly = () => {
     const pendingIds = filteredCandidates.filter((c) => !c.is_verified_badge).map((c) => c.id);
-    setSelectedCandidateIds(pendingIds);
+    setSelectedCandidateIds((prev) => {
+      const nextSet = new Set(prev);
+      pendingIds.forEach((id) => nextSet.add(id));
+      return Array.from(nextSet);
+    });
   };
 
   const handleBulkApprove = async () => {
@@ -826,6 +839,26 @@ export default function SuperAdminApprovalsPage() {
       return true;
     });
   }, [candidates, activeTab, searchQuery]);
+
+  // Selection metrics reflecting the currently filtered candidate list
+  const isAllFilteredSelected = useMemo(() => {
+    if (filteredCandidates.length === 0) return false;
+    return filteredCandidates.every((c) => selectedCandidateIds.includes(c.id));
+  }, [filteredCandidates, selectedCandidateIds]);
+
+  const selectedFilteredCount = useMemo(() => {
+    if (filteredCandidates.length === 0) return 0;
+    const filteredIdSet = new Set(filteredCandidates.map((c) => c.id));
+    return selectedCandidateIds.filter((id) => filteredIdSet.has(id)).length;
+  }, [filteredCandidates, selectedCandidateIds]);
+
+  const isSomeFilteredSelected = useMemo(() => {
+    return selectedFilteredCount > 0;
+  }, [selectedFilteredCount]);
+
+  const isIndeterminate = useMemo(() => {
+    return isSomeFilteredSelected && !isAllFilteredSelected;
+  }, [isSomeFilteredSelected, isAllFilteredSelected]);
 
   // Filtered Admin Profiles
   const filteredProfiles = useMemo(() => {
@@ -1270,12 +1303,22 @@ export default function SuperAdminApprovalsPage() {
                           type="checkbox"
                           id="select-all-candidates-checkbox"
                           aria-label="Select all visible candidates"
-                          checked={
-                            filteredCandidates.length > 0 &&
-                            filteredCandidates.every((c) => selectedCandidateIds.includes(c.id))
+                          title={
+                            filteredCandidates.length === 0
+                              ? 'No candidates to select'
+                              : isAllFilteredSelected
+                              ? `Deselect all ${filteredCandidates.length} visible candidates`
+                              : `Select all ${filteredCandidates.length} visible candidates`
                           }
+                          checked={isAllFilteredSelected}
+                          ref={(input) => {
+                            if (input) {
+                              input.indeterminate = isIndeterminate;
+                            }
+                          }}
                           onChange={handleSelectAllFiltered}
-                          className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-950 cursor-pointer accent-emerald-500"
+                          disabled={loadingCandidates || filteredCandidates.length === 0}
+                          className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-950 cursor-pointer accent-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed"
                         />
                       </th>
                       <th className="py-3.5 px-4 font-semibold">Candidate Identity</th>

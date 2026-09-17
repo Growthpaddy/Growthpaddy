@@ -57,6 +57,7 @@ export default function RecruiterDashboard({
 }: RecruiterDashboardProps) {
   const { user } = useSupabase();
   const [recruiter, setRecruiter] = useState<any>(null);
+  const [recruiterProfile, setRecruiterProfile] = useState<any>(null);
   const [unlockedTalents, setUnlockedTalents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -228,8 +229,26 @@ export default function RecruiterDashboard({
     }
   };
 
+  const fetchRecruiterProfile = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: profile, error } = await supabase
+      .from('recruiter_profiles')
+      .select('*')
+      .or(`user_id.eq.${user.id},id.eq.${user.id}`)
+      .single();
+    if (error) {
+      console.error('Error fetching profile:', error);
+    } else {
+      setRecruiterProfile(profile);
+      setRecruiter((prev: any) => ({ ...prev, ...profile }));
+    }
+  };
+
   useEffect(() => {
     fetchRecruiterData();
+    fetchRecruiterProfile();
   }, [user]);
 
   const handleSignOutClick = async () => {
