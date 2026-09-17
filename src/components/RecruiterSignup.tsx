@@ -17,7 +17,8 @@ import {
   Briefcase,
   Users,
   Layers,
-  Clock
+  Clock,
+  Phone
 } from 'lucide-react';
 export interface RecruiterPackageItem {
   id: 'Starter' | 'Enterprise';
@@ -91,7 +92,8 @@ const formatErrorMessage = (err: any): string => {
     if (desc && desc !== '{}' && desc !== '[object Object]') return desc;
   }
   if (err.error?.message && typeof err.error.message === 'string') {
-    return err.error.message.trim();
+    const msg = err.error.message.trim();
+    if (msg && msg !== '{}' && msg !== '[object Object]') return msg;
   }
   if (err.details && typeof err.details === 'string') {
     const d = err.details.trim();
@@ -107,11 +109,14 @@ export const handleRecruiterSignUp = async (
     email: string;
     password: string;
     companyName: string;
+    contactPerson?: string;
+    fullName?: string;
+    phoneNumber?: string;
     companySize?: string;
     industry?: string;
     targetTalentType?: 'full_time' | 'contract' | 'part_time';
     selectedPackage?: 'Starter' | 'Enterprise' | string;
-  },
+  } | any,
   selectedPackage?: 'Starter' | 'Enterprise' | string,
   navigateFn?: (path: string) => void
 ) => {
@@ -134,11 +139,13 @@ export const handleRecruiterSignUp = async (
 
   // Match the PostgreSQL trigger expectations for handle_new_recruiter_signup()
   const incomingMetadata = {
-    role: 'recruiter', // CRITICAL: Triggers handle_new_recruiter_signup() in Postgres
+    role: 'recruiter', // Triggers handle_new_recruiter_signup()
     company_name: cleanCompany,
+    contact_person: formData.contactPerson || formData.fullName,
+    phone_number: formData.phoneNumber,
+    subscribed_package: chosenPackage || 'Starter', // Must match 'Starter', 'Growth', or 'Enterprise'
     company_size: formData.companySize || '1-10',
     industry: formData.industry || 'Growth Marketing',
-    subscribed_package: chosenPackage || 'Starter', // 'Starter', 'Growth', or 'Enterprise'
   };
 
   console.log('[RecruiterSignUp] Submitting Supabase signUp request:', {
@@ -173,11 +180,10 @@ export const handleRecruiterSignUp = async (
         raw: String(error)
       };
 
-      console.error('[RecruiterSignUp] Detailed Supabase Auth SignUp Error:', {
+      console.warn('[RecruiterSignUp] Supabase Auth SignUp status note:', {
         errorCode,
         errorStatus,
-        errorMessage: errorMsg || error.message,
-        raw: rawErrorObj
+        errorMessage: errorMsg || 'Auth trigger note',
       });
 
       if (
@@ -290,6 +296,8 @@ export default function RecruiterSignup({
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [companyName, setCompanyName] = useState('');
+  const [contactPerson, setContactPerson] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [companySize, setCompanySize] = useState('11-50');
   const [industry, setIndustry] = useState('Software & AI Technology');
   const [targetTalentType, setTargetTalentType] = useState<'full_time' | 'contract' | 'part_time'>('full_time');
@@ -323,12 +331,96 @@ export default function RecruiterSignup({
     email,
     password,
     companyName,
+    contactPerson,
+    fullName: contactPerson,
+    phoneNumber,
     companySize: companySize || '1-10',
     industry: industry || 'Growth Marketing',
     targetTalentType: targetTalentType || 'full_time',
   };
 
-  const handleRecruiterSignUp = async (e: React.FormEvent) => {
+  const handleRecruiterSignUp = async (formData: any) => {
+    setLoading(true);
+    setErrorMessage(null);
+
+    const { data, error } = await supabase.auth.signUp({
+      email: formData.email,
+      password: formData.password,
+      options: {
+        data: {
+          role: 'recruiter', // Triggers handle_new_recruiter_signup()
+          company_name: formData.companyName,
+          contact_person: formData.contactPerson || formData.fullName,
+          phone_number: formData.phoneNumber,
+          subscribed_package: selectedPackage || 'Starter', // Must match 'Starter', 'Growth', or 'Enterprise'
+        },
+      },
+    });
+
+    if (error) {
+      alert(`Signup failed: ${error.message}`);
+      setErrorMessage(`Signup failed: ${error.message}`);
+      setLoading(false);
+      return;
+    }
+
+    // Persist recruiter profile locally for immediate dashboard display
+    const cleanEmail = (formData.email || '').trim().toLowerCase();
+    const cleanCompany = (formData.companyName || '').trim();
+    const userId = data?.user?.id || `rec_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    const profileRecord = {
+      id: userId,
+      user_id: userId,
+      company_name: cleanCompany,
+      contact_person: formData.contactPerson || formData.fullName || cleanCompany,
+      phone_number: formData.phoneNumber || '',
+      organization_name: cleanCompany,
+      business_email: cleanEmail,
+      company_size: formData.companySize || '1-10',
+      industry: formData.industry || 'Growth Marketing',
+      subscribed_package: selectedPackage || 'Starter',
+      selected_package: selectedPackage || 'Starter',
+      verification_status: 'pending_verification',
+      status: 'pending_approval',
+      max_contacts: selectedPackage === 'Enterprise' ? 99999 : 5,
+      contacts_unlocked_count: 0,
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      localStorage.setItem(`mock_recruiter_profiles_${userId}`, JSON.stringify(profileRecord));
+      localStorage.setItem('dsp_recruiter_profile', JSON.stringify(profileRecord));
+      
+      const rawUsers = localStorage.getItem('dsp_registered_users');
+      const users = rawUsers ? JSON.parse(rawUsers) : [];
+      const idx = users.findIndex((u: any) => u.email?.toLowerCase() === cleanEmail);
+      const regUser = {
+        email: cleanEmail,
+        password: formData.password,
+        userName: cleanCompany,
+        userType: 'recruiter',
+        companyName: cleanCompany,
+        selectedPackage: selectedPackage || 'Starter',
+        verification_status: 'pending_verification',
+        onboarding: profileRecord
+      };
+      if (idx >= 0) users[idx] = regUser; else users.push(regUser);
+      localStorage.setItem('dsp_registered_users', JSON.stringify(users));
+
+      if (data?.user?.id) {
+        await supabase.from('recruiter_profiles').upsert(profileRecord, { onConflict: 'user_id' });
+      }
+    } catch (storageErr) {
+      console.warn('Storage sync notice:', storageErr);
+    } finally {
+      setLoading(false);
+    }
+
+    // Redirect to dashboard with pending status alert
+    navigate('/recruiter-dashboard?status=pending_verification');
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
@@ -345,105 +437,8 @@ export default function RecruiterSignup({
       return;
     }
 
-    setLoading(true);
-
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            role: 'recruiter', // CRITICAL: Triggers handle_new_recruiter_signup() in Postgres
-            company_name: formData.companyName,
-            company_size: formData.companySize || '1-10',
-            industry: formData.industry || 'Growth Marketing',
-            subscribed_package: selectedPackage || 'Starter', // 'Starter', 'Growth', or 'Enterprise'
-          },
-        },
-      });
-
-      if (error) {
-        console.error('Signup error:', error);
-        const errMsg = formatErrorMessage(error) || error.message;
-        if (
-          errMsg.toLowerCase().includes('already registered') || 
-          errMsg.toLowerCase().includes('already exists') ||
-          errMsg.toLowerCase().includes('user already')
-        ) {
-          alert(`Signup Error: An account with this email already exists. Please sign in.`);
-          setErrorMessage('An account with this email already exists. Please sign in.');
-          return;
-        }
-
-        // Gracefully handle PostgreSQL trigger 500 with local fallback
-        if (error.status === 500 || String(error.message).includes('Database error') || String(error.message) === '{}') {
-          console.warn('[RecruiterSignUp] Database trigger warning. Using session fallback for recruiter onboarding.');
-        } else {
-          alert(`Signup Error: ${errMsg}`);
-          setErrorMessage(errMsg);
-          return;
-        }
-      }
-
-      // Persist recruiter profile locally for immediate dashboard display
-      const userId = data?.user?.id || `rec_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
-      const profileRecord = {
-        id: userId,
-        user_id: userId,
-        company_name: cleanCompany,
-        organization_name: cleanCompany,
-        business_email: cleanEmail,
-        company_size: formData.companySize || '1-10',
-        industry: formData.industry || 'Growth Marketing',
-        subscribed_package: selectedPackage || 'Starter',
-        selected_package: selectedPackage || 'Starter',
-        verification_status: 'pending_verification',
-        status: 'pending_approval',
-        max_contacts: selectedPackage === 'Enterprise' ? 99999 : 5,
-        contacts_unlocked_count: 0,
-        created_at: new Date().toISOString()
-      };
-
-      try {
-        localStorage.setItem(`mock_recruiter_profiles_${userId}`, JSON.stringify(profileRecord));
-        localStorage.setItem('dsp_recruiter_profile', JSON.stringify(profileRecord));
-        
-        const rawUsers = localStorage.getItem('dsp_registered_users');
-        const users = rawUsers ? JSON.parse(rawUsers) : [];
-        const idx = users.findIndex((u: any) => u.email?.toLowerCase() === cleanEmail);
-        const regUser = {
-          email: cleanEmail,
-          password: formData.password,
-          userName: cleanCompany,
-          userType: 'recruiter',
-          companyName: cleanCompany,
-          selectedPackage: selectedPackage || 'Starter',
-          verification_status: 'pending_verification',
-          onboarding: profileRecord
-        };
-        if (idx >= 0) users[idx] = regUser; else users.push(regUser);
-        localStorage.setItem('dsp_registered_users', JSON.stringify(users));
-
-        if (data?.user?.id) {
-          await supabase.from('recruiter_profiles').upsert(profileRecord, { onConflict: 'user_id' });
-        }
-      } catch (storageErr) {
-        console.warn('Storage sync notice:', storageErr);
-      }
-
-      // Immediately direct new recruiter to dashboard pending verification
-      navigate('/recruiter-dashboard?status=pending_verification');
-    } catch (err: any) {
-      console.error('Signup error caught:', err);
-      const msg = formatErrorMessage(err) || err.message || 'Registration could not be completed. Please try again.';
-      alert(`Signup Error: ${msg}`);
-      setErrorMessage(msg);
-    } finally {
-      setLoading(false);
-    }
+    handleRecruiterSignUp(formData);
   };
-
-  const handleSubmit = handleRecruiterSignUp;
 
   const navToLogin = () => {
     if (onNavigateToLogin) {
@@ -561,7 +556,7 @@ export default function RecruiterSignup({
           )}
 
           {/* Form Fields */}
-          <form onSubmit={handleRecruiterSignUp} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4">
               <label className="block text-xs font-mono font-bold uppercase text-slate-700">
                 2. Organization & Hiring Requirements:
@@ -581,6 +576,40 @@ export default function RecruiterSignup({
                       value={companyName}
                       onChange={(e) => setCompanyName(e.target.value)}
                       placeholder="e.g. Acme Corporation"
+                      className="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50 focus:bg-white transition"
+                    />
+                  </div>
+                </div>
+
+                {/* Contact Person */}
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Contact Person / Lead Name
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={contactPerson}
+                      onChange={(e) => setContactPerson(e.target.value)}
+                      placeholder="e.g. Sarah Jenkins"
+                      className="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50 focus:bg-white transition"
+                    />
+                  </div>
+                </div>
+
+                {/* Phone Number */}
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Phone Number
+                  </label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="e.g. +234 801 234 5678"
                       className="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50 focus:bg-white transition"
                     />
                   </div>

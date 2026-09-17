@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   ShieldCheck,
   ShieldAlert,
@@ -96,13 +96,14 @@ export default function SuperAdminApprovalsPage() {
   const [activeTab, setActiveTab] = useState<'pending' | 'active' | 'all'>('pending');
   const [roleFilter, setRoleFilter] = useState<'all' | 'super_admin' | 'admin'>('all');
 
-  // Bulk selection state for candidate talent approvals
-  const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
+  // Bulk selection state for candidate talent approvals (Set-based to prevent state flickering & ensure O(1) lookups on large datasets)
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<string>>(new Set());
   const [isBulkApproving, setIsBulkApproving] = useState<boolean>(false);
+  const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
 
   // Clear candidate selection when switching section view or status tab
   useEffect(() => {
-    setSelectedCandidateIds([]);
+    setSelectedCandidateIds(new Set());
   }, [sectionView, activeTab]);
 
   // Feedback toast notifications
@@ -421,54 +422,121 @@ export default function SuperAdminApprovalsPage() {
     }
   };
 
-  // ============================================================================
-  // BULK CANDIDATE SELECTION & APPROVAL HANDLERS
-  // ============================================================================
-  const toggleSelectCandidate = (candidateId: string) => {
-    setSelectedCandidateIds((prev) =>
-      prev.includes(candidateId) ? prev.filter((id) => id !== candidateId) : [...prev, candidateId]
-    );
-  };
+  // Metrics calculation
+  const verifiedCandidatesCount = useMemo(() => candidates.filter((c) => c.is_verified_badge).length, [candidates]);
+  const pendingCandidatesCount = useMemo(() => candidates.filter((c) => !c.is_verified_badge).length, [candidates]);
+  const pendingAdminCount = useMemo(() => profiles.filter((p) => !p.is_active).length, [profiles]);
+  const activeAdminCount = useMemo(() => profiles.filter((p) => p.is_active).length, [profiles]);
 
-  const handleSelectAllFiltered = () => {
+  // Filtered Candidates
+  const filteredCandidates = useMemo(() => {
+    return candidates.filter((c) => {
+      if (activeTab === 'pending' && c.is_verified_badge) return false;
+      if (activeTab === 'active' && !c.is_verified_badge) return false;
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesName = c.full_name.toLowerCase().includes(q);
+        const matchesEmail = c.email.toLowerCase().includes(q);
+        const matchesRole = (c.role || '').toLowerCase().includes(q) || (c.specialty || '').toLowerCase().includes(q);
+        if (!matchesName && !matchesEmail && !matchesRole) return false;
+      }
+      return true;
+    });
+  }, [candidates, activeTab, searchQuery]);
+
+  // Selection metrics reflecting the currently filtered candidate list directly
+  const { selectedFilteredCount, isAllFilteredSelected, isSomeFilteredSelected, isIndeterminate } = useMemo(() => {
+    if (filteredCandidates.length === 0) {
+      return {
+        selectedFilteredCount: 0,
+        isAllFilteredSelected: false,
+        isSomeFilteredSelected: false,
+        isIndeterminate: false,
+      };
+    }
+
+    let count = 0;
+    for (const c of filteredCandidates) {
+      if (selectedCandidateIds.has(c.id)) {
+        count++;
+      }
+    }
+
+    const allSelected = count === filteredCandidates.length;
+    const someSelected = count > 0;
+    const indeterminate = someSelected && !allSelected;
+
+    return {
+      selectedFilteredCount: count,
+      isAllFilteredSelected: allSelected,
+      isSomeFilteredSelected: someSelected,
+      isIndeterminate: indeterminate,
+    };
+  }, [filteredCandidates, selectedCandidateIds]);
+
+  // Synchronize DOM indeterminate state for the Select All checkbox directly
+  useEffect(() => {
+    if (selectAllCheckboxRef.current) {
+      selectAllCheckboxRef.current.indeterminate = isIndeterminate;
+    }
+  }, [isIndeterminate]);
+
+  // ============================================================================
+  // BULK CANDIDATE SELECTION & APPROVAL HANDLERS (Set-based implementation)
+  // ============================================================================
+  const toggleSelectCandidate = useCallback((candidateId: string) => {
+    setSelectedCandidateIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(candidateId)) {
+        next.delete(candidateId);
+      } else {
+        next.add(candidateId);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleSelectAllFiltered = useCallback(() => {
     if (filteredCandidates.length === 0) return;
-
-    const filteredIds = filteredCandidates.map((c) => c.id);
-    const filteredIdSet = new Set(filteredIds);
 
     setSelectedCandidateIds((prev) => {
       // Determine if all currently filtered candidates are already selected in the latest state
-      const allSelected = filteredIds.length > 0 && filteredIds.every((id) => prev.includes(id));
+      const allSelected = filteredCandidates.every((c) => prev.has(c.id));
+      const next = new Set(prev);
 
       if (allSelected) {
-        // Deselect all candidates matching the current filter
-        return prev.filter((id) => !filteredIdSet.has(id));
+        // Deselect all candidates matching the current filtered list
+        filteredCandidates.forEach((c) => next.delete(c.id));
       } else {
-        // Select all candidates matching the current filter, preserving any other selections
-        const nextSet = new Set(prev);
-        filteredIds.forEach((id) => nextSet.add(id));
-        return Array.from(nextSet);
+        // Select all candidates matching the current filtered list
+        filteredCandidates.forEach((c) => next.add(c.id));
       }
+      return next;
     });
-  };
+  }, [filteredCandidates]);
 
-  const handleClearSelection = () => {
-    setSelectedCandidateIds([]);
-  };
+  const handleClearSelection = useCallback(() => {
+    setSelectedCandidateIds(new Set());
+  }, []);
 
-  const handleSelectPendingOnly = () => {
-    const pendingIds = filteredCandidates.filter((c) => !c.is_verified_badge).map((c) => c.id);
+  const handleSelectPendingOnly = useCallback(() => {
     setSelectedCandidateIds((prev) => {
-      const nextSet = new Set(prev);
-      pendingIds.forEach((id) => nextSet.add(id));
-      return Array.from(nextSet);
+      const next = new Set(prev);
+      filteredCandidates.forEach((c) => {
+        if (!c.is_verified_badge) {
+          next.add(c.id);
+        }
+      });
+      return next;
     });
-  };
+  }, [filteredCandidates]);
 
   const handleBulkApprove = async () => {
-    if (selectedCandidateIds.length === 0) return;
+    if (selectedCandidateIds.size === 0) return;
 
-    const countToApprove = selectedCandidateIds.length;
+    const selectedIdsArray = Array.from(selectedCandidateIds);
+    const countToApprove = selectedIdsArray.length;
     setIsBulkApproving(true);
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -488,7 +556,7 @@ export default function SuperAdminApprovalsPage() {
       const { error } = await supabase
         .from('talent_profiles')
         .update(updates)
-        .in('id', selectedCandidateIds);
+        .in('id', selectedIdsArray);
 
       if (error) {
         console.warn('[AdminApprovals] Bulk DB update warning:', error.message);
@@ -497,7 +565,7 @@ export default function SuperAdminApprovalsPage() {
       // 2. Update local UI state
       setCandidates((prev) =>
         prev.map((c) =>
-          selectedCandidateIds.includes(c.id)
+          selectedCandidateIds.has(c.id)
             ? { ...c, is_verified_badge: true, phase_3_status: 'VERIFIED', placement_status: 'AVAILABLE' }
             : c
         )
@@ -509,7 +577,7 @@ export default function SuperAdminApprovalsPage() {
         if (cached) {
           const parsed = JSON.parse(cached);
           const updated = parsed.map((c: any) =>
-            selectedCandidateIds.includes(c.id)
+            selectedCandidateIds.has(c.id)
               ? { ...c, is_verified_badge: true, phase_3_status: 'VERIFIED', placement_status: 'AVAILABLE' }
               : c
           );
@@ -521,20 +589,20 @@ export default function SuperAdminApprovalsPage() {
       await recordAudit(
         'APPROVAL',
         `Bulk approved ${countToApprove} candidate talent profiles for placement`,
-        selectedCandidateIds.join(','),
+        selectedIdsArray.join(','),
         actorId,
         {
           count: countToApprove,
-          candidateIds: selectedCandidateIds
+          candidateIds: selectedIdsArray
         }
       );
 
       setSuccessMessage(`Successfully approved ${countToApprove} candidate${countToApprove > 1 ? 's' : ''} for placement and recorded audit event.`);
-      setSelectedCandidateIds([]);
+      setSelectedCandidateIds(new Set());
     } catch (err: any) {
       console.error('[AdminApprovals] Bulk approval note:', err);
       setSuccessMessage(`Successfully approved ${countToApprove} candidate${countToApprove > 1 ? 's' : ''} for placement.`);
-      setSelectedCandidateIds([]);
+      setSelectedCandidateIds(new Set());
     } finally {
       setIsBulkApproving(false);
     }
@@ -816,49 +884,6 @@ export default function SuperAdminApprovalsPage() {
       setActionLoadingId(null);
     }
   };
-
-  // Metrics calculation
-  const verifiedCandidatesCount = useMemo(() => candidates.filter((c) => c.is_verified_badge).length, [candidates]);
-  const pendingCandidatesCount = useMemo(() => candidates.filter((c) => !c.is_verified_badge).length, [candidates]);
-  const pendingAdminCount = useMemo(() => profiles.filter((p) => !p.is_active).length, [profiles]);
-  const activeAdminCount = useMemo(() => profiles.filter((p) => p.is_active).length, [profiles]);
-
-  // Filtered Candidates
-  const filteredCandidates = useMemo(() => {
-    return candidates.filter((c) => {
-      if (activeTab === 'pending' && c.is_verified_badge) return false;
-      if (activeTab === 'active' && !c.is_verified_badge) return false;
-
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchesName = c.full_name.toLowerCase().includes(q);
-        const matchesEmail = c.email.toLowerCase().includes(q);
-        const matchesRole = (c.role || '').toLowerCase().includes(q) || (c.specialty || '').toLowerCase().includes(q);
-        if (!matchesName && !matchesEmail && !matchesRole) return false;
-      }
-      return true;
-    });
-  }, [candidates, activeTab, searchQuery]);
-
-  // Selection metrics reflecting the currently filtered candidate list
-  const isAllFilteredSelected = useMemo(() => {
-    if (filteredCandidates.length === 0) return false;
-    return filteredCandidates.every((c) => selectedCandidateIds.includes(c.id));
-  }, [filteredCandidates, selectedCandidateIds]);
-
-  const selectedFilteredCount = useMemo(() => {
-    if (filteredCandidates.length === 0) return 0;
-    const filteredIdSet = new Set(filteredCandidates.map((c) => c.id));
-    return selectedCandidateIds.filter((id) => filteredIdSet.has(id)).length;
-  }, [filteredCandidates, selectedCandidateIds]);
-
-  const isSomeFilteredSelected = useMemo(() => {
-    return selectedFilteredCount > 0;
-  }, [selectedFilteredCount]);
-
-  const isIndeterminate = useMemo(() => {
-    return isSomeFilteredSelected && !isAllFilteredSelected;
-  }, [isSomeFilteredSelected, isAllFilteredSelected]);
 
   // Filtered Admin Profiles
   const filteredProfiles = useMemo(() => {
@@ -1205,18 +1230,18 @@ export default function SuperAdminApprovalsPage() {
           <div className="space-y-4">
             
             {/* BULK ACTION BAR */}
-            {selectedCandidateIds.length > 0 && (
+            {selectedCandidateIds.size > 0 && (
               <div 
                 id="candidate-bulk-action-bar"
                 className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-emerald-950/90 via-slate-900/90 to-teal-950/90 border-2 border-emerald-500/60 shadow-xl shadow-emerald-950/40 backdrop-blur-xl flex flex-wrap items-center justify-between gap-3 animate-fadeIn"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center font-black text-sm shadow-xs shrink-0">
-                    {selectedCandidateIds.length}
+                    {selectedCandidateIds.size}
                   </div>
                   <div>
                     <div className="font-bold text-white text-xs sm:text-sm flex items-center gap-2">
-                      <span>{selectedCandidateIds.length} Candidate{selectedCandidateIds.length > 1 ? 's' : ''} Selected</span>
+                      <span>{selectedCandidateIds.size} Candidate{selectedCandidateIds.size > 1 ? 's' : ''} Selected</span>
                       <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950 px-2.5 py-0.5 rounded-full border border-emerald-800">
                         Bulk Action Bar
                       </span>
@@ -1261,12 +1286,12 @@ export default function SuperAdminApprovalsPage() {
                     {isBulkApproving ? (
                       <>
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Approving {selectedCandidateIds.length} Candidates...</span>
+                        <span>Approving {selectedCandidateIds.size} Candidates...</span>
                       </>
                     ) : (
                       <>
                         <CheckCircle2 className="w-4 h-4 text-slate-950" />
-                        <span>Approve Selected ({selectedCandidateIds.length})</span>
+                        <span>Approve Selected ({selectedCandidateIds.size})</span>
                       </>
                     )}
                   </button>
@@ -1275,7 +1300,7 @@ export default function SuperAdminApprovalsPage() {
             )}
 
             {/* Quick Bulk Selection Helper Bar when 0 selected */}
-            {selectedCandidateIds.length === 0 && filteredCandidates.length > 0 && (
+            {selectedCandidateIds.size === 0 && filteredCandidates.length > 0 && (
               <div className="flex flex-wrap items-center justify-between px-4 py-2.5 bg-slate-900/50 rounded-xl border border-slate-800/80 text-xs text-slate-400 gap-2">
                 <div className="flex items-center gap-2">
                   <UserCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
@@ -1302,6 +1327,7 @@ export default function SuperAdminApprovalsPage() {
                         <input
                           type="checkbox"
                           id="select-all-candidates-checkbox"
+                          ref={selectAllCheckboxRef}
                           aria-label="Select all visible candidates"
                           title={
                             filteredCandidates.length === 0
@@ -1311,11 +1337,6 @@ export default function SuperAdminApprovalsPage() {
                               : `Select all ${filteredCandidates.length} visible candidates`
                           }
                           checked={isAllFilteredSelected}
-                          ref={(input) => {
-                            if (input) {
-                              input.indeterminate = isIndeterminate;
-                            }
-                          }}
                           onChange={handleSelectAllFiltered}
                           disabled={loadingCandidates || filteredCandidates.length === 0}
                           className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-950 cursor-pointer accent-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1347,7 +1368,7 @@ export default function SuperAdminApprovalsPage() {
                     ) : (
                       filteredCandidates.map((candidate) => {
                         const isProcessing = actionLoadingId === candidate.id;
-                        const isSelected = selectedCandidateIds.includes(candidate.id);
+                        const isSelected = selectedCandidateIds.has(candidate.id);
 
                         return (
                           <tr 

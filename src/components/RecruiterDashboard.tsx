@@ -131,58 +131,50 @@ export default function RecruiterDashboard({
     try {
       setRefreshing(true);
 
-      // 1. Fetch recruiter profile from public.recruiter_profiles first
-      let { data: profileData } = await supabase
-        .from('recruiter_profiles')
+      // 1. Fetch recruiter profile directly from public.recruiters instead of recruiter_profiles
+      let { data: recruiter } = await supabase
+        .from('recruiters')
         .select('*')
-        .or(`user_id.eq.${user.id},id.eq.${user.id}`)
-        .maybeSingle();
+        .eq('user_id', user.id)
+        .single();
 
-      if (!profileData) {
+      if (!recruiter) {
         const cached = localStorage.getItem('dsp_recruiter_profile');
         if (cached) {
           try {
             const parsed = JSON.parse(cached);
             if (parsed.user_id === user.id || parsed.id === user.id) {
-              profileData = parsed;
+              recruiter = parsed;
             }
           } catch (_) {}
         }
       }
 
-      // 2. Fetch from public.recruiters for unlocked count and payment status
-      let { data: recData, error: recError } = await supabase
-        .from('recruiters')
-        .select('*')
-        .or(`user_id.eq.${user.id},id.eq.${user.id}`)
-        .maybeSingle();
-
-      const companyName = profileData?.company_name || profileData?.organization_name || recData?.company_name || user.user_metadata?.company_name || 'Hiring Enterprise';
-      const contactName = recData?.contact_person || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Recruiter';
-      const selectedPkg = profileData?.subscribed_package || profileData?.selected_package || recData?.selected_package || user.user_metadata?.subscribed_package || 'Starter';
+      const companyName = recruiter?.company_name || user.user_metadata?.company_name || 'Hiring Enterprise';
+      const contactName = recruiter?.contact_person || user.user_metadata?.contact_person || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Recruiter';
+      const selectedPkg = recruiter?.subscribed_package || recruiter?.selected_package || user.user_metadata?.subscribed_package || 'Starter';
       const maxContacts = (selectedPkg === 'Enterprise' || selectedPkg === 'annual_unlimited') ? 99999 : (selectedPkg === 'Growth') ? 25 : 5;
 
       const verificationStatus = 
-        profileData?.verification_status || 
-        recData?.verification_status || 
+        recruiter?.verification_status || 
         (urlStatus === 'pending_approval' || urlStatus === 'pending_verification' ? 'pending_verification' : undefined) ||
-        (profileData?.status === 'pending_approval' ? 'pending_verification' : undefined) ||
+        (recruiter?.status === 'pending_approval' ? 'pending_verification' : undefined) ||
         'pending_verification';
 
       const mergedRecruiter = {
-        id: recData?.id || profileData?.id || user.id,
+        id: recruiter?.id || user.id,
         user_id: user.id,
         company_name: companyName,
         contact_person: contactName,
-        business_email: user.email,
-        phone_number: recData?.phone_number || '',
+        business_email: recruiter?.business_email || user.email,
+        phone_number: recruiter?.phone_number || '',
         selected_package: selectedPkg,
         subscribed_package: selectedPkg,
         verification_status: verificationStatus,
-        payment_status: recData?.payment_status || verificationStatus || 'pending_verification',
-        contacts_unlocked_count: recData?.contacts_unlocked_count || 0,
-        max_contacts: profileData?.max_contacts || maxContacts,
-        created_at: profileData?.created_at || recData?.created_at || new Date().toISOString(),
+        payment_status: recruiter?.payment_status || verificationStatus || 'pending_verification',
+        contacts_unlocked_count: recruiter?.contacts_unlocked_count || 0,
+        max_contacts: recruiter?.max_contacts || maxContacts,
+        created_at: recruiter?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
 
@@ -192,7 +184,7 @@ export default function RecruiterDashboard({
       const { data: unlockedRows, error: unlockedErr } = await supabase
         .from('unlocked_contacts')
         .select('*')
-        .or(`recruiter_id.eq.${user.id},recruiter_id.eq.${recData.id}`)
+        .or(`recruiter_id.eq.${user.id},recruiter_id.eq.${recruiter?.id || user.id}`)
         .order('created_at', { ascending: false });
 
       if (unlockedRows && unlockedRows.length > 0) {
@@ -233,17 +225,29 @@ export default function RecruiterDashboard({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: profile, error } = await supabase
-      .from('recruiter_profiles')
-      .select('*')
-      .or(`user_id.eq.${user.id},id.eq.${user.id}`)
-      .single();
-    if (error) {
-      console.error('Error fetching profile:', error);
-    } else {
-      setRecruiterProfile(profile);
-      setRecruiter((prev: any) => ({ ...prev, ...profile }));
-    }
+    try {
+      const { data: recruiter, error } = await supabase
+        .from('recruiters')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!error && recruiter) {
+        setRecruiterProfile(recruiter);
+        setRecruiter((prev: any) => ({ ...prev, ...recruiter }));
+        return;
+      }
+    } catch (_) {}
+
+    // Resilient fallback to local storage recruiter profile
+    try {
+      const saved = localStorage.getItem(`mock_recruiter_profiles_${user.id}`) || localStorage.getItem('dsp_recruiter_profile');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setRecruiterProfile(parsed);
+        setRecruiter((prev: any) => ({ ...prev, ...parsed }));
+      }
+    } catch (_) {}
   };
 
   useEffect(() => {
