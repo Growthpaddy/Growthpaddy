@@ -8,10 +8,13 @@ import {
   Award, 
   Clock, 
   ShieldCheck, 
-  Lock,
-  UserCheck,
-  CheckCircle2
+  Lock, 
+  UserCheck, 
+  CheckCircle2 
 } from 'lucide-react';
+import { RECRUITER_PACKAGES } from '../constants/packages';
+
+export { RECRUITER_PACKAGES };
 
 export interface PackagesProps {
   navigateToPage?: (page: any, extraParams?: any) => void;
@@ -37,7 +40,7 @@ export default function Packages({ navigateToPage, navigate: customNavigate }: P
       return;
     }
     if (navigateToPage) {
-      if (path.startsWith('/recruiter-signup')) {
+      if (path.startsWith('/signup') || path.startsWith('/recruiter-signup')) {
         const query = path.split('?')[1] || '';
         const params = new URLSearchParams(query);
         const pkg = params.get('package') || 'Starter';
@@ -61,12 +64,12 @@ export default function Packages({ navigateToPage, navigate: customNavigate }: P
     }
   };
 
-  const handleSelectPackage = (selectedPackage: 'Starter' | 'Growth' | 'Enterprise') => {
-    navigate(`/recruiter-signup?package=${selectedPackage}`);
+  const handleSelectPackage = (packageId: string) => {
+    navigate(`/recruiter-signup?package=${packageId}`);
   };
 
   return (
-    <div className="space-y-10 py-8 max-w-6xl mx-auto px-4 text-left font-sans selection:bg-emerald-500 selection:text-white">
+    <div className="space-y-10 py-8 max-w-5xl mx-auto px-4 text-left font-sans selection:bg-emerald-500 selection:text-white">
       
       {/* Intent Banner when redirected from "View Contact" in Directory */}
       {intent === 'view_contact' && (
@@ -130,184 +133,82 @@ export default function Packages({ navigateToPage, navigate: customNavigate }: P
         </div>
       </div>
 
-      {/* 3-TIER PACKAGES GRID (Starter, Growth, Enterprise) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch pt-2">
-        
-        {/* Tier 1: Starter */}
-        <div 
-          id="package-card-starter"
-          className="bg-white border border-slate-200/90 hover:border-slate-300 rounded-3xl p-6 sm:p-8 space-y-6 flex flex-col justify-between shadow-xs hover:shadow-md transition"
-        >
-          <div className="space-y-4">
-            <div className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-700 text-[10px] font-mono font-bold uppercase px-2.5 py-1 rounded-md">
-              <Clock className="w-3.5 h-3.5 text-slate-500" />
-              <span>Pay-As-You-Go</span>
+      {/* 2-TIER PACKAGES GRID (Starter ₦35,000 & Enterprise ₦250,000) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch pt-2">
+        {RECRUITER_PACKAGES.map((pkg) => {
+          const isEnterprise = pkg.id === 'Enterprise';
+
+          return (
+            <div 
+              key={pkg.id}
+              id={`package-card-${pkg.id.toLowerCase()}`}
+              className={`bg-white rounded-3xl p-6 sm:p-8 space-y-6 flex flex-col justify-between transition relative ${
+                pkg.isRecommended 
+                  ? 'border-2 border-emerald-600 shadow-lg' 
+                  : 'border border-slate-200/90 hover:border-slate-300 shadow-xs hover:shadow-md'
+              }`}
+            >
+              {pkg.isRecommended && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider px-3.5 py-0.5 rounded-full shadow-xs">
+                  Most Popular
+                </div>
+              )}
+
+              <div className="space-y-4 pt-1">
+                <div className={`inline-flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase px-2.5 py-1 rounded-md ${
+                  isEnterprise 
+                    ? 'bg-amber-50 text-amber-900 border border-amber-300' 
+                    : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                }`}>
+                  {isEnterprise ? (
+                    <Zap className="w-3.5 h-3.5 text-amber-600" />
+                  ) : (
+                    <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                  )}
+                  <span>{pkg.tagline}</span>
+                </div>
+                
+                <h3 className="font-display font-bold text-2xl text-slate-900">
+                  {pkg.name}
+                </h3>
+                
+                <div className="space-y-0.5">
+                  <p className="text-4xl font-extrabold font-display text-slate-900">
+                    {pkg.price}
+                  </p>
+                  <p className={`text-xs font-medium ${isEnterprise ? 'text-amber-800 font-semibold' : 'text-emerald-700 font-semibold'}`}>
+                    {pkg.billingCycle === 'One-Time' 
+                      ? 'One-Time Sourcing License' 
+                      : 'Annual Unlimited Access'}
+                  </p>
+                </div>
+
+                <div className="border-t border-slate-100 pt-4 space-y-3 text-xs text-slate-600">
+                  {pkg.features.map((feature, idx) => (
+                    <p key={idx} className="flex items-center gap-2">
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span className={idx === 0 ? 'font-bold text-slate-900' : ''}>{feature}</span>
+                    </p>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                id={`select-package-${pkg.id.toLowerCase()}-btn`}
+                onClick={() => handleSelectPackage(pkg.id)}
+                className={`w-full py-3.5 px-4 rounded-xl text-xs font-bold cursor-pointer transition shadow-xs flex items-center justify-center gap-2 ${
+                  pkg.isRecommended 
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold shadow-md' 
+                    : 'bg-slate-900 hover:bg-slate-800 text-white'
+                }`}
+              >
+                <span>Select {pkg.name} Package</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
             </div>
-            
-            <h3 className="font-display font-bold text-2xl text-slate-900">
-              Starter
-            </h3>
-            
-            <div className="space-y-0.5">
-              <p className="text-4xl font-extrabold font-display text-slate-900">
-                ₦35,000
-              </p>
-              <p className="text-xs text-slate-500 font-medium">One-Time Sourcing License</p>
-            </div>
-
-            <div className="border-t border-slate-100 pt-4 space-y-3 text-xs text-slate-600">
-              <p className="flex items-center gap-2 font-bold text-slate-900">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span><strong>5 Pre-Vetted Candidate</strong> Contact Unlocks</span>
-              </p>
-              <p className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Direct WhatsApp & Verified Email access</span>
-              </p>
-              <p className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Full Technical Dossiers & Audited Portfolios</span>
-              </p>
-              <p className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>0% Ongoing placement or salary commission</span>
-              </p>
-              <p className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Instant contact reveals once verified</span>
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            id="select-package-starter-btn"
-            onClick={() => handleSelectPackage('Starter')}
-            className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 px-4 rounded-xl text-xs cursor-pointer transition shadow-xs flex items-center justify-center gap-2"
-          >
-            <span>Select Starter Package</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Tier 2: Growth */}
-        <div 
-          id="package-card-growth"
-          className="bg-white border-2 border-emerald-600 rounded-3xl p-6 sm:p-8 space-y-6 flex flex-col justify-between shadow-lg relative"
-        >
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider px-3.5 py-0.5 rounded-full shadow-xs">
-            Most Popular
-          </div>
-
-          <div className="space-y-4 pt-1">
-            <div className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-mono font-bold uppercase px-2.5 py-1 rounded-md">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Scaling Teams</span>
-            </div>
-
-            <h3 className="font-display font-bold text-2xl text-slate-900">
-              Growth
-            </h3>
-            
-            <div className="space-y-0.5">
-              <p className="text-4xl font-extrabold font-display text-slate-900">
-                ₦95,000
-              </p>
-              <p className="text-xs text-emerald-700 font-semibold">Priority Quarterly Access</p>
-            </div>
-
-            <div className="border-t border-emerald-100 pt-4 space-y-3 text-xs text-slate-700">
-              <p className="flex items-center gap-2 font-bold text-slate-900">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span><strong>15 Pre-Vetted Candidate</strong> Contact Unlocks</span>
-              </p>
-              <p className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Direct WhatsApp, Phone & Verified Email</span>
-              </p>
-              <p className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Priority Talent Matchmaking & Recommendations</span>
-              </p>
-              <p className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Direct 1-Click PDF Resume & Case Study Downloads</span>
-              </p>
-              <p className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>0% Commission fee guarantee on hires</span>
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            id="select-package-growth-btn"
-            onClick={() => handleSelectPackage('Growth')}
-            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-3.5 px-4 rounded-xl text-xs cursor-pointer transition shadow-md flex items-center justify-center gap-2"
-          >
-            <span>Select Growth Package</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Tier 3: Enterprise */}
-        <div 
-          id="package-card-enterprise"
-          className="bg-white border border-slate-200/90 hover:border-slate-300 rounded-3xl p-6 sm:p-8 space-y-6 flex flex-col justify-between shadow-xs hover:shadow-md transition"
-        >
-          <div className="space-y-4">
-            <div className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-900 border border-amber-300 text-[10px] font-mono font-bold uppercase px-2.5 py-1 rounded-md">
-              <Zap className="w-3.5 h-3.5 text-amber-600" />
-              <span>Scale & Co-Pilot</span>
-            </div>
-
-            <h3 className="font-display font-bold text-2xl text-slate-900">
-              Enterprise
-            </h3>
-            
-            <div className="space-y-0.5">
-              <p className="text-4xl font-extrabold font-display text-slate-900">
-                ₦250,000
-              </p>
-              <p className="text-xs text-amber-800 font-semibold">Per Year · Unlimited Sourcing</p>
-            </div>
-
-            <div className="border-t border-slate-100 pt-4 space-y-3 text-xs text-slate-700">
-              <p className="flex items-center gap-2 font-bold text-slate-900">
-                <Zap className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span><strong>UNLIMITED Candidate Unlocks</strong> for 365 Days</span>
-              </p>
-              <p className="flex items-center gap-2 font-medium text-slate-900">
-                <Award className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span><strong>3-Month Talent Integration Co-Supervision</strong></span>
-              </p>
-              <p className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Dedicated Matchmaker & Priority Shortlisting</span>
-              </p>
-              <p className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Guaranteed SLA Talent Replacement Support</span>
-              </p>
-              <p className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Full Executive Audits & Co-Supervision</span>
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            id="select-package-enterprise-btn"
-            onClick={() => handleSelectPackage('Enterprise')}
-            className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 px-4 rounded-xl text-xs cursor-pointer transition shadow-xs flex items-center justify-center gap-2"
-          >
-            <span>Select Enterprise Package</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-
+          );
+        })}
       </div>
 
       {/* Recruiter Help / Login Bar */}

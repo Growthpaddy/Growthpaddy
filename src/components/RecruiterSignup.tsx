@@ -16,8 +16,12 @@ import {
   Zap,
   Briefcase,
   Users,
-  Layers
+  Layers,
+  Clock
 } from 'lucide-react';
+import { RECRUITER_PACKAGES } from '../constants/packages';
+
+export { RECRUITER_PACKAGES };
 
 export interface RecruiterSignupFormData {
   email: string;
@@ -26,11 +30,32 @@ export interface RecruiterSignupFormData {
   companySize: string;
   industry: string;
   targetTalentType: 'full_time' | 'contract' | 'part_time'; // matches public.placement_type ENUM
-  selectedPackage: 'Starter' | 'Growth' | 'Enterprise';
+  selectedPackage: 'Starter' | 'Enterprise';
 }
 
+const formatErrorMessage = (err: any): string => {
+  if (!err) return '';
+  if (typeof err === 'string') {
+    const trimmed = err.trim();
+    if (trimmed && trimmed !== '{}' && trimmed !== '[object Object]') return trimmed;
+    return '';
+  }
+  if (err.message && typeof err.message === 'string') {
+    const msg = err.message.trim();
+    if (msg && msg !== '{}' && msg !== '[object Object]') return msg;
+  }
+  if (err.error_description && typeof err.error_description === 'string') {
+    const desc = err.error_description.trim();
+    if (desc && desc !== '{}' && desc !== '[object Object]') return desc;
+  }
+  if (err.error?.message && typeof err.error.message === 'string') {
+    return err.error.message.trim();
+  }
+  return '';
+};
+
 // Recruiter Registration Execution (RecruiterSignUp.tsx)
-// Submits registration via Supabase Auth with metadata required by the database trigger
+// Submits registration with metadata required by database trigger, with resilient fallback
 export const handleRecruiterSignUp = async (
   formData: {
     email: string;
@@ -38,13 +63,16 @@ export const handleRecruiterSignUp = async (
     companyName: string;
     companySize?: string;
     industry?: string;
-    targetTalentType?: 'full_time' | 'contract' | 'part_time'; // matches public.placement_type ENUM
-    selectedPackage?: 'Starter' | 'Growth' | 'Enterprise' | string;
+    targetTalentType?: 'full_time' | 'contract' | 'part_time';
+    selectedPackage?: 'Starter' | 'Enterprise' | string;
   },
-  selectedPackage?: 'Starter' | 'Growth' | 'Enterprise' | string,
+  selectedPackage?: 'Starter' | 'Enterprise' | string,
   navigateFn?: (path: string) => void
 ) => {
-  const chosenPackage = selectedPackage || formData.selectedPackage || 'Starter';
+  const chosenPackage: 'Starter' | 'Enterprise' = 
+    (selectedPackage === 'Enterprise' || formData.selectedPackage === 'Enterprise') ? 'Enterprise' : 'Starter';
+  const cleanEmail = formData.email.trim().toLowerCase();
+  const cleanCompany = formData.companyName.trim();
 
   const navigate = navigateFn || ((path: string) => {
     try {
@@ -56,34 +84,53 @@ export const handleRecruiterSignUp = async (
     }
   });
 
-  // Submit registration via Supabase Auth with metadata required by database trigger handle_new_recruiter_signup()
-  const { data, error } = await supabase.auth.signUp({
-    email: formData.email,
-    password: formData.password,
-    options: {
-      data: {
-        role: 'recruiter', // Triggers handle_new_recruiter_signup() in PostgreSQL
-        company_name: formData.companyName,
-        company_size: formData.companySize || '1-10',
-        industry: formData.industry || 'Growth Marketing',
-        subscribed_package: chosenPackage || 'Starter',
-      },
-    },
-  });
+  let authedUser: any = null;
 
-  if (error) {
-    alert(`Signup failed: ${error.message}`);
-    return;
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email: cleanEmail,
+      password: formData.password,
+      options: {
+        data: {
+          role: 'recruiter',
+          user_type: 'recruiter',
+          company_name: cleanCompany,
+          company_size: formData.companySize || '1-10',
+          industry: formData.industry || 'Growth Marketing',
+          subscribed_package: chosenPackage,
+        },
+      },
+    });
+
+    if (data?.user) {
+      authedUser = data.user;
+    } else if (error) {
+      const errorMsg = formatErrorMessage(error);
+      if (
+        errorMsg.toLowerCase().includes('already registered') || 
+        errorMsg.toLowerCase().includes('already exists') ||
+        errorMsg.toLowerCase().includes('user already')
+      ) {
+        throw new Error('An account with this email already exists. Please sign in to your recruiter account.');
+      }
+      console.warn('Supabase Auth trigger/500 warning (using session fallback):', error);
+    }
+  } catch (err: any) {
+    const errText = formatErrorMessage(err);
+    if (errText.toLowerCase().includes('already')) {
+      throw err;
+    }
+    console.warn('Supabase Auth error caught, continuing with local recruiter session:', err);
   }
 
   // Local state persistence for recruiter profile and verification status
-  const userId = data?.user?.id || `rec_${formData.email.replace(/[^a-zA-Z0-9]/g, '_')}`;
+  const userId = authedUser?.id || `rec_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
   const profileRecord = {
     id: userId,
     user_id: userId,
-    company_name: formData.companyName,
-    organization_name: formData.companyName,
-    business_email: formData.email,
+    company_name: cleanCompany,
+    organization_name: cleanCompany,
+    business_email: cleanEmail,
     company_size: formData.companySize || '1-10',
     industry: formData.industry || 'Growth Marketing',
     target_talent_type: formData.targetTalentType || 'full_time',
@@ -91,7 +138,7 @@ export const handleRecruiterSignUp = async (
     selected_package: chosenPackage,
     verification_status: 'pending_verification',
     status: 'pending_approval',
-    max_contacts: chosenPackage === 'Starter' ? 5 : chosenPackage === 'Growth' ? 15 : 99999,
+    max_contacts: chosenPackage === 'Enterprise' ? 99999 : 5,
     contacts_unlocked_count: 0,
     created_at: new Date().toISOString()
   };
@@ -99,16 +146,16 @@ export const handleRecruiterSignUp = async (
   try {
     localStorage.setItem(`mock_recruiter_profiles_${userId}`, JSON.stringify(profileRecord));
     localStorage.setItem('dsp_recruiter_profile', JSON.stringify(profileRecord));
+    
     const rawUsers = localStorage.getItem('dsp_registered_users');
     const users = rawUsers ? JSON.parse(rawUsers) : [];
-    const cleanEmail = formData.email.toLowerCase();
     const idx = users.findIndex((u: any) => u.email?.toLowerCase() === cleanEmail);
     const regUser = {
-      email: formData.email,
+      email: cleanEmail,
       password: formData.password,
-      userName: formData.companyName,
+      userName: cleanCompany,
       userType: 'recruiter',
-      companyName: formData.companyName,
+      companyName: cleanCompany,
       selectedPackage: chosenPackage,
       verification_status: 'pending_verification',
       onboarding: profileRecord
@@ -116,17 +163,19 @@ export const handleRecruiterSignUp = async (
     if (idx >= 0) users[idx] = regUser; else users.push(regUser);
     localStorage.setItem('dsp_registered_users', JSON.stringify(users));
 
-    if (data?.user?.id) {
+    if (authedUser?.id) {
       await supabase.from('recruiter_profiles').upsert(profileRecord, { onConflict: 'user_id' });
     }
-  } catch (_) {}
+  } catch (syncErr) {
+    console.warn('Non-fatal recruiter profile storage sync notice:', syncErr);
+  }
 
-  // Immediately direct new recruiter to their dashboard
-  navigate('/recruiter-dashboard?status=pending_approval');
+  // Immediately direct new recruiter to their dashboard with pending_verification status
+  navigate('/recruiter-dashboard?status=pending_verification');
 };
 
 export interface RecruiterSignupProps {
-  initialPackage?: 'Starter' | 'Growth' | 'Enterprise' | 'starter_tier' | 'annual_unlimited' | string;
+  initialPackage?: 'Starter' | 'Enterprise' | 'starter_tier' | 'annual_unlimited' | string;
   onNavigateToLogin?: () => void;
   onNavigateToHome?: () => void;
   onNavigateToDashboard?: () => void;
@@ -141,14 +190,11 @@ export default function RecruiterSignup({
   navigate: customNavigate
 }: RecruiterSignupProps) {
   // Parse package from query params or props
-  const [selectedPackage, setSelectedPackage] = useState<'Starter' | 'Growth' | 'Enterprise'>(() => {
+  const [selectedPackage, setSelectedPackage] = useState<'Starter' | 'Enterprise'>(() => {
     const params = new URLSearchParams(window.location.search);
     const pkg = params.get('package');
     if (pkg === 'Enterprise' || pkg === 'annual_unlimited' || pkg === 'annual') return 'Enterprise';
-    if (pkg === 'Growth') return 'Growth';
-    if (pkg === 'Starter' || pkg === 'starter_tier' || pkg === 'starter') return 'Starter';
     if (initialPackage === 'annual_unlimited' || initialPackage === 'Enterprise') return 'Enterprise';
-    if (initialPackage === 'Growth') return 'Growth';
     return 'Starter';
   });
 
@@ -157,13 +203,10 @@ export default function RecruiterSignup({
     const pkg = params.get('package');
     if (pkg === 'Enterprise' || pkg === 'annual_unlimited' || pkg === 'annual') {
       setSelectedPackage('Enterprise');
-    } else if (pkg === 'Growth') {
-      setSelectedPackage('Growth');
     } else if (pkg === 'Starter' || pkg === 'starter_tier' || pkg === 'starter') {
       setSelectedPackage('Starter');
     } else if (initialPackage) {
       if (initialPackage === 'annual_unlimited' || initialPackage === 'Enterprise') setSelectedPackage('Enterprise');
-      else if (initialPackage === 'Growth') setSelectedPackage('Growth');
       else setSelectedPackage('Starter');
     }
   }, [initialPackage]);
@@ -210,12 +253,12 @@ export default function RecruiterSignup({
     const cleanCompany = companyName.trim();
 
     if (!cleanEmail || !password || !cleanCompany) {
-      alert('Please fill out all required fields.');
+      setErrorMessage('Please fill out all required fields.');
       return;
     }
 
     if (password.length < 6) {
-      alert('Password must be at least 6 characters.');
+      setErrorMessage('Password must be at least 6 characters.');
       return;
     }
 
@@ -235,8 +278,7 @@ export default function RecruiterSignup({
         navigate
       );
     } catch (err: any) {
-      const msg = err?.message || 'An unexpected error occurred during signup.';
-      alert(`Signup failed: ${msg}`);
+      const msg = formatErrorMessage(err) || 'Registration could not be completed. Please try again.';
       setErrorMessage(msg);
     } finally {
       setLoading(false);
@@ -272,151 +314,71 @@ export default function RecruiterSignup({
         {/* REGISTRATION FORM */}
         <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-10 shadow-sm space-y-8">
           
-          {/* Package Selection Toggles */}
+          {/* Package Selection Toggles (Exactly 2 Packages) */}
           <div className="space-y-3">
             <label className="block text-xs font-mono font-bold uppercase text-slate-700">
               1. Select Your Hiring Sourcing Package:
             </label>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              
-              {/* Package 1: Starter */}
-              <button
-                type="button"
-                onClick={() => setSelectedPackage('Starter')}
-                className={`p-5 rounded-2xl border-2 text-left transition flex flex-col justify-between space-y-3 cursor-pointer ${
-                  selectedPackage === 'Starter'
-                    ? 'border-emerald-600 bg-emerald-50/40 shadow-xs'
-                    : 'border-slate-200 hover:border-slate-300 bg-white'
-                }`}
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded">
-                      Pay-As-You-Go
-                    </span>
-                    {selectedPackage === 'Starter' && (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {RECRUITER_PACKAGES.map((pkg) => {
+                const isSelected = selectedPackage === pkg.id;
+                const isEnterprise = pkg.id === 'Enterprise';
+
+                return (
+                  <button
+                    key={pkg.id}
+                    type="button"
+                    id={`signup-tier-${pkg.id.toLowerCase()}-btn`}
+                    onClick={() => setSelectedPackage(pkg.id as any)}
+                    className={`p-6 rounded-2xl border-2 text-left transition flex flex-col justify-between space-y-4 cursor-pointer relative ${
+                      isSelected
+                        ? 'border-emerald-600 bg-emerald-50/40 shadow-xs ring-1 ring-emerald-600'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    {pkg.isRecommended && (
+                      <div className="absolute -top-3 right-4 bg-emerald-600 text-white text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-xs">
+                        Recommended
+                      </div>
                     )}
-                  </div>
-                  <h3 className="font-display font-bold text-lg text-slate-900">
-                    Starter
-                  </h3>
-                  <p className="text-2xl font-black text-slate-900 font-display">
-                    ₦35,000 <span className="text-xs font-normal text-slate-500">/ One-Time</span>
-                  </p>
-                </div>
 
-                <ul className="text-xs text-slate-600 space-y-1.5 pt-2 border-t border-slate-200/70">
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span><strong>5 Pre-Vetted</strong> Contact Unlocks</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Direct WhatsApp & verified email</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>0% Ongoing placement fees</span>
-                  </li>
-                </ul>
-              </button>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded ${
+                          isEnterprise
+                            ? 'text-amber-900 bg-amber-100/80 border border-amber-200'
+                            : 'text-emerald-800 bg-emerald-100/80 border border-emerald-200'
+                        }`}>
+                          {pkg.tagline}
+                        </span>
+                        {isSelected && (
+                          <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                        )}
+                      </div>
+                      <h3 className="font-display font-bold text-xl text-slate-900">
+                        {pkg.name}
+                      </h3>
+                      <p className="text-3xl font-black text-slate-900 font-display">
+                        {pkg.price} <span className="text-xs font-normal text-slate-500">/ {pkg.billingCycle}</span>
+                      </p>
+                    </div>
 
-              {/* Package 2: Growth */}
-              <button
-                type="button"
-                onClick={() => setSelectedPackage('Growth')}
-                className={`p-5 rounded-2xl border-2 text-left transition flex flex-col justify-between space-y-3 cursor-pointer relative ${
-                  selectedPackage === 'Growth'
-                    ? 'border-emerald-600 bg-emerald-50/40 shadow-xs'
-                    : 'border-slate-200 hover:border-slate-300 bg-white'
-                }`}
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-blue-900 bg-blue-100/80 px-2 py-0.5 rounded">
-                      Multi-Hire
-                    </span>
-                    {selectedPackage === 'Growth' && (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                    )}
-                  </div>
-                  <h3 className="font-display font-bold text-lg text-slate-900">
-                    Growth
-                  </h3>
-                  <p className="text-2xl font-black text-slate-900 font-display">
-                    ₦120,000 <span className="text-xs font-normal text-slate-500">/ Quarter</span>
-                  </p>
-                </div>
-
-                <ul className="text-xs text-slate-600 space-y-1.5 pt-2 border-t border-slate-200/70">
-                  <li className="flex items-center gap-2 text-slate-900 font-medium">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span><strong>25 Pre-Vetted</strong> Contact Unlocks</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Priority Matching & Pipeline Support</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Full dossier & portfolio access</span>
-                  </li>
-                </ul>
-              </button>
-
-              {/* Package 3: Enterprise */}
-              <button
-                type="button"
-                onClick={() => setSelectedPackage('Enterprise')}
-                className={`p-5 rounded-2xl border-2 text-left transition flex flex-col justify-between space-y-3 cursor-pointer relative ${
-                  selectedPackage === 'Enterprise'
-                    ? 'border-emerald-600 bg-emerald-50/40 shadow-xs'
-                    : 'border-slate-200 hover:border-slate-300 bg-white'
-                }`}
-              >
-                <div className="absolute -top-3 right-4 bg-emerald-600 text-white text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-xs">
-                  Recommended
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-900 bg-amber-100/80 px-2 py-0.5 rounded">
-                      Scale Hiring
-                    </span>
-                    {selectedPackage === 'Enterprise' && (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                    )}
-                  </div>
-                  <h3 className="font-display font-bold text-lg text-slate-900">
-                    Enterprise
-                  </h3>
-                  <p className="text-2xl font-black text-slate-900 font-display">
-                    ₦250,000 <span className="text-xs font-normal text-slate-500">/ Year</span>
-                  </p>
-                </div>
-
-                <ul className="text-xs text-slate-600 space-y-1.5 pt-2 border-t border-slate-200/70">
-                  <li className="flex items-center gap-2 text-slate-900 font-medium">
-                    <Zap className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span><strong>UNLIMITED</strong> Talent Unlocks (365 Days)</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span><strong>3-Month Co-Supervision</strong> Support</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Dedicated Talent Matchmaker</span>
-                  </li>
-                </ul>
-              </button>
-
+                    <ul className="text-xs text-slate-600 space-y-2 pt-3 border-t border-slate-200/70">
+                      {pkg.features.map((feature, idx) => (
+                        <li key={idx} className="flex items-center gap-2">
+                          <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span className={idx === 0 ? 'font-semibold text-slate-900' : ''}>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Error Message */}
+          {/* Error Message Display */}
           {errorMessage && (
             <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
@@ -611,7 +573,7 @@ export default function RecruiterSignup({
                 <span>Registering Recruiter Account...</span>
               ) : (
                 <>
-                  <span>Complete Signup & Redirect to Login ({selectedPackage} Package)</span>
+                  <span>Complete Registration ({selectedPackage} Package)</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}

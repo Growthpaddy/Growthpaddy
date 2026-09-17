@@ -35,7 +35,7 @@ export const handleRecruiterSignIn = async (email: string, password: string) => 
         company_name: matched?.companyName || 'DSP Academy Hiring Network',
         subscribed_package: matched?.selectedPackage || 'Starter',
         selected_package: matched?.selectedPackage || 'Starter',
-        max_contacts: matched?.selectedPackage === 'Enterprise' ? 99999 : matched?.selectedPackage === 'Growth' ? 25 : 5,
+        max_contacts: matched?.selectedPackage === 'Enterprise' ? 99999 : 5,
         contacts_unlocked_count: 0
       };
       localStorage.setItem('dsp_recruiter_profile', JSON.stringify(mockProfile));
@@ -239,7 +239,7 @@ export default function RecruiterLogin({
               <span>Automatic Package & Contact Limit Sync</span>
             </div>
             <p className="text-slate-500 text-[11px] leading-relaxed">
-              When you log in, your account automatically queries your verified <code className="text-emerald-700 bg-white px-1 py-0.5 rounded border border-slate-200">recruiter_profiles</code> parameters (Starter 5 contacts, Growth 25 contacts, or Enterprise Unlimited) and routes you to your direct sourcing dashboard.
+              When you log in, your account automatically queries your verified <code className="text-emerald-700 bg-white px-1 py-0.5 rounded border border-slate-200">recruiter_profiles</code> parameters (Starter 5 contacts, or Enterprise Unlimited) and routes you to your direct sourcing dashboard.
             </p>
           </div>
 

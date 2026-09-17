@@ -80,7 +80,7 @@ export default function RecruiterDashboard({
 
     if (!user) {
       const cached = typeof window !== 'undefined' ? localStorage.getItem('dsp_recruiter_profile') : null;
-      if (cached || urlStatus === 'pending_approval') {
+      if (cached || urlStatus === 'pending_approval' || urlStatus === 'pending_verification') {
         try {
           const parsed = cached ? JSON.parse(cached) : {};
           setRecruiter({
@@ -164,7 +164,7 @@ export default function RecruiterDashboard({
       const verificationStatus = 
         profileData?.verification_status || 
         recData?.verification_status || 
-        (urlStatus === 'pending_approval' ? 'pending_verification' : undefined) ||
+        (urlStatus === 'pending_approval' || urlStatus === 'pending_verification' ? 'pending_verification' : undefined) ||
         (profileData?.status === 'pending_approval' ? 'pending_verification' : undefined) ||
         'pending_verification';
 
@@ -425,10 +425,10 @@ export default function RecruiterDashboard({
                 </div>
                 <div>
                   <div className="inline-flex items-center gap-1.5 bg-amber-200/80 text-amber-900 font-mono text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full mb-1">
-                    <span>Account Status: Pending Approval</span>
+                    <span>Account Status: Pending Verification</span>
                   </div>
                   <h2 className="font-display font-bold text-base sm:text-lg text-amber-950">
-                    Your recruiter account has been created successfully and is currently pending admin approval (estimated review time: 1 hour). Contact reveals will activate once verified.
+                    Your recruiter account has been created. Admin verification is in progress (estimated review: 1 hour). Your contact unlocks will activate automatically once verified.
                   </h2>
                 </div>
               </div>

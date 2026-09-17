@@ -31,7 +31,10 @@ import { FeaturedSpecialists } from './FeaturedSpecialists';
 import { Hero } from './home/Hero';
 
 interface HomeOverviewProps {
-  navigateToPage: (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login') => void;
+  navigateToPage: (
+    page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login',
+    extraParams?: { package?: 'starter_tier' | 'annual_unlimited'; slug?: string }
+  ) => void;
   openHireModal: () => void;
   openTalentModal: () => void;
 }
@@ -153,7 +156,13 @@ export default function HomeOverview({ navigateToPage, openHireModal, openTalent
           3. FEATURED PRE-VETTED SPECIALISTS
           ========================================== */}
       <FeaturedSpecialists 
-        onNavigateToDirectory={() => navigateToPage('directory')}
+        onNavigateToDirectory={(slug?: string) => {
+          if (slug) {
+            navigateToPage('directory', { slug });
+          } else {
+            navigateToPage('directory');
+          }
+        }}
         onOpenTalentModal={openTalentModal}
       />
 

@@ -96,7 +96,7 @@ export default function App() {
   const getRouteFromLocation = (): { 
     page: PageType; 
     slug?: string; 
-    packageType?: 'starter_tier' | 'annual_unlimited' 
+    packageType?: 'Starter' | 'Enterprise' | 'starter_tier' | 'annual_unlimited' 
   } => {
     let rawPath = typeof window !== 'undefined' ? window.location.pathname : '/';
 
@@ -116,10 +116,10 @@ export default function App() {
     }
     const urlParams = new URLSearchParams(searchStr);
     const pkgParam = urlParams.get('package');
-    const packageType: 'starter_tier' | 'annual_unlimited' = 
-      (pkgParam === 'annual_unlimited' || pkgParam === 'annual') 
-        ? 'annual_unlimited' 
-        : 'starter_tier';
+    const packageType: 'Starter' | 'Enterprise' | 'starter_tier' | 'annual_unlimited' = 
+      (pkgParam === 'annual_unlimited' || pkgParam === 'annual' || pkgParam === 'Enterprise') 
+        ? 'Enterprise' 
+        : 'Starter';
 
     // Strip query string and trailing slashes for clean route path matching
     let pathWithoutQuery = rawPath.split('?')[0];
@@ -192,7 +192,7 @@ export default function App() {
       return 'home';
     }
   });
-  const [signupPackage, setSignupPackage] = useState<'starter_tier' | 'annual_unlimited'>('starter_tier');
+  const [signupPackage, setSignupPackage] = useState<'Starter' | 'Enterprise' | 'starter_tier' | 'annual_unlimited'>('Starter');
 
   // Dedicated Portfolio Modal State
   const [isPortfolioModalOpen, setIsPortfolioModalOpen] = useState(false);
@@ -555,6 +555,14 @@ export default function App() {
     pageName: PageType, 
     extraParams?: { package?: 'starter_tier' | 'annual_unlimited'; slug?: string }
   ) => {
+    if (extraParams?.slug) {
+      setSelectedPublicSlug(extraParams.slug);
+      setIsPortfolioModalOpen(true);
+      setCurrentPage(pageName);
+      window.history.pushState(null, '', `/p/${extraParams.slug}`);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     setIsPortfolioModalOpen(false);
     setSelectedPublicSlug(undefined);
     if (extraParams?.package) {
