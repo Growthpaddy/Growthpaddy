@@ -139,7 +139,7 @@ export function useSecureLogin(): UseSecureLoginReturn {
           }
         } else {
           // If neither Supabase nor mock matches, immediately stop and show credentials error
-          setError('Invalid login credentials.');
+          setError("Invalid email or password. If you recently registered, check your inbox for an activation email or contact support.");
           setLoading(false);
           return { success: false, user: null, onboarding: null };
         }
@@ -150,7 +150,7 @@ export function useSecureLogin(): UseSecureLoginReturn {
       }
 
       if (!activeUser) {
-        setError('Invalid login credentials.');
+        setError("Invalid email or password. If you recently registered, check your inbox for an activation email or contact support.");
         setLoading(false);
         return { success: false, user: null, onboarding: null };
       }

@@ -177,11 +177,9 @@ export const AdminLogin: React.FC<LoginProps> = ({
       handleNavigateToDashboard();
     } catch (err: any) {
       console.error('[AdminLogin] Authentication failure:', err);
-      if (err.message?.includes('Invalid login credentials') || err.status === 400) {
-        setErrorMessage('Invalid email or password. Please verify your credentials and try again.');
-      } else {
-        setErrorMessage(err.message || 'An unexpected error occurred during administrator authentication.');
-      }
+      const authFailedMsg = "Invalid email or password. If you recently registered, check your inbox for an activation email or contact support.";
+      setErrorMessage(authFailedMsg);
+      alert(authFailedMsg);
     } finally {
       setLoading(false);
     }

@@ -44,7 +44,8 @@ export const handleRecruiterSignIn = async (email: string, password: string) => 
       return;
     }
 
-    alert(`Authentication Failed: ${authError.message}`);
+    const authFailedMsg = "Invalid email or password. If you recently registered, check your inbox for an activation email or contact support.";
+    alert(authFailedMsg);
     return;
   }
 
@@ -124,9 +125,9 @@ export default function RecruiterLogin({
     try {
       await handleRecruiterSignIn(cleanEmail, password);
     } catch (err: any) {
-      const msg = err?.message || 'Authentication error';
-      setErrorMessage(msg);
-      alert(`Authentication Failed: ${msg}`);
+      const authFailedMsg = "Invalid email or password. If you recently registered, check your inbox for an activation email or contact support.";
+      setErrorMessage(authFailedMsg);
+      alert(authFailedMsg);
     } finally {
       setLoading(false);
     }

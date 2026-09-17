@@ -363,165 +363,127 @@ export default function RecruiterSignup({
     targetTalentType: targetTalentType || 'full_time',
   };
 
-  const handleRecruiterSignUp = async (formData: any) => {
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
     setErrorMessage(null);
 
-    const cleanEmail = (formData.email || '').trim().toLowerCase();
-    const cleanCompany = (formData.companyName || '').trim();
-    const cleanContact = (formData.contactPerson || formData.fullName || cleanCompany).trim();
-    const cleanPhone = (formData.phoneNumber || '').trim();
-    const chosenPackage = (selectedPackage === 'Enterprise' || formData.selectedPackage === 'Enterprise') ? 'Enterprise' : 'Starter';
-
-    let authUser: any = null;
-    let authError: any = null;
-
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email: cleanEmail,
-        password: formData.password,
-        options: {
-          data: {
-            role: 'recruiter', // Triggers handle_new_recruiter_signup()
-            company_name: cleanCompany,
-            contact_person: cleanContact,
-            business_email: cleanEmail,
-            phone_number: cleanPhone,
-            selected_package: chosenPackage, // Must match 'Starter', 'Growth', or 'Enterprise'
-            subscribed_package: chosenPackage,
-            company_size: formData.companySize || '1-10',
-            industry: formData.industry || 'Growth Marketing',
-          },
+    // 1. Sign up user via Auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: formData.email,
+      password: formData.password,
+      options: {
+        data: {
+          role: 'recruiter',
+          company_name: formData.companyName,
+          contact_person: formData.contactPerson || formData.fullName,
+          phone_number: formData.phoneNumber,
+          subscribed_package: selectedPackage || 'Starter',
         },
-      });
-
-      if (data?.user) {
-        authUser = data.user;
-      }
-      if (error) {
-        authError = error;
-      }
-    } catch (err: any) {
-      authError = err;
-    }
+      },
+    });
 
     if (authError) {
-      const formattedMsg = formatErrorMessage(authError);
-      const isAlreadyRegistered = 
-        formattedMsg.toLowerCase().includes('already') ||
-        (authError.message && String(authError.message).toLowerCase().includes('already'));
-
-      if (isAlreadyRegistered) {
-        const friendlyMsg = 'An account with this email already exists. Please sign in to your recruiter account.';
-        alert(friendlyMsg);
-        setErrorMessage(friendlyMsg);
-        setLoading(false);
-        return;
-      }
-
-      // Check if this is an actionable user validation error, rather than an unparsed "{}" or database trigger 500
-      const isInternalOrEmptyError = 
-        !formattedMsg || 
-        formattedMsg === '{}' || 
-        formattedMsg.includes('Database error') ||
-        (authError.message && (authError.message === '{}' || authError.message.includes('Database error')));
-
-      if (!isInternalOrEmptyError) {
-        alert(`Signup failed: ${formattedMsg}`);
-        setErrorMessage(`Signup failed: ${formattedMsg}`);
-        setLoading(false);
-        return;
-      }
-
-      console.warn('[RecruiterSignUp] Supabase Auth trigger notice, continuing with persistent recruiter profile:', authError);
+      setLoading(false);
+      setErrorMessage(`Registration Error: ${authError.message}`);
+      alert(`Registration Error: ${authError.message}`);
+      return;
     }
 
-    const userId = authUser?.id || `rec_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    if (authData.user) {
+      // 2. Direct Fallback Write to public.recruiters
+      const { error: dbError } = await supabase
+        .from('recruiters')
+        .upsert({
+          user_id: authData.user.id,
+          business_email: formData.email,
+          company_name: formData.companyName,
+          contact_person: formData.contactPerson || 'Recruiter',
+          phone_number: formData.phoneNumber || 'N/A',
+          selected_package: selectedPackage || 'Starter',
+          payment_status: 'pending_verification',
+          max_contacts: selectedPackage === 'Growth' ? 25 : selectedPackage === 'Enterprise' ? 99999 : 5,
+        }, { onConflict: 'user_id' });
 
-    // Direct persistence to public.recruiters via Server API with Service Role
-    try {
-      await fetch('/api/recruiter/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      if (dbError) {
+        console.error('Direct table write error:', dbError);
+      }
+
+      // 3. Server API service-role sync and local cache persistence for seamless dashboard initialization
+      try {
+        await fetch('/api/recruiter/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+            companyName: formData.companyName,
+            contactPerson: formData.contactPerson || formData.fullName || 'Recruiter',
+            phoneNumber: formData.phoneNumber || 'N/A',
+            selectedPackage: selectedPackage || 'Starter',
+            industry: formData.industry || 'Growth Marketing',
+            companySize: formData.companySize || '1-10',
+            userId: authData.user.id,
+          }),
+        });
+      } catch (_) {}
+
+      const cleanEmail = (formData.email || '').trim().toLowerCase();
+      const cleanCompany = (formData.companyName || '').trim();
+      const cleanContact = (formData.contactPerson || formData.fullName || 'Recruiter').trim();
+      const cleanPhone = (formData.phoneNumber || 'N/A').trim();
+      const chosenPackage = selectedPackage || 'Starter';
+      const maxContacts = selectedPackage === 'Growth' ? 25 : selectedPackage === 'Enterprise' ? 99999 : 5;
+
+      const profileRecord = {
+        id: authData.user.id,
+        user_id: authData.user.id,
+        company_name: cleanCompany,
+        contact_person: cleanContact,
+        phone_number: cleanPhone,
+        organization_name: cleanCompany,
+        business_email: cleanEmail,
+        company_size: formData.companySize || '1-10',
+        industry: formData.industry || 'Growth Marketing',
+        subscribed_package: chosenPackage,
+        selected_package: chosenPackage,
+        payment_status: 'pending_verification',
+        verification_status: 'pending_verification',
+        status: 'pending_approval',
+        max_contacts: maxContacts,
+        contacts_unlocked_count: 0,
+        created_at: new Date().toISOString()
+      };
+
+      try {
+        localStorage.setItem(`mock_recruiter_profiles_${authData.user.id}`, JSON.stringify(profileRecord));
+        localStorage.setItem('dsp_recruiter_profile', JSON.stringify(profileRecord));
+        const rawUsers = localStorage.getItem('dsp_registered_users');
+        const users = rawUsers ? JSON.parse(rawUsers) : [];
+        const idx = users.findIndex((u: any) => u.email?.toLowerCase() === cleanEmail);
+        const regUser = {
           email: cleanEmail,
           password: formData.password,
+          userName: cleanCompany,
+          userType: 'recruiter',
           companyName: cleanCompany,
-          contactPerson: cleanContact,
-          phoneNumber: cleanPhone,
           selectedPackage: chosenPackage,
-          industry: formData.industry || 'Growth Marketing',
-          companySize: formData.companySize || '1-10',
-          userId: userId,
-        }),
-      });
-    } catch (apiErr) {
-      console.warn('[RecruiterSignUp] API recruiter sync notice:', apiErr);
-    }
-
-    // Persist recruiter profile locally for immediate dashboard display
-    const profileRecord = {
-      id: userId,
-      user_id: userId,
-      company_name: cleanCompany,
-      contact_person: cleanContact,
-      phone_number: cleanPhone,
-      organization_name: cleanCompany,
-      business_email: cleanEmail,
-      company_size: formData.companySize || '1-10',
-      industry: formData.industry || 'Growth Marketing',
-      subscribed_package: chosenPackage,
-      selected_package: chosenPackage,
-      payment_status: 'pending_verification',
-      verification_status: 'pending_verification',
-      status: 'pending_approval',
-      max_contacts: chosenPackage === 'Enterprise' ? 99999 : 5,
-      contacts_unlocked_count: 0,
-      created_at: new Date().toISOString()
-    };
-
-    try {
-      localStorage.setItem(`mock_recruiter_profiles_${userId}`, JSON.stringify(profileRecord));
-      localStorage.setItem('dsp_recruiter_profile', JSON.stringify(profileRecord));
-      
-      const rawUsers = localStorage.getItem('dsp_registered_users');
-      const users = rawUsers ? JSON.parse(rawUsers) : [];
-      const idx = users.findIndex((u: any) => u.email?.toLowerCase() === cleanEmail);
-      const regUser = {
-        email: cleanEmail,
-        password: formData.password,
-        userName: cleanCompany,
-        userType: 'recruiter',
-        companyName: cleanCompany,
-        selectedPackage: chosenPackage,
-        verification_status: 'pending_verification',
-        payment_status: 'pending_verification',
-        onboarding: profileRecord
-      };
-      if (idx >= 0) users[idx] = regUser; else users.push(regUser);
-      localStorage.setItem('dsp_registered_users', JSON.stringify(users));
-
-      if (authUser?.id) {
-        await supabase.from('recruiters').upsert({
-          user_id: authUser.id,
-          company_name: cleanCompany,
-          contact_person: cleanContact,
-          business_email: cleanEmail,
-          phone_number: cleanPhone,
-          selected_package: chosenPackage,
+          verification_status: 'pending_verification',
           payment_status: 'pending_verification',
-          contacts_unlocked_count: 0,
-          max_contacts: chosenPackage === 'Enterprise' ? 99999 : 5,
-        }, { onConflict: 'user_id' });
-      }
-    } catch (storageErr) {
-      console.warn('Storage sync notice:', storageErr);
-    } finally {
-      setLoading(false);
+          onboarding: profileRecord
+        };
+        if (idx >= 0) users[idx] = regUser; else users.push(regUser);
+        localStorage.setItem('dsp_registered_users', JSON.stringify(users));
+      } catch (_) {}
     }
 
-    // Redirect to dashboard with pending status alert
-    navigate('/recruiter-dashboard?status=pending_verification');
+    // Redirect to recruiter dashboard
+    window.location.href = '/recruiter-dashboard?status=pending_verification';
+  };
+
+  const handleRecruiterSignUp = async (formData: any) => {
+    // Adapter for backward compatibility
+    await handleSignUp({ preventDefault: () => {} } as React.FormEvent);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -541,7 +503,7 @@ export default function RecruiterSignup({
       return;
     }
 
-    handleRecruiterSignUp(formData);
+    handleSignUp(e);
   };
 
   const navToLogin = () => {
