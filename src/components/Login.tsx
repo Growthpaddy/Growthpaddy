@@ -56,35 +56,61 @@ export const Login: React.FC<LoginProps> = ({
         return;
       }
 
-      // Secondary fallback to server login endpoint
-      const serverRes = await fetch('/api/recruiter/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, password }),
-      });
-      const serverData = await serverRes.json();
+      // Check if error is normal invalid credentials (400)
+      const errorMsg = (error?.message || '').toLowerCase();
+      const isCredentialError = errorMsg.includes('invalid login credentials') || 
+                                errorMsg.includes('invalid credentials') || 
+                                error?.status === 400;
 
-      if (serverRes.ok && serverData.success) {
-        if (serverData.recruiter) {
-          localStorage.setItem('dsp_recruiter_profile', JSON.stringify(serverData.recruiter));
-        }
-        if (serverData.user) {
-          localStorage.setItem('dsp_local_auth_session', JSON.stringify({
-            user: serverData.user,
-            access_token: 'sess_' + Date.now(),
-            token_type: 'bearer'
-          }));
-        }
-
-        if (onSuccess) {
-          onSuccess();
-        } else {
-          window.location.href = '/recruiter-dashboard';
-        }
+      if (isCredentialError) {
+        const parsed = parseGranularAuthError(error);
+        setErrorMessage(parsed.userFriendlyMessage);
+        setLoading(false);
         return;
       }
 
-      const parsed = parseGranularAuthError(error || serverData);
+      // Secondary fallback to server login endpoint if network/500/schema issue
+      let serverData: any = null;
+      try {
+        const serverRes = await fetch('/api/recruiter/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: cleanEmail, password }),
+        });
+
+        const rawText = await serverRes.text();
+        if (rawText && rawText.trim()) {
+          try {
+            serverData = JSON.parse(rawText);
+          } catch {
+            serverData = { error: rawText };
+          }
+        }
+
+        if (serverRes.ok && serverData && serverData.success) {
+          if (serverData.recruiter) {
+            localStorage.setItem('dsp_recruiter_profile', JSON.stringify(serverData.recruiter));
+          }
+          if (serverData.user) {
+            localStorage.setItem('dsp_local_auth_session', JSON.stringify({
+              user: serverData.user,
+              access_token: 'sess_' + Date.now(),
+              token_type: 'bearer'
+            }));
+          }
+
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            window.location.href = '/recruiter-dashboard';
+          }
+          return;
+        }
+      } catch (fetchErr) {
+        console.warn('[Login] Server fallback request notice:', fetchErr);
+      }
+
+      const parsed = parseGranularAuthError(serverData?.error ? serverData : error);
       setErrorMessage(parsed.userFriendlyMessage);
       setLoading(false);
     } catch (err: any) {

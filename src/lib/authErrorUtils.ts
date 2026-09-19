@@ -58,7 +58,37 @@ export function parseGranularAuthError(err: any): GranularAuthError {
   const status = typeof err.status === 'number' ? err.status : undefined;
 
   // 3. Map granular error codes & patterns to clear user-friendly scenarios
-  let userFriendlyMessage = rawMessage || 'Registration encountered an issue. Please try again.';
+  let userFriendlyMessage = rawMessage || 'Authentication encountered an issue. Please try again.';
+
+  if (
+    code === 'invalid_credentials' ||
+    code === 'invalid_grant' ||
+    rawLower.includes('invalid login credentials') ||
+    rawLower.includes('invalid credentials') ||
+    rawLower.includes('invalid password') ||
+    rawLower.includes('wrong password')
+  ) {
+    return {
+      code: 'invalid_credentials',
+      rawMessage,
+      userFriendlyMessage: 'Invalid email or password. Please verify your credentials and try again.',
+      status: 400
+    };
+  }
+
+  if (
+    rawLower.includes('unexpected end of json input') ||
+    rawLower.includes('syntaxerror') ||
+    rawLower.includes('failed to parse json') ||
+    rawLower.includes('json.parse')
+  ) {
+    return {
+      code: 'network_session_error',
+      rawMessage,
+      userFriendlyMessage: 'Authentication connection was interrupted. Please check your connection and try logging in again.',
+      status: 500
+    };
+  }
 
   if (
     code === 'weak_password' || 

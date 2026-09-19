@@ -76,43 +76,69 @@ export default function RecruiterLogin({
         return;
       }
 
-      // 2. Secondary Attempt: Server Fallback via /api/recruiter/login
-      // This handles schema error healing, auto-heals GoTrue auth records, and syncs sessions
-      console.warn('[RecruiterLogin] Client sign-in notice, calling /api/recruiter/login fallback...', error);
-      
-      const serverRes = await fetch('/api/recruiter/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, password }),
-      });
-      const serverData = await serverRes.json();
+      // If error is normal invalid credentials (400), don't do server fallback, report directly
+      const errorMsg = (error?.message || '').toLowerCase();
+      const isCredentialError = errorMsg.includes('invalid login credentials') || 
+                                errorMsg.includes('invalid credentials') || 
+                                error?.status === 400;
 
-      if (serverRes.ok && serverData.success) {
-        if (serverData.recruiter) {
-          localStorage.setItem('dsp_recruiter_profile', JSON.stringify(serverData.recruiter));
-          const recId = serverData.recruiter.id || serverData.recruiter.user_id;
-          if (recId) {
-            localStorage.setItem(`mock_recruiter_profiles_${recId}`, JSON.stringify(serverData.recruiter));
-          }
-        }
-        if (serverData.user) {
-          localStorage.setItem('dsp_local_auth_session', JSON.stringify({
-            user: serverData.user,
-            access_token: 'recruiter_sess_' + Date.now(),
-            token_type: 'bearer'
-          }));
-        }
-
-        if (onNavigateToDashboard) {
-          onNavigateToDashboard();
-        } else {
-          window.location.href = '/recruiter-dashboard';
-        }
+      if (isCredentialError) {
+        const parsed = parseGranularAuthError(error);
+        setErrorMessage(parsed.userFriendlyMessage);
+        setLoading(false);
         return;
       }
 
-      // 3. Translate error cleanly so it NEVER displays `{}`
-      const parsed = parseGranularAuthError(error || serverData);
+      // 2. Secondary Attempt: Server Fallback via /api/recruiter/login
+      // Only invoked if client encountered network/500/schema issue
+      console.warn('[RecruiterLogin] Client sign-in notice, calling /api/recruiter/login fallback...', error);
+      
+      let serverData: any = null;
+      try {
+        const serverRes = await fetch('/api/recruiter/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: cleanEmail, password }),
+        });
+
+        const rawText = await serverRes.text();
+        if (rawText && rawText.trim()) {
+          try {
+            serverData = JSON.parse(rawText);
+          } catch {
+            serverData = { error: rawText };
+          }
+        }
+
+        if (serverRes.ok && serverData && serverData.success) {
+          if (serverData.recruiter) {
+            localStorage.setItem('dsp_recruiter_profile', JSON.stringify(serverData.recruiter));
+            const recId = serverData.recruiter.id || serverData.recruiter.user_id;
+            if (recId) {
+              localStorage.setItem(`mock_recruiter_profiles_${recId}`, JSON.stringify(serverData.recruiter));
+            }
+          }
+          if (serverData.user) {
+            localStorage.setItem('dsp_local_auth_session', JSON.stringify({
+              user: serverData.user,
+              access_token: 'recruiter_sess_' + Date.now(),
+              token_type: 'bearer'
+            }));
+          }
+
+          if (onNavigateToDashboard) {
+            onNavigateToDashboard();
+          } else {
+            window.location.href = '/recruiter-dashboard';
+          }
+          return;
+        }
+      } catch (fetchErr) {
+        console.warn('[RecruiterLogin] Server fallback request notice:', fetchErr);
+      }
+
+      // 3. Translate error cleanly so it NEVER displays `{}` or raw JSON exceptions
+      const parsed = parseGranularAuthError(serverData?.error ? serverData : error);
       setErrorMessage(parsed.userFriendlyMessage);
       setLoading(false);
     } catch (err: any) {

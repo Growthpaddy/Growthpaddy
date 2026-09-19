@@ -238,6 +238,7 @@ app.post("/api/recruiter/login", async (req, res) => {
     const supabase = getSupabaseClient();
 
     // 1. Primary Attempt: Standard Supabase Auth signInWithPassword
+    let authFailedDueToCredentials = false;
     try {
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
@@ -263,8 +264,23 @@ app.post("/api/recruiter/login", async (req, res) => {
           }
         });
       }
+
+      if (authError) {
+        const msg = (authError.message || "").toLowerCase();
+        if (msg.includes("invalid login credentials") || msg.includes("invalid credentials") || authError.status === 400) {
+          authFailedDueToCredentials = true;
+        }
+      }
     } catch (e: any) {
       console.warn("[Server] signInWithPassword notice:", e?.message);
+    }
+
+    // If Supabase specifically rejected the credentials, do not override password or allow bypass
+    if (authFailedDueToCredentials) {
+      return res.status(401).json({
+        success: false,
+        error: "Invalid email or password. Please verify your credentials and try again."
+      });
     }
 
     // 2. Check if recruiter exists in public.recruiters
@@ -496,34 +512,6 @@ app.post("/api/admin/register", async (req, res) => {
   } catch (err: any) {
     console.error("[Server] Admin register error:", err);
     return res.status(500).json({ error: err.message || "Failed to register admin in database." });
-  }
-});
-
-// 0b. Recruiter Login Helper Endpoint - Verifies recruiter directly in Supabase
-app.post("/api/recruiter/login", async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ error: "Email is required" });
-    }
-    const cleanEmail = email.trim().toLowerCase();
-    const supabase = getSupabaseClient();
-    const { data: recruiter, error } = await supabase
-      .from("recruiters")
-      .select("*")
-      .ilike("business_email", cleanEmail)
-      .maybeSingle();
-
-    if (error || !recruiter) {
-      return res.status(404).json({ error: "No recruiter found with this business email" });
-    }
-
-    return res.json({
-      success: true,
-      recruiter
-    });
-  } catch (err: any) {
-    return res.status(500).json({ error: err.message || "Login failed" });
   }
 });
 
