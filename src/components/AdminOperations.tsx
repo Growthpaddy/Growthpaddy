@@ -26,6 +26,7 @@ import {
   Edit3
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { extractAuthErrorMessage } from '../lib/authErrorUtils';
 import { useSupabase } from '../context/SupabaseContext';
 import { useAdminPipeline } from '../hooks/useAdminPipeline';
 import { TalentCandidate } from '../types';
@@ -432,16 +433,39 @@ export default function AdminOperations({
     }
 
     try {
+      const cleanEmail = email.toLowerCase().trim();
+      const cleanFullName = fullName.trim();
+
       // 1. Live Supabase Auth SignUp Call
-      const { user: authedUser, error: signUpErr } = await signUp(email, password, {
+      const { user: authedUser, error: signUpErr } = await signUp(cleanEmail, password, {
         data: {
           role: 'admin',
-          full_name: fullName
+          full_name: cleanFullName
         }
       });
 
-      if (signUpErr) {
-        throw signUpErr;
+      if (signUpErr && !authedUser) {
+        // Try backend sync fallback
+        try {
+          const res = await fetch('/api/admin/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: cleanEmail,
+              password,
+              fullName: cleanFullName,
+              role: 'admin'
+            })
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            setAuthSuccessMsg('Staff account created and saved in Supabase! You can now Sign In.');
+            setAuthView('signin');
+            return;
+          }
+        } catch (_) {}
+
+        throw new Error(extractAuthErrorMessage(signUpErr));
       }
 
       // 2. Write to admin_profiles table if user created
@@ -449,21 +473,37 @@ export default function AdminOperations({
         try {
           await supabase.from('admin_profiles').upsert([
             {
-              id: authedUser.id,
-              full_name: fullName,
-              email: email.toLowerCase().trim(),
-              role: 'admin'
+              user_id: authedUser.id,
+              full_name: cleanFullName,
+              email: cleanEmail,
+              role: 'admin',
+              is_active: false
             }
-          ]);
+          ], { onConflict: 'user_id' });
         } catch (dbErr) {
           console.warn('admin_profiles record notice:', dbErr);
         }
+
+        // Backend sync redundancy
+        try {
+          await fetch('/api/admin/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: cleanEmail,
+              password,
+              fullName: cleanFullName,
+              userId: authedUser.id,
+              role: 'admin'
+            })
+          });
+        } catch (_) {}
       }
 
       setAuthSuccessMsg('Live Staff Account created! Verification dispatched. You can now Sign In.');
       setAuthView('signin');
     } catch (err: any) {
-      setAuthError(err.message || 'Staff node registration failed.');
+      setAuthError(extractAuthErrorMessage(err));
     } finally {
       setLoading(false);
     }

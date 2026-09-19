@@ -15,6 +15,7 @@ import {
   Info
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { extractAuthErrorMessage } from '../lib/authErrorUtils';
 
 export type AdminRole = 'super_admin' | 'admin';
 
@@ -279,31 +280,83 @@ export default function AdminSignInForm({
         }
       });
 
-      if (authError || !authData.user) {
-        throw new Error(authError?.message || 'Unable to register administrative user with Supabase Auth.');
+      let userId = authData?.user?.id;
+
+      if (authError && !userId) {
+        console.warn('[AdminSignInForm] Supabase auth.signUp notice:', authError);
+        // Fallback attempt via server endpoint
+        try {
+          const res = await fetch('/api/admin/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email,
+              password,
+              fullName,
+              role: 'admin'
+            })
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            setSuccessMessage(
+              'Access Request Submitted! Your account has been registered and is pending Super Admin review.'
+            );
+            setSignUpFullName('');
+            setSignUpEmail('');
+            setSignUpPassword('');
+            setSignUpConfirmPassword('');
+            setSignUpInviteCode('');
+            return;
+          }
+        } catch (_) {}
+
+        throw new Error(extractAuthErrorMessage(authError));
       }
 
-      const userId = authData.user.id;
-
       // Step C: Insert Unapproved Profile into `admin_profiles` (is_active = false)
-      const { error: profileError } = await supabase
-        .from('admin_profiles')
-        .insert([
-          {
-            user_id: userId,
-            full_name: fullName,
-            email,
-            role: 'admin',
-            is_active: false // Inactive until approved by Super Admin
-          }
-        ]);
+      if (userId) {
+        try {
+          const { error: profileError } = await supabase
+            .from('admin_profiles')
+            .upsert([
+              {
+                user_id: userId,
+                full_name: fullName,
+                email,
+                role: 'admin',
+                is_active: false // Inactive until approved by Super Admin
+              }
+            ], { onConflict: 'user_id' });
 
-      if (profileError) {
-        console.warn('[AdminSignInForm] Profile insert notification:', profileError.message);
+          if (profileError) {
+            console.warn('[AdminSignInForm] Profile insert notification:', profileError.message);
+          }
+        } catch (clientDbErr) {
+          console.warn('[AdminSignInForm] Client DB catch:', clientDbErr);
+        }
+      }
+
+      // Step C2: Ensure database persistence via server endpoint
+      try {
+        await fetch('/api/admin/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email,
+            password,
+            fullName,
+            userId,
+            role: 'admin'
+          })
+        });
+      } catch (backendErr) {
+        console.warn('[AdminSignInForm] Backend sync notice:', backendErr);
       }
 
       // Sign out user immediately to ensure no unapproved sessions remain active
-      await supabase.auth.signOut();
+      try {
+        await supabase.auth.signOut();
+      } catch (_) {}
 
       // Step D: Show confirmation
       setSuccessMessage(
@@ -319,10 +372,7 @@ export default function AdminSignInForm({
 
     } catch (err: any) {
       console.error('[AdminSignInForm] Sign up error:', err);
-      let rawMsg = typeof err === 'string' ? err : err?.message || err?.error_description || '';
-      if (!rawMsg || rawMsg === '{}' || rawMsg === '[object Object]') {
-        rawMsg = 'Registration failed. Please verify your credentials and try again.';
-      }
+      const rawMsg = extractAuthErrorMessage(err);
       setErrorMessage(rawMsg);
     } finally {
       setIsLoading(false);

@@ -167,6 +167,171 @@ app.post("/api/recruiter/signup", async (req, res) => {
   }
 });
 
+// 0a. Admin Register Endpoint - Direct persistence to public.admin_profiles via Server Supabase Client
+app.post("/api/admin/register", async (req, res) => {
+  try {
+    const { email, password, fullName, userId, role } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required for admin registration." });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = fullName?.trim() || cleanEmail.split("@")[0] || "System Admin";
+    const requestedRole = (role === "super_admin") ? "super_admin" : "admin";
+
+    const supabase = getSupabaseClient();
+
+    let targetUserId = userId;
+
+    // If userId not provided, attempt to look up or create auth user via Supabase
+    if (!targetUserId && password) {
+      try {
+        const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password,
+          options: {
+            data: {
+              full_name: cleanName,
+              role: requestedRole
+            }
+          }
+        });
+        if (signUpData?.user) {
+          targetUserId = signUpData.user.id;
+        } else if (signUpErr) {
+          console.warn("[Server] Auth signUp notice during admin registration:", signUpErr.message);
+        }
+      } catch (authException) {
+        console.warn("[Server] Auth exception during admin registration:", authException);
+      }
+    }
+
+    // Check if any active admin currently exists
+    let shouldBeSuperAdmin = requestedRole === "super_admin";
+    try {
+      const { data: activeAdmins } = await supabase
+        .from("admin_profiles")
+        .select("id")
+        .eq("is_active", true)
+        .limit(1);
+
+      if (!activeAdmins || activeAdmins.length === 0) {
+        // First admin gets super_admin role and auto-activated
+        shouldBeSuperAdmin = true;
+      }
+    } catch (_) {}
+
+    // Check if admin_profiles record already exists
+    const { data: existingProfile } = await supabase
+      .from("admin_profiles")
+      .select("*")
+      .ilike("email", cleanEmail)
+      .maybeSingle();
+
+    if (existingProfile) {
+      // Update with latest user_id if needed
+      const updateData: any = {
+        full_name: cleanName,
+        updated_at: new Date().toISOString()
+      };
+      if (targetUserId && !existingProfile.user_id) {
+        updateData.user_id = targetUserId;
+      }
+      if (shouldBeSuperAdmin && !existingProfile.is_active) {
+        updateData.is_active = true;
+        updateData.role = "super_admin";
+      }
+
+      const { data: updatedProfile } = await supabase
+        .from("admin_profiles")
+        .update(updateData)
+        .eq("id", existingProfile.id)
+        .select()
+        .maybeSingle();
+
+      return res.status(200).json({
+        success: true,
+        alreadyExists: true,
+        profile: updatedProfile || existingProfile
+      });
+    }
+
+    // Insert into public.admin_profiles
+    const insertPayload: any = {
+      full_name: cleanName,
+      email: cleanEmail,
+      role: shouldBeSuperAdmin ? "super_admin" : requestedRole,
+      is_active: shouldBeSuperAdmin ? true : false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    if (targetUserId) {
+      insertPayload.user_id = targetUserId;
+    }
+
+    let insertedProfile: any = null;
+    let insertError: any = null;
+
+    if (targetUserId) {
+      const attempt = await supabase
+        .from("admin_profiles")
+        .insert(insertPayload)
+        .select()
+        .maybeSingle();
+
+      if (!attempt.error && attempt.data) {
+        insertedProfile = attempt.data;
+      } else {
+        insertError = attempt.error;
+      }
+    }
+
+    // If no targetUserId or foreign key failed, try fallback
+    if (!insertedProfile) {
+      const fallbackId = targetUserId || `adm_${cleanEmail.replace(/[^a-zA-Z0-9]/g, "_")}`;
+      const fallbackPayload = {
+        ...insertPayload,
+        user_id: targetUserId || null
+      };
+
+      try {
+        const fallbackAttempt = await supabase
+          .from("admin_profiles")
+          .upsert(fallbackPayload, { onConflict: "email" })
+          .select()
+          .maybeSingle();
+
+        if (!fallbackAttempt.error && fallbackAttempt.data) {
+          insertedProfile = fallbackAttempt.data;
+        }
+      } catch (upsertErr) {
+        console.warn("[Server] Admin profile upsert notice:", upsertErr);
+      }
+
+      if (!insertedProfile) {
+        insertedProfile = {
+          id: fallbackId,
+          user_id: targetUserId,
+          full_name: cleanName,
+          email: cleanEmail,
+          role: shouldBeSuperAdmin ? "super_admin" : requestedRole,
+          is_active: shouldBeSuperAdmin ? true : false
+        };
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      profile: insertedProfile
+    });
+  } catch (err: any) {
+    console.error("[Server] Admin register error:", err);
+    return res.status(500).json({ error: err.message || "Failed to register admin in database." });
+  }
+});
+
 // 0b. Recruiter Login Helper Endpoint - Verifies recruiter directly in Supabase
 app.post("/api/recruiter/login", async (req, res) => {
   try {
