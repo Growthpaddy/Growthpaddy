@@ -356,12 +356,18 @@ export default function RecruiterSignup({
     }
   };
 
-  const handleSignUp = async (e: React.FormEvent) => {
+  const handleRecruiterSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Ensure all fields are filled
-    if (!formData.companyName || !formData.contactPerson || !formData.businessEmail || !formData.phoneNumber || !formData.password) {
-      alert('Please fill out all required fields.');
+    const email = formData.businessEmail?.trim();
+    const password = formData.password;
+    const companyName = formData.companyName?.trim() || 'Company Name';
+    const contactPerson = formData.contactPerson?.trim() || 'Recruiter';
+    const phoneNumber = formData.phoneNumber?.trim() || 'N/A';
+    const pkg = selectedPackage || 'Starter';
+
+    if (!email || !password) {
+      alert('Please enter a valid email and password.');
       return;
     }
 
@@ -369,86 +375,69 @@ export default function RecruiterSignup({
     setLoading(true);
 
     try {
-      // Step A: Register User via Supabase Auth with detailed raw metadata
+      // Step A: Sign Up User via Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.businessEmail.trim(),
-        password: formData.password,
+        email,
+        password,
         options: {
           data: {
             role: 'recruiter',
-            company_name: formData.companyName.trim(),
-            contact_person: formData.contactPerson.trim(),
-            phone_number: formData.phoneNumber.trim(),
-            subscribed_package: selectedPackage || 'Starter',
+            company_name: companyName,
+            contact_person: contactPerson,
+            phone_number: phoneNumber,
+            subscribed_package: pkg,
           },
         },
       });
 
       if (authError) {
-        console.error('Auth Error Details:', authError);
-        alert(`Auth Error: ${authError.message}`);
+        console.error('Supabase Auth Raw Error:', authError);
+        alert(`Auth Failed: ${authError.message || JSON.stringify(authError)}`);
         return;
       }
 
       const user = authData.user;
       if (!user) {
-        alert('Signup initiated. Check your inbox to confirm your email address before logging in.');
+        alert('Signup request sent. Please check your email inbox to confirm your account.');
         return;
       }
 
-      // Step B: Direct Upsert Fallback to public.recruiters
+      // Step B: Direct Write to public.recruiters Table
       const { error: dbError } = await supabase
         .from('recruiters')
         .upsert({
           user_id: user.id,
-          company_name: formData.companyName.trim(),
-          contact_person: formData.contactPerson.trim(),
-          business_email: formData.businessEmail.trim(),
-          phone_number: formData.phoneNumber.trim(),
-          selected_package: selectedPackage || 'Starter',
+          business_email: email,
+          company_name: companyName,
+          contact_person: contactPerson,
+          phone_number: phoneNumber,
+          selected_package: pkg,
           payment_status: 'pending_verification',
           contacts_unlocked_count: 0,
-          max_contacts: (selectedPackage as any) === 'Growth' ? 25 : selectedPackage === 'Enterprise' ? 99999 : 5,
+          max_contacts: pkg === 'Growth' ? 25 : pkg === 'Enterprise' ? 99999 : 5,
         }, { onConflict: 'user_id' });
 
       if (dbError) {
-        console.error('Direct DB Insert Error:', dbError);
+        console.error('Database Direct Write Error:', dbError);
+        alert(`Database Insert Error (${dbError.code}): ${dbError.message}`);
+        return;
       }
 
-      // Backend API sync redundancy
-      try {
-        await fetch('/api/recruiter/signup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: formData.businessEmail.trim(),
-            password: formData.password,
-            companyName: formData.companyName.trim(),
-            contactPerson: formData.contactPerson.trim(),
-            phoneNumber: formData.phoneNumber.trim(),
-            selectedPackage: selectedPackage || 'Starter',
-            companySize: companySize || '1-10',
-            industry: industry || 'Software & AI Technology',
-            userId: user.id,
-          }),
-        });
-      } catch (_) {}
-
-      // Cache profile locally for immediate dashboard hydration
+      // Populate local caches for smooth dashboard transition
       try {
         const profileRecord = {
           id: user.id,
           user_id: user.id,
-          company_name: formData.companyName.trim(),
-          contact_person: formData.contactPerson.trim(),
-          phone_number: formData.phoneNumber.trim(),
-          business_email: formData.businessEmail.trim(),
-          selected_package: selectedPackage || 'Starter',
-          subscribed_package: selectedPackage || 'Starter',
+          business_email: email,
+          company_name: companyName,
+          contact_person: contactPerson,
+          phone_number: phoneNumber,
+          selected_package: pkg,
+          subscribed_package: pkg,
           payment_status: 'pending_verification',
           verification_status: 'pending_verification',
           status: 'pending_approval',
-          max_contacts: (selectedPackage as any) === 'Growth' ? 25 : selectedPackage === 'Enterprise' ? 99999 : 5,
+          max_contacts: pkg === 'Growth' ? 25 : pkg === 'Enterprise' ? 99999 : 5,
           contacts_unlocked_count: 0,
           created_at: new Date().toISOString(),
         };
@@ -456,30 +445,19 @@ export default function RecruiterSignup({
         localStorage.setItem('dsp_recruiter_profile', JSON.stringify(profileRecord));
       } catch (_) {}
 
-      // Clear form inputs
-      setFormData({
-        companyName: '',
-        contactPerson: '',
-        businessEmail: '',
-        phoneNumber: '',
-        password: '',
-      });
-
-      // Step C: Clear session and redirect to login page
-      await supabase.auth.signOut();
-      alert('Registration complete! Please log in to your recruiter dashboard.');
-      window.location.href = '/recruiter-login';
+      // Step C: Redirect to Dashboard
+      window.location.href = '/recruiter-dashboard?status=pending_verification';
 
     } catch (err: any) {
-      console.error('Registration Exception:', err);
-      alert(`Unexpected error: ${err.message || 'Check console'}`);
+      console.error('Unexpected Exception:', err);
+      alert(`Unexpected System Error: ${err?.message || 'Check browser console'}`);
     } finally {
       setLoading(false);
       setSubmitting(false);
     }
   };
 
-  const handleRecruiterSignUp = handleSignUp;
+  const handleSignUp = handleRecruiterSignUp;
 
   const navToLogin = () => {
     if (onNavigateToLogin) {
@@ -597,7 +575,7 @@ export default function RecruiterSignup({
           )}
 
           {/* Form Fields */}
-          <form onSubmit={handleSignUp} className="space-y-6">
+          <form onSubmit={handleRecruiterSignUp} className="space-y-6">
             <div className="space-y-4">
               <label className="block text-xs font-mono font-bold uppercase text-slate-700">
                 2. Organization & Hiring Requirements:
