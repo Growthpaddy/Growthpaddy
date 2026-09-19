@@ -460,11 +460,28 @@ app.post("/api/admin/recruiter/status", async (req, res) => {
         .from("recruiters")
         .update({
           payment_status: "verified",
+          verification_status: "verified",
+          is_approved: true,
+          status: "verified",
           is_suspended: false,
           max_contacts: maxContacts,
           updated_at: new Date().toISOString()
         })
-        .eq("id", recruiter.id);
+        .or(`id.eq.${recruiter.id},user_id.eq.${recruiter.user_id || recruiter.id}`);
+
+      try {
+        await supabase
+          .from("recruiter_profiles")
+          .update({
+            payment_status: "verified",
+            verification_status: "verified",
+            is_approved: true,
+            status: "verified",
+            is_suspended: false,
+            updated_at: new Date().toISOString()
+          })
+          .or(`id.eq.${recruiter.id},id.eq.${targetUserId || ''}`);
+      } catch (_) {}
 
       // Try calling RPC if exists
       try {
@@ -663,7 +680,7 @@ app.get("/api/recruiter/profile", async (req, res) => {
     const supabase = getSupabaseClient();
     let query = supabase.from("recruiters").select("*");
     if (userId && email) {
-      query = query.or(`user_id.eq.${userId},business_email.eq.${email}`);
+      query = query.or(`user_id.eq.${userId},business_email.eq.${email},id.eq.${userId}`);
     } else if (userId) {
       query = query.or(`user_id.eq.${userId},id.eq.${userId}`);
     } else {
@@ -683,10 +700,25 @@ app.get("/api/recruiter/profile", async (req, res) => {
       rec?.is_suspended ||
       authUser?.user_metadata?.is_suspended ||
       authUser?.user_metadata?.verification_status === 'suspended' ||
+      rec?.verification_status === 'suspended' ||
       rec?.status === 'suspended'
     );
-    const isApproved = (rec?.payment_status === 'verified' || authUser?.user_metadata?.verification_status === 'verified') && !isSuspended;
-    const isDisapproved = (rec?.payment_status === 'rejected') && !isSuspended;
+    const isApproved = !isSuspended && Boolean(
+      rec?.payment_status === 'verified' ||
+      rec?.payment_status === 'approved' ||
+      rec?.verification_status === 'verified' ||
+      rec?.verification_status === 'approved' ||
+      rec?.is_approved === true ||
+      rec?.status === 'verified' ||
+      rec?.status === 'active' ||
+      authUser?.user_metadata?.verification_status === 'verified' ||
+      authUser?.user_metadata?.is_approved === true
+    );
+    const isDisapproved = !isSuspended && !isApproved && (
+      rec?.payment_status === 'rejected' ||
+      rec?.payment_status === 'disapproved' ||
+      rec?.verification_status === 'rejected'
+    );
 
     const verificationStatus: 'verified' | 'suspended' | 'pending' = isSuspended
       ? 'suspended'
