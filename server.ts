@@ -49,25 +49,79 @@ function getSupabaseClient() {
 // API ROUTES FIRST
 // ========================================================
 
-// 0. Recruiter Signup Endpoint - Direct persistence to public.recruiters via Service Role
+// 0. Recruiter Signup Endpoint - Transactional RPC & Fallback via Service Role
 app.post("/api/recruiter/signup", async (req, res) => {
   try {
-    const { email, password, companyName, contactPerson, phoneNumber, selectedPackage, industry, companySize, userId } = req.body;
+    const rawEmail = req.body.email || req.body.businessEmail;
+    const rawCompany = req.body.companyName || req.body.company_name;
+    const rawContact = req.body.contactPerson || req.body.contact_person;
+    const rawPhone = req.body.phoneNumber || req.body.phone_number;
+    const rawPackage = req.body.selectedPackage || req.body.selected_package;
+    const password = req.body.password;
+    const userId = req.body.userId;
     
-    if (!email || !companyName) {
+    if (!rawEmail || !rawCompany) {
       return res.status(400).json({ error: "Email and Company Name are required." });
     }
 
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanCompany = companyName.trim();
-    const cleanContact = contactPerson || cleanCompany;
-    const cleanPhone = phoneNumber || "";
-    const chosenPackage = (selectedPackage === "Enterprise" || selectedPackage === "Growth") ? selectedPackage : "Starter";
+    const cleanEmail = rawEmail.trim().toLowerCase();
+    const cleanCompany = rawCompany.trim();
+    const cleanContact = rawContact || cleanCompany;
+    const cleanPhone = rawPhone || "";
+    const chosenPackage = (rawPackage === "Enterprise" || rawPackage === "Growth") ? rawPackage : "Starter";
     const maxContacts = chosenPackage === "Enterprise" ? 99999 : chosenPackage === "Growth" ? 25 : 5;
 
     const supabase = getSupabaseClient();
 
-    // Check if recruiter already exists in public.recruiters
+    // 1. First attempt atomic RPC call if password provided
+    if (password && password.length >= 6) {
+      try {
+        // Try signup_recruiter first
+        const { data: rpcData, error: rpcError } = await supabase.rpc("signup_recruiter", {
+          email: cleanEmail,
+          password: password,
+          company_name: cleanCompany,
+          contact_person: cleanContact,
+          phone_number: cleanPhone,
+          selected_package: chosenPackage
+        });
+
+        if (!rpcError && rpcData && rpcData.success) {
+          return res.status(200).json({
+            success: true,
+            method: "signup_recruiter_rpc",
+            user_id: rpcData.user_id,
+            recruiter: rpcData.recruiter
+          });
+        } else if (rpcError) {
+          console.warn("[Server] signup_recruiter RPC note:", rpcError.message);
+        }
+      } catch (rpcEx) {
+        console.warn("[Server] signup_recruiter RPC exception:", rpcEx);
+      }
+
+      try {
+        const { data: rpcData2, error: rpcError2 } = await supabase.rpc("register_recruiter", {
+          p_email: cleanEmail,
+          p_password: password,
+          p_company_name: cleanCompany,
+          p_contact_person: cleanContact,
+          p_phone_number: cleanPhone,
+          p_selected_package: chosenPackage
+        });
+
+        if (!rpcError2 && rpcData2 && rpcData2.success) {
+          return res.status(200).json({
+            success: true,
+            method: "register_recruiter_rpc",
+            user_id: rpcData2.user_id,
+            recruiter: rpcData2.recruiter
+          });
+        }
+      } catch (_) {}
+    }
+
+    // 2. Check if recruiter already exists in public.recruiters
     const { data: existingRec } = await supabase
       .from("recruiters")
       .select("*")

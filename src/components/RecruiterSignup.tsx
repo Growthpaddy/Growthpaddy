@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { extractAuthErrorMessage } from '../lib/authErrorUtils';
+import { extractAuthErrorMessage, parseGranularAuthError } from '../lib/authErrorUtils';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Building2, 
@@ -123,8 +123,9 @@ export const handleRecruiterSignUp = async (
   selectedPackage?: 'Starter' | 'Enterprise' | string,
   navigateFn?: (path: string) => void
 ) => {
-  const chosenPackage: 'Starter' | 'Enterprise' = 
-    (selectedPackage === 'Enterprise' || formData.selectedPackage === 'Enterprise') ? 'Enterprise' : 'Starter';
+  const chosenPackage: 'Starter' | 'Growth' | 'Enterprise' = 
+    (selectedPackage === 'Enterprise' || formData.selectedPackage === 'Enterprise') ? 'Enterprise' : 
+    (selectedPackage === 'Growth' || formData.selectedPackage === 'Growth') ? 'Growth' : 'Starter';
   const cleanEmail = formData.email.trim().toLowerCase();
   const cleanCompany = formData.companyName.trim();
 
@@ -156,71 +157,95 @@ export const handleRecruiterSignUp = async (
     industry: formData.industry || 'Growth Marketing',
   };
 
-  console.log('[RecruiterSignUp] Submitting Supabase signUp request:', {
+  console.log('[RecruiterSignUp] Submitting atomic signup_recruiter RPC request:', {
     email: cleanEmail,
-    metadata: incomingMetadata
+    company: cleanCompany,
+    package: chosenPackage
   });
 
-  try {
-    const { data, error } = await supabase.auth.signUp({
-      email: cleanEmail,
-      password: formData.password,
-      options: {
-        data: incomingMetadata,
-      },
+  // 1. Single Transactional RPC Call: signup_recruiter
+  // Replaces manual auth.signUp and upsert with single atomic PostgreSQL function
+  console.log('[RecruiterSignUp standalone] Executing single atomic RPC signup_recruiter with formData...');
+  const { data: rpcData, error: rpcError } = await supabase.rpc('signup_recruiter', {
+    ...formData,
+    email: cleanEmail,
+    password: formData.password,
+    company_name: cleanCompany,
+    contact_person: cleanContact,
+    phone_number: cleanPhone,
+    selected_package: chosenPackage || 'Starter',
+    businessEmail: cleanEmail,
+    companyName: cleanCompany,
+    contactPerson: cleanContact,
+    phoneNumber: cleanPhone,
+    selectedPackage: chosenPackage || 'Starter',
+  });
+
+  let targetUserId: string;
+  let recruiterRow: any = null;
+
+  if (rpcError) {
+    const parsedRpcErr = parseGranularAuthError(rpcError);
+    console.error(`[RecruiterSignUp standalone] RPC Error Code: ${parsedRpcErr.code}`, {
+      code: parsedRpcErr.code,
+      message: parsedRpcErr.rawMessage,
+      status: parsedRpcErr.status,
+      userFriendlyMessage: parsedRpcErr.userFriendlyMessage,
+      errorObject: rpcError,
     });
 
-    if (data?.user) {
-      console.log('[RecruiterSignUp] Supabase auth.signUp succeeded, user ID:', data.user.id);
-      authedUser = data.user;
-    } else if (error) {
-      const errorCode = (error as any).code || (error as any).error_code || (error as any).status || 'UNKNOWN';
-      const errorStatus = (error as any).status || (error as any).statusCode || 500;
-      const errorMsg = formatErrorMessage(error);
-
-      if (
-        errorMsg.toLowerCase().includes('already registered') || 
-        errorMsg.toLowerCase().includes('already exists') ||
-        errorMsg.toLowerCase().includes('user already')
-      ) {
-        throw new Error('An account with this email already exists. Please sign in to your recruiter account.');
-      }
-      console.warn(`[RecruiterSignUp] Supabase Auth trigger note (${errorCode} - HTTP ${errorStatus}). Proceeding with resilient recruiter session fallback.`);
+    if (parsedRpcErr.code === 'email_exists') {
+      throw new Error(parsedRpcErr.userFriendlyMessage);
     }
-  } catch (err: any) {
-    const errText = formatErrorMessage(err);
-    if (errText.toLowerCase().includes('already')) {
-      throw err;
+    if (parsedRpcErr.code === 'weak_password') {
+      throw new Error(parsedRpcErr.userFriendlyMessage);
     }
-    console.warn('[RecruiterSignUp] Supabase Auth error caught, continuing with local recruiter session:', err);
-  }
+    if (parsedRpcErr.code === 'invalid_email') {
+      throw new Error(parsedRpcErr.userFriendlyMessage);
+    }
 
-  // Direct persistence to public.recruiters via Server API with Service Role
-  const userId = authedUser?.id || `rec_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
-  try {
-    await fetch('/api/recruiter/signup', {
+    // If RPC function is not yet created in Supabase SQL editor, fallback to server endpoint
+    console.warn('[RecruiterSignUp standalone] RPC fallback to server endpoint...');
+    const serverRes = await fetch('/api/recruiter/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        ...formData,
         email: cleanEmail,
         password: formData.password,
         companyName: cleanCompany,
         contactPerson: cleanContact,
         phoneNumber: cleanPhone,
         selectedPackage: chosenPackage,
-        industry: formData.industry || 'Growth Marketing',
-        companySize: formData.companySize || '1-10',
-        userId: userId,
       }),
     });
-  } catch (apiErr) {
-    console.warn('[RecruiterSignUp] Server direct sync notice:', apiErr);
+    const serverData = await serverRes.json();
+    if (!serverRes.ok || !serverData.success) {
+      const parsedServerErr = parseGranularAuthError(serverData);
+      throw new Error(parsedServerErr.userFriendlyMessage);
+    }
+    recruiterRow = serverData.recruiter;
+    targetUserId = serverData.user_id || recruiterRow?.user_id || `rec_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+  } else {
+    console.log('[RecruiterSignUp standalone] Atomic signup_recruiter RPC succeeded:', rpcData);
+    recruiterRow = rpcData?.recruiter;
+    targetUserId = rpcData?.user_id || recruiterRow?.user_id || `rec_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
   }
 
-  // Local state persistence for recruiter profile and verification status
+  // 2. Establish authenticated session
+  try {
+    await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password: formData.password,
+    });
+  } catch (signInErr) {
+    console.warn('[RecruiterSignUp standalone] Post-registration session sign-in note:', signInErr);
+  }
+
+  // 3. Local state persistence for recruiter profile and verification status
   const profileRecord = {
-    id: userId,
-    user_id: userId,
+    id: targetUserId,
+    user_id: targetUserId,
     company_name: cleanCompany,
     contact_person: cleanContact,
     phone_number: cleanPhone,
@@ -234,13 +259,13 @@ export const handleRecruiterSignUp = async (
     payment_status: 'pending_verification',
     verification_status: 'pending_verification',
     status: 'pending_approval',
-    max_contacts: chosenPackage === 'Enterprise' ? 99999 : 5,
+    max_contacts: chosenPackage === 'Enterprise' ? 99999 : chosenPackage === 'Growth' ? 25 : 5,
     contacts_unlocked_count: 0,
     created_at: new Date().toISOString()
   };
 
   try {
-    localStorage.setItem(`mock_recruiter_profiles_${userId}`, JSON.stringify(profileRecord));
+    localStorage.setItem(`mock_recruiter_profiles_${targetUserId}`, JSON.stringify(profileRecord));
     localStorage.setItem('dsp_recruiter_profile', JSON.stringify(profileRecord));
     
     const rawUsers = localStorage.getItem('dsp_registered_users');
@@ -259,25 +284,11 @@ export const handleRecruiterSignUp = async (
     };
     if (idx >= 0) users[idx] = regUser; else users.push(regUser);
     localStorage.setItem('dsp_registered_users', JSON.stringify(users));
-
-    if (authedUser?.id) {
-      await supabase.from('recruiters').upsert({
-        user_id: authedUser.id,
-        company_name: cleanCompany,
-        contact_person: cleanContact,
-        business_email: cleanEmail,
-        phone_number: cleanPhone,
-        selected_package: chosenPackage,
-        payment_status: 'pending_verification',
-        contacts_unlocked_count: 0,
-        max_contacts: chosenPackage === 'Enterprise' ? 99999 : 5,
-      }, { onConflict: 'user_id' });
-    }
   } catch (syncErr) {
     console.warn('Non-fatal recruiter profile storage sync notice:', syncErr);
   }
 
-  // Immediately direct new recruiter to their dashboard with pending_verification status
+  // Direct new recruiter to their dashboard with pending_verification status
   navigate('/recruiter-dashboard?status=pending_verification');
 };
 
@@ -360,7 +371,7 @@ export default function RecruiterSignup({
   const handleRecruiterSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const email = formData.businessEmail?.trim();
+    const email = (formData.businessEmail || formData.email)?.trim()?.toLowerCase();
     const password = formData.password;
     const companyName = formData.companyName?.trim() || 'Company Name';
     const contactPerson = formData.contactPerson?.trim() || 'Recruiter';
@@ -368,7 +379,12 @@ export default function RecruiterSignup({
     const pkg = selectedPackage || 'Starter';
 
     if (!email || !password) {
-      alert('Please enter a valid email and password.');
+      alert('Please enter a valid business email and password.');
+      return;
+    }
+
+    if (password.length < 6) {
+      alert('Password must be at least 6 characters long.');
       return;
     }
 
@@ -376,121 +392,177 @@ export default function RecruiterSignup({
     setLoading(true);
 
     try {
-      // Step A: Sign Up User via Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      let recruiterData: any = null;
+      let targetUserId: string | null = null;
+      let rpcSucceeded = false;
+
+      // --------------------------------------------------------------------------
+      // Step A: Call Single Atomic RPC Function: signup_recruiter
+      // Calls supabase.rpc('signup_recruiter', { ...formData })
+      // Atomically writes to auth.users, auth.identities, and public.recruiters
+      // in a single PostgreSQL transaction block.
+      // --------------------------------------------------------------------------
+      const rpcPayload = {
+        ...formData,
         email,
         password,
-        options: {
-          data: {
-            role: 'recruiter',
-            company_name: companyName,
-            contact_person: contactPerson,
-            phone_number: phoneNumber,
-            subscribed_package: pkg,
-          },
-        },
+        company_name: companyName,
+        contact_person: contactPerson,
+        phone_number: phoneNumber,
+        selected_package: pkg,
+        businessEmail: email,
+        companyName,
+        contactPerson,
+        phoneNumber,
+        selectedPackage: pkg,
+      };
+
+      console.log('[RecruiterSignUp] Invoking atomic RPC signup_recruiter with payload:', {
+        email,
+        companyName,
+        contactPerson,
+        phoneNumber,
+        selectedPackage: pkg,
       });
 
-      if (authError) {
-        console.error('Supabase Auth Raw Error:', authError);
-        const readableAuthError = extractAuthErrorMessage(authError);
-        
-        // Attempt backend fallback if auth.signUp failed
-        try {
-          const res = await fetch('/api/recruiter/signup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email,
-              password,
-              companyName,
-              contactPerson,
-              phoneNumber,
-              selectedPackage: pkg
-            })
-          });
-          const serverData = await res.json();
-          if (res.ok && serverData.success) {
-            // Succeeded via server fallback
-            localStorage.setItem('dsp_recruiter_profile', JSON.stringify(serverData.recruiter));
-            navigate('/recruiter-dashboard?status=pending_verification');
-            return;
-          }
-        } catch (_) {}
+      const { data: rpcData, error: rpcError } = await supabase.rpc('signup_recruiter', rpcPayload);
 
-        alert(`Authentication Notice: ${readableAuthError}`);
-        return;
+      if (rpcError) {
+        // Parse and log granular Supabase error code for debuggability
+        const parsed = parseGranularAuthError(rpcError);
+        console.error(`[RecruiterSignUp] Granular Supabase RPC Error [Code: ${parsed.code}] [Status: ${parsed.status}]:`, {
+          code: parsed.code,
+          rawMessage: parsed.rawMessage,
+          userFriendlyMessage: parsed.userFriendlyMessage,
+          errorObject: rpcError,
+        });
+
+        // Display user-friendly messages for each specific scenario
+        if (parsed.code === 'weak_password') {
+          alert(`Password Security Notice: ${parsed.userFriendlyMessage}`);
+          return;
+        }
+
+        if (parsed.code === 'email_exists') {
+          alert(`Account Notice: ${parsed.userFriendlyMessage}`);
+          navigate('/recruiter-login');
+          return;
+        }
+
+        if (parsed.code === 'invalid_email') {
+          alert(`Email Address Error: ${parsed.userFriendlyMessage}`);
+          return;
+        }
+
+        if (parsed.code === 'over_request_rate_limit') {
+          alert(`Rate Limit Warning: ${parsed.userFriendlyMessage}`);
+          return;
+        }
+
+        if (parsed.code === 'signup_disabled') {
+          alert(`Registration Notice: ${parsed.userFriendlyMessage}`);
+          return;
+        }
+
+        console.warn(`[RecruiterSignUp] RPC call note ('${parsed.code}'). Attempting resilient server fallback...`);
+      } else if (rpcData && rpcData.success) {
+        console.log('[RecruiterSignUp] Atomic signup_recruiter RPC succeeded:', rpcData);
+        recruiterData = rpcData.recruiter;
+        targetUserId = rpcData.user_id;
+        rpcSucceeded = true;
       }
 
-      const user = authData.user;
-      if (!user) {
-        alert('Signup request sent. Please check your email inbox to confirm your account.');
-        return;
+      // --------------------------------------------------------------------------
+      // Step B: Resilient Fallback to Server Transactional Endpoint
+      // If the RPC function has not been run yet in the Supabase SQL editor,
+      // the server creates both records transactionally via service-role.
+      // --------------------------------------------------------------------------
+      if (!rpcSucceeded) {
+        console.log('[RecruiterSignUp] Calling transactional server endpoint fallback...');
+        const res = await fetch('/api/recruiter/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...formData,
+            email,
+            password,
+            companyName,
+            contactPerson,
+            phoneNumber,
+            selectedPackage: pkg,
+          }),
+        });
+
+        const serverData = await res.json();
+        if (res.ok && serverData.success) {
+          recruiterData = serverData.recruiter;
+          targetUserId = serverData.user_id || serverData.recruiter?.user_id;
+        } else {
+          const parsedServerErr = parseGranularAuthError(serverData);
+          console.error(`[RecruiterSignUp] Server Fallback Error [Code: ${parsedServerErr.code}]:`, parsedServerErr);
+          throw new Error(parsedServerErr.userFriendlyMessage);
+        }
       }
 
-      // Step B: Direct Write to public.recruiters Table
-      const { error: dbError } = await supabase
-        .from('recruiters')
-        .upsert({
-          user_id: user.id,
-          business_email: email,
-          company_name: companyName,
-          contact_person: contactPerson,
-          phone_number: phoneNumber,
-          selected_package: pkg,
-          payment_status: 'pending_verification',
-          contacts_unlocked_count: 0,
-          max_contacts: pkg === 'Growth' ? 25 : pkg === 'Enterprise' ? 99999 : 5,
-        }, { onConflict: 'user_id' });
-
-      if (dbError) {
-        console.warn('Database Direct Write Notice:', dbError);
-        // Fallback to server endpoint to guarantee insertion into public.recruiters via Service Role
-        try {
-          await fetch('/api/recruiter/signup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: user.id,
-              email,
-              password,
-              companyName,
-              contactPerson,
-              phoneNumber,
-              selectedPackage: pkg
-            })
-          });
-        } catch (_) {}
-      }
-
-      // Populate local caches for smooth dashboard transition
+      // --------------------------------------------------------------------------
+      // Step C: Initialize Authenticated Session in Supabase Auth
+      // --------------------------------------------------------------------------
       try {
-        const profileRecord = {
-          id: user.id,
-          user_id: user.id,
-          business_email: email,
-          company_name: companyName,
-          contact_person: contactPerson,
-          phone_number: phoneNumber,
-          selected_package: pkg,
-          subscribed_package: pkg,
-          payment_status: 'pending_verification',
-          verification_status: 'pending_verification',
-          status: 'pending_approval',
-          max_contacts: pkg === 'Growth' ? 25 : pkg === 'Enterprise' ? 99999 : 5,
-          contacts_unlocked_count: 0,
-          created_at: new Date().toISOString(),
-        };
-        localStorage.setItem(`mock_recruiter_profiles_${user.id}`, JSON.stringify(profileRecord));
+        const { error: signInErr } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (signInErr) {
+          const parsedSignErr = parseGranularAuthError(signInErr);
+          console.warn('[RecruiterSignUp] Post-registration auto sign-in notice:', {
+            code: parsedSignErr.code,
+            message: parsedSignErr.rawMessage,
+          });
+        }
+      } catch (signInEx) {
+        console.warn('[RecruiterSignUp] Auto sign-in exception:', signInEx);
+      }
+
+      // --------------------------------------------------------------------------
+      // Step D: Hydrate Local Storage for Immediate Dashboard Rendering
+      // --------------------------------------------------------------------------
+      const resolvedUserId = targetUserId || recruiterData?.user_id || `rec_${email.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const profileRecord = {
+        id: recruiterData?.id || resolvedUserId,
+        user_id: resolvedUserId,
+        business_email: email,
+        company_name: companyName,
+        contact_person: contactPerson,
+        phone_number: phoneNumber,
+        selected_package: pkg,
+        subscribed_package: pkg,
+        payment_status: 'pending_verification',
+        verification_status: 'pending_verification',
+        status: 'pending_approval',
+        max_contacts: pkg === 'Growth' ? 25 : pkg === 'Enterprise' ? 99999 : 5,
+        contacts_unlocked_count: 0,
+        created_at: new Date().toISOString(),
+        ...recruiterData,
+      };
+
+      try {
+        localStorage.setItem(`mock_recruiter_profiles_${resolvedUserId}`, JSON.stringify(profileRecord));
         localStorage.setItem('dsp_recruiter_profile', JSON.stringify(profileRecord));
       } catch (_) {}
 
-      // Step C: Redirect to Dashboard
+      // --------------------------------------------------------------------------
+      // Step E: Navigate to Recruiter Dashboard
+      // --------------------------------------------------------------------------
       window.location.href = '/recruiter-dashboard?status=pending_verification';
 
     } catch (err: any) {
-      console.error('Unexpected Exception:', err);
-      alert(`Unexpected System Error: ${err?.message || 'Check browser console'}`);
+      const parsedErr = parseGranularAuthError(err);
+      console.error('[RecruiterSignUp] Registration Failed:', {
+        code: parsedErr.code,
+        message: parsedErr.rawMessage,
+        userFriendly: parsedErr.userFriendlyMessage,
+      });
+      alert(`Registration Notice: ${parsedErr.userFriendlyMessage}`);
     } finally {
       setLoading(false);
       setSubmitting(false);

@@ -1,70 +1,196 @@
 /**
- * Utility functions for safely extracting error messages from Supabase Auth & PostgreSQL responses.
+ * Utility functions for safely extracting error messages and granular error codes
+ * from Supabase Auth & PostgreSQL responses.
  * Prevents non-enumerable Error instances from serializing to `{}`.
  */
 
+export interface GranularAuthError {
+  code: string;
+  rawMessage: string;
+  userFriendlyMessage: string;
+  status?: number;
+}
+
+export function parseGranularAuthError(err: any): GranularAuthError {
+  if (!err) {
+    return {
+      code: 'unknown_error',
+      rawMessage: 'Unknown error occurred',
+      userFriendlyMessage: 'Authentication failed. Please verify your credentials and try again.'
+    };
+  }
+
+  // 1. Extract error code from various potential locations
+  const code = (
+    err.code || 
+    err.error_code || 
+    err.error?.code || 
+    err.status_code || 
+    (typeof err.status === 'string' ? err.status : '') ||
+    ''
+  ).toString().toLowerCase().trim();
+
+  // 2. Extract raw message
+  let rawMessage = '';
+  if (typeof err === 'string') {
+    rawMessage = err;
+  } else if (err.message && typeof err.message === 'string') {
+    rawMessage = err.message;
+  } else if (err.error_description && typeof err.error_description === 'string') {
+    rawMessage = err.error_description;
+  } else if (err.error?.message && typeof err.error.message === 'string') {
+    rawMessage = err.error.message;
+  } else {
+    try {
+      const propNames = Object.getOwnPropertyNames(err);
+      for (const prop of propNames) {
+        if (prop === 'stack') continue;
+        const val = err[prop];
+        if (typeof val === 'string' && val.trim() && val !== '{}' && val !== '[object Object]') {
+          rawMessage = val.trim();
+          break;
+        }
+      }
+    } catch (_) {}
+  }
+
+  const rawLower = rawMessage.toLowerCase();
+  const status = typeof err.status === 'number' ? err.status : undefined;
+
+  // 3. Map granular error codes & patterns to clear user-friendly scenarios
+  let userFriendlyMessage = rawMessage || 'Registration encountered an issue. Please try again.';
+
+  if (
+    code === 'weak_password' || 
+    code === 'password_too_short' ||
+    rawLower.includes('password should be at least') || 
+    rawLower.includes('weak password') ||
+    rawLower.includes('password must be at least')
+  ) {
+    return {
+      code: 'weak_password',
+      rawMessage,
+      userFriendlyMessage: 'Password is too weak. Please provide a password with at least 6 characters, combining letters and numbers.',
+      status
+    };
+  }
+
+  if (
+    code === 'email_exists' || 
+    code === 'user_already_exists' || 
+    code === '23505' || 
+    rawLower.includes('already registered') || 
+    rawLower.includes('already in use') || 
+    rawLower.includes('user already exists') ||
+    rawLower.includes('already exists')
+  ) {
+    return {
+      code: 'email_exists',
+      rawMessage,
+      userFriendlyMessage: 'An account with this email address already exists. Please log in or use a different email address.',
+      status
+    };
+  }
+
+  if (
+    code === 'invalid_email' || 
+    code === 'email_address_invalid' || 
+    code === 'validation_failed' ||
+    rawLower.includes('valid email') || 
+    rawLower.includes('invalid email')
+  ) {
+    return {
+      code: 'invalid_email',
+      rawMessage,
+      userFriendlyMessage: 'The email address provided is invalid. Please check the spelling and try again.',
+      status
+    };
+  }
+
+  if (
+    code === 'over_request_rate_limit' || 
+    code === 'rate_limit_exceeded' || 
+    status === 429 ||
+    rawLower.includes('rate limit') || 
+    rawLower.includes('too many requests')
+  ) {
+    return {
+      code: 'over_request_rate_limit',
+      rawMessage,
+      userFriendlyMessage: 'Too many registration requests in a short time. Please wait 60 seconds before trying again.',
+      status: 429
+    };
+  }
+
+  if (
+    code === 'signup_disabled' || 
+    code === 'signups_not_allowed' || 
+    rawLower.includes('signup is disabled') || 
+    rawLower.includes('signups not allowed')
+  ) {
+    return {
+      code: 'signup_disabled',
+      rawMessage,
+      userFriendlyMessage: 'New recruiter signups are currently paused in your Supabase project. Enable Email Signups in the Supabase Dashboard under Authentication -> Providers.',
+      status
+    };
+  }
+
+  if (
+    code === 'pgrst202' || 
+    rawLower.includes('function') && rawLower.includes('not found')
+  ) {
+    return {
+      code: 'pgrst202',
+      rawMessage,
+      userFriendlyMessage: 'Database setup note: The signup_recruiter RPC function is missing. Please run the migration SQL in your Supabase SQL editor.',
+      status
+    };
+  }
+
+  if (
+    code === '42p01' || 
+    rawLower.includes('relation "public.recruiters" does not exist')
+  ) {
+    return {
+      code: '42p01',
+      rawMessage,
+      userFriendlyMessage: 'Database table missing: The recruiters table does not exist. Please run the migration SQL to create the table and RLS policies.',
+      status
+    };
+  }
+
+  if (
+    code === '42501' || 
+    code === 'pgrst301' || 
+    rawLower.includes('permission denied') || 
+    rawLower.includes('violates row-level security')
+  ) {
+    return {
+      code: 'rls_violation',
+      rawMessage,
+      userFriendlyMessage: 'Security Policy Notice: The request violated Supabase Row-Level Security. Please verify your RLS policies on public.recruiters.',
+      status
+    };
+  }
+
+  // Fallback check on HTTP status
+  if (status === 400 && !rawMessage) {
+    userFriendlyMessage = 'Invalid input parameters. Please ensure your email and password meet the requirements.';
+  } else if (status === 500 && !rawMessage) {
+    userFriendlyMessage = 'Supabase internal error (500). Please check your database triggers and migration scripts.';
+  }
+
+  return {
+    code: code || 'auth_error',
+    rawMessage,
+    userFriendlyMessage,
+    status
+  };
+}
+
 export function extractAuthErrorMessage(err: any, fallback = 'Authentication failed. Please verify your credentials.'): string {
   if (!err) return fallback;
-
-  // If already a readable string
-  if (typeof err === 'string') {
-    const trimmed = err.trim();
-    if (trimmed && trimmed !== '{}' && trimmed !== '[object Object]') {
-      return trimmed;
-    }
-  }
-
-  // Check common error message properties
-  if (typeof err.message === 'string' && err.message.trim() && err.message !== '{}' && err.message !== '[object Object]') {
-    // Check for common Supabase messages and format user-friendly
-    const msg = err.message.trim();
-    if (msg.toLowerCase().includes('user already registered') || msg.toLowerCase().includes('already exists')) {
-      return 'An account with this email address already exists. Please sign in instead.';
-    }
-    if (msg.toLowerCase().includes('signup is disabled') || msg.toLowerCase().includes('signups not allowed')) {
-      return 'User registration is currently disabled in your Supabase project. Enable Email Signups in the Supabase Dashboard.';
-    }
-    if (msg.toLowerCase().includes('database error saving new user')) {
-      return 'Database trigger error in Supabase. Please run the provided SQL setup script to configure triggers and permissions.';
-    }
-    return msg;
-  }
-
-  if (typeof err.error_description === 'string' && err.error_description.trim()) {
-    return err.error_description.trim();
-  }
-
-  if (typeof err.msg === 'string' && err.msg.trim()) {
-    return err.msg.trim();
-  }
-
-  if (typeof err.description === 'string' && err.description.trim()) {
-    return err.description.trim();
-  }
-
-  if (err.error?.message && typeof err.error.message === 'string' && err.error.message.trim()) {
-    return err.error.message.trim();
-  }
-
-  // Non-enumerable properties on native Error instances
-  try {
-    const propNames = Object.getOwnPropertyNames(err);
-    for (const prop of propNames) {
-      if (prop === 'stack') continue;
-      const val = err[prop];
-      if (typeof val === 'string' && val.trim() && val !== '{}' && val !== '[object Object]') {
-        return val.trim();
-      }
-    }
-  } catch (_) {}
-
-  // HTTP status codes
-  if (err.status) {
-    if (err.status === 429) return 'Too many registration requests. Please wait a moment before trying again.';
-    if (err.status === 400) return 'Invalid credentials provided. Please ensure password is at least 6 characters.';
-    if (err.status === 500) return 'Supabase server error (500). Please run the database migration SQL to resolve trigger errors.';
-    return `Authentication request failed with status code ${err.status}.`;
-  }
-
-  return fallback;
+  const parsed = parseGranularAuthError(err);
+  return parsed.userFriendlyMessage || parsed.rawMessage || fallback;
 }
