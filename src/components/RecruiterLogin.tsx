@@ -9,76 +9,9 @@ import {
   AlertCircle, 
   ArrowRight, 
   CheckCircle2, 
-  Sparkles
+  Sparkles,
+  Loader2
 } from 'lucide-react';
-
-// Step 3: Recruiter Login Handler (clean authentication connected to Supabase)
-export const handleRecruiterSignIn = async (email: string, password: string) => {
-  const cleanEmail = email.trim().toLowerCase();
-
-  // 1. Try Supabase Auth standard credentials
-  try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: cleanEmail,
-      password: password,
-    });
-
-    if (!error && data?.user) {
-      window.location.href = '/recruiter-dashboard';
-      return;
-    }
-  } catch (_) {
-    // Continue to Supabase database lookup
-  }
-
-  // 2. Query Supabase recruiters table via server endpoint
-  try {
-    const resp = await fetch('/api/recruiter/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: cleanEmail, password }),
-    });
-
-    if (resp.ok) {
-      const result = await resp.json();
-      if (result.success && result.recruiter) {
-        const rec = result.recruiter;
-        localStorage.setItem('dsp_recruiter_profile', JSON.stringify(rec));
-        localStorage.setItem(`mock_recruiter_profiles_${rec.id}`, JSON.stringify(rec));
-        if (rec.user_id) {
-          localStorage.setItem(`mock_recruiter_profiles_${rec.user_id}`, JSON.stringify(rec));
-        }
-        window.location.href = '/recruiter-dashboard';
-        return;
-      }
-    }
-  } catch (_) {
-    // Continue to sandbox fallback
-  }
-
-  // 3. Sandbox / demo account fallback check
-  const rawUsers = localStorage.getItem('dsp_registered_users');
-  const users = rawUsers ? JSON.parse(rawUsers) : [];
-  const matched = users.find((u: any) => u.email?.toLowerCase() === cleanEmail);
-  if (matched) {
-    const fallbackId = matched.onboarding?.id || `rec_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
-    const mockProfile = matched.onboarding || {
-      id: fallbackId,
-      user_id: fallbackId,
-      company_name: matched?.companyName || 'DSP Academy Hiring Network',
-      subscribed_package: matched?.selectedPackage || 'Starter',
-      selected_package: matched?.selectedPackage || 'Starter',
-      max_contacts: matched?.selectedPackage === 'Enterprise' ? 99999 : 5,
-      contacts_unlocked_count: 0
-    };
-    localStorage.setItem('dsp_recruiter_profile', JSON.stringify(mockProfile));
-    localStorage.setItem(`mock_recruiter_profiles_${fallbackId}`, JSON.stringify(mockProfile));
-    window.location.href = '/recruiter-dashboard';
-    return;
-  }
-
-  alert('Invalid email or password. Please verify your credentials or sign up for a recruiter account.');
-};
 
 interface RecruiterLoginProps {
   onNavigateToDashboard?: () => void;
@@ -97,24 +30,51 @@ export default function RecruiterLogin({
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleRecruiterLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage(null);
+    if (loading) return;
 
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || !password) {
+    if (!email.trim() || !password) {
       alert('Please enter your business email and password.');
       return;
     }
 
     setLoading(true);
+    setErrorMessage(null);
 
     try {
-      await handleRecruiterSignIn(cleanEmail, password);
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password,
+      });
+
+      if (authError) {
+        alert(`Login Failed: ${authError.message}`);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch recruiter row from public.recruiters
+      const { data: recruiter, error: profileError } = await supabase
+        .from('recruiters')
+        .select('*')
+        .eq('user_id', authData.user.id)
+        .single();
+
+      if (profileError || !recruiter) {
+        console.error('Profile query failed:', profileError);
+      } else {
+        localStorage.setItem('dsp_recruiter_profile', JSON.stringify(recruiter));
+        localStorage.setItem(`mock_recruiter_profiles_${recruiter.id}`, JSON.stringify(recruiter));
+        if (recruiter.user_id) {
+          localStorage.setItem(`mock_recruiter_profiles_${recruiter.user_id}`, JSON.stringify(recruiter));
+        }
+      }
+
+      window.location.href = '/recruiter-dashboard';
     } catch (err: any) {
-      const authFailedMsg = "Invalid email or password. If you recently registered, check your inbox for an activation email or contact support.";
-      setErrorMessage(authFailedMsg);
-      alert(authFailedMsg);
+      console.error('Login Exception:', err);
+      alert(`Login Failed: ${err.message || 'Check browser console'}`);
     } finally {
       setLoading(false);
     }
@@ -157,7 +117,7 @@ export default function RecruiterLogin({
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleRecruiterLogin} className="space-y-4">
             {/* Email Field */}
             <div className="space-y-1">
               <label className="block text-xs font-semibold text-slate-700">
@@ -207,10 +167,13 @@ export default function RecruiterLogin({
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer shadow-xs transition"
+              className="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer shadow-xs transition"
             >
               {loading ? (
-                <span>Authenticating Profile...</span>
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>Authenticating Profile...</span>
+                </>
               ) : (
                 <>
                   <span>Sign In to Recruiter Console</span>
@@ -263,3 +226,32 @@ export default function RecruiterLogin({
     </div>
   );
 }
+
+export const handleRecruiterSignIn = async (email: string, password: string) => {
+  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+    email: email.trim(),
+    password: password,
+  });
+
+  if (authError) {
+    throw new Error(authError.message);
+  }
+
+  const { data: recruiter, error: profileError } = await supabase
+    .from('recruiters')
+    .select('*')
+    .eq('user_id', authData.user.id)
+    .single();
+
+  if (profileError || !recruiter) {
+    console.error('Profile query failed:', profileError);
+  } else {
+    localStorage.setItem('dsp_recruiter_profile', JSON.stringify(recruiter));
+    localStorage.setItem(`mock_recruiter_profiles_${recruiter.id}`, JSON.stringify(recruiter));
+    if (recruiter.user_id) {
+      localStorage.setItem(`mock_recruiter_profiles_${recruiter.user_id}`, JSON.stringify(recruiter));
+    }
+  }
+
+  window.location.href = '/recruiter-dashboard';
+};
