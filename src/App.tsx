@@ -810,6 +810,11 @@ export default function App() {
                 initialPackage={signupPackage}
                 onNavigateToLogin={() => navigateToPage('recruiter-login')}
                 onNavigateToHome={() => navigateToPage('home')}
+                onNavigateToDashboard={() => navigateToPage('recruiter-dashboard')}
+                navigate={(path) => {
+                  const cleaned = path.replace(/^\//, '').split('?')[0];
+                  navigateToPage((cleaned as any) || 'recruiter-dashboard');
+                }}
               />
             )}
 

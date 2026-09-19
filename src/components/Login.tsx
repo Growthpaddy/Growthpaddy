@@ -29,81 +29,19 @@ export const Login: React.FC<LoginProps> = ({
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage(null);
 
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || !password) {
-      alert('Please enter your email and password.');
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password: password,
+    });
+
+    if (error) {
+      alert(`Login Failed: ${error.message}`);
       return;
     }
 
-    setLoading(true);
-
-    try {
-      // 1. Authenticate user
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password,
-      });
-
-      if (authError) {
-        // Fallback for demo or local accounts
-        const rawUsers = localStorage.getItem('dsp_registered_users');
-        const users = rawUsers ? JSON.parse(rawUsers) : [];
-        const matched = users.find((u: any) => u.email?.toLowerCase() === cleanEmail && (u.password === password || cleanEmail === 'dspacademyonline@gmail.com'));
-
-        if (matched || cleanEmail === 'dspacademyonline@gmail.com') {
-          const fallbackId = `usr_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
-          const mockProfile = {
-            id: fallbackId,
-            user_id: fallbackId,
-            company_name: matched?.companyName || 'DSP Academy Hiring Network',
-            subscribed_package: matched?.selectedPackage || 'Starter',
-            selected_package: matched?.selectedPackage || 'Starter',
-            max_contacts: matched?.selectedPackage === 'Enterprise' ? 99999 : 5,
-            contacts_unlocked_count: 0
-          };
-          localStorage.setItem('dsp_recruiter_profile', JSON.stringify(mockProfile));
-          localStorage.setItem(`mock_recruiter_profiles_${fallbackId}`, JSON.stringify(mockProfile));
-          if (onSuccess) {
-            onSuccess();
-          } else {
-            window.location.href = '/recruiter-dashboard';
-          }
-          return;
-        }
-
-        const authFailedMsg = "Invalid email or password. If you recently registered, check your inbox for an activation email or contact support.";
-        setErrorMessage(authFailedMsg);
-        alert(authFailedMsg);
-        return;
-      }
-
-      if (authData.user) {
-        // Retrieve profile if available
-        const { data: profile } = await supabase
-          .from('recruiter_profiles')
-          .select('*')
-          .eq('user_id', authData.user.id)
-          .maybeSingle();
-
-        if (profile) {
-          localStorage.setItem('dsp_recruiter_profile', JSON.stringify(profile));
-        }
-
-        if (onSuccess) {
-          onSuccess();
-        } else {
-          window.location.href = '/recruiter-dashboard';
-        }
-      }
-    } catch (err: any) {
-      const authFailedMsg = "Invalid email or password. If you recently registered, check your inbox for an activation email or contact support.";
-      setErrorMessage(authFailedMsg);
-      alert(authFailedMsg);
-    } finally {
-      setLoading(false);
-    }
+    // Redirect to dashboard
+    window.location.href = '/recruiter-dashboard';
   };
 
   return (

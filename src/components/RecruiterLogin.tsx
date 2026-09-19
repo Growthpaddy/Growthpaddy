@@ -12,84 +12,19 @@ import {
   Sparkles
 } from 'lucide-react';
 
-// Step 3: Recruiter Login Handler (exact implementation)
+// Step 3: Recruiter Login Handler (clean authentication)
 export const handleRecruiterSignIn = async (email: string, password: string) => {
-  // 1. Authenticate user
-  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-    email,
-    password,
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: email.trim(),
+    password: password,
   });
 
-  if (authError) {
-    // Sandbox / demo account fallback check
-    const cleanEmail = email.trim().toLowerCase();
-    const rawUsers = localStorage.getItem('dsp_registered_users');
-    const users = rawUsers ? JSON.parse(rawUsers) : [];
-    const matched = users.find((u: any) => u.email?.toLowerCase() === cleanEmail && (u.password === password || cleanEmail === 'dspacademyonline@gmail.com'));
-    
-    if (matched || cleanEmail === 'dspacademyonline@gmail.com') {
-      const fallbackId = `rec_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
-      const mockProfile = {
-        id: fallbackId,
-        user_id: fallbackId,
-        company_name: matched?.companyName || 'DSP Academy Hiring Network',
-        subscribed_package: matched?.selectedPackage || 'Starter',
-        selected_package: matched?.selectedPackage || 'Starter',
-        max_contacts: matched?.selectedPackage === 'Enterprise' ? 99999 : 5,
-        contacts_unlocked_count: 0
-      };
-      localStorage.setItem('dsp_recruiter_profile', JSON.stringify(mockProfile));
-      localStorage.setItem(`mock_recruiter_profiles_${fallbackId}`, JSON.stringify(mockProfile));
-      window.location.href = '/recruiter-dashboard';
-      return;
-    }
-
-    const authFailedMsg = "Invalid email or password. If you recently registered, check your inbox for an activation email or contact support.";
-    alert(authFailedMsg);
+  if (error) {
+    alert(`Login Failed: ${error.message}`);
     return;
   }
 
-  // 2. Fetch Recruiter Profile
-  let { data: profile, error: profileError } = await supabase
-    .from('recruiter_profiles')
-    .select('*')
-    .eq('user_id', authData.user.id)
-    .single();
-
-  if (profileError || !profile) {
-    // Check fallback in recruiter_profiles by id or local storage
-    const { data: altProfile } = await supabase
-      .from('recruiter_profiles')
-      .select('*')
-      .eq('id', authData.user.id)
-      .maybeSingle();
-
-    if (altProfile) {
-      profile = altProfile;
-      profileError = null;
-    } else {
-      const localStr = localStorage.getItem(`mock_recruiter_profiles_${authData.user.id}`);
-      if (localStr) {
-        try {
-          profile = JSON.parse(localStr);
-          profileError = null;
-        } catch (_) {}
-      }
-    }
-  }
-
-  if (profileError || !profile) {
-    alert('Recruiter profile not found. Please contact support.');
-    return;
-  }
-
-  // Store in cache for the dashboard
-  try {
-    localStorage.setItem('dsp_recruiter_profile', JSON.stringify(profile));
-    localStorage.setItem(`dsp_recruiter_${authData.user.id}`, JSON.stringify(profile));
-  } catch (_) {}
-
-  // 3. Redirect to Recruiter Dashboard
+  // Redirect to dashboard
   window.location.href = '/recruiter-dashboard';
 };
 
