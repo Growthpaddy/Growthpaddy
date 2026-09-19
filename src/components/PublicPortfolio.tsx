@@ -227,6 +227,18 @@ export default function PublicPortfolio({
         const user = authData?.user;
         if (!user) return;
 
+        // Check if current user is a suspended recruiter
+        const { data: recData } = await supabase
+          .from('recruiters')
+          .select('is_suspended')
+          .or(`user_id.eq.${user.id},id.eq.${user.id}`)
+          .maybeSingle();
+
+        if (recData?.is_suspended || user.user_metadata?.is_suspended) {
+          setIsContactUnlocked(false);
+          return;
+        }
+
         const { data: unlockRow } = await supabase
           .from('unlocked_contacts')
           .select('*')
@@ -312,14 +324,20 @@ export default function PublicPortfolio({
       return;
     }
 
+    // Check recruiter suspension status
+    if (recruiterData.is_suspended || user.user_metadata?.is_suspended) {
+      setVerificationNotice('Your recruiter account access is currently suspended. Candidate contact unlocks are disabled.');
+      return;
+    }
+
     // 3. Check recruiter payment status
     if (recruiterData.payment_status === 'pending_verification') {
       setVerificationNotice('Your recruiter account is currently undergoing payment verification (typically under 1 hour). Approval is required before unlocking candidate contact channels.');
       return;
     }
 
-    if (recruiterData.payment_status === 'rejected') {
-      setVerificationNotice('Your recruiter account verification was not approved. Please contact support via WhatsApp.');
+    if (recruiterData.payment_status === 'rejected' || recruiterData.payment_status === 'disapproved') {
+      setVerificationNotice('Your recruiter account verification was disapproved because payment was not received. Please contact support via WhatsApp to verify your payment.');
       return;
     }
 

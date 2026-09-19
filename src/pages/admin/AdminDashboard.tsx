@@ -51,7 +51,8 @@ import {
   Activity,
   TrendingUp,
   Shield,
-  Info
+  Info,
+  Ban
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAdminAuth } from '../../context/AdminAuthContext';
@@ -124,6 +125,8 @@ export interface RecruiterRecord {
   email: string;
   phone?: string;
   is_approved: boolean;
+  is_suspended: boolean;
+  payment_status: 'verified' | 'rejected' | 'pending_verification' | string;
   package_tier?: string;
   created_at?: string;
 }
@@ -204,6 +207,20 @@ const fetchTalentRoster = async (): Promise<TalentRecord[]> => {
 };
 
 const fetchRecruitersList = async (): Promise<RecruiterRecord[]> => {
+  // 1. Primary: Server-side authoritative endpoint (with auth metadata & suspension status)
+  try {
+    const res = await fetch('/api/admin/recruiters');
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && Array.isArray(json.recruiters)) {
+        return json.recruiters;
+      }
+    }
+  } catch (e) {
+    console.warn('[AdminDashboard] /api/admin/recruiters fetch fallback:', e);
+  }
+
+  // 2. Direct Supabase Query Fallback
   const { data, error } = await supabase
     .from('recruiters')
     .select('*')
@@ -214,16 +231,18 @@ const fetchRecruitersList = async (): Promise<RecruiterRecord[]> => {
       id: r.id,
       user_id: r.user_id,
       company_name: r.company_name || r.name || 'Organization',
-      contact_name: r.contact_name || r.name || '',
-      email: r.email || '',
-      phone: r.phone || '',
-      is_approved: Boolean(r.is_approved ?? r.isApproved ?? true),
-      package_tier: r.package_tier || r.packageType || 'Standard Employer',
+      contact_name: r.contact_person || r.contact_name || r.name || '',
+      email: r.business_email || r.email || '',
+      phone: r.phone_number || r.phone || '',
+      is_approved: r.payment_status === 'verified',
+      is_suspended: Boolean(r.is_suspended),
+      payment_status: r.payment_status || 'pending_verification',
+      package_tier: r.selected_package || r.package_tier || 'Starter',
       created_at: r.created_at,
     }));
   }
 
-  // Fallback to recruiter_profiles
+  // 3. Recruiter profiles fallback
   const { data: fallback } = await supabase
     .from('recruiter_profiles')
     .select('*')
@@ -233,11 +252,13 @@ const fetchRecruitersList = async (): Promise<RecruiterRecord[]> => {
     id: r.id,
     user_id: r.user_id,
     company_name: r.company_name || r.name || 'Organization',
-    contact_name: r.contact_name || r.name || '',
-    email: r.email || '',
-    phone: r.phone || '',
-    is_approved: Boolean(r.is_approved ?? true),
-    package_tier: r.package_tier || 'Standard Employer',
+    contact_name: r.contact_person || r.contact_name || r.name || '',
+    email: r.business_email || r.email || '',
+    phone: r.phone_number || r.phone || '',
+    is_approved: r.payment_status === 'verified',
+    is_suspended: Boolean(r.is_suspended),
+    payment_status: r.payment_status || 'pending_verification',
+    package_tier: r.package_tier || 'Starter',
     created_at: r.created_at,
   }));
 };
@@ -670,49 +691,60 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     },
   });
 
-  // React Query Mutation: Toggle Recruiter Approval
-  const recruiterApprovalMutation = useMutation({
-    mutationFn: async ({ recruiterId, nextStatus }: { recruiterId: string; nextStatus: boolean }) => {
-      const { error } = await supabase
-        .from('recruiters')
-        .update({ is_approved: nextStatus })
-        .eq('id', recruiterId);
+  // React Query Mutation: Recruiter Action (Approve, Disapprove, Suspend, Restore)
+  const recruiterActionMutation = useMutation({
+    mutationFn: async ({ recruiterId, action }: { recruiterId: string; action: 'approve' | 'disapprove' | 'suspend' | 'restore' }) => {
+      // 1. Primary: Server-side authoritative endpoint
+      try {
+        const res = await fetch('/api/admin/recruiter/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recruiterId, action }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) return { recruiterId, action, data: json };
+        }
+      } catch (e) {
+        console.warn('[AdminDashboard] Server status endpoint warning:', e);
+      }
 
-      if (error) {
-        await supabase
-          .from('recruiter_profiles')
-          .update({ is_approved: nextStatus })
-          .eq('id', recruiterId);
+      // 2. Direct Supabase Fallback
+      if (action === 'approve') {
+        await supabase.from('recruiters').update({ payment_status: 'verified' }).eq('id', recruiterId);
+      } else if (action === 'disapprove') {
+        await supabase.from('recruiters').update({ payment_status: 'rejected' }).eq('id', recruiterId);
       }
-      return { recruiterId, nextStatus };
+      return { recruiterId, action };
     },
-    onMutate: async ({ recruiterId, nextStatus }) => {
-      await queryClient.cancelQueries({ queryKey: ['admin', 'recruiters'] });
-      const previousRecruiters = queryClient.getQueryData<RecruiterRecord[]>(['admin', 'recruiters']);
-      if (previousRecruiters) {
-        queryClient.setQueryData<RecruiterRecord[]>(['admin', 'recruiters'], old =>
-          (old || []).map(r => (r.id === recruiterId ? { ...r, is_approved: nextStatus } : r))
-        );
-      }
-      return { previousRecruiters };
-    },
-    onError: (err: any, variables, context) => {
-      if (context?.previousRecruiters) {
-        queryClient.setQueryData(['admin', 'recruiters'], context.previousRecruiters);
-      }
-      setNotification({
-        type: 'error',
-        message: err.message || 'Failed to update recruiter status.',
-      });
-    },
-    onSuccess: (data) => {
+    onSuccess: ({ action }) => {
+      const messages: Record<string, string> = {
+        approve: 'Recruiter account approved! Contact unlock access activated according to package.',
+        disapprove: 'Recruiter account marked as disapproved because payment was not received.',
+        suspend: 'Recruiter account suspended. Dashboard access denied without deleting account records.',
+        restore: 'Recruiter account access restored successfully.',
+      };
       setNotification({
         type: 'success',
-        message: `Recruiter account ${data.nextStatus ? 'approved and activated' : 'suspended'}.`,
+        message: messages[action] || 'Recruiter account status updated.',
       });
       queryClient.invalidateQueries({ queryKey: ['admin', 'recruiters'] });
     },
+    onError: (err: any) => {
+      setNotification({
+        type: 'error',
+        message: err.message || 'Failed to update recruiter account.',
+      });
+    },
   });
+
+  // Backward compatibility alias for any existing toggle references
+  const recruiterApprovalMutation = {
+    isPending: recruiterActionMutation.isPending,
+    mutate: ({ recruiterId, nextStatus }: { recruiterId: string; nextStatus: boolean }) => {
+      recruiterActionMutation.mutate({ recruiterId, action: nextStatus ? 'approve' : 'suspend' });
+    }
+  };
 
   // React Query Mutation: Toggle Admin Status
   const adminStatusMutation = useMutation({
@@ -914,8 +946,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       const matchesStatus = 
         statusFilter === 'all' ||
-        (statusFilter === 'verified' && r.is_approved) ||
-        (statusFilter === 'pending' && !r.is_approved);
+        (statusFilter === 'verified' && r.is_approved && !r.is_suspended) ||
+        (statusFilter === 'pending' && !r.is_approved && !r.is_suspended);
 
       return matchesSearch && matchesStatus;
     });
@@ -2541,34 +2573,76 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               </span>
                             </td>
                             <td className="py-4 px-4">
-                              {rec.is_approved ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              {rec.is_suspended ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                  <Ban className="w-3 h-3 text-rose-600" />
+                                  <span>Suspended</span>
+                                </span>
+                              ) : rec.is_approved ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                   <Check className="w-3 h-3 text-emerald-600" />
-                                  <span>Active Account</span>
+                                  <span>Approved & Active</span>
+                                </span>
+                              ) : rec.payment_status === 'rejected' ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200">
+                                  <XCircle className="w-3 h-3 text-red-600" />
+                                  <span>Disapproved (Unpaid)</span>
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
                                   <Clock className="w-3 h-3 text-amber-500" />
-                                  <span>Pending Approval</span>
+                                  <span>Pending Review</span>
                                 </span>
                               )}
                             </td>
                             <td className="py-4 px-6 text-right">
-                              <button
-                                onClick={() => recruiterApprovalMutation.mutate({ recruiterId: rec.id, nextStatus: !rec.is_approved })}
-                                disabled={recruiterApprovalMutation.isPending}
-                                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                                  rec.is_approved
-                                    ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
-                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                }`}
-                              >
-                                {recruiterApprovalMutation.isPending
-                                  ? 'Updating...'
-                                  : rec.is_approved
-                                  ? 'Suspend Account'
-                                  : 'Approve & Activate'}
-                              </button>
+                              <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                                {rec.payment_status !== 'verified' && (
+                                  <button
+                                    onClick={() => recruiterActionMutation.mutate({ recruiterId: rec.id, action: 'approve' })}
+                                    disabled={recruiterActionMutation.isPending}
+                                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center gap-1 shadow-2xs cursor-pointer disabled:opacity-50"
+                                    title="Approve recruiter and activate full contact unlocking"
+                                  >
+                                    <Check className="w-3 h-3" />
+                                    <span>Approve</span>
+                                  </button>
+                                )}
+
+                                {rec.payment_status !== 'rejected' && (
+                                  <button
+                                    onClick={() => recruiterActionMutation.mutate({ recruiterId: rec.id, action: 'disapprove' })}
+                                    disabled={recruiterActionMutation.isPending}
+                                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 transition flex items-center gap-1 shadow-2xs cursor-pointer disabled:opacity-50"
+                                    title="Disapprove recruiter due to unverified payment"
+                                  >
+                                    <XCircle className="w-3 h-3 text-amber-600" />
+                                    <span>Disapprove</span>
+                                  </button>
+                                )}
+
+                                {rec.is_suspended ? (
+                                  <button
+                                    onClick={() => recruiterActionMutation.mutate({ recruiterId: rec.id, action: 'restore' })}
+                                    disabled={recruiterActionMutation.isPending}
+                                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-300 transition flex items-center gap-1 shadow-2xs cursor-pointer disabled:opacity-50"
+                                    title="Restore recruiter access to dashboard"
+                                  >
+                                    <ShieldCheck className="w-3 h-3 text-sky-600" />
+                                    <span>Restore Access</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => recruiterActionMutation.mutate({ recruiterId: rec.id, action: 'suspend' })}
+                                    disabled={recruiterActionMutation.isPending}
+                                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition flex items-center gap-1 shadow-2xs cursor-pointer disabled:opacity-50"
+                                    title="Suspend recruiter access without deleting account"
+                                  >
+                                    <Ban className="w-3 h-3 text-rose-600" />
+                                    <span>Suspend</span>
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))

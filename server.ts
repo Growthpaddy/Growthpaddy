@@ -350,6 +350,287 @@ app.post("/api/recruiter/login", async (req, res) => {
   }
 });
 
+// 0b. Admin Recruiters List Endpoint
+app.get("/api/admin/recruiters", async (req, res) => {
+  try {
+    const supabase = getSupabaseClient();
+    const { data: recs, error: recErr } = await supabase
+      .from("recruiters")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (recErr) {
+      console.error("[Server] Error fetching recruiters:", recErr);
+      return res.status(500).json({ success: false, error: recErr.message });
+    }
+
+    // Fetch auth users to get user_metadata (such as is_suspended)
+    const authUsersMap = new Map<string, any>();
+    try {
+      const { data: userData } = await supabase.auth.admin.listUsers();
+      if (userData?.users) {
+        userData.users.forEach((u: any) => {
+          authUsersMap.set(u.id, u);
+          if (u.email) authUsersMap.set(u.email.toLowerCase(), u);
+        });
+      }
+    } catch (e: any) {
+      console.warn("[Server] Could not list auth users for recruiter metadata:", e?.message);
+    }
+
+    const recruiters = (recs || []).map((r: any) => {
+      const authUser = r.user_id 
+        ? authUsersMap.get(r.user_id) 
+        : (r.business_email ? authUsersMap.get(r.business_email.toLowerCase()) : null);
+      
+      const isSuspended = Boolean(
+        r.is_suspended ||
+        authUser?.user_metadata?.is_suspended ||
+        r.status === 'suspended'
+      );
+      
+      const isApproved = r.payment_status === 'verified' || r.payment_status === 'approved' || r.status === 'active';
+      const isDisapproved = r.payment_status === 'rejected' || r.payment_status === 'disapproved';
+      const paymentStatus = isApproved ? 'verified' : isDisapproved ? 'rejected' : 'pending_verification';
+
+      return {
+        id: r.id,
+        user_id: r.user_id,
+        company_name: r.company_name || 'Organization',
+        contact_name: r.contact_person || r.contact_name || '',
+        email: r.business_email || r.email || '',
+        phone: r.phone_number || r.phone || '',
+        package_tier: r.selected_package || r.subscribed_package || 'Starter',
+        payment_status: paymentStatus,
+        is_approved: isApproved,
+        is_suspended: isSuspended,
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+      };
+    });
+
+    return res.json({ success: true, recruiters });
+  } catch (err: any) {
+    console.error("[Server] /api/admin/recruiters error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 0c. Admin Recruiter Status Management Endpoint (Approve, Disapprove, Suspend, Restore)
+app.post("/api/admin/recruiter/status", async (req, res) => {
+  try {
+    const { recruiterId, action, reason } = req.body;
+    if (!recruiterId || !action) {
+      return res.status(400).json({ success: false, error: "recruiterId and action are required." });
+    }
+
+    const supabase = getSupabaseClient();
+
+    // 1. Locate recruiter record by ID, user_id, or email
+    const { data: recruiter, error: findErr } = await supabase
+      .from("recruiters")
+      .select("*")
+      .or(`id.eq.${recruiterId},user_id.eq.${recruiterId},business_email.eq.${recruiterId}`)
+      .maybeSingle();
+
+    if (!recruiter) {
+      return res.status(404).json({ success: false, error: "Recruiter record not found." });
+    }
+
+    const targetUserId = recruiter.user_id;
+
+    if (action === "approve") {
+      const isAnnual = recruiter.selected_package === 'annual_unlimited' || recruiter.selected_package === 'Enterprise';
+      const isGrowth = recruiter.selected_package === 'Growth';
+      const maxContacts = isAnnual ? 99999 : (isGrowth ? 25 : 5);
+
+      // Update public.recruiters
+      await supabase
+        .from("recruiters")
+        .update({
+          payment_status: "verified",
+          max_contacts: maxContacts,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", recruiter.id);
+
+      // Update auth user metadata
+      if (targetUserId) {
+        try {
+          await supabase.auth.admin.updateUserById(targetUserId, {
+            user_metadata: {
+              payment_status: "verified",
+              is_approved: true,
+              is_suspended: false,
+              status: "active"
+            }
+          });
+        } catch (e: any) {
+          console.warn("[Server] Error updating user metadata for approve:", e?.message);
+        }
+      }
+
+      return res.json({
+        success: true,
+        action: "approve",
+        message: "Recruiter approved successfully. Contact unlocks activated.",
+        recruiter: {
+          ...recruiter,
+          payment_status: "verified",
+          is_approved: true,
+          is_suspended: false
+        }
+      });
+    }
+
+    if (action === "disapprove") {
+      // Update public.recruiters to rejected
+      await supabase
+        .from("recruiters")
+        .update({
+          payment_status: "rejected",
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", recruiter.id);
+
+      // Update auth user metadata
+      if (targetUserId) {
+        try {
+          await supabase.auth.admin.updateUserById(targetUserId, {
+            user_metadata: {
+              payment_status: "rejected",
+              is_approved: false,
+              status: "disapproved"
+            }
+          });
+        } catch (e: any) {
+          console.warn("[Server] Error updating user metadata for disapprove:", e?.message);
+        }
+      }
+
+      return res.json({
+        success: true,
+        action: "disapprove",
+        message: "Recruiter account disapproved because payment was not received.",
+        recruiter: {
+          ...recruiter,
+          payment_status: "rejected",
+          is_approved: false
+        }
+      });
+    }
+
+    if (action === "suspend") {
+      // Deny dashboard access without deleting the account
+      if (targetUserId) {
+        try {
+          await supabase.auth.admin.updateUserById(targetUserId, {
+            user_metadata: {
+              is_suspended: true,
+              suspended_at: new Date().toISOString(),
+              suspended_reason: reason || "Administrative review suspension"
+            }
+          });
+        } catch (e: any) {
+          console.warn("[Server] Error updating user metadata for suspend:", e?.message);
+        }
+      }
+
+      return res.json({
+        success: true,
+        action: "suspend",
+        message: "Recruiter account suspended. Dashboard access revoked without deleting account records.",
+        recruiter: {
+          ...recruiter,
+          is_suspended: true
+        }
+      });
+    }
+
+    if (action === "restore") {
+      // Restore dashboard access
+      if (targetUserId) {
+        try {
+          await supabase.auth.admin.updateUserById(targetUserId, {
+            user_metadata: {
+              is_suspended: false,
+              restored_at: new Date().toISOString()
+            }
+          });
+        } catch (e: any) {
+          console.warn("[Server] Error updating user metadata for restore:", e?.message);
+        }
+      }
+
+      return res.json({
+        success: true,
+        action: "restore",
+        message: "Recruiter account access restored successfully.",
+        recruiter: {
+          ...recruiter,
+          is_suspended: false
+        }
+      });
+    }
+
+    return res.status(400).json({ success: false, error: `Invalid action: ${action}` });
+  } catch (err: any) {
+    console.error("[Server] /api/admin/recruiter/status error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 0d. Recruiter Live Profile Endpoint (With suspension & approval status)
+app.get("/api/recruiter/profile", async (req, res) => {
+  try {
+    const userId = req.query.userId as string;
+    const email = req.query.email as string;
+
+    if (!userId && !email) {
+      return res.status(400).json({ success: false, error: "userId or email required" });
+    }
+
+    const supabase = getSupabaseClient();
+    let query = supabase.from("recruiters").select("*");
+    if (userId && email) {
+      query = query.or(`user_id.eq.${userId},business_email.eq.${email}`);
+    } else if (userId) {
+      query = query.or(`user_id.eq.${userId},id.eq.${userId}`);
+    } else {
+      query = query.eq("business_email", email);
+    }
+
+    const { data: rec } = await query.maybeSingle();
+    let authUser = null;
+    if (userId) {
+      try {
+        const { data } = await supabase.auth.admin.getUserById(userId);
+        authUser = data?.user;
+      } catch (_) {}
+    }
+
+    const isSuspended = Boolean(
+      rec?.is_suspended ||
+      authUser?.user_metadata?.is_suspended ||
+      rec?.status === 'suspended'
+    );
+    const isApproved = rec?.payment_status === 'verified';
+    const isDisapproved = rec?.payment_status === 'rejected';
+
+    return res.json({
+      success: true,
+      recruiter: rec ? {
+        ...rec,
+        is_suspended: isSuspended,
+        is_approved: isApproved,
+        is_disapproved: isDisapproved,
+      } : null
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // 0a. Admin Register Endpoint - Direct persistence to public.admin_profiles via Server Supabase Client
 app.post("/api/admin/register", async (req, res) => {
   try {
