@@ -356,119 +356,99 @@ export default function RecruiterSignup({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (submitting || loading) return;
 
-    // Validate required form bindings
-    if (
-      !formData.companyName?.trim() || 
-      !formData.contactPerson?.trim() || 
-      !formData.businessEmail?.trim() || 
-      !formData.phoneNumber?.trim() || 
-      !formData.password
-    ) {
-      alert('Please fill in all required fields (Company Name, Contact Person, Business Email, Phone Number, Password).');
+    // Ensure all fields are filled
+    if (!formData.companyName || !formData.contactPerson || !formData.businessEmail || !formData.phoneNumber || !formData.password) {
+      alert('Please fill out all required fields.');
       return;
     }
 
     setSubmitting(true);
     setLoading(true);
-    setErrorMessage(null);
-
-    const cleanEmail = formData.businessEmail.trim().toLowerCase();
-    const cleanCompany = formData.companyName.trim();
-    const cleanContact = formData.contactPerson.trim();
-    const cleanPhone = formData.phoneNumber.trim();
-    const chosenPackage = selectedPackage || 'Starter';
-    const maxContacts = chosenPackage === 'Growth' ? 25 : chosenPackage === 'Enterprise' ? 99999 : 5;
 
     try {
-      // 1. Sign up user via Supabase Auth with all required metadata
+      // Step A: Register User via Supabase Auth with detailed raw metadata
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: cleanEmail,
+        email: formData.businessEmail.trim(),
         password: formData.password,
         options: {
           data: {
             role: 'recruiter',
-            company_name: cleanCompany,
-            contact_person: cleanContact,
-            phone_number: cleanPhone,
-            subscribed_package: chosenPackage,
+            company_name: formData.companyName.trim(),
+            contact_person: formData.contactPerson.trim(),
+            phone_number: formData.phoneNumber.trim(),
+            subscribed_package: selectedPackage || 'Starter',
           },
         },
       });
 
       if (authError) {
-        alert(`Registration Error: ${authError.message}`);
-        setLoading(false);
-        setSubmitting(false);
+        console.error('Auth Error Details:', authError);
+        alert(`Auth Error: ${authError.message}`);
         return;
       }
 
       const user = authData.user;
       if (!user) {
-        alert('Account created. Please check your email to activate your account before logging in.');
-        setLoading(false);
-        setSubmitting(false);
+        alert('Signup initiated. Check your inbox to confirm your email address before logging in.');
         return;
       }
 
-      // 2. Direct Fallback Upsert to public.recruiters
+      // Step B: Direct Upsert Fallback to public.recruiters
       const { error: dbError } = await supabase
         .from('recruiters')
         .upsert({
           user_id: user.id,
-          company_name: cleanCompany,
-          contact_person: cleanContact,
-          business_email: cleanEmail,
-          phone_number: cleanPhone,
-          selected_package: chosenPackage,
+          company_name: formData.companyName.trim(),
+          contact_person: formData.contactPerson.trim(),
+          business_email: formData.businessEmail.trim(),
+          phone_number: formData.phoneNumber.trim(),
+          selected_package: selectedPackage || 'Starter',
           payment_status: 'pending_verification',
           contacts_unlocked_count: 0,
-          max_contacts: maxContacts,
+          max_contacts: (selectedPackage as any) === 'Growth' ? 25 : selectedPackage === 'Enterprise' ? 99999 : 5,
         }, { onConflict: 'user_id' });
 
       if (dbError) {
-        console.error('Database write error:', dbError);
+        console.error('Direct DB Insert Error:', dbError);
       }
 
-      // Also persist to backend API to ensure service_role redundancy
+      // Backend API sync redundancy
       try {
         await fetch('/api/recruiter/signup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            email: cleanEmail,
+            email: formData.businessEmail.trim(),
             password: formData.password,
-            companyName: cleanCompany,
-            contactPerson: cleanContact,
-            phoneNumber: cleanPhone,
-            selectedPackage: chosenPackage,
+            companyName: formData.companyName.trim(),
+            contactPerson: formData.contactPerson.trim(),
+            phoneNumber: formData.phoneNumber.trim(),
+            selectedPackage: selectedPackage || 'Starter',
             companySize: companySize || '1-10',
             industry: industry || 'Software & AI Technology',
             userId: user.id,
           }),
         });
-      } catch (apiErr) {
-        console.warn('API sync fallback note:', apiErr);
-      }
+      } catch (_) {}
 
-      // Local session cache for instant UI hydration
+      // Cache profile locally for immediate dashboard hydration
       try {
         const profileRecord = {
           id: user.id,
           user_id: user.id,
-          company_name: cleanCompany,
-          contact_person: cleanContact,
-          phone_number: cleanPhone,
-          business_email: cleanEmail,
-          selected_package: chosenPackage,
-          subscribed_package: chosenPackage,
+          company_name: formData.companyName.trim(),
+          contact_person: formData.contactPerson.trim(),
+          phone_number: formData.phoneNumber.trim(),
+          business_email: formData.businessEmail.trim(),
+          selected_package: selectedPackage || 'Starter',
+          subscribed_package: selectedPackage || 'Starter',
           payment_status: 'pending_verification',
           verification_status: 'pending_verification',
           status: 'pending_approval',
-          max_contacts: maxContacts,
+          max_contacts: (selectedPackage as any) === 'Growth' ? 25 : selectedPackage === 'Enterprise' ? 99999 : 5,
           contacts_unlocked_count: 0,
           created_at: new Date().toISOString(),
         };
@@ -485,22 +465,21 @@ export default function RecruiterSignup({
         password: '',
       });
 
-      // 3. Clear session local memory and redirect to login
+      // Step C: Clear session and redirect to login page
       await supabase.auth.signOut();
-      alert('Recruiter account created successfully! Please log in to access your dashboard.');
-      navigate('/recruiter-login');
+      alert('Registration complete! Please log in to your recruiter dashboard.');
+      window.location.href = '/recruiter-login';
 
     } catch (err: any) {
-      console.error('Unexpected Signup Exception:', err);
-      alert(`Unexpected error: ${err.message || 'Check browser console'}`);
+      console.error('Registration Exception:', err);
+      alert(`Unexpected error: ${err.message || 'Check console'}`);
     } finally {
       setLoading(false);
       setSubmitting(false);
     }
   };
 
-  const handleSignUp = handleSubmit;
-  const handleRecruiterSignUp = handleSubmit;
+  const handleRecruiterSignUp = handleSignUp;
 
   const navToLogin = () => {
     if (onNavigateToLogin) {

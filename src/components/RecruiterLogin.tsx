@@ -30,55 +30,50 @@ export default function RecruiterLogin({
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleRecruiterLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loading) return;
-
-    if (!email.trim() || !password) {
-      alert('Please enter your business email and password.');
-      return;
-    }
-
     setLoading(true);
-    setErrorMessage(null);
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password: password,
       });
 
-      if (authError) {
-        alert(`Login Failed: ${authError.message}`);
+      if (error) {
+        alert(`Login Failed: ${error.message}`);
         setLoading(false);
         return;
       }
 
-      // Fetch recruiter row from public.recruiters
-      const { data: recruiter, error: profileError } = await supabase
-        .from('recruiters')
-        .select('*')
-        .eq('user_id', authData.user.id)
-        .single();
+      // Sync recruiter profile locally for immediate dashboard display
+      if (data?.user) {
+        try {
+          const { data: recruiter } = await supabase
+            .from('recruiters')
+            .select('*')
+            .eq('user_id', data.user.id)
+            .maybeSingle();
 
-      if (profileError || !recruiter) {
-        console.error('Profile query failed:', profileError);
-      } else {
-        localStorage.setItem('dsp_recruiter_profile', JSON.stringify(recruiter));
-        localStorage.setItem(`mock_recruiter_profiles_${recruiter.id}`, JSON.stringify(recruiter));
-        if (recruiter.user_id) {
-          localStorage.setItem(`mock_recruiter_profiles_${recruiter.user_id}`, JSON.stringify(recruiter));
-        }
+          if (recruiter) {
+            localStorage.setItem('dsp_recruiter_profile', JSON.stringify(recruiter));
+            localStorage.setItem(`mock_recruiter_profiles_${recruiter.id}`, JSON.stringify(recruiter));
+            if (recruiter.user_id) {
+              localStorage.setItem(`mock_recruiter_profiles_${recruiter.user_id}`, JSON.stringify(recruiter));
+            }
+          }
+        } catch (_) {}
       }
 
       window.location.href = '/recruiter-dashboard';
     } catch (err: any) {
       console.error('Login Exception:', err);
-      alert(`Login Failed: ${err.message || 'Check browser console'}`);
-    } finally {
+      alert(`Login Failed: ${err.message || 'Check console'}`);
       setLoading(false);
     }
   };
+
+  const handleRecruiterLogin = handleLogin;
 
   const navToSignup = () => {
     if (onNavigateToSignup) {
@@ -117,7 +112,7 @@ export default function RecruiterLogin({
             </div>
           )}
 
-          <form onSubmit={handleRecruiterLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-4">
             {/* Email Field */}
             <div className="space-y-1">
               <label className="block text-xs font-semibold text-slate-700">
