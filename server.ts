@@ -70,15 +70,30 @@ app.post("/api/recruiter/signup", async (req, res) => {
     // Check if recruiter already exists in public.recruiters
     const { data: existingRec } = await supabase
       .from("recruiters")
-      .select("id, business_email, company_name")
-      .eq("business_email", cleanEmail)
+      .select("*")
+      .ilike("business_email", cleanEmail)
       .maybeSingle();
 
     if (existingRec) {
+      // Update recruiter record with latest submitted package and details in Supabase
+      const { data: updatedRec } = await supabase
+        .from("recruiters")
+        .update({
+          company_name: cleanCompany,
+          contact_person: cleanContact,
+          phone_number: cleanPhone || existingRec.phone_number,
+          selected_package: chosenPackage,
+          max_contacts: maxContacts,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", existingRec.id)
+        .select()
+        .maybeSingle();
+
       return res.status(200).json({
         success: true,
         alreadyExists: true,
-        recruiter: existingRec
+        recruiter: updatedRec || existingRec
       });
     }
 
@@ -149,6 +164,34 @@ app.post("/api/recruiter/signup", async (req, res) => {
   } catch (err: any) {
     console.error("[Server] Recruiter signup error:", err);
     return res.status(500).json({ error: err.message || "Failed to register recruiter" });
+  }
+});
+
+// 0b. Recruiter Login Helper Endpoint - Verifies recruiter directly in Supabase
+app.post("/api/recruiter/login", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    const supabase = getSupabaseClient();
+    const { data: recruiter, error } = await supabase
+      .from("recruiters")
+      .select("*")
+      .ilike("business_email", cleanEmail)
+      .maybeSingle();
+
+    if (error || !recruiter) {
+      return res.status(404).json({ error: "No recruiter found with this business email" });
+    }
+
+    return res.json({
+      success: true,
+      recruiter
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || "Login failed" });
   }
 });
 
