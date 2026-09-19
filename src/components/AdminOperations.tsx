@@ -23,7 +23,10 @@ import {
   ExternalLink,
   X,
   Check,
-  Edit3
+  Edit3,
+  Ban,
+  Clock,
+  CheckCircle2
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { extractAuthErrorMessage } from '../lib/authErrorUtils';
@@ -33,6 +36,166 @@ import { TalentCandidate } from '../types';
 import AdminAuthModal from './AdminAuthModal';
 import AdminSignInForm, { AdminProfileRecord } from './AdminSignInForm';
 import SuperAdminApprovalsPage from '../../app/admin/approvals/page';
+import { logAuditEvent } from '../lib/auditLogger';
+
+/**
+ * Service function: updateRecruiterStatus
+ * Performs an UPDATE operation on the 'recruiters' table for the specified recruiter,
+ * and logs the action to the 'audit_logs' table.
+ */
+export async function updateRecruiterStatus(
+  recruiterId: string,
+  status: 'verified' | 'suspended' | 'pending' | string,
+  options?: {
+    reason?: string | null;
+    actorId?: string | null;
+    actorEmail?: string | null;
+  }
+): Promise<{ success: boolean; data?: any; error?: any }> {
+  try {
+    const isSuspended = status === 'suspended';
+    const isVerified = status === 'verified';
+
+    // 1. Resolve actor (admin)
+    let actorId = options?.actorId;
+    let actorEmail = options?.actorEmail;
+
+    if (!actorId) {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        actorId = authData?.user?.id || null;
+        actorEmail = actorEmail || authData?.user?.email || null;
+      } catch (_) {}
+    }
+
+    // 2. Perform UPDATE operation on the 'recruiters' table
+    const updatePayload: Record<string, any> = {
+      verification_status: status,
+      is_suspended: isSuspended,
+      payment_status: isVerified ? 'verified' : (isSuspended ? 'suspended' : 'pending_verification'),
+      updated_at: new Date().toISOString()
+    };
+
+    let { data: updatedRecruiter, error: updateError } = await supabase
+      .from('recruiters')
+      .update(updatePayload)
+      .eq('id', recruiterId)
+      .select();
+
+    // If update by id did not match, try update by user_id
+    if (!updateError && (!updatedRecruiter || updatedRecruiter.length === 0)) {
+      const retryByUser = await supabase
+        .from('recruiters')
+        .update(updatePayload)
+        .eq('user_id', recruiterId)
+        .select();
+      if (retryByUser.data && retryByUser.data.length > 0) {
+        updatedRecruiter = retryByUser.data;
+      }
+    }
+
+    if (updateError) {
+      console.warn('[AdminOperations] updateRecruiterStatus notice:', updateError.message);
+    }
+
+    // 3. Log the action to the 'audit_logs' table
+    const auditRecord = {
+      action_type: 'STATUS_UPDATE',
+      description: `Admin updated recruiter (${recruiterId}) verification status to '${status}'${options?.reason ? ` (Reason: ${options.reason})` : ''}`,
+      target_id: recruiterId,
+      actor_id: actorId || null,
+      metadata: {
+        table: 'recruiters',
+        recruiter_id: recruiterId,
+        verification_status: status,
+        is_suspended: isSuspended,
+        is_verified: isVerified,
+        actor_email: actorEmail || null,
+        reason: options?.reason || null,
+        executed_at: new Date().toISOString()
+      },
+      created_at: new Date().toISOString()
+    };
+
+    const { error: auditError } = await supabase
+      .from('audit_logs')
+      .insert([auditRecord]);
+
+    if (auditError) {
+      console.warn('[AdminOperations] audit_logs table insert warning:', auditError.message);
+      // Fallback via logAuditEvent
+      await logAuditEvent({
+        action_type: 'STATUS_UPDATE',
+        description: auditRecord.description,
+        target_id: recruiterId,
+        actor_id: actorId,
+        metadata: auditRecord.metadata
+      });
+    }
+
+    // Synchronize with server API route to keep auth metadata in sync if available
+    try {
+      await fetch('/api/admin/recruiter/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recruiterId,
+          verification_status: status,
+          is_suspended: isSuspended,
+          reason: options?.reason,
+          admin_email: actorEmail
+        })
+      });
+    } catch (_) {}
+
+    return {
+      success: true,
+      data: updatedRecruiter?.[0] || { id: recruiterId, verification_status: status }
+    };
+  } catch (err: any) {
+    console.error('[AdminOperations] Error in updateRecruiterStatus:', err);
+    return {
+      success: false,
+      error: err?.message || 'Failed to update recruiter verification status'
+    };
+  }
+}
+
+/**
+ * Hook to manage recruiter status updates and audit logging
+ */
+export function useRecruiterStatus() {
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const updateStatus = React.useCallback(async (
+    recruiterId: string,
+    status: 'verified' | 'suspended' | 'pending' | string,
+    options?: { reason?: string; actorId?: string; actorEmail?: string }
+  ) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await updateRecruiterStatus(recruiterId, status, options);
+      if (!result.success) {
+        setError(result.error);
+      }
+      return result;
+    } catch (err: any) {
+      const msg = err?.message || 'Error updating recruiter status';
+      setError(msg);
+      return { success: false, error: msg };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return {
+    updateRecruiterStatus: updateStatus,
+    loading,
+    error
+  };
+}
 
 interface AdminOperationsProps {
   onBackToMain: () => void;
@@ -114,6 +277,57 @@ export default function AdminOperations({
   const [quizAttemptsLog, setQuizAttemptsLog] = useState<any[]>([]);
   const [loadingAttempts, setLoadingAttempts] = useState<boolean>(false);
   const [selectedAuditAttempt, setSelectedAuditAttempt] = useState<any | null>(null);
+
+  // Recruiter verification status control states
+  const [recruiterStatuses, setRecruiterStatuses] = useState<Record<string, string>>({});
+  const [updatingRecruiterId, setUpdatingRecruiterId] = useState<string | null>(null);
+
+  // Sync recruiter verification statuses on tab switch or load
+  const syncRecruiterVerificationStatuses = async () => {
+    try {
+      const { data } = await supabase.from('recruiters').select('id, user_id, verification_status, is_suspended');
+      if (data && data.length > 0) {
+        const map: Record<string, string> = {};
+        data.forEach((r: any) => {
+          map[r.id] = r.verification_status || (r.is_suspended ? 'suspended' : 'pending');
+          if (r.user_id) {
+            map[r.user_id] = r.verification_status || (r.is_suspended ? 'suspended' : 'pending');
+          }
+        });
+        setRecruiterStatuses(map);
+      }
+    } catch (_) {}
+  };
+
+  useEffect(() => {
+    if (activeTab === 'recruiters') {
+      syncRecruiterVerificationStatuses();
+    }
+  }, [activeTab]);
+
+  const handleAdminUpdateRecruiterStatus = async (recruiterId: string, status: 'verified' | 'suspended' | 'pending') => {
+    setUpdatingRecruiterId(recruiterId);
+    try {
+      const res = await updateRecruiterStatus(recruiterId, status, {
+        actorEmail: currentAdmin?.email || user?.email,
+        actorId: user?.id,
+        reason: `Admin set recruiter verification status to ${status}`
+      });
+      if (res.success) {
+        setRecruiterStatuses((prev) => ({ ...prev, [recruiterId]: status }));
+        setToastMsg(`Recruiter ${recruiterId.slice(0, 8)} status set to ${status} (logged to audit_logs)`);
+        setTimeout(() => setToastMsg(null), 3500);
+      } else {
+        setToastMsg(`Error updating recruiter: ${res.error}`);
+        setTimeout(() => setToastMsg(null), 4000);
+      }
+    } catch (err: any) {
+      setToastMsg(`Failed: ${err.message}`);
+      setTimeout(() => setToastMsg(null), 4000);
+    } finally {
+      setUpdatingRecruiterId(null);
+    }
+  };
 
   // Wrapper for updateTalentStatus to synchronize selected modal
   const updateTalentStatus = async (talentId: string, updates: Record<string, any>) => {
@@ -1349,11 +1563,16 @@ export default function AdminOperations({
                       <th className="py-3 px-4">Search Preference Target</th>
                       <th className="py-3 px-4 text-center">Purchased Slots</th>
                       <th className="py-3 px-4 text-center">Active Campaigns</th>
+                      <th className="py-3 px-4 text-center">Verification Status & Controls</th>
                       <th className="py-3 px-4 text-right">Onboarding Date</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y-2 divide-neutral-150">
-                    {recruiters.map((recruiter) => (
+                    {recruiters.map((recruiter) => {
+                      const currentStatus = recruiterStatuses[recruiter.id] || 'pending';
+                      const isUpdating = updatingRecruiterId === recruiter.id;
+
+                      return (
                       <tr key={recruiter.id} className="hover:bg-neutral-50 transition duration-100">
                         
                         <td className="py-4 px-4 text-left">
@@ -1395,12 +1614,72 @@ export default function AdminOperations({
                           </div>
                         </td>
 
+                        {/* Verification Status & Admin Control Buttons */}
+                        <td className="py-4 px-4 text-center">
+                          <div className="flex flex-col items-center gap-1.5">
+                            {currentStatus === 'verified' && (
+                              <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 border border-emerald-300 font-mono text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                <span>VERIFIED</span>
+                              </span>
+                            )}
+                            {currentStatus === 'suspended' && (
+                              <span className="inline-flex items-center gap-1 bg-rose-100 text-rose-800 border border-rose-300 font-mono text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                <Ban className="w-3 h-3 text-rose-600" />
+                                <span>SUSPENDED</span>
+                              </span>
+                            )}
+                            {currentStatus === 'pending' && (
+                              <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 border border-amber-300 font-mono text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                <Clock className="w-3 h-3 text-amber-600" />
+                                <span>PENDING</span>
+                              </span>
+                            )}
+
+                            <div className="flex items-center gap-1 mt-1">
+                              {currentStatus !== 'verified' && (
+                                <button
+                                  type="button"
+                                  disabled={isUpdating}
+                                  onClick={() => handleAdminUpdateRecruiterStatus(recruiter.id, 'verified')}
+                                  className="text-[9px] font-mono font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-0.5 rounded transition disabled:opacity-50"
+                                  title="Approve & Verify Recruiter"
+                                >
+                                  Approve
+                                </button>
+                              )}
+                              {currentStatus !== 'suspended' && (
+                                <button
+                                  type="button"
+                                  disabled={isUpdating}
+                                  onClick={() => handleAdminUpdateRecruiterStatus(recruiter.id, 'suspended')}
+                                  className="text-[9px] font-mono font-bold bg-rose-600 hover:bg-rose-700 text-white px-2 py-0.5 rounded transition disabled:opacity-50"
+                                  title="Suspend Recruiter Account"
+                                >
+                                  Suspend
+                                </button>
+                              )}
+                              {currentStatus === 'suspended' && (
+                                <button
+                                  type="button"
+                                  disabled={isUpdating}
+                                  onClick={() => handleAdminUpdateRecruiterStatus(recruiter.id, 'pending')}
+                                  className="text-[9px] font-mono font-bold bg-slate-600 hover:bg-slate-700 text-white px-2 py-0.5 rounded transition disabled:opacity-50"
+                                  title="Reset to Pending"
+                                >
+                                  Reset
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
                         <td className="py-4 px-4 text-right text-neutral-400 font-mono font-bold">
                           {recruiter.onboardedAt}
                         </td>
 
                       </tr>
-                    ))}
+                    );})}
                   </tbody>
                 </table>
               </div>

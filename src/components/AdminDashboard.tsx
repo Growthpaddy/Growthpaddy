@@ -39,7 +39,11 @@ import {
   Users,
   Trash2,
   ShieldAlert,
-  X
+  X,
+  Ban,
+  Building2,
+  UserX,
+  CheckCheck
 } from 'lucide-react';
 
 // ==============================================================================
@@ -47,6 +51,22 @@ import {
 // ==============================================================================
 
 export type VerificationStage = 'ALL' | 'PHASE_1_PASSED' | 'PHASE_2_PENDING' | 'PHASE_3_READY' | 'VERIFIED' | 'FAILED';
+
+export interface RecruiterAccount {
+  id: string;
+  user_id?: string;
+  company_name: string;
+  contact_name: string;
+  email: string;
+  phone?: string;
+  package_tier: string;
+  verification_status: 'verified' | 'suspended' | 'pending' | string;
+  payment_status?: string;
+  is_approved?: boolean;
+  is_suspended?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
 
 export interface TalentProfile {
   id: string;
@@ -125,6 +145,9 @@ export default function AdminDashboard({ onSignOutRedirect, onNavigateHome }: Ad
     }
   }, []);
 
+  // Navigation Tab State
+  const [activeTab, setActiveTab] = useState<'candidates' | 'recruiters'>('candidates');
+
   // Candidate Data & Pipeline States
   const [candidates, setCandidates] = useState<TalentProfile[]>([]);
   const [isLoadingCandidates, setIsLoadingCandidates] = useState<boolean>(true);
@@ -133,6 +156,13 @@ export default function AdminDashboard({ onSignOutRedirect, onNavigateHome }: Ad
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
   const [isAdminAuthorized, setIsAdminAuthorized] = useState<boolean>(true);
+
+  // Recruiter Management States
+  const [recruiters, setRecruiters] = useState<RecruiterAccount[]>([]);
+  const [isLoadingRecruiters, setIsLoadingRecruiters] = useState<boolean>(false);
+  const [recruiterActionId, setRecruiterActionId] = useState<string | null>(null);
+  const [recruiterSearchQuery, setRecruiterSearchQuery] = useState<string>('');
+  const [recruiterStatusFilter, setRecruiterStatusFilter] = useState<'ALL' | 'verified' | 'suspended' | 'pending'>('ALL');
 
   // Multi-Row Selection State
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
@@ -388,6 +418,193 @@ export default function AdminDashboard({ onSignOutRedirect, onNavigateHome }: Ad
   useEffect(() => {
     fetchAdminData();
   }, [fetchAdminData]);
+
+  // ----------------------------------------------------------------------------
+  // RECRUITER ACCOUNTS FETCHING
+  // ----------------------------------------------------------------------------
+  const fetchRecruiters = useCallback(async () => {
+    setIsLoadingRecruiters(true);
+    try {
+      // 1. Fetch via API
+      const res = await fetch('/api/admin/recruiters');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.recruiters)) {
+          setRecruiters(data.recruiters);
+          setIsLoadingRecruiters(false);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('[AdminDashboard] /api/admin/recruiters API note:', e);
+    }
+
+    // 2. Supabase fallback
+    if (supabase) {
+      try {
+        const { data: recs } = await supabase
+          .from('recruiters')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (recs) {
+          const mapped: RecruiterAccount[] = recs.map((r: any) => {
+            const isSuspended = Boolean(r.is_suspended || r.status === 'suspended');
+            const isApproved = (r.payment_status === 'verified' || r.payment_status === 'approved') && !isSuspended;
+            const verification_status = isSuspended ? 'suspended' : isApproved ? 'verified' : 'pending';
+
+            return {
+              id: r.id,
+              user_id: r.user_id,
+              company_name: r.company_name || 'Organization',
+              contact_name: r.contact_person || r.contact_name || '',
+              email: r.business_email || r.email || '',
+              phone: r.phone_number || r.phone || '',
+              package_tier: r.selected_package || r.subscribed_package || 'Starter',
+              verification_status,
+              payment_status: r.payment_status || 'pending_verification',
+              is_approved: isApproved,
+              is_suspended: isSuspended,
+              created_at: r.created_at,
+              updated_at: r.updated_at
+            };
+          });
+          setRecruiters(mapped);
+        }
+      } catch (dbErr) {
+        console.warn('[AdminDashboard] Supabase recruiters direct query note:', dbErr);
+      }
+    }
+    setIsLoadingRecruiters(false);
+  }, [supabase]);
+
+  useEffect(() => {
+    fetchRecruiters();
+  }, [fetchRecruiters]);
+
+  // ----------------------------------------------------------------------------
+  // ADMIN-ONLY FUNCTIONS: UPDATE RECRUITER VERIFICATION STATUS
+  // ----------------------------------------------------------------------------
+  const updateRecruiterVerificationStatus = async (
+    recruiterId: string,
+    newStatus: 'verified' | 'suspended' | 'pending',
+    reason?: string
+  ) => {
+    if (!isAdminAuthorized) {
+      setToastMessage('Unauthorized: Administrative credentials required.');
+      setTimeout(() => setToastMessage(null), 3500);
+      return;
+    }
+
+    setRecruiterActionId(recruiterId);
+    try {
+      // 1. Invoke server-side admin status API
+      const res = await fetch('/api/admin/recruiter/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recruiterId,
+          verification_status: newStatus,
+          status: newStatus,
+          action: newStatus === 'verified' ? 'approve' : newStatus === 'suspended' ? 'suspend' : 'pending',
+          reason
+        })
+      });
+
+      const resJson = await res.json().catch(() => null);
+
+      if (!res.ok || (resJson && !resJson.success)) {
+        throw new Error(resJson?.error || `Failed to update recruiter status to ${newStatus}`);
+      }
+
+      // 2. Direct Supabase sync if client available
+      if (supabase) {
+        try {
+          const updates: Record<string, any> = {
+            updated_at: new Date().toISOString()
+          };
+
+          if (newStatus === 'verified') {
+            updates.payment_status = 'verified';
+            updates.is_suspended = false;
+          } else if (newStatus === 'suspended') {
+            updates.is_suspended = true;
+          } else if (newStatus === 'pending') {
+            updates.payment_status = 'pending_verification';
+            updates.is_suspended = false;
+          }
+
+          await supabase
+            .from('recruiters')
+            .update(updates)
+            .or(`id.eq.${recruiterId},user_id.eq.${recruiterId}`);
+        } catch (dbSyncErr) {
+          console.warn('[AdminDashboard] Supabase direct sync note:', dbSyncErr);
+        }
+      }
+
+      // 3. Update local state
+      setRecruiters(prev =>
+        prev.map(rec => {
+          if (rec.id === recruiterId || rec.user_id === recruiterId) {
+            return {
+              ...rec,
+              verification_status: newStatus,
+              is_suspended: newStatus === 'suspended',
+              is_approved: newStatus === 'verified',
+              payment_status: newStatus === 'verified' ? 'verified' : newStatus === 'pending' ? 'pending_verification' : rec.payment_status
+            };
+          }
+          return rec;
+        })
+      );
+
+      const statusLabels: Record<string, string> = {
+        verified: 'Verified (Contact Reveals Active)',
+        suspended: 'Suspended (Access Denied Overlay Active)',
+        pending: 'Pending Verification (Review Mode)'
+      };
+
+      setToastMessage(`Recruiter verification_status updated to: ${statusLabels[newStatus] || newStatus}`);
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err: any) {
+      console.error('[AdminDashboard] updateRecruiterVerificationStatus error:', err);
+      setToastMessage(`Action failed: ${err.message || 'Network error'}`);
+      setTimeout(() => setToastMessage(null), 4000);
+    } finally {
+      setRecruiterActionId(null);
+    }
+  };
+
+  // Dedicated admin-only helper functions:
+  const setRecruiterVerified = useCallback(
+    (recruiterId: string) => updateRecruiterVerificationStatus(recruiterId, 'verified'),
+    [isAdminAuthorized, supabase]
+  );
+
+  const setRecruiterSuspended = useCallback(
+    (recruiterId: string, reason?: string) => updateRecruiterVerificationStatus(recruiterId, 'suspended', reason),
+    [isAdminAuthorized, supabase]
+  );
+
+  const setRecruiterPending = useCallback(
+    (recruiterId: string) => updateRecruiterVerificationStatus(recruiterId, 'pending'),
+    [isAdminAuthorized, supabase]
+  );
+
+  // Expose on window for runtime testing or automation if needed
+  useEffect(() => {
+    (window as any).__adminRecruiterFunctions = {
+      updateRecruiterVerificationStatus,
+      setRecruiterVerified,
+      setRecruiterSuspended,
+      setRecruiterPending,
+      fetchRecruiters,
+    };
+    return () => {
+      delete (window as any).__adminRecruiterFunctions;
+    };
+  }, [updateRecruiterVerificationStatus, setRecruiterVerified, setRecruiterSuspended, setRecruiterPending, fetchRecruiters]);
 
   // ----------------------------------------------------------------------------
   // Update Specialist Booking Link in Supabase
@@ -652,6 +869,40 @@ export default function AdminDashboard({ onSignOutRedirect, onNavigateHome }: Ad
       failed: candidates.filter((c) => c?.phase_2_status === 'FAILED').length
     };
   }, [candidates]);
+
+  // Recruiter Filtering Logic
+  const filteredRecruiters = useMemo(() => {
+    if (!Array.isArray(recruiters)) return [];
+
+    return recruiters.filter((r) => {
+      if (!r) return false;
+
+      // 1. Status filter
+      if (recruiterStatusFilter !== 'ALL') {
+        if (r.verification_status !== recruiterStatusFilter) {
+          return false;
+        }
+      }
+
+      // 2. Search query filter
+      if (recruiterSearchQuery.trim()) {
+        const q = recruiterSearchQuery.toLowerCase().trim();
+        const comp = (r.company_name || '').toLowerCase();
+        const contact = (r.contact_name || '').toLowerCase();
+        const email = (r.email || '').toLowerCase();
+        const phone = (r.phone || '').toLowerCase();
+        const pkg = (r.package_tier || '').toLowerCase();
+
+        return comp.includes(q) || contact.includes(q) || email.includes(q) || phone.includes(q) || pkg.includes(q);
+      }
+
+      return true;
+    });
+  }, [recruiters, recruiterStatusFilter, recruiterSearchQuery]);
+
+  const verifiedRecruitersCount = useMemo(() => recruiters.filter(r => r.verification_status === 'verified').length, [recruiters]);
+  const pendingRecruitersCount = useMemo(() => recruiters.filter(r => r.verification_status === 'pending').length, [recruiters]);
+  const suspendedRecruitersCount = useMemo(() => recruiters.filter(r => r.verification_status === 'suspended').length, [recruiters]);
 
   // ----------------------------------------------------------------------------
   // 4. MULTI-ROW CHECKBOX SELECTION LOGIC
@@ -929,6 +1180,67 @@ export default function AdminDashboard({ onSignOutRedirect, onNavigateHome }: Ad
         </div>
       </header>
 
+      {/* Admin Section Tabs: Candidates vs Recruiters */}
+      <div className="bg-white border-b border-slate-200/90 px-4 sm:px-8">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 py-2.5 overflow-x-auto">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              id="admin-tab-candidates-btn"
+              onClick={() => setActiveTab('candidates')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                activeTab === 'candidates'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Candidate Pipeline</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                activeTab === 'candidates' ? 'bg-slate-800 text-emerald-400' : 'bg-slate-200 text-slate-700'
+              }`}>
+                {candidates.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              id="admin-tab-recruiters-btn"
+              onClick={() => {
+                setActiveTab('recruiters');
+                fetchRecruiters();
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                activeTab === 'recruiters'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              <span>Recruiter Accounts</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                activeTab === 'recruiters' ? 'bg-slate-800 text-emerald-400' : 'bg-slate-200 text-slate-700'
+              }`}>
+                {recruiters.length}
+              </span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+            {activeTab === 'recruiters' && (
+              <button
+                type="button"
+                onClick={fetchRecruiters}
+                className="px-2.5 py-1 text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
+              >
+                <RefreshCw className={`w-3 h-3 ${isLoadingRecruiters ? 'animate-spin text-emerald-600' : ''}`} />
+                <span>Sync Recruiters</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
 
         {/* Informational Error / Resilience Banner */}
@@ -947,6 +1259,361 @@ export default function AdminDashboard({ onSignOutRedirect, onNavigateHome }: Ad
             </button>
           </div>
         )}
+
+        {activeTab === 'recruiters' ? (
+          /* ========================================================================= */
+          /* RECRUITER ACCOUNTS & VERIFICATION STATUS MANAGEMENT SECTION              */
+          /* ========================================================================= */
+          <div className="space-y-6 animate-fadeIn">
+            <section id="admin-recruiters-section" className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+              
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-900 text-emerald-400 uppercase tracking-wider">
+                      Employer Operations
+                    </span>
+                    <span className="text-xs text-slate-400 font-mono">/api/admin/recruiter/status</span>
+                  </div>
+                  <h2 className="text-xl font-display font-black text-slate-900 tracking-tight">
+                    Recruiter Verification & Access Control
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-2xl leading-relaxed">
+                    Manage employer verification statuses (<code className="font-mono text-xs bg-emerald-50 text-emerald-800 font-bold px-1 py-0.5 rounded">verified</code>, <code className="font-mono text-xs bg-rose-50 text-rose-800 font-bold px-1 py-0.5 rounded">suspended</code>, or <code className="font-mono text-xs bg-amber-50 text-amber-800 font-bold px-1 py-0.5 rounded">pending</code>). Approving immediately unlocks candidate contact details and sets access to active. Suspending blocks recruiter dashboard access with an overlay without deleting their account records. Restoring clears the suspension.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 self-start md:self-auto">
+                  <button
+                    type="button"
+                    onClick={fetchRecruiters}
+                    disabled={isLoadingRecruiters}
+                    className="px-3.5 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl transition shadow-2xs flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingRecruiters ? 'animate-spin text-emerald-600' : ''}`} />
+                    <span>Refresh List</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Stat Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1">
+                  <div className="flex items-center justify-between text-slate-500">
+                    <span className="text-xs font-bold uppercase tracking-wider">Total Recruiters</span>
+                    <Building2 className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <p className="text-2xl font-black text-slate-900 font-display">{recruiters.length}</p>
+                  <p className="text-[11px] text-slate-500">Registered organization accounts</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 space-y-1">
+                  <div className="flex items-center justify-between text-emerald-700">
+                    <span className="text-xs font-bold uppercase tracking-wider">Verified</span>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <p className="text-2xl font-black text-emerald-900 font-display">{verifiedRecruitersCount}</p>
+                  <p className="text-[11px] text-emerald-700">Full contact unlocks active</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-1">
+                  <div className="flex items-center justify-between text-amber-700">
+                    <span className="text-xs font-bold uppercase tracking-wider">Pending Review</span>
+                    <Clock className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <p className="text-2xl font-black text-amber-900 font-display">{pendingRecruitersCount}</p>
+                  <p className="text-[11px] text-amber-700">In review mode</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-rose-50/70 border border-rose-200/80 space-y-1">
+                  <div className="flex items-center justify-between text-rose-700">
+                    <span className="text-xs font-bold uppercase tracking-wider">Suspended</span>
+                    <Ban className="w-4 h-4 text-rose-600" />
+                  </div>
+                  <p className="text-2xl font-black text-rose-900 font-display">{suspendedRecruitersCount}</p>
+                  <p className="text-[11px] text-rose-700">Access denied overlay active</p>
+                </div>
+              </div>
+
+              {/* Search & Filters */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                {/* Filter buttons */}
+                <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+                  {(['ALL', 'verified', 'pending', 'suspended'] as const).map((filter) => {
+                    const isActive = recruiterStatusFilter === filter;
+                    const count =
+                      filter === 'ALL' ? recruiters.length :
+                      filter === 'verified' ? verifiedRecruitersCount :
+                      filter === 'pending' ? pendingRecruitersCount : suspendedRecruitersCount;
+
+                    return (
+                      <button
+                        key={filter}
+                        type="button"
+                        onClick={() => setRecruiterStatusFilter(filter)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                          isActive
+                            ? 'bg-slate-900 text-white shadow-xs'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                        }`}
+                      >
+                        <span className="capitalize">{filter === 'ALL' ? 'All Recruiters' : filter}</span>
+                        <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+                          isActive ? 'bg-slate-800 text-emerald-400' : 'bg-white text-slate-600'
+                        }`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Search Box */}
+                <div className="relative w-full sm:w-72">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <Search className="w-3.5 h-3.5" />
+                  </div>
+                  <input
+                    type="text"
+                    value={recruiterSearchQuery}
+                    onChange={(e) => setRecruiterSearchQuery(e.target.value)}
+                    placeholder="Search company, contact, or email..."
+                    className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+                  />
+                  {recruiterSearchQuery && (
+                    <button
+                      onClick={() => setRecruiterSearchQuery('')}
+                      className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600 text-xs"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Recruiter Accounts List / Table */}
+              <div className="border border-slate-200/90 rounded-2xl overflow-hidden bg-white shadow-xs">
+                {isLoadingRecruiters ? (
+                  <div className="p-12 text-center space-y-3">
+                    <RefreshCw className="w-6 h-6 animate-spin text-emerald-600 mx-auto" />
+                    <p className="text-xs text-slate-500 font-medium">Loading recruiter organization accounts...</p>
+                  </div>
+                ) : filteredRecruiters.length === 0 ? (
+                  <div className="p-12 text-center space-y-3">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
+                      <Building2 className="w-6 h-6" />
+                    </div>
+                    <p className="text-sm font-bold text-slate-800">No recruiter accounts found</p>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                      {recruiterSearchQuery || recruiterStatusFilter !== 'ALL'
+                        ? 'No employers match your active search or filter criteria. Try clearing filters.'
+                        : 'No recruiter organization accounts registered yet.'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-50/90 border-b border-slate-200/80 text-slate-600 uppercase tracking-wider font-mono text-[10px]">
+                          <th className="py-3 px-4 font-bold">Organization & Tier</th>
+                          <th className="py-3 px-4 font-bold">Contact & Channels</th>
+                          <th className="py-3 px-4 font-bold">Registered</th>
+                          <th className="py-3 px-4 font-bold">Verification Status</th>
+                          <th className="py-3 px-4 font-bold text-right">Admin Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {filteredRecruiters.map((recruiter) => {
+                          const isProcessing = recruiterActionId === recruiter.id;
+                          const isVerified = recruiter.verification_status === 'verified';
+                          const isSuspended = recruiter.verification_status === 'suspended';
+                          const isPending = recruiter.verification_status === 'pending';
+
+                          return (
+                            <tr
+                              key={recruiter.id}
+                              className={`hover:bg-slate-50/80 transition-colors ${
+                                isSuspended ? 'bg-rose-50/20' : isVerified ? 'bg-emerald-50/10' : ''
+                              }`}
+                            >
+                              {/* Org & Tier */}
+                              <td className="py-3.5 px-4 align-top">
+                                <div className="space-y-1">
+                                  <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                                    <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
+                                    <span>{recruiter.company_name || 'Organization'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-slate-100 text-slate-700 border border-slate-200">
+                                      {recruiter.package_tier || 'Starter'}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 font-mono">
+                                      ID: {recruiter.id.slice(0, 8)}...
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Contact info */}
+                              <td className="py-3.5 px-4 align-top">
+                                <div className="space-y-1">
+                                  <p className="font-semibold text-slate-800">{recruiter.contact_name || 'Contact Person'}</p>
+                                  <div className="flex flex-col gap-0.5 text-slate-500 text-[11px]">
+                                    {recruiter.email && (
+                                      <a
+                                        href={`mailto:${recruiter.email}`}
+                                        className="hover:text-slate-800 flex items-center gap-1 hover:underline"
+                                      >
+                                        <Mail className="w-3 h-3 text-slate-400" />
+                                        <span>{recruiter.email}</span>
+                                      </a>
+                                    )}
+                                    {recruiter.phone && (
+                                      <a
+                                        href={`https://wa.me/${recruiter.phone.replace(/[^0-9]/g, '')}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-emerald-700 hover:text-emerald-800 flex items-center gap-1 hover:underline"
+                                      >
+                                        <Phone className="w-3 h-3 text-emerald-600" />
+                                        <span>{recruiter.phone}</span>
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Created date */}
+                              <td className="py-3.5 px-4 align-top text-slate-500 text-[11px] whitespace-nowrap">
+                                {recruiter.created_at
+                                  ? new Date(recruiter.created_at).toLocaleDateString(undefined, {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric'
+                                    })
+                                  : '—'}
+                              </td>
+
+                              {/* Status Badge */}
+                              <td className="py-3.5 px-4 align-top whitespace-nowrap">
+                                {isVerified ? (
+                                  <span className="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold px-2.5 py-1 rounded-full">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    <span>Verified</span>
+                                  </span>
+                                ) : isSuspended ? (
+                                  <span className="inline-flex items-center gap-1.5 bg-rose-100 text-rose-800 border border-rose-200 text-xs font-bold px-2.5 py-1 rounded-full">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
+                                    <Ban className="w-3.5 h-3.5" />
+                                    <span>Suspended</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold px-2.5 py-1 rounded-full">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+                                    <Clock className="w-3.5 h-3.5" />
+                                    <span>Pending Review</span>
+                                  </span>
+                                )}
+                                <p className="text-[10px] text-slate-400 mt-1">
+                                  {isVerified
+                                    ? 'Contacts Unlocked'
+                                    : isSuspended
+                                    ? 'Dashboard Blocked'
+                                    : 'Review Mode'}
+                                </p>
+                              </td>
+
+                              {/* Admin Actions */}
+                              <td className="py-3.5 px-4 align-top text-right whitespace-nowrap">
+                                <div className="flex flex-col sm:flex-row items-end sm:items-center justify-end gap-1.5">
+                                  {/* Direct Status Selector */}
+                                  <select
+                                    value={recruiter.verification_status}
+                                    disabled={isProcessing}
+                                    onChange={(e) =>
+                                      updateRecruiterVerificationStatus(
+                                        recruiter.id,
+                                        e.target.value as 'verified' | 'suspended' | 'pending'
+                                      )
+                                    }
+                                    className="bg-white border border-slate-300 text-slate-800 text-xs rounded-lg px-2 py-1 font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer disabled:opacity-50"
+                                  >
+                                    <option value="verified">Verified</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="suspended">Suspended</option>
+                                  </select>
+
+                                  {/* Quick Action: Approve */}
+                                  {!isVerified && (
+                                    <button
+                                      type="button"
+                                      disabled={isProcessing}
+                                      onClick={() => setRecruiterVerified(recruiter.id)}
+                                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs cursor-pointer disabled:opacity-50"
+                                      title="Approve & Verify Account"
+                                    >
+                                      {isProcessing ? (
+                                        <RefreshCw className="w-3 h-3 animate-spin" />
+                                      ) : (
+                                        <Check className="w-3 h-3" />
+                                      )}
+                                      <span>Approve</span>
+                                    </button>
+                                  )}
+
+                                  {/* Quick Action: Suspend */}
+                                  {!isSuspended && (
+                                    <button
+                                      type="button"
+                                      disabled={isProcessing}
+                                      onClick={() => setRecruiterSuspended(recruiter.id)}
+                                      className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                      title="Suspend Recruiter Dashboard Access"
+                                    >
+                                      {isProcessing ? (
+                                        <RefreshCw className="w-3 h-3 animate-spin" />
+                                      ) : (
+                                        <Ban className="w-3 h-3" />
+                                      )}
+                                      <span>Suspend</span>
+                                    </button>
+                                  )}
+
+                                  {/* Quick Action: Restore */}
+                                  {isSuspended && (
+                                    <button
+                                      type="button"
+                                      disabled={isProcessing}
+                                      onClick={() => setRecruiterPending(recruiter.id)}
+                                      className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                      title="Restore to Pending Review"
+                                    >
+                                      {isProcessing ? (
+                                        <RefreshCw className="w-3 h-3 animate-spin" />
+                                      ) : (
+                                        <Clock className="w-3 h-3" />
+                                      )}
+                                      <span>Restore</span>
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
+        ) : (
+          /* ========================================================================= */
+          /* CANDIDATE VERIFICATION PIPELINE SECTIONS                                  */
+          /* ========================================================================= */
+          <>
 
         {/* ========================================================================= */}
         {/* 1. SPECIALIST INTERVIEW SETTINGS CARD */}
@@ -1438,13 +2105,15 @@ export default function AdminDashboard({ onSignOutRedirect, onNavigateHome }: Ad
             </div>
           )}
         </section>
+        </>
+        )}
 
       </main>
 
       {/* ========================================================================= */}
       {/* 4. FLOATING BULK ACTION BAR (VISIBLE WHEN >= 1 CANDIDATE IS SELECTED) */}
       {/* ========================================================================= */}
-      {selectedCandidateIds.length > 0 && (
+      {activeTab === 'candidates' && selectedCandidateIds.length > 0 && (
         <aside
           id="admin-floating-bulk-bar"
           aria-label="Bulk actions bar"

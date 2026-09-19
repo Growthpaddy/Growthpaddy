@@ -386,12 +386,19 @@ app.get("/api/admin/recruiters", async (req, res) => {
       const isSuspended = Boolean(
         r.is_suspended ||
         authUser?.user_metadata?.is_suspended ||
+        authUser?.user_metadata?.verification_status === 'suspended' ||
         r.status === 'suspended'
       );
       
-      const isApproved = r.payment_status === 'verified' || r.payment_status === 'approved' || r.status === 'active';
-      const isDisapproved = r.payment_status === 'rejected' || r.payment_status === 'disapproved';
+      const isApproved = (r.payment_status === 'verified' || r.payment_status === 'approved' || r.status === 'active' || authUser?.user_metadata?.verification_status === 'verified') && !isSuspended;
+      const isDisapproved = (r.payment_status === 'rejected' || r.payment_status === 'disapproved') && !isSuspended;
       const paymentStatus = isApproved ? 'verified' : isDisapproved ? 'rejected' : 'pending_verification';
+      
+      const verificationStatus: 'verified' | 'suspended' | 'pending' = isSuspended
+        ? 'suspended'
+        : isApproved
+        ? 'verified'
+        : 'pending';
 
       return {
         id: r.id,
@@ -401,6 +408,7 @@ app.get("/api/admin/recruiters", async (req, res) => {
         email: r.business_email || r.email || '',
         phone: r.phone_number || r.phone || '',
         package_tier: r.selected_package || r.subscribed_package || 'Starter',
+        verification_status: verificationStatus,
         payment_status: paymentStatus,
         is_approved: isApproved,
         is_suspended: isSuspended,
@@ -416,12 +424,14 @@ app.get("/api/admin/recruiters", async (req, res) => {
   }
 });
 
-// 0c. Admin Recruiter Status Management Endpoint (Approve, Disapprove, Suspend, Restore)
+// 0c. Admin Recruiter Status Management Endpoint (Update verification_status: verified, suspended, pending)
 app.post("/api/admin/recruiter/status", async (req, res) => {
   try {
-    const { recruiterId, action, reason } = req.body;
-    if (!recruiterId || !action) {
-      return res.status(400).json({ success: false, error: "recruiterId and action are required." });
+    const { recruiterId, action, status, verification_status, reason } = req.body;
+    const requestedStatus = verification_status || status || action;
+
+    if (!recruiterId || !requestedStatus) {
+      return res.status(400).json({ success: false, error: "recruiterId and status/action are required." });
     }
 
     const supabase = getSupabaseClient();
@@ -439,7 +449,8 @@ app.post("/api/admin/recruiter/status", async (req, res) => {
 
     const targetUserId = recruiter.user_id;
 
-    if (action === "approve") {
+    // Handle VERIFIED / APPROVE
+    if (requestedStatus === "verified" || requestedStatus === "approve") {
       const isAnnual = recruiter.selected_package === 'annual_unlimited' || recruiter.selected_package === 'Enterprise';
       const isGrowth = recruiter.selected_package === 'Growth';
       const maxContacts = isAnnual ? 99999 : (isGrowth ? 25 : 5);
@@ -449,16 +460,26 @@ app.post("/api/admin/recruiter/status", async (req, res) => {
         .from("recruiters")
         .update({
           payment_status: "verified",
+          is_suspended: false,
           max_contacts: maxContacts,
           updated_at: new Date().toISOString()
         })
         .eq("id", recruiter.id);
+
+      // Try calling RPC if exists
+      try {
+        await supabase.rpc('admin_set_recruiter_status', {
+          p_recruiter_id: recruiter.id,
+          p_action: 'approve'
+        });
+      } catch (_) {}
 
       // Update auth user metadata
       if (targetUserId) {
         try {
           await supabase.auth.admin.updateUserById(targetUserId, {
             user_metadata: {
+              verification_status: "verified",
               payment_status: "verified",
               is_approved: true,
               is_suspended: false,
@@ -466,16 +487,18 @@ app.post("/api/admin/recruiter/status", async (req, res) => {
             }
           });
         } catch (e: any) {
-          console.warn("[Server] Error updating user metadata for approve:", e?.message);
+          console.warn("[Server] Error updating user metadata for verified:", e?.message);
         }
       }
 
       return res.json({
         success: true,
-        action: "approve",
-        message: "Recruiter approved successfully. Contact unlocks activated.",
+        verification_status: "verified",
+        action: "verified",
+        message: "Recruiter verification_status updated to 'verified'. Contact reveals activated.",
         recruiter: {
           ...recruiter,
+          verification_status: "verified",
           payment_status: "verified",
           is_approved: true,
           is_suspended: false
@@ -483,8 +506,109 @@ app.post("/api/admin/recruiter/status", async (req, res) => {
       });
     }
 
-    if (action === "disapprove") {
-      // Update public.recruiters to rejected
+    // Handle SUSPENDED / SUSPEND
+    if (requestedStatus === "suspended" || requestedStatus === "suspend") {
+      // Update public.recruiters
+      await supabase
+        .from("recruiters")
+        .update({
+          is_suspended: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", recruiter.id);
+
+      // Try calling RPC if exists
+      try {
+        await supabase.rpc('admin_set_recruiter_status', {
+          p_recruiter_id: recruiter.id,
+          p_action: 'suspend'
+        });
+      } catch (_) {}
+
+      // Update auth user metadata with suspended status and reason
+      if (targetUserId) {
+        try {
+          await supabase.auth.admin.updateUserById(targetUserId, {
+            user_metadata: {
+              verification_status: "suspended",
+              is_suspended: true,
+              status: "suspended",
+              suspended_at: new Date().toISOString(),
+              suspended_reason: reason || "Administrative review suspension"
+            }
+          });
+        } catch (e: any) {
+          console.warn("[Server] Error updating user metadata for suspended:", e?.message);
+        }
+      }
+
+      return res.json({
+        success: true,
+        verification_status: "suspended",
+        action: "suspended",
+        message: "Recruiter verification_status updated to 'suspended'. Access denied overlay active.",
+        recruiter: {
+          ...recruiter,
+          verification_status: "suspended",
+          is_suspended: true
+        }
+      });
+    }
+
+    // Handle PENDING / RESTORE
+    if (requestedStatus === "pending" || requestedStatus === "restore") {
+      // Update public.recruiters
+      await supabase
+        .from("recruiters")
+        .update({
+          payment_status: "pending_verification",
+          is_suspended: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", recruiter.id);
+
+      // Try calling RPC if exists
+      try {
+        await supabase.rpc('admin_set_recruiter_status', {
+          p_recruiter_id: recruiter.id,
+          p_action: 'restore'
+        });
+      } catch (_) {}
+
+      // Update auth user metadata
+      if (targetUserId) {
+        try {
+          await supabase.auth.admin.updateUserById(targetUserId, {
+            user_metadata: {
+              verification_status: "pending",
+              payment_status: "pending_verification",
+              is_approved: false,
+              is_suspended: false,
+              status: "pending_verification"
+            }
+          });
+        } catch (e: any) {
+          console.warn("[Server] Error updating user metadata for pending:", e?.message);
+        }
+      }
+
+      return res.json({
+        success: true,
+        verification_status: "pending",
+        action: "pending",
+        message: "Recruiter verification_status updated to 'pending'. Account returned to review mode.",
+        recruiter: {
+          ...recruiter,
+          verification_status: "pending",
+          payment_status: "pending_verification",
+          is_approved: false,
+          is_suspended: false
+        }
+      });
+    }
+
+    // Handle DISAPPROVE / REJECT
+    if (requestedStatus === "disapprove" || requestedStatus === "reject") {
       await supabase
         .from("recruiters")
         .update({
@@ -493,7 +617,6 @@ app.post("/api/admin/recruiter/status", async (req, res) => {
         })
         .eq("id", recruiter.id);
 
-      // Update auth user metadata
       if (targetUserId) {
         try {
           await supabase.auth.admin.updateUserById(targetUserId, {
@@ -511,7 +634,7 @@ app.post("/api/admin/recruiter/status", async (req, res) => {
       return res.json({
         success: true,
         action: "disapprove",
-        message: "Recruiter account disapproved because payment was not received.",
+        message: "Recruiter account marked as disapproved.",
         recruiter: {
           ...recruiter,
           payment_status: "rejected",
@@ -520,60 +643,7 @@ app.post("/api/admin/recruiter/status", async (req, res) => {
       });
     }
 
-    if (action === "suspend") {
-      // Deny dashboard access without deleting the account
-      if (targetUserId) {
-        try {
-          await supabase.auth.admin.updateUserById(targetUserId, {
-            user_metadata: {
-              is_suspended: true,
-              suspended_at: new Date().toISOString(),
-              suspended_reason: reason || "Administrative review suspension"
-            }
-          });
-        } catch (e: any) {
-          console.warn("[Server] Error updating user metadata for suspend:", e?.message);
-        }
-      }
-
-      return res.json({
-        success: true,
-        action: "suspend",
-        message: "Recruiter account suspended. Dashboard access revoked without deleting account records.",
-        recruiter: {
-          ...recruiter,
-          is_suspended: true
-        }
-      });
-    }
-
-    if (action === "restore") {
-      // Restore dashboard access
-      if (targetUserId) {
-        try {
-          await supabase.auth.admin.updateUserById(targetUserId, {
-            user_metadata: {
-              is_suspended: false,
-              restored_at: new Date().toISOString()
-            }
-          });
-        } catch (e: any) {
-          console.warn("[Server] Error updating user metadata for restore:", e?.message);
-        }
-      }
-
-      return res.json({
-        success: true,
-        action: "restore",
-        message: "Recruiter account access restored successfully.",
-        recruiter: {
-          ...recruiter,
-          is_suspended: false
-        }
-      });
-    }
-
-    return res.status(400).json({ success: false, error: `Invalid action: ${action}` });
+    return res.status(400).json({ success: false, error: `Invalid status or action: ${requestedStatus}` });
   } catch (err: any) {
     console.error("[Server] /api/admin/recruiter/status error:", err);
     return res.status(500).json({ success: false, error: err.message });
@@ -612,15 +682,23 @@ app.get("/api/recruiter/profile", async (req, res) => {
     const isSuspended = Boolean(
       rec?.is_suspended ||
       authUser?.user_metadata?.is_suspended ||
+      authUser?.user_metadata?.verification_status === 'suspended' ||
       rec?.status === 'suspended'
     );
-    const isApproved = rec?.payment_status === 'verified';
-    const isDisapproved = rec?.payment_status === 'rejected';
+    const isApproved = (rec?.payment_status === 'verified' || authUser?.user_metadata?.verification_status === 'verified') && !isSuspended;
+    const isDisapproved = (rec?.payment_status === 'rejected') && !isSuspended;
+
+    const verificationStatus: 'verified' | 'suspended' | 'pending' = isSuspended
+      ? 'suspended'
+      : isApproved
+      ? 'verified'
+      : 'pending';
 
     return res.json({
       success: true,
       recruiter: rec ? {
         ...rec,
+        verification_status: verificationStatus,
         is_suspended: isSuspended,
         is_approved: isApproved,
         is_disapproved: isDisapproved,
