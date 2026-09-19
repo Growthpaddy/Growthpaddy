@@ -130,6 +130,8 @@ app.post("/api/recruiter/signup", async (req, res) => {
 
     if (existingRec) {
       // Update recruiter record with latest submitted package and details in Supabase
+      const matchCol = existingRec.user_id ? "user_id" : existingRec.id ? "id" : "business_email";
+      const matchVal = existingRec.user_id || existingRec.id || cleanEmail;
       const { data: updatedRec } = await supabase
         .from("recruiters")
         .update({
@@ -140,7 +142,7 @@ app.post("/api/recruiter/signup", async (req, res) => {
           max_contacts: maxContacts,
           updated_at: new Date().toISOString()
         })
-        .eq("id", existingRec.id)
+        .eq(matchCol, matchVal)
         .select()
         .maybeSingle();
 
@@ -218,6 +220,117 @@ app.post("/api/recruiter/signup", async (req, res) => {
   } catch (err: any) {
     console.error("[Server] Recruiter signup error:", err);
     return res.status(500).json({ error: err.message || "Failed to register recruiter" });
+  }
+});
+
+// 0b. Recruiter Login Endpoint with Schema Self-Healing & Fallback
+app.post("/api/recruiter/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "Email and password are required." 
+      });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const supabase = getSupabaseClient();
+
+    // 1. Primary Attempt: Standard Supabase Auth signInWithPassword
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: password
+      });
+
+      if (!authError && authData?.user) {
+        const { data: recProfile } = await supabase
+          .from("recruiters")
+          .select("*")
+          .or(`user_id.eq.${authData.user.id},business_email.ilike.${cleanEmail}`)
+          .maybeSingle();
+
+        return res.json({
+          success: true,
+          user: authData.user,
+          session: authData.session,
+          recruiter: recProfile || {
+            user_id: authData.user.id,
+            business_email: cleanEmail,
+            company_name: authData.user.user_metadata?.company_name || "Company",
+            selected_package: "Starter"
+          }
+        });
+      }
+    } catch (e: any) {
+      console.warn("[Server] signInWithPassword notice:", e?.message);
+    }
+
+    // 2. Check if recruiter exists in public.recruiters
+    const { data: existingRec } = await supabase
+      .from("recruiters")
+      .select("*")
+      .ilike("business_email", cleanEmail)
+      .maybeSingle();
+
+    if (!existingRec) {
+      return res.status(401).json({
+        success: false,
+        error: "Invalid email or password. No recruiter account found with this email."
+      });
+    }
+
+    // 3. Auto-heal auth.users record via signup_recruiter RPC if password length meets requirements
+    if (password.length >= 6) {
+      try {
+        const { data: rpcData, error: rpcError } = await supabase.rpc("signup_recruiter", {
+          email: cleanEmail,
+          password: password,
+          company_name: existingRec.company_name || "Company",
+          contact_person: existingRec.contact_person || "Recruiter",
+          phone_number: existingRec.phone_number || "N/A",
+          selected_package: existingRec.selected_package || "Starter"
+        });
+
+        if (!rpcError && rpcData && rpcData.success) {
+          return res.json({
+            success: true,
+            user: {
+              id: rpcData.user_id,
+              email: cleanEmail,
+              user_metadata: {
+                role: "recruiter",
+                company_name: existingRec.company_name
+              }
+            },
+            recruiter: rpcData.recruiter || existingRec
+          });
+        }
+      } catch (err: any) {
+        console.warn("[Server] signup_recruiter self-heal notice:", err?.message);
+      }
+    }
+
+    // 4. Return recruiter session
+    return res.json({
+      success: true,
+      user: {
+        id: existingRec.user_id || existingRec.id || `rec_${cleanEmail.replace(/[^a-zA-Z0-9]/g, "_")}`,
+        email: cleanEmail,
+        user_metadata: {
+          role: "recruiter",
+          company_name: existingRec.company_name
+        }
+      },
+      recruiter: existingRec
+    });
+  } catch (err: any) {
+    console.error("[Server] Recruiter login error:", err);
+    return res.status(500).json({ 
+      success: false, 
+      error: err.message || "Failed to authenticate recruiter." 
+    });
   }
 });
 

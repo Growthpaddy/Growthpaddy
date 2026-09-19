@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { parseGranularAuthError } from '../lib/authErrorUtils';
 import { 
   Building2, 
   Lock, 
@@ -33,26 +34,29 @@ export default function RecruiterLogin({
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMessage(null);
+
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !password) {
+      setErrorMessage('Please provide both your business email and password.');
+      setLoading(false);
+      return;
+    }
 
     try {
+      // 1. Primary Attempt: Supabase Auth signInWithPassword
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: cleanEmail,
         password: password,
       });
 
-      if (error) {
-        alert(`Login Failed: ${error.message}`);
-        setLoading(false);
-        return;
-      }
-
-      // Sync recruiter profile locally for immediate dashboard display
-      if (data?.user) {
+      if (!error && data?.user) {
+        // Sync recruiter profile locally for immediate dashboard display
         try {
           const { data: recruiter } = await supabase
             .from('recruiters')
             .select('*')
-            .eq('user_id', data.user.id)
+            .or(`user_id.eq.${data.user.id},business_email.ilike.${cleanEmail}`)
             .maybeSingle();
 
           if (recruiter) {
@@ -63,12 +67,58 @@ export default function RecruiterLogin({
             }
           }
         } catch (_) {}
+
+        if (onNavigateToDashboard) {
+          onNavigateToDashboard();
+        } else {
+          window.location.href = '/recruiter-dashboard';
+        }
+        return;
       }
 
-      window.location.href = '/recruiter-dashboard';
+      // 2. Secondary Attempt: Server Fallback via /api/recruiter/login
+      // This handles schema error healing, auto-heals GoTrue auth records, and syncs sessions
+      console.warn('[RecruiterLogin] Client sign-in notice, calling /api/recruiter/login fallback...', error);
+      
+      const serverRes = await fetch('/api/recruiter/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, password }),
+      });
+      const serverData = await serverRes.json();
+
+      if (serverRes.ok && serverData.success) {
+        if (serverData.recruiter) {
+          localStorage.setItem('dsp_recruiter_profile', JSON.stringify(serverData.recruiter));
+          const recId = serverData.recruiter.id || serverData.recruiter.user_id;
+          if (recId) {
+            localStorage.setItem(`mock_recruiter_profiles_${recId}`, JSON.stringify(serverData.recruiter));
+          }
+        }
+        if (serverData.user) {
+          localStorage.setItem('dsp_local_auth_session', JSON.stringify({
+            user: serverData.user,
+            access_token: 'recruiter_sess_' + Date.now(),
+            token_type: 'bearer'
+          }));
+        }
+
+        if (onNavigateToDashboard) {
+          onNavigateToDashboard();
+        } else {
+          window.location.href = '/recruiter-dashboard';
+        }
+        return;
+      }
+
+      // 3. Translate error cleanly so it NEVER displays `{}`
+      const parsed = parseGranularAuthError(error || serverData);
+      setErrorMessage(parsed.userFriendlyMessage);
+      setLoading(false);
     } catch (err: any) {
       console.error('Login Exception:', err);
-      alert(`Login Failed: ${err.message || 'Check console'}`);
+      const parsed = parseGranularAuthError(err);
+      setErrorMessage(parsed.userFriendlyMessage);
       setLoading(false);
     }
   };

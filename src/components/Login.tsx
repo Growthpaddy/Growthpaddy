@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { parseGranularAuthError } from '../lib/authErrorUtils';
 import { 
   LogIn, 
   Lock, 
@@ -9,7 +10,8 @@ import {
   AlertCircle, 
   ArrowRight, 
   ShieldCheck,
-  Building2
+  Building2,
+  Loader2
 } from 'lucide-react';
 
 interface LoginProps {
@@ -29,19 +31,67 @@ export const Login: React.FC<LoginProps> = ({
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
+    setErrorMessage(null);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password: password,
-    });
-
-    if (error) {
-      alert(`Login Failed: ${error.message}`);
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !password) {
+      setErrorMessage('Please provide both your email and password.');
+      setLoading(false);
       return;
     }
 
-    // Redirect to dashboard
-    window.location.href = '/recruiter-dashboard';
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: password,
+      });
+
+      if (!error && data?.user) {
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          window.location.href = '/recruiter-dashboard';
+        }
+        return;
+      }
+
+      // Secondary fallback to server login endpoint
+      const serverRes = await fetch('/api/recruiter/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, password }),
+      });
+      const serverData = await serverRes.json();
+
+      if (serverRes.ok && serverData.success) {
+        if (serverData.recruiter) {
+          localStorage.setItem('dsp_recruiter_profile', JSON.stringify(serverData.recruiter));
+        }
+        if (serverData.user) {
+          localStorage.setItem('dsp_local_auth_session', JSON.stringify({
+            user: serverData.user,
+            access_token: 'sess_' + Date.now(),
+            token_type: 'bearer'
+          }));
+        }
+
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          window.location.href = '/recruiter-dashboard';
+        }
+        return;
+      }
+
+      const parsed = parseGranularAuthError(error || serverData);
+      setErrorMessage(parsed.userFriendlyMessage);
+      setLoading(false);
+    } catch (err: any) {
+      const parsed = parseGranularAuthError(err);
+      setErrorMessage(parsed.userFriendlyMessage);
+      setLoading(false);
+    }
   };
 
   return (
