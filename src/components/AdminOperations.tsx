@@ -37,11 +37,12 @@ import AdminAuthModal from './AdminAuthModal';
 import AdminSignInForm, { AdminProfileRecord } from './AdminSignInForm';
 import SuperAdminApprovalsPage from '../../app/admin/approvals/page';
 import { logAuditEvent } from '../lib/auditLogger';
+import { updateRecruiterVerificationStatus, broadcastRecruiterStatus } from '../services/recruiterVerification';
 
 /**
  * Service function: updateRecruiterStatus
- * Performs an UPDATE operation on the 'recruiters' table for the specified recruiter,
- * and logs the action to the 'audit_logs' table.
+ * Delegates to centralized recruiterVerification service to perform clean database updates,
+ * invoke server status endpoints, execute atomic RPC, and log to audit_logs.
  */
 export async function updateRecruiterStatus(
   recruiterId: string,
@@ -53,105 +54,24 @@ export async function updateRecruiterStatus(
   }
 ): Promise<{ success: boolean; data?: any; error?: any }> {
   try {
-    const isSuspended = status === 'suspended';
-    const isVerified = status === 'verified';
+    const action = status === 'verified' ? 'approve' : status === 'suspended' ? 'suspend' : 'pending';
+    const res = await updateRecruiterVerificationStatus(recruiterId, action as any, {
+      reason: options?.reason || `Admin updated status to ${status}`,
+      adminId: options?.actorId,
+      adminEmail: options?.actorEmail
+    });
 
-    // 1. Resolve actor (admin)
-    let actorId = options?.actorId;
-    let actorEmail = options?.actorEmail;
-
-    if (!actorId) {
-      try {
-        const { data: authData } = await supabase.auth.getUser();
-        actorId = authData?.user?.id || null;
-        actorEmail = actorEmail || authData?.user?.email || null;
-      } catch (_) {}
+    if (res.success) {
+      return {
+        success: true,
+        data: res.recruiter || { id: recruiterId, verification_status: status }
+      };
+    } else {
+      return {
+        success: false,
+        error: res.error || 'Failed to update recruiter verification status'
+      };
     }
-
-    // 2. Perform UPDATE operation on the 'recruiters' table
-    const updatePayload: Record<string, any> = {
-      verification_status: status,
-      is_suspended: isSuspended,
-      payment_status: isVerified ? 'verified' : (isSuspended ? 'suspended' : 'pending_verification'),
-      updated_at: new Date().toISOString()
-    };
-
-    let { data: updatedRecruiter, error: updateError } = await supabase
-      .from('recruiters')
-      .update(updatePayload)
-      .eq('id', recruiterId)
-      .select();
-
-    // If update by id did not match, try update by user_id
-    if (!updateError && (!updatedRecruiter || updatedRecruiter.length === 0)) {
-      const retryByUser = await supabase
-        .from('recruiters')
-        .update(updatePayload)
-        .eq('user_id', recruiterId)
-        .select();
-      if (retryByUser.data && retryByUser.data.length > 0) {
-        updatedRecruiter = retryByUser.data;
-      }
-    }
-
-    if (updateError) {
-      console.warn('[AdminOperations] updateRecruiterStatus notice:', updateError.message);
-    }
-
-    // 3. Log the action to the 'audit_logs' table
-    const auditRecord = {
-      action_type: 'STATUS_UPDATE',
-      description: `Admin updated recruiter (${recruiterId}) verification status to '${status}'${options?.reason ? ` (Reason: ${options.reason})` : ''}`,
-      target_id: recruiterId,
-      actor_id: actorId || null,
-      metadata: {
-        table: 'recruiters',
-        recruiter_id: recruiterId,
-        verification_status: status,
-        is_suspended: isSuspended,
-        is_verified: isVerified,
-        actor_email: actorEmail || null,
-        reason: options?.reason || null,
-        executed_at: new Date().toISOString()
-      },
-      created_at: new Date().toISOString()
-    };
-
-    const { error: auditError } = await supabase
-      .from('audit_logs')
-      .insert([auditRecord]);
-
-    if (auditError) {
-      console.warn('[AdminOperations] audit_logs table insert warning:', auditError.message);
-      // Fallback via logAuditEvent
-      await logAuditEvent({
-        action_type: 'STATUS_UPDATE',
-        description: auditRecord.description,
-        target_id: recruiterId,
-        actor_id: actorId,
-        metadata: auditRecord.metadata
-      });
-    }
-
-    // Synchronize with server API route to keep auth metadata in sync if available
-    try {
-      await fetch('/api/admin/recruiter/status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recruiterId,
-          verification_status: status,
-          is_suspended: isSuspended,
-          reason: options?.reason,
-          admin_email: actorEmail
-        })
-      });
-    } catch (_) {}
-
-    return {
-      success: true,
-      data: updatedRecruiter?.[0] || { id: recruiterId, verification_status: status }
-    };
   } catch (err: any) {
     console.error('[AdminOperations] Error in updateRecruiterStatus:', err);
     return {
@@ -1641,7 +1561,7 @@ export default function AdminOperations({
                                 <button
                                   type="button"
                                   disabled={isUpdating}
-                                  onClick={() => handleAdminUpdateRecruiterStatus(recruiter.id, 'verified')}
+                                  onClick={() => handleAdminUpdateRecruiterStatus(recruiter.id || recruiter.user_id, 'verified')}
                                   className="text-[9px] font-mono font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-0.5 rounded transition disabled:opacity-50"
                                   title="Approve & Verify Recruiter"
                                 >
@@ -1652,7 +1572,7 @@ export default function AdminOperations({
                                 <button
                                   type="button"
                                   disabled={isUpdating}
-                                  onClick={() => handleAdminUpdateRecruiterStatus(recruiter.id, 'suspended')}
+                                  onClick={() => handleAdminUpdateRecruiterStatus(recruiter.id || recruiter.user_id, 'suspended')}
                                   className="text-[9px] font-mono font-bold bg-rose-600 hover:bg-rose-700 text-white px-2 py-0.5 rounded transition disabled:opacity-50"
                                   title="Suspend Recruiter Account"
                                 >
@@ -1663,7 +1583,7 @@ export default function AdminOperations({
                                 <button
                                   type="button"
                                   disabled={isUpdating}
-                                  onClick={() => handleAdminUpdateRecruiterStatus(recruiter.id, 'pending')}
+                                  onClick={() => handleAdminUpdateRecruiterStatus(recruiter.id || recruiter.user_id, 'pending')}
                                   className="text-[9px] font-mono font-bold bg-slate-600 hover:bg-slate-700 text-white px-2 py-0.5 rounded transition disabled:opacity-50"
                                   title="Reset to Pending"
                                 >

@@ -415,9 +415,11 @@ app.get("/api/admin/recruiters", async (req, res) => {
         ? 'verified'
         : 'pending';
 
+      const stableId = r.id || r.user_id;
+
       return {
-        id: r.id,
-        user_id: r.user_id,
+        id: stableId,
+        user_id: r.user_id || r.id,
         company_name: r.company_name || 'Organization',
         contact_name: r.contact_person || r.contact_name || '',
         email: r.business_email || r.email || '',
@@ -427,6 +429,8 @@ app.get("/api/admin/recruiters", async (req, res) => {
         payment_status: paymentStatus,
         is_approved: isApproved,
         is_suspended: isSuspended,
+        contacts_unlocked_count: r.contacts_unlocked_count || 0,
+        max_contacts: r.max_contacts || (r.selected_package === 'Enterprise' ? 99999 : r.selected_package === 'Growth' ? 25 : 5),
         created_at: r.created_at,
         updated_at: r.updated_at,
       };
@@ -451,68 +455,84 @@ app.post("/api/admin/recruiter/status", async (req, res) => {
 
     const supabase = getSupabaseClient();
 
-    // 1. Locate recruiter record by ID, user_id, or email
-    const { data: recruiter, error: findErr } = await supabase
-      .from("recruiters")
-      .select("*")
-      .or(`id.eq.${recruiterId},user_id.eq.${recruiterId},business_email.eq.${recruiterId}`)
-      .maybeSingle();
+    // 1. Robust lookup of recruiter record by ID, user_id, or business_email
+    let recruiter: any = null;
+    const cleanId = String(recruiterId).trim();
+
+    // Try finding by id first
+    try {
+      const { data: byId } = await supabase.from("recruiters").select("*").eq("id", cleanId).maybeSingle();
+      if (byId) recruiter = byId;
+    } catch (_) {}
+
+    // Try finding by user_id
+    if (!recruiter) {
+      try {
+        const { data: byUserId } = await supabase.from("recruiters").select("*").eq("user_id", cleanId).maybeSingle();
+        if (byUserId) recruiter = byUserId;
+      } catch (_) {}
+    }
+
+    // Try finding by business_email
+    if (!recruiter) {
+      try {
+        const { data: byEmail } = await supabase.from("recruiters").select("*").eq("business_email", cleanId.toLowerCase()).maybeSingle();
+        if (byEmail) recruiter = byEmail;
+      } catch (_) {}
+    }
 
     if (!recruiter) {
       return res.status(404).json({ success: false, error: "Recruiter record not found." });
     }
 
     const targetUserId = recruiter.user_id;
+    const isAnnual = recruiter.selected_package === 'annual_unlimited' || recruiter.selected_package === 'Enterprise';
+    const isGrowth = recruiter.selected_package === 'Growth';
+    const maxContacts = isAnnual ? 99999 : (isGrowth ? 25 : 5);
 
-    // Handle VERIFIED / APPROVE
-    if (requestedStatus === "verified" || requestedStatus === "approve") {
-      const isAnnual = recruiter.selected_package === 'annual_unlimited' || recruiter.selected_package === 'Enterprise';
-      const isGrowth = recruiter.selected_package === 'Growth';
-      const maxContacts = isAnnual ? 99999 : (isGrowth ? 25 : 5);
-
-      // Update public.recruiters
-      await supabase
+    // Handle VERIFIED / APPROVE / RESTORE
+    if (requestedStatus === "verified" || requestedStatus === "approve" || requestedStatus === "restore" || requestedStatus === "restore_access") {
+      // Clean DB update on public.recruiters (only existing columns: payment_status, is_suspended, max_contacts, updated_at)
+      const { error: updateErr } = await supabase
         .from("recruiters")
         .update({
           payment_status: "verified",
-          verification_status: "verified",
-          is_approved: true,
-          status: "verified",
           is_suspended: false,
           max_contacts: maxContacts,
           updated_at: new Date().toISOString()
         })
-        .or(`id.eq.${recruiter.id},user_id.eq.${recruiter.user_id || recruiter.id}`);
+        .eq("id", recruiter.id);
 
-      try {
+      if (updateErr) {
+        console.warn("[Server] Direct update error, trying user_id:", updateErr.message);
         await supabase
-          .from("recruiter_profiles")
+          .from("recruiters")
           .update({
             payment_status: "verified",
-            verification_status: "verified",
-            is_approved: true,
-            status: "verified",
             is_suspended: false,
+            max_contacts: maxContacts,
             updated_at: new Date().toISOString()
           })
-          .or(`id.eq.${recruiter.id},id.eq.${targetUserId || ''}`);
-      } catch (_) {}
+          .eq("user_id", recruiter.user_id);
+      }
 
-      // Try calling RPC if exists
+      // Execute atomic RPC if available
       try {
         await supabase.rpc('admin_set_recruiter_status', {
           p_recruiter_id: recruiter.id,
-          p_action: 'approve'
+          p_action: requestedStatus === 'restore' ? 'restore' : 'approve'
         });
-      } catch (_) {}
+      } catch (rpcErr: any) {
+        console.warn("[Server] admin_set_recruiter_status RPC note:", rpcErr?.message);
+      }
 
       // Record to audit_logs
       try {
         await supabase.from("audit_logs").insert([{
-          action_type: "RECRUITER_APPROVED",
-          description: `Admin approved recruiter: ${recruiter.company_name || recruiter.id} (verification_status -> verified)`,
+          action_type: requestedStatus === 'restore' ? "STATUS_UPDATE" : "RECRUITER_APPROVED",
+          description: `Admin approved/restored recruiter: ${recruiter.company_name || recruiter.id} (verification_status -> verified)`,
           target_id: recruiter.id,
-          metadata: { action: "approve", recruiter_id: recruiter.id, user_id: targetUserId, company_name: recruiter.company_name },
+          metadata: { action: requestedStatus, recruiter_id: recruiter.id, user_id: targetUserId, company_name: recruiter.company_name },
           created_at: new Date().toISOString()
         }]);
       } catch (_) {}
@@ -537,8 +557,8 @@ app.post("/api/admin/recruiter/status", async (req, res) => {
       return res.json({
         success: true,
         verification_status: "verified",
-        action: "verified",
-        message: "Recruiter verification_status updated to 'verified'. Contact reveals activated.",
+        action: requestedStatus,
+        message: "Recruiter verification_status updated to 'verified'. Talent contact reveals activated.",
         recruiter: {
           ...recruiter,
           verification_status: "verified",
@@ -551,36 +571,34 @@ app.post("/api/admin/recruiter/status", async (req, res) => {
 
     // Handle SUSPENDED / SUSPEND
     if (requestedStatus === "suspended" || requestedStatus === "suspend") {
-      // Update public.recruiters
-      await supabase
+      // Clean DB update on public.recruiters (only existing columns: is_suspended, updated_at)
+      const { error: suspendErr } = await supabase
         .from("recruiters")
         .update({
           is_suspended: true,
-          verification_status: "suspended",
-          status: "suspended",
           updated_at: new Date().toISOString()
         })
-        .or(`id.eq.${recruiter.id},user_id.eq.${recruiter.user_id || recruiter.id}`);
+        .eq("id", recruiter.id);
 
-      try {
+      if (suspendErr) {
         await supabase
-          .from("recruiter_profiles")
+          .from("recruiters")
           .update({
             is_suspended: true,
-            verification_status: "suspended",
-            status: "suspended",
             updated_at: new Date().toISOString()
           })
-          .or(`id.eq.${recruiter.id},id.eq.${targetUserId || ''}`);
-      } catch (_) {}
+          .eq("user_id", recruiter.user_id);
+      }
 
-      // Try calling RPC if exists
+      // Execute atomic RPC if available
       try {
         await supabase.rpc('admin_set_recruiter_status', {
           p_recruiter_id: recruiter.id,
           p_action: 'suspend'
         });
-      } catch (_) {}
+      } catch (rpcErr: any) {
+        console.warn("[Server] admin_set_recruiter_status RPC suspend note:", rpcErr?.message);
+      }
 
       // Record to audit_logs
       try {
@@ -588,12 +606,12 @@ app.post("/api/admin/recruiter/status", async (req, res) => {
           action_type: "REVOCATION",
           description: `Admin suspended recruiter: ${recruiter.company_name || recruiter.id} (verification_status -> suspended)`,
           target_id: recruiter.id,
-          metadata: { action: "suspend", recruiter_id: recruiter.id, user_id: targetUserId, company_name: recruiter.company_name },
+          metadata: { action: "suspend", recruiter_id: recruiter.id, user_id: targetUserId, company_name: recruiter.company_name, reason },
           created_at: new Date().toISOString()
         }]);
       } catch (_) {}
 
-      // Update auth user metadata with suspended status and reason
+      // Update auth user metadata
       if (targetUserId) {
         try {
           await supabase.auth.admin.updateUserById(targetUserId, {
@@ -619,117 +637,21 @@ app.post("/api/admin/recruiter/status", async (req, res) => {
           ...recruiter,
           verification_status: "suspended",
           is_suspended: true,
-          status: "suspended"
-        }
-      });
-    }
-
-    // Handle RESTORE ACCESS
-    if (requestedStatus === "restore" || requestedStatus === "restore_access") {
-      const isAnnual = recruiter.selected_package === 'annual_unlimited' || recruiter.selected_package === 'Enterprise';
-      const isGrowth = recruiter.selected_package === 'Growth';
-      const maxContacts = isAnnual ? 99999 : (isGrowth ? 25 : 5);
-
-      await supabase
-        .from("recruiters")
-        .update({
-          payment_status: "verified",
-          verification_status: "verified",
-          is_approved: true,
-          status: "verified",
-          is_suspended: false,
-          max_contacts: maxContacts,
-          updated_at: new Date().toISOString()
-        })
-        .or(`id.eq.${recruiter.id},user_id.eq.${recruiter.user_id || recruiter.id}`);
-
-      try {
-        await supabase
-          .from("recruiter_profiles")
-          .update({
-            payment_status: "verified",
-            verification_status: "verified",
-            is_approved: true,
-            status: "verified",
-            is_suspended: false,
-            updated_at: new Date().toISOString()
-          })
-          .or(`id.eq.${recruiter.id},id.eq.${targetUserId || ''}`);
-      } catch (_) {}
-
-      // Try calling RPC if exists
-      try {
-        await supabase.rpc('admin_set_recruiter_status', {
-          p_recruiter_id: recruiter.id,
-          p_action: 'restore'
-        });
-      } catch (_) {}
-
-      // Record to audit_logs
-      try {
-        await supabase.from("audit_logs").insert([{
-          action_type: "STATUS_UPDATE",
-          description: `Admin restored access for recruiter: ${recruiter.company_name || recruiter.id} (verification_status -> verified)`,
-          target_id: recruiter.id,
-          metadata: { action: "restore", recruiter_id: recruiter.id, user_id: targetUserId, company_name: recruiter.company_name },
-          created_at: new Date().toISOString()
-        }]);
-      } catch (_) {}
-
-      if (targetUserId) {
-        try {
-          await supabase.auth.admin.updateUserById(targetUserId, {
-            user_metadata: {
-              verification_status: "verified",
-              payment_status: "verified",
-              is_approved: true,
-              is_suspended: false,
-              status: "active"
-            }
-          });
-        } catch (e: any) {
-          console.warn("[Server] Error updating user metadata for restore:", e?.message);
-        }
-      }
-
-      return res.json({
-        success: true,
-        verification_status: "verified",
-        action: "restore",
-        message: "Recruiter verification_status restored to 'verified'. Dashboard access unlocked.",
-        recruiter: {
-          ...recruiter,
-          verification_status: "verified",
-          payment_status: "verified",
-          is_approved: true,
-          is_suspended: false,
-          status: "verified"
+          is_approved: false
         }
       });
     }
 
     // Handle PENDING / REVIEW MODE
     if (requestedStatus === "pending") {
-      // Update public.recruiters
       await supabase
         .from("recruiters")
         .update({
           payment_status: "pending_verification",
-          verification_status: "pending",
-          is_approved: false,
           is_suspended: false,
-          status: "pending",
           updated_at: new Date().toISOString()
         })
-        .or(`id.eq.${recruiter.id},user_id.eq.${recruiter.user_id || recruiter.id}`);
-
-      // Try calling RPC if exists
-      try {
-        await supabase.rpc('admin_set_recruiter_status', {
-          p_recruiter_id: recruiter.id,
-          p_action: 'pending'
-        });
-      } catch (_) {}
+        .eq("id", recruiter.id);
 
       // Record to audit_logs
       try {
@@ -784,6 +706,14 @@ app.post("/api/admin/recruiter/status", async (req, res) => {
         })
         .eq("id", recruiter.id);
 
+      // Execute atomic RPC if available
+      try {
+        await supabase.rpc('admin_set_recruiter_status', {
+          p_recruiter_id: recruiter.id,
+          p_action: 'disapprove'
+        });
+      } catch (_) {}
+
       if (targetUserId) {
         try {
           await supabase.auth.admin.updateUserById(targetUserId, {
@@ -809,6 +739,13 @@ app.post("/api/admin/recruiter/status", async (req, res) => {
         }
       });
     }
+
+    return res.status(400).json({ success: false, error: `Invalid status or action: ${requestedStatus}` });
+  } catch (err: any) {
+    console.error("[Server] /api/admin/recruiter/status error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
 
     return res.status(400).json({ success: false, error: `Invalid status or action: ${requestedStatus}` });
   } catch (err: any) {
@@ -887,6 +824,158 @@ app.get("/api/recruiter/profile", async (req, res) => {
       } : null
     });
   } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 0e. Recruiter Contact Unlock Endpoint
+app.post("/api/recruiter/unlock-contact", async (req, res) => {
+  try {
+    const { recruiterId, userId, talentId } = req.body;
+    const identifier = recruiterId || userId;
+
+    if (!identifier || !talentId) {
+      return res.status(400).json({ success: false, error: "recruiterId/userId and talentId are required." });
+    }
+
+    const supabase = getSupabaseClient();
+    const cleanIdentifier = String(identifier).trim();
+    const cleanTalentId = String(talentId).trim();
+
+    // 1. Locate recruiter record
+    let recruiter: any = null;
+    try {
+      const { data: byId } = await supabase.from("recruiters").select("*").eq("id", cleanIdentifier).maybeSingle();
+      if (byId) recruiter = byId;
+    } catch (_) {}
+
+    if (!recruiter) {
+      try {
+        const { data: byUserId } = await supabase.from("recruiters").select("*").eq("user_id", cleanIdentifier).maybeSingle();
+        if (byUserId) recruiter = byUserId;
+      } catch (_) {}
+    }
+
+    if (!recruiter) {
+      try {
+        const { data: byEmail } = await supabase.from("recruiters").select("*").eq("business_email", cleanIdentifier.toLowerCase()).maybeSingle();
+        if (byEmail) recruiter = byEmail;
+      } catch (_) {}
+    }
+
+    if (!recruiter) {
+      return res.status(404).json({ success: false, error: "Recruiter profile not found." });
+    }
+
+    // 2. Fetch auth user to verify metadata
+    let authUser = null;
+    if (recruiter.user_id) {
+      try {
+        const { data } = await supabase.auth.admin.getUserById(recruiter.user_id);
+        authUser = data?.user;
+      } catch (_) {}
+    }
+
+    const isSuspended = Boolean(
+      recruiter.is_suspended ||
+      authUser?.user_metadata?.is_suspended ||
+      authUser?.user_metadata?.verification_status === 'suspended'
+    );
+
+    if (isSuspended) {
+      return res.status(403).json({
+        success: false,
+        code: "ACCOUNT_SUSPENDED",
+        error: "Your recruiter account is suspended. Contact unlocking is disabled."
+      });
+    }
+
+    const isApproved = Boolean(
+      recruiter.payment_status === 'verified' ||
+      recruiter.payment_status === 'approved' ||
+      recruiter.verification_status === 'verified' ||
+      recruiter.is_approved === true ||
+      authUser?.user_metadata?.verification_status === 'verified' ||
+      authUser?.user_metadata?.is_approved === true
+    );
+
+    if (!isApproved) {
+      return res.status(403).json({
+        success: false,
+        code: "NOT_VERIFIED",
+        error: "Your recruiter account is pending administrator verification. Candidate contact unlocks will activate automatically once verified."
+      });
+    }
+
+    // 3. Check quota limits
+    const isEnterprise = recruiter.selected_package === 'Enterprise' || recruiter.selected_package === 'annual_unlimited';
+    const isGrowth = recruiter.selected_package === 'Growth';
+    const maxContacts = isEnterprise ? 99999 : (isGrowth ? 25 : 5);
+    const unlockedCount = Number(recruiter.contacts_unlocked_count) || 0;
+
+    // 4. Check if already unlocked
+    const { data: existingUnlock } = await supabase
+      .from("unlocked_contacts")
+      .select("*")
+      .eq("recruiter_id", recruiter.id)
+      .eq("talent_id", cleanTalentId)
+      .maybeSingle();
+
+    if (!existingUnlock && !isEnterprise && unlockedCount >= maxContacts) {
+      return res.status(403).json({
+        success: false,
+        code: "QUOTA_EXCEEDED",
+        error: `You have reached your ${maxContacts} candidate unlock quota. Please upgrade your hiring pack to unlock more candidate contacts.`
+      });
+    }
+
+    // 5. Insert into unlocked_contacts if not already present
+    let unlockRecord = existingUnlock;
+    if (!existingUnlock) {
+      const { data: inserted, error: insertErr } = await supabase
+        .from("unlocked_contacts")
+        .insert([{
+          recruiter_id: recruiter.id,
+          talent_id: cleanTalentId,
+          unlocked_at: new Date().toISOString()
+        }])
+        .select()
+        .maybeSingle();
+
+      if (insertErr) {
+        console.warn("[Server] unlocked_contacts insert note:", insertErr.message);
+      }
+      unlockRecord = inserted;
+
+      // Increment count on recruiters table
+      const newCount = unlockedCount + 1;
+      await supabase
+        .from("recruiters")
+        .update({
+          contacts_unlocked_count: newCount,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", recruiter.id);
+    }
+
+    // 6. Fetch talent contact details
+    const { data: talent } = await supabase
+      .from("talent_profiles")
+      .select("*")
+      .eq("id", cleanTalentId)
+      .maybeSingle();
+
+    return res.json({
+      success: true,
+      unlocked: true,
+      already_unlocked: Boolean(existingUnlock),
+      unlock_record: unlockRecord,
+      talent: talent || null,
+      contacts_unlocked_count: existingUnlock ? unlockedCount : unlockedCount + 1,
+      max_contacts: maxContacts
+    });
+  } catch (err: any) {
+    console.error("[Server] /api/recruiter/unlock-contact error:", err);
     return res.status(500).json({ success: false, error: err.message });
   }
 });

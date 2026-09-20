@@ -364,24 +364,42 @@ export async function fetchRecruiterList(): Promise<{
  * 4. LocalStorage cache synchronization
  * 5. Real-time client broadcast event
  */
-export async function updateRecruiterVerificationStatus({
-  recruiterId,
-  action,
-  reason,
-  actorId,
-  companyName
-}: {
-  recruiterId: string;
-  action: VerificationAction;
-  reason?: string;
-  actorId?: string;
-  companyName?: string;
-}): Promise<{
+export async function updateRecruiterVerificationStatus(
+  inputOrId: string | {
+    recruiterId: string;
+    action: VerificationAction | string;
+    reason?: string;
+    actorId?: string;
+    companyName?: string;
+  },
+  maybeAction?: VerificationAction | string,
+  maybeOptions?: { reason?: string; actorId?: string; adminId?: string; adminEmail?: string; companyName?: string }
+): Promise<{
   success: boolean;
   verification_status: string;
   recruiter?: any;
   error?: string;
 }> {
+  let recruiterId: string;
+  let action: any;
+  let reason: string | undefined;
+  let actorId: string | undefined;
+  let companyName: string | undefined;
+
+  if (typeof inputOrId === 'string') {
+    recruiterId = inputOrId;
+    action = maybeAction;
+    reason = maybeOptions?.reason;
+    actorId = maybeOptions?.actorId || maybeOptions?.adminId;
+    companyName = maybeOptions?.companyName;
+  } else {
+    recruiterId = inputOrId?.recruiterId;
+    action = inputOrId?.action;
+    reason = inputOrId?.reason;
+    actorId = inputOrId?.actorId;
+    companyName = inputOrId?.companyName;
+  }
+
   if (!recruiterId) {
     return {
       success: false,
@@ -447,29 +465,44 @@ export async function updateRecruiterVerificationStatus({
 
   // 2. Direct Supabase sync to 'recruiters' table
   try {
+    // Only update columns that actually exist in the schema: payment_status, is_suspended, max_contacts, updated_at
     const updates: Record<string, any> = {
-      verification_status: newStatus,
-      status: newStatus,
       payment_status: paymentStatus,
-      is_approved: isApproved,
       is_suspended: isSuspended,
       updated_at: new Date().toISOString()
     };
+    if (isApproved) {
+      updates.max_contacts = 99999;
+    }
 
-    await supabase
+    const { error: directErr } = await supabase
       .from('recruiters')
       .update(updates)
       .or(`id.eq.${recruiterId},user_id.eq.${recruiterId}`);
 
-    // Update recruiter_profiles if table exists
+    if (directErr) {
+      console.warn('[recruiterVerification] Direct table update note:', directErr.message);
+    }
+
+    // Call atomic RPC if configured
     try {
-      await supabase
-        .from('recruiter_profiles')
-        .update(updates)
-        .or(`id.eq.${recruiterId},user_id.eq.${recruiterId}`);
-    } catch (_) {}
+      const rpcAction = normalizedAction === 'approve'
+        ? 'approve'
+        : normalizedAction === 'suspend'
+        ? 'suspend'
+        : normalizedAction === 'restore'
+        ? 'restore'
+        : 'disapprove';
+
+      await supabase.rpc('admin_set_recruiter_status', {
+        p_recruiter_id: recruiterId,
+        p_action: rpcAction
+      });
+    } catch (rpcErr: any) {
+      console.warn('[recruiterVerification] RPC note:', rpcErr?.message);
+    }
   } catch (dbErr) {
-    console.warn('[recruiterVerification] Supabase direct update note:', dbErr);
+    console.warn('[recruiterVerification] Supabase sync note:', dbErr);
   }
 
   // 3. Log action to 'audit_logs' table
