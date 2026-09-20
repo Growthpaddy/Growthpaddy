@@ -38,6 +38,203 @@ import {
   Lock,
   Ban
 } from 'lucide-react';
+import {
+  fetchRecruiterVerification,
+  subscribeToRecruiterStatus,
+  normalizeVerificationStatus
+} from '../services/recruiterVerification';
+
+export interface AccessOverlayProps {
+  status?: 'pending_verification' | 'verified' | 'suspended' | string;
+  companyName?: string;
+  email?: string;
+  onRefresh?: () => void;
+  whatsappUrl?: string;
+}
+
+/**
+ * AccessOverlay component that covers the 'Talent Contacts' section with a semi-transparent blur,
+ * displaying a 'Pending Verification' message and a WhatsApp redirect link if the recruiter's
+ * status is not 'verified'.
+ */
+export function AccessOverlay({
+  status = 'pending_verification',
+  companyName = 'Employer Workspace',
+  email = '',
+  onRefresh,
+  whatsappUrl
+}: AccessOverlayProps) {
+  // If status is verified, overlay is not rendered
+  if (status === 'verified') {
+    return null;
+  }
+
+  const isSuspended = status === 'suspended';
+
+  const defaultExpediteWhatsAppUrl = `https://wa.me/2348169664607?text=${encodeURIComponent(
+    `Hello Digital Campux Verification Team, I have registered as a recruiter for ${companyName} (${email || 'our organization'}). Our account status is pending verification. Please review and expedite our recruiter access so we can unlock candidate talent contacts.`
+  )}`;
+
+  const supportWhatsAppUrl = `https://wa.me/2348169664607?text=${encodeURIComponent(
+    `Hello Digital Campux Support, our recruiter account (${companyName} - ${email}) has verification_status: suspended. Please review our account status and assist in restoring dashboard access.`
+  )}`;
+
+  const paymentProofWhatsAppUrl = `https://wa.me/2348169664607?text=${encodeURIComponent(
+    `Hello Digital Campux Verification Team, here is our company registration details / payment receipt for ${companyName} (${email}) to expedite recruiter verification.`
+  )}`;
+
+  const activeWhatsAppUrl = whatsappUrl || (isSuspended ? supportWhatsAppUrl : defaultExpediteWhatsAppUrl);
+
+  return (
+    <div
+      id="access-overlay"
+      data-testid="access-overlay"
+      role="region"
+      aria-label={isSuspended ? 'Talent Contacts locked due to account suspension' : 'Talent Contacts locked: Pending Verification'}
+      className="absolute inset-0 z-30 rounded-3xl backdrop-blur-md p-6 sm:p-10 flex flex-col items-center justify-center text-center transition-all duration-300 shadow-xl overflow-hidden"
+      style={{
+        backgroundColor: isSuspended ? 'rgba(255, 241, 242, 0.88)' : 'rgba(255, 255, 255, 0.85)',
+        borderColor: isSuspended ? '#fda4af' : '#cbd5e1'
+      }}
+    >
+      <div className="max-w-xl mx-auto space-y-6 flex flex-col items-center">
+        {/* Status Icon & Badge */}
+        <div className="flex flex-col items-center gap-3">
+          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-md ${
+            isSuspended ? 'bg-rose-100 text-rose-600 border border-rose-200' : 'bg-amber-100 text-amber-700 border border-amber-200'
+          }`}>
+            {isSuspended ? <Ban className="w-8 h-8" /> : <Lock className="w-8 h-8" />}
+          </div>
+
+          <span className={`inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wide border ${
+            isSuspended 
+              ? 'bg-rose-100/90 text-rose-900 border-rose-300' 
+              : 'bg-amber-100/90 text-amber-900 border-amber-300'
+          }`}>
+            {isSuspended ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse" />
+                <span>Account Status: Suspended</span>
+              </>
+            ) : (
+              <>
+                <Clock className="w-3.5 h-3.5 text-amber-700 animate-pulse" />
+                <span>Pending Verification</span>
+              </>
+            )}
+          </span>
+        </div>
+
+        {/* Headline & Explanation */}
+        <div className="space-y-2">
+          <h3 className="font-display font-bold text-xl sm:text-2xl text-slate-900 tracking-tight">
+            {isSuspended
+              ? 'Talent Contacts Masked: Account Suspended'
+              : 'Pending Verification: Talent Contacts Masked'}
+          </h3>
+          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
+            {isSuspended
+              ? 'Direct candidate phone numbers, WhatsApp channels, and email addresses are restricted. Please reach out to administrative support on WhatsApp to restore your organization access.'
+              : 'Your recruiter account is currently pending verification. Admin review is in progress (estimated review: 1 hour). Candidate WhatsApp outreach numbers and direct email addresses will activate automatically once verified.'}
+          </p>
+        </div>
+
+        {/* WhatsApp redirect link and Action Controls */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full sm:w-auto">
+          {/* Primary WhatsApp Redirect Link */}
+          <a
+            href={activeWhatsAppUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            id="access-overlay-whatsapp-link"
+            className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 font-bold px-6 py-3 rounded-xl shadow-md transition cursor-pointer text-xs sm:text-sm group ${
+              isSuspended
+                ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                : 'bg-emerald-600 hover:bg-emerald-700 text-white hover:shadow-emerald-600/25'
+            }`}
+          >
+            {!isSuspended && <Zap className="w-4 h-4 text-emerald-200 group-hover:scale-110 transition-transform" />}
+            <MessageSquare className="w-4 h-4" />
+            <span>
+              {isSuspended ? 'Contact Support on WhatsApp' : 'Expedite via WhatsApp'}
+            </span>
+          </a>
+
+          {!isSuspended && (
+            /* Secondary WhatsApp Payment/Credentials Proof Link */
+            <a
+              href={paymentProofWhatsAppUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              id="send-payment-proof-whatsapp-cta"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-800 font-semibold px-5 py-3 rounded-xl border border-slate-300 shadow-2xs transition cursor-pointer text-xs sm:text-sm"
+            >
+              <Send className="w-3.5 h-3.5 text-slate-500" />
+              <span>Send Verification Credentials via WhatsApp</span>
+            </a>
+          )}
+
+          {onRefresh && (
+            <button
+              type="button"
+              onClick={onRefresh}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 font-medium py-2.5 px-3 rounded-xl border border-transparent hover:border-slate-200 transition cursor-pointer"
+              title="Check if admin has approved your account"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Re-check Status</span>
+            </button>
+          )}
+        </div>
+
+        {/* Reassurance text */}
+        <p className="text-[11px] text-slate-400 font-mono">
+          {isSuspended
+            ? `Account: ${email || companyName} • Support Hotline Available 24/7`
+            : '🔒 Once verified, full contact reveals and direct outreach activate automatically.'}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// Alias for backwards compatibility
+export const TalentContactsSectionOverlay = AccessOverlay;
+export type TalentContactsSectionOverlayProps = AccessOverlayProps;
+
+// Sample talent dossiers displayed under blur when new recruiter has 0 unlocked candidates yet
+const SAMPLE_TALENT_DOSSIERS = [
+  {
+    id: 'sample-1',
+    full_name: 'Damilola Adeyemi',
+    headline: 'Senior Full-Stack AI Engineer',
+    specialty: 'Python, LangChain, React, FastAPI',
+    location: 'Lagos, Nigeria (Remote)',
+    vetting_status: 'verified',
+    skills: ['LangChain', 'Next.js', 'Python', 'FastAPI'],
+    profile_picture_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300'
+  },
+  {
+    id: 'sample-2',
+    full_name: 'Chidi Okafor',
+    headline: 'Machine Learning & LLM Specialist',
+    specialty: 'PyTorch, Transformers, Agentic Systems',
+    location: 'Abuja, Nigeria (Hybrid)',
+    vetting_status: 'verified',
+    skills: ['PyTorch', 'HuggingFace', 'RAG', 'TypeScript'],
+    profile_picture_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300'
+  },
+  {
+    id: 'sample-3',
+    full_name: 'Fatima Bello',
+    headline: 'Growth Marketing & Technical Talent Lead',
+    specialty: 'Product Analytics, SQL, Growth Engineering',
+    location: 'Kano / Remote',
+    vetting_status: 'verified',
+    skills: ['Product Analytics', 'SQL', 'A/B Testing', 'Growth'],
+    profile_picture_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300'
+  }
+];
 
 export interface TalentContactMaskOverlayProps {
   status: 'verified' | 'suspended' | 'pending' | string;
@@ -46,7 +243,7 @@ export interface TalentContactMaskOverlayProps {
 }
 
 /**
- * Overlay component that masks talent contacts if the recruiter verification status is 'suspended' or 'pending'.
+ * Overlay component that masks individual talent card contact channels if recruiter is 'suspended' or 'pending'.
  */
 export function TalentContactMaskOverlay({
   status,
@@ -134,6 +331,9 @@ export default function RecruiterDashboard({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeNav, setActiveNav] = useState<'unlocked' | 'billing' | 'cosupervision'>('unlocked');
   
+  // Dedicated state for verification status: 'pending_verification' vs 'verified' vs 'suspended'
+  const [liveVerificationStatus, setLiveVerificationStatus] = useState<'pending_verification' | 'verified' | 'suspended'>('pending_verification');
+
   // Co-Supervision Modal State
   const [showCoSupervisionModal, setShowCoSupervisionModal] = useState(false);
   const [coSupervisionSubject, setCoSupervisionSubject] = useState('');
@@ -243,15 +443,10 @@ export default function RecruiterDashboard({
       const selectedPkg = recruiter?.subscribed_package || recruiter?.selected_package || user.user_metadata?.subscribed_package || 'Starter';
       const maxContacts = (selectedPkg === 'Enterprise' || selectedPkg === 'annual_unlimited') ? 99999 : (selectedPkg === 'Growth') ? 25 : 5;
 
-      const verificationStatus = 
-        recruiter?.verification_status || 
-        (urlStatus === 'pending_approval' || urlStatus === 'pending_verification' ? 'pending_verification' : undefined) ||
-        (recruiter?.status === 'pending_approval' ? 'pending_verification' : undefined) ||
-        recruiter?.payment_status ||
-        'pending_verification';
-
-      const isSuspended = Boolean(recruiter?.is_suspended ?? user.user_metadata?.is_suspended);
-      const isApproved = recruiter?.payment_status === 'verified' || recruiter?.payment_status === 'approved' || recruiter?.is_approved === true;
+      const vState = normalizeVerificationStatus(recruiter, user.user_metadata);
+      const effectiveVerificationStatus = urlStatus === 'pending_approval' || urlStatus === 'pending_verification'
+        ? (vState.isApproved ? 'verified' : 'pending_verification')
+        : vState.verificationStatus;
 
       const mergedRecruiter = {
         id: recruiter?.id || user.id,
@@ -262,10 +457,10 @@ export default function RecruiterDashboard({
         phone_number: recruiter?.phone_number || '',
         selected_package: selectedPkg,
         subscribed_package: selectedPkg,
-        verification_status: verificationStatus,
-        payment_status: recruiter?.payment_status || verificationStatus || 'pending_verification',
-        is_suspended: isSuspended,
-        is_approved: isApproved,
+        verification_status: effectiveVerificationStatus,
+        payment_status: vState.paymentStatus,
+        is_suspended: vState.isSuspended,
+        is_approved: vState.isApproved,
         contacts_unlocked_count: recruiter?.contacts_unlocked_count || 0,
         max_contacts: recruiter?.max_contacts || maxContacts,
         created_at: recruiter?.created_at || new Date().toISOString(),
@@ -349,60 +544,39 @@ export default function RecruiterDashboard({
     fetchRecruiterProfile();
   }, [user]);
 
-  // Dedicated useEffect: Fetches the latest 'verification_status' from the 'recruiters' table upon mounting
-  // to ensure the UI immediately reflects admin-side approval or suspension.
+  // Dedicated useEffect: Uses recruiterVerification service to fetch latest status
+  // and subscribes to realtime updates so the UI immediately reflects admin actions (approval, suspension, restoration).
   useEffect(() => {
     let isMounted = true;
 
     const fetchLatestVerificationStatus = async () => {
       try {
-        const { data: authData } = await supabase.auth.getUser();
-        const currentUserId = authData?.user?.id || user?.id;
-        const currentUserEmail = authData?.user?.email || user?.email;
+        const result = await fetchRecruiterVerification({
+          userId: user?.id,
+          email: user?.email,
+          recruiterId: recruiter?.id
+        });
 
-        let query = supabase
-          .from('recruiters')
-          .select('id, user_id, verification_status, is_suspended, payment_status, company_name, business_email, package_tier, subscribed_package');
+        if (result.success && result.state && isMounted) {
+          const { verificationStatus, isApproved, isSuspended, paymentStatus } = result.state;
+          const vStatus = verificationStatus as 'pending_verification' | 'verified' | 'suspended';
 
-        if (currentUserId && currentUserEmail) {
-          query = query.or(`user_id.eq.${currentUserId},business_email.eq.${currentUserEmail},id.eq.${currentUserId}`);
-        } else if (currentUserId) {
-          query = query.or(`user_id.eq.${currentUserId},id.eq.${currentUserId}`);
-        } else if (currentUserEmail) {
-          query = query.eq('business_email', currentUserEmail);
-        } else {
-          // Check local storage for cached session ID
-          const cached = localStorage.getItem('dsp_recruiter_profile');
-          if (cached) {
-            try {
-              const parsed = JSON.parse(cached);
-              const cachedId = parsed.id || parsed.user_id;
-              const cachedEmail = parsed.business_email || parsed.email;
-              if (cachedId) {
-                query = query.or(`user_id.eq.${cachedId},id.eq.${cachedId}`);
-              } else if (cachedEmail) {
-                query = query.eq('business_email', cachedEmail);
-              } else {
-                return;
-              }
-            } catch (_) {
-              return;
-            }
-          } else {
-            return;
-          }
-        }
+          setLiveVerificationStatus(vStatus);
 
-        const { data: latestRecruiter, error } = await query.maybeSingle();
-
-        if (!error && latestRecruiter && isMounted) {
           setRecruiter((prev: any) => ({
             ...prev,
-            ...latestRecruiter,
-            verification_status: latestRecruiter.verification_status,
-            is_suspended: Boolean(latestRecruiter.is_suspended || latestRecruiter.verification_status === 'suspended'),
-            payment_status: latestRecruiter.payment_status || (latestRecruiter.verification_status === 'verified' ? 'verified' : 'pending_verification')
+            ...(result.recruiter || {}),
+            verification_status: vStatus,
+            is_suspended: isSuspended,
+            is_approved: isApproved,
+            payment_status: paymentStatus
           }));
+
+          // Clean up pending URL param if account is activated
+          if (isApproved && typeof window !== 'undefined' && window.location.search.includes('status=')) {
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, newUrl);
+          }
         }
       } catch (err) {
         console.warn('[RecruiterDashboard] Error fetching latest verification_status on mount:', err);
@@ -411,10 +585,68 @@ export default function RecruiterDashboard({
 
     fetchLatestVerificationStatus();
 
+    // 1. Polling interval to auto-refresh status every 4 seconds
+    const intervalId = setInterval(() => {
+      if (isMounted) {
+        fetchLatestVerificationStatus();
+      }
+    }, 4000);
+
+    // 2. Subscribe to centralized recruiter status events (fired on Admin approval/suspension)
+    const unsubscribeStatus = subscribeToRecruiterStatus(
+      recruiter?.id || user?.id,
+      (detail) => {
+        if (!isMounted) return;
+        const isSusp = detail.is_suspended || detail.verification_status === 'suspended';
+        const isAppr = !isSusp && (detail.is_approved || detail.verification_status === 'verified');
+        const vStatus: 'pending_verification' | 'verified' | 'suspended' = isSusp
+          ? 'suspended'
+          : isAppr
+          ? 'verified'
+          : 'pending_verification';
+
+        setLiveVerificationStatus(vStatus);
+        setRecruiter((prev: any) => ({
+          ...prev,
+          verification_status: vStatus,
+          is_approved: isAppr,
+          is_suspended: isSusp,
+          payment_status: isAppr ? 'verified' : (isSusp ? 'suspended' : prev?.payment_status)
+        }));
+
+        fetchLatestVerificationStatus();
+      }
+    );
+
+    window.addEventListener('storage', fetchLatestVerificationStatus);
+
+    // 3. Supabase Realtime subscription for recruiters table
+    let channel: any = null;
+    try {
+      channel = supabase
+        .channel('recruiter_live_status')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'recruiters' },
+          () => {
+            fetchLatestVerificationStatus();
+          }
+        )
+        .subscribe();
+    } catch (_) {}
+
     return () => {
       isMounted = false;
+      clearInterval(intervalId);
+      unsubscribeStatus();
+      window.removeEventListener('storage', fetchLatestVerificationStatus);
+      if (channel) {
+        try {
+          supabase.removeChannel(channel);
+        } catch (_) {}
+      }
     };
-  }, []);
+  }, [user, recruiter?.id]);
 
   const handleSignOutClick = async () => {
     try {
@@ -478,18 +710,77 @@ export default function RecruiterDashboard({
     return name.includes(q) || headline.includes(q) || skills.includes(q);
   });
 
-  const verificationStatus = 
-    recruiter?.verification_status || 
-    user?.user_metadata?.verification_status || 
-    (recruiter?.is_suspended || user?.user_metadata?.is_suspended ? 'suspended' : undefined) ||
-    (recruiter?.payment_status === 'verified' ? 'verified' : undefined) ||
-    (recruiter?.payment_status === 'rejected' || recruiter?.payment_status === 'disapproved' ? 'rejected' : undefined) ||
-    'pending';
+  const isSuspended = Boolean(
+    recruiter?.is_suspended ||
+    recruiter?.verification_status === 'suspended' ||
+    liveVerificationStatus === 'suspended' ||
+    user?.user_metadata?.is_suspended ||
+    user?.user_metadata?.verification_status === 'suspended'
+  );
 
-  const isSuspended = verificationStatus === 'suspended' || Boolean(recruiter?.is_suspended ?? user?.user_metadata?.is_suspended);
-  const isApproved = (verificationStatus === 'verified' || recruiter?.payment_status === 'verified' || recruiter?.payment_status === 'approved' || recruiter?.is_approved === true) && !isSuspended;
-  const isDisapproved = (verificationStatus === 'rejected' || recruiter?.payment_status === 'rejected' || recruiter?.payment_status === 'disapproved') && !isSuspended;
-  const isPendingVerification = !isApproved && !isDisapproved && !isSuspended;
+  const isApproved = !isSuspended && Boolean(
+    recruiter?.verification_status === 'verified' ||
+    recruiter?.verification_status === 'approved' ||
+    recruiter?.payment_status === 'verified' ||
+    recruiter?.payment_status === 'approved' ||
+    recruiter?.is_approved === true ||
+    recruiter?.status === 'verified' ||
+    recruiter?.status === 'active' ||
+    liveVerificationStatus === 'verified' ||
+    user?.user_metadata?.verification_status === 'verified' ||
+    user?.user_metadata?.is_approved === true
+  );
+
+  const isDisapproved = !isSuspended && !isApproved && Boolean(
+    recruiter?.verification_status === 'rejected' ||
+    recruiter?.verification_status === 'disapproved' ||
+    recruiter?.payment_status === 'rejected' ||
+    recruiter?.payment_status === 'disapproved' ||
+    user?.user_metadata?.verification_status === 'rejected'
+  );
+
+  // Strictly normalized verification_status ('pending_verification' vs 'verified' vs 'suspended')
+  const verificationStatus: 'pending_verification' | 'verified' | 'suspended' = isSuspended 
+    ? 'suspended' 
+    : isApproved 
+    ? 'verified' 
+    : (liveVerificationStatus === 'suspended' ? 'suspended' : liveVerificationStatus === 'verified' ? 'verified' : 'pending_verification');
+
+  const isPendingVerification = verificationStatus === 'pending_verification';
+
+  // Dynamic display messages based strictly on 'pending_verification' vs 'verified' vs 'suspended'
+  const statusDisplayMessages = {
+    verified: {
+      statusBadge: 'Account Status: Account Activated',
+      badgeClass: 'bg-emerald-200/80 text-emerald-900 border-emerald-300',
+      headline: 'Account Activated: Your recruiter account has been verified and approved!',
+      description: 'Recruiter account approved! Contact unlock access activated according to package.',
+      subtext: 'Your recruiter account is active. Candidate talent contact unlocks and direct outreach channels (WhatsApp & Email) are fully enabled according to your package tier.',
+      ctaText: 'Browse Talent Directory',
+    },
+    suspended: {
+      statusBadge: 'Account Status: Suspended (Access Denied)',
+      badgeClass: 'bg-rose-200/90 text-rose-900 border-rose-300',
+      headline: 'Access Denied: Recruiter Account Suspended',
+      description: 'Your recruiter account access has been suspended by administration. Your company records are preserved, but direct candidate contact reveals and outreach channels are masked and locked.',
+      subtext: 'Please contact our support team on WhatsApp to review your account verification status and restore access.',
+      ctaText: 'Contact Support on WhatsApp',
+      whatsappUrl: `https://wa.me/2348169664607?text=${encodeURIComponent(
+        `Hello Digital Campux Support, our recruiter account (${recruiter?.company_name || user?.email || 'our organization'}) is suspended. Please review our verification status and assist in restoring dashboard access.`
+      )}`,
+    },
+    pending_verification: {
+      statusBadge: 'Account Status: Pending Review',
+      badgeClass: 'bg-amber-200/80 text-amber-900 border-amber-300',
+      headline: 'Your recruiter account has been created. Admin verification is in progress (estimated review: 1 hour). Your contact unlocks will activate automatically once verified.',
+      description: 'Admin verification is in progress. While under review, candidate talent contacts remain masked to prevent unauthorized outreach.',
+      subtext: 'All recruiter accounts remain in Review Mode upon registration until approved by our verification team (typically within 1 hour). Once verified, full WhatsApp & email contact unlock features will automatically activate.',
+      ctaText: '⚡ Expedite via WhatsApp',
+      whatsappUrl: `https://wa.me/2348169664607?text=${encodeURIComponent(
+        `Hello Digital Campux, I have registered ${recruiter?.company_name || 'my company'} (${recruiter?.business_email || user?.email || ''}). Please expedite our recruiter account verification.`
+      )}`,
+    }
+  };
   const isAnnual = recruiter?.selected_package === 'annual_unlimited' || recruiter?.selected_package === 'Enterprise' || recruiter?.subscribed_package === 'Enterprise';
   const isGrowth = recruiter?.selected_package === 'Growth' || recruiter?.subscribed_package === 'Growth';
   const unlockedCount = recruiter?.contacts_unlocked_count || unlockedTalents.length || 0;
@@ -579,7 +870,7 @@ export default function RecruiterDashboard({
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Verified</span>
+                      <span>Account Activated</span>
                     </span>
                   ) : (
                     <span 
@@ -588,7 +879,7 @@ export default function RecruiterDashboard({
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
                       <Clock className="w-3.5 h-3.5 text-amber-600" />
-                      <span>Pending</span>
+                      <span>Pending Review</span>
                     </span>
                   )}
                 </div>
@@ -640,7 +931,7 @@ export default function RecruiterDashboard({
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
         
         {/* 0. ACCESS DENIED: SUSPENDED ACCOUNT BANNER */}
-        {isSuspended && (
+        {verificationStatus === 'suspended' && (
           <div 
             id="access-denied-suspended-banner"
             role="alert"
@@ -652,34 +943,34 @@ export default function RecruiterDashboard({
                   <Ban className="w-6 h-6" />
                 </div>
                 <div>
-                  <div className="inline-flex items-center gap-1.5 bg-rose-200/90 text-rose-900 font-mono text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full mb-1">
-                    <span>verification_status: suspended</span>
+                  <div className={`inline-flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full mb-1 border ${statusDisplayMessages.suspended.badgeClass}`}>
+                    <span>{statusDisplayMessages.suspended.statusBadge}</span>
                   </div>
                   <h2 className="font-display font-bold text-base sm:text-lg text-rose-950">
-                    Access Denied: Account Suspended
+                    {statusDisplayMessages.suspended.headline}
                   </h2>
                 </div>
               </div>
 
               <a
-                href={`https://wa.me/2348169664607?text=${encodeURIComponent(`Hello Digital Campux Support, our recruiter account (${recruiter?.company_name || user?.email || 'our organization'}) has verification_status: suspended. Please review and restore our dashboard access.`)}`}
+                href={statusDisplayMessages.suspended.whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hidden sm:flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition shadow-xs whitespace-nowrap shrink-0"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
-                <span>Contact Support on WhatsApp</span>
+                <span>{statusDisplayMessages.suspended.ctaText}</span>
               </a>
             </div>
 
             <p className="text-xs text-rose-900 leading-relaxed max-w-4xl">
-              Your recruiter account access has been suspended by the platform administration. Your organization records ({recruiter?.company_name || user?.email}) are intact and have not been deleted, but direct candidate contact reveals and outreach channels are masked and locked below. Contact administration to restore access.
+              <strong>{statusDisplayMessages.suspended.description}</strong> {statusDisplayMessages.suspended.subtext}
             </p>
           </div>
         )}
         
-        {/* 1. APPROVED SUCCESS BANNER */}
-        {isApproved && (
+        {/* 1. APPROVED / ACTIVATED SUCCESS BANNER */}
+        {verificationStatus === 'verified' && (
           <div 
             id="account-approved-success-banner"
             className="bg-emerald-50/90 border-2 border-emerald-500 rounded-3xl p-6 sm:p-7 shadow-xs text-emerald-950 space-y-4 animate-fadeIn"
@@ -690,12 +981,12 @@ export default function RecruiterDashboard({
                   <CheckCircle2 className="w-6 h-6" />
                 </div>
                 <div>
-                  <div className="inline-flex items-center gap-1.5 bg-emerald-200/80 text-emerald-900 font-mono text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full mb-1">
+                  <div className={`inline-flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full mb-1 border ${statusDisplayMessages.verified.badgeClass}`}>
                     <Check className="w-3 h-3 text-emerald-700" />
-                    <span>Account Status: Verified & Approved</span>
+                    <span>{statusDisplayMessages.verified.statusBadge}</span>
                   </div>
                   <h2 className="font-display font-bold text-base sm:text-lg text-emerald-950">
-                    Your recruiter account has been verified and approved! Candidate contact unlocks are fully activated.
+                    {statusDisplayMessages.verified.headline}
                   </h2>
                 </div>
               </div>
@@ -706,12 +997,12 @@ export default function RecruiterDashboard({
                 className="hidden sm:flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition shadow-xs whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <Search className="w-3.5 h-3.5" />
-                <span>Browse Talent Directory</span>
+                <span>{statusDisplayMessages.verified.ctaText}</span>
               </button>
             </div>
 
             <p className="text-xs text-emerald-800 leading-relaxed max-w-4xl">
-              Congratulations! Your organization ({recruiter?.company_name || 'Employer'}) is verified. You now have full direct access to unlock candidate WhatsApp and email contact channels according to your {isAnnual ? 'Unlimited Enterprise' : `${maxContacts} candidate`} package quota.
+              <strong>{statusDisplayMessages.verified.description}</strong> {statusDisplayMessages.verified.subtext}
             </p>
           </div>
         )}
@@ -770,7 +1061,7 @@ export default function RecruiterDashboard({
         )}
 
         {/* 3. PENDING VERIFICATION AMBER ALERT BANNER */}
-        {isPendingVerification && (
+        {verificationStatus === 'pending_verification' && !isDisapproved && (
           <div 
             id="pending-verification-alert-banner"
             className="bg-amber-50 border-2 border-amber-400 rounded-3xl p-6 sm:p-7 shadow-sm text-amber-950 space-y-4 animate-fadeIn"
@@ -781,28 +1072,28 @@ export default function RecruiterDashboard({
                   <Clock className="w-6 h-6 animate-pulse" />
                 </div>
                 <div>
-                  <div className="inline-flex items-center gap-1.5 bg-amber-200/80 text-amber-900 font-mono text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full mb-1">
-                    <span>Account Status: Pending Verification</span>
+                  <div className={`inline-flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full mb-1 border ${statusDisplayMessages.pending_verification.badgeClass}`}>
+                    <span>{statusDisplayMessages.pending_verification.statusBadge}</span>
                   </div>
                   <h2 className="font-display font-bold text-base sm:text-lg text-amber-950">
-                    Your recruiter account has been created. Admin verification is in progress (estimated review: 1 hour). Your contact unlocks will activate automatically once verified.
+                    {statusDisplayMessages.pending_verification.headline}
                   </h2>
                 </div>
               </div>
 
               <a
-                href={`https://wa.me/2348169664607?text=${encodeURIComponent(`Hello Digital Campux, I have registered ${recruiter?.company_name || 'my company'} (${recruiter?.business_email || ''}). Please expedite our recruiter account approval.`)}`}
+                href={statusDisplayMessages.pending_verification.whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hidden sm:flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow-xs whitespace-nowrap shrink-0"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
-                <span>Expedite via WhatsApp</span>
+                <span>{statusDisplayMessages.pending_verification.ctaText}</span>
               </a>
             </div>
 
             <p className="text-xs text-amber-900 leading-relaxed max-w-4xl">
-              All recruiter accounts remain in <strong>Review Mode</strong> upon registration until approved by our verification team (typically within 1 hour). Once verified, full WhatsApp & email contact unlock features will automatically activate.
+              <strong>{statusDisplayMessages.pending_verification.description}</strong> {statusDisplayMessages.pending_verification.subtext}
             </p>
 
             <div className="bg-white/80 border border-amber-200 rounded-2xl p-4 text-xs grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -851,7 +1142,7 @@ export default function RecruiterDashboard({
                 ) : isApproved ? (
                   <>
                     <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                    <span>Verified</span>
+                    <span>Account Activated</span>
                   </>
                 ) : isDisapproved ? (
                   <>
@@ -861,7 +1152,7 @@ export default function RecruiterDashboard({
                 ) : (
                   <>
                     <Clock className="w-3 h-3 text-amber-600" />
-                    <span>Pending</span>
+                    <span>Pending Review</span>
                   </>
                 )}
               </span>
@@ -938,21 +1229,37 @@ export default function RecruiterDashboard({
 
         </div>
 
-        {/* UNLOCKED CANDIDATES ROSTER SECTION */}
-        <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
-          
+        {/* TALENT CONTACTS & UNLOCKED CANDIDATES ROSTER SECTION */}
+        <div 
+          id="talent-contacts-section" 
+          data-testid="talent-contacts-section"
+          className="relative bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6 overflow-hidden min-h-[420px]"
+        >
+          {/* AccessOverlay component covering the Talent Contacts section when verification_status is not 'verified' */}
+          {verificationStatus !== 'verified' && (
+            <AccessOverlay
+              status={verificationStatus}
+              companyName={recruiter?.company_name}
+              email={recruiter?.business_email || user?.email}
+              onRefresh={() => {
+                fetchRecruiterData();
+              }}
+            />
+          )}
+
+          <div className={verificationStatus !== 'verified' ? 'filter blur-[3.5px] opacity-35 select-none pointer-events-none transition-all duration-300' : 'transition-all duration-300'}>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="font-display font-bold text-xl sm:text-2xl text-slate-900">
-                  Unlocked Candidate Dossiers
+                <h2 className="font-display font-bold text-xl sm:text-2xl text-slate-900" id="talent-contacts-title">
+                  Talent Contacts
                 </h2>
                 <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono text-xs font-bold px-2.5 py-0.5 rounded-full">
                   {unlockedTalents.length}
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Full direct contact channels for candidates you have unlocked.
+                Full direct contact channels (WhatsApp, phone &amp; email) for candidates you have unlocked.
               </p>
             </div>
 
@@ -970,28 +1277,101 @@ export default function RecruiterDashboard({
           </div>
 
           {unlockedTalents.length === 0 ? (
-            /* Empty Unlocked State */
-            <div className="py-12 sm:py-16 text-center space-y-4 max-w-md mx-auto">
-              <div className="w-14 h-14 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center mx-auto border border-slate-200">
-                <Unlock className="w-7 h-7" />
+            verificationStatus !== 'verified' ? (
+              /* Sample candidate dossiers blurred underneath the overlay */
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
+                {SAMPLE_TALENT_DOSSIERS.map((candidate) => (
+                  <div
+                    key={candidate.id}
+                    className="bg-white border border-slate-200/90 rounded-2xl p-5 sm:p-6 shadow-2xs space-y-4 flex flex-col justify-between"
+                  >
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-3.5">
+                        <img
+                          src={candidate.profile_picture_url}
+                          alt={candidate.full_name}
+                          className="w-14 h-14 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100"
+                        />
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="font-display font-bold text-base text-slate-900 truncate">
+                              {candidate.full_name}
+                            </h4>
+                            <span className="text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.2 rounded-md">
+                              Verified
+                            </span>
+                          </div>
+                          <p className="text-xs text-emerald-700 font-semibold truncate">
+                            {candidate.headline}
+                          </p>
+                          <p className="text-[11px] text-slate-400 flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            <span>{candidate.location}</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Direct Outreach Channels Masked */}
+                      <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 space-y-2 text-xs">
+                        <span className="font-mono text-[10px] font-bold uppercase text-emerald-700 block">
+                          Direct Contact Channels (Masked)
+                        </span>
+                        <div className="flex items-center justify-between text-slate-700 mt-2">
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <Phone className="w-3.5 h-3.5 text-slate-400" />
+                            <span>+234 ••• ••• ••••</span>
+                          </span>
+                          <span className="text-slate-400 font-mono text-[11px] bg-slate-100 px-2 py-0.5 rounded">
+                            WhatsApp
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-slate-700 mt-2">
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <Mail className="w-3.5 h-3.5 text-slate-400" />
+                            <span>••••••@••••••.com</span>
+                          </span>
+                          <span className="text-slate-400 font-mono text-[11px] bg-slate-100 px-2 py-0.5 rounded">
+                            Email
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Skills */}
+                      <div className="flex flex-wrap gap-1">
+                        {candidate.skills.map((sk, i) => (
+                          <span key={i} className="text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium">
+                            {sk}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="space-y-1">
-                <h3 className="font-display font-bold text-lg text-slate-900">
-                  No Talent Contacts Unlocked Yet
-                </h3>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Browse our directory of pre-vetted AI engineers, growth marketers, and full-stack builders to unlock direct WhatsApp and email outreach.
-                </p>
+            ) : (
+              /* Empty Unlocked State */
+              <div className="py-12 sm:py-16 text-center space-y-4 max-w-md mx-auto">
+                <div className="w-14 h-14 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center mx-auto border border-slate-200">
+                  <Unlock className="w-7 h-7" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-display font-bold text-lg text-slate-900">
+                    No Talent Contacts Unlocked Yet
+                  </h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Browse our directory of pre-vetted AI engineers, growth marketers, and full-stack builders to unlock direct WhatsApp and email outreach.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={navToDirectory}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl text-xs inline-flex items-center gap-2 cursor-pointer shadow-xs transition"
+                >
+                  <Search className="w-4 h-4" />
+                  <span>Explore Vetted Talent Pool</span>
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={navToDirectory}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl text-xs inline-flex items-center gap-2 cursor-pointer shadow-xs transition"
-              >
-                <Search className="w-4 h-4" />
-                <span>Explore Vetted Talent Pool</span>
-              </button>
-            </div>
+            )
           ) : filteredTalents.length === 0 ? (
             <div className="py-8 text-center text-xs text-slate-500">
               No unlocked candidates match your search "{searchQuery}".
@@ -1118,6 +1498,7 @@ export default function RecruiterDashboard({
             </div>
           )}
 
+          </div>
         </div>
 
       </main>

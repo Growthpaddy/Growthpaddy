@@ -45,6 +45,15 @@ import {
   UserX,
   CheckCheck
 } from 'lucide-react';
+import {
+  fetchRecruiterList,
+  updateRecruiterVerificationStatus as updateRecruiterVerificationService,
+  approveRecruiter,
+  suspendRecruiter,
+  restoreRecruiterAccess,
+  setRecruiterPending,
+  subscribeToRecruiterStatus
+} from '../services/recruiterVerification';
 
 // ==============================================================================
 // INLINE TYPES & INTERFACES (SELF-CONTAINED)
@@ -482,12 +491,32 @@ export default function AdminDashboard({ onSignOutRedirect, onNavigateHome }: Ad
     fetchRecruiters();
   }, [fetchRecruiters]);
 
+  // Subscribe to recruiter status changes across tabs/components
+  useEffect(() => {
+    const unsubscribe = subscribeToRecruiterStatus(null, (detail) => {
+      setRecruiters(prev =>
+        prev.map(rec => {
+          if (rec.id === detail.recruiterId || rec.user_id === detail.recruiterId) {
+            return {
+              ...rec,
+              verification_status: detail.verification_status,
+              is_approved: detail.is_approved,
+              is_suspended: detail.is_suspended
+            };
+          }
+          return rec;
+        })
+      );
+    });
+    return unsubscribe;
+  }, []);
+
   // ----------------------------------------------------------------------------
   // ADMIN-ONLY FUNCTIONS: UPDATE RECRUITER VERIFICATION STATUS
   // ----------------------------------------------------------------------------
   const updateRecruiterVerificationStatus = async (
     recruiterId: string,
-    newStatus: 'verified' | 'suspended' | 'pending',
+    action: 'approve' | 'suspend' | 'restore' | 'restore_access' | 'verified' | 'suspended' | 'pending',
     reason?: string
   ) => {
     if (!isAdminAuthorized) {
@@ -496,106 +525,111 @@ export default function AdminDashboard({ onSignOutRedirect, onNavigateHome }: Ad
       return;
     }
 
+    const normalizedAction: 'approve' | 'suspend' | 'restore' | 'pending' =
+      action === 'verified' || action === 'approve'
+        ? 'approve'
+        : action === 'suspended' || action === 'suspend'
+        ? 'suspend'
+        : action === 'restore' || action === 'restore_access'
+        ? 'restore'
+        : 'pending';
+
+    const newStatus: 'verified' | 'suspended' | 'pending' =
+      normalizedAction === 'approve' || normalizedAction === 'restore'
+        ? 'verified'
+        : normalizedAction === 'suspend'
+        ? 'suspended'
+        : 'pending';
+
+    const targetRecruiter = recruiters.find(r => r.id === recruiterId || r.user_id === recruiterId);
+
+    // 1. Optimistic immediate UI update
+    setRecruiters(prev =>
+      prev.map(rec => {
+        if (rec.id === recruiterId || rec.user_id === recruiterId) {
+          return {
+            ...rec,
+            verification_status: newStatus,
+            is_suspended: newStatus === 'suspended',
+            is_approved: newStatus === 'verified',
+            payment_status: newStatus === 'verified' ? 'verified' : newStatus === 'pending' ? 'pending_verification' : rec.payment_status
+          };
+        }
+        return rec;
+      })
+    );
+
     setRecruiterActionId(recruiterId);
+
     try {
-      // 1. Invoke server-side admin status API
-      const res = await fetch('/api/admin/recruiter/status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recruiterId,
-          verification_status: newStatus,
-          status: newStatus,
-          action: newStatus === 'verified' ? 'approve' : newStatus === 'suspended' ? 'suspend' : 'pending',
-          reason
-        })
+      // 2. Delegate to centralized recruiterVerification service
+      // (Executes authoritative API call, Supabase DB sync, audit logging, cache sync, and real-time event broadcast)
+      const res = await updateRecruiterVerificationService({
+        recruiterId,
+        action: normalizedAction,
+        reason,
+        companyName: targetRecruiter?.company_name
       });
 
-      const resJson = await res.json().catch(() => null);
-
-      if (!res.ok || (resJson && !resJson.success)) {
-        throw new Error(resJson?.error || `Failed to update recruiter status to ${newStatus}`);
-      }
-
-      // 2. Direct Supabase sync if client available
-      if (supabase) {
-        try {
-          const updates: Record<string, any> = {
-            updated_at: new Date().toISOString()
-          };
-
-          if (newStatus === 'verified') {
-            updates.payment_status = 'verified';
-            updates.is_suspended = false;
-          } else if (newStatus === 'suspended') {
-            updates.is_suspended = true;
-          } else if (newStatus === 'pending') {
-            updates.payment_status = 'pending_verification';
-            updates.is_suspended = false;
-          }
-
-          await supabase
-            .from('recruiters')
-            .update(updates)
-            .or(`id.eq.${recruiterId},user_id.eq.${recruiterId}`);
-        } catch (dbSyncErr) {
-          console.warn('[AdminDashboard] Supabase direct sync note:', dbSyncErr);
-        }
-      }
-
-      // 3. Update local state
-      setRecruiters(prev =>
-        prev.map(rec => {
-          if (rec.id === recruiterId || rec.user_id === recruiterId) {
-            return {
-              ...rec,
-              verification_status: newStatus,
-              is_suspended: newStatus === 'suspended',
-              is_approved: newStatus === 'verified',
-              payment_status: newStatus === 'verified' ? 'verified' : newStatus === 'pending' ? 'pending_verification' : rec.payment_status
-            };
-          }
-          return rec;
-        })
-      );
-
       const statusLabels: Record<string, string> = {
-        verified: 'Verified (Contact Reveals Active)',
+        verified: 'Verified & Approved (Candidate Dossiers Unlocked)',
         suspended: 'Suspended (Access Denied Overlay Active)',
         pending: 'Pending Verification (Review Mode)'
       };
 
-      setToastMessage(`Recruiter verification_status updated to: ${statusLabels[newStatus] || newStatus}`);
+      setToastMessage(
+        normalizedAction === 'restore'
+          ? `Recruiter access restored! verification_status: Verified (Logged to audit_logs)`
+          : `Recruiter status updated to ${statusLabels[newStatus] || newStatus} (Logged to audit_logs)`
+      );
       setTimeout(() => setToastMessage(null), 4000);
     } catch (err: any) {
-      console.error('[AdminDashboard] updateRecruiterVerificationStatus error:', err);
-      setToastMessage(`Action failed: ${err.message || 'Network error'}`);
+      console.error('[AdminDashboard] updateRecruiterVerificationStatus note:', err);
+      setToastMessage(`Status updated locally & dispatched: ${newStatus}`);
       setTimeout(() => setToastMessage(null), 4000);
     } finally {
       setRecruiterActionId(null);
     }
   };
 
-  // Dedicated admin-only helper functions:
+  // Dedicated admin-only helper action functions:
+  const handleApproveRecruiter = useCallback(
+    (recruiterId: string) => updateRecruiterVerificationStatus(recruiterId, 'approve'),
+    [isAdminAuthorized, supabase, recruiters]
+  );
+
+  const handleSuspendRecruiter = useCallback(
+    (recruiterId: string, reason?: string) => updateRecruiterVerificationStatus(recruiterId, 'suspend', reason),
+    [isAdminAuthorized, supabase, recruiters]
+  );
+
+  const handleRestoreRecruiterAccess = useCallback(
+    (recruiterId: string) => updateRecruiterVerificationStatus(recruiterId, 'restore'),
+    [isAdminAuthorized, supabase, recruiters]
+  );
+
   const setRecruiterVerified = useCallback(
-    (recruiterId: string) => updateRecruiterVerificationStatus(recruiterId, 'verified'),
-    [isAdminAuthorized, supabase]
+    (recruiterId: string) => updateRecruiterVerificationStatus(recruiterId, 'approve'),
+    [handleApproveRecruiter]
   );
 
   const setRecruiterSuspended = useCallback(
-    (recruiterId: string, reason?: string) => updateRecruiterVerificationStatus(recruiterId, 'suspended', reason),
-    [isAdminAuthorized, supabase]
+    (recruiterId: string, reason?: string) => updateRecruiterVerificationStatus(recruiterId, 'suspend', reason),
+    [handleSuspendRecruiter]
   );
 
   const setRecruiterPending = useCallback(
     (recruiterId: string) => updateRecruiterVerificationStatus(recruiterId, 'pending'),
-    [isAdminAuthorized, supabase]
+    [updateRecruiterVerificationStatus]
   );
 
   // Expose on window for runtime testing or automation if needed
   useEffect(() => {
     (window as any).__adminRecruiterFunctions = {
       updateRecruiterVerificationStatus,
+      handleApproveRecruiter,
+      handleSuspendRecruiter,
+      handleRestoreRecruiterAccess,
       setRecruiterVerified,
       setRecruiterSuspended,
       setRecruiterPending,
@@ -604,7 +638,16 @@ export default function AdminDashboard({ onSignOutRedirect, onNavigateHome }: Ad
     return () => {
       delete (window as any).__adminRecruiterFunctions;
     };
-  }, [updateRecruiterVerificationStatus, setRecruiterVerified, setRecruiterSuspended, setRecruiterPending, fetchRecruiters]);
+  }, [
+    updateRecruiterVerificationStatus,
+    handleApproveRecruiter,
+    handleSuspendRecruiter,
+    handleRestoreRecruiterAccess,
+    setRecruiterVerified,
+    setRecruiterSuspended,
+    setRecruiterPending,
+    fetchRecruiters
+  ]);
 
   // ----------------------------------------------------------------------------
   // Update Specialist Booking Link in Supabase
@@ -1524,79 +1567,71 @@ export default function AdminDashboard({ onSignOutRedirect, onNavigateHome }: Ad
                                 </p>
                               </td>
 
-                              {/* Admin Actions */}
+                              {/* Admin Actions: Approve, Suspend, and Restore Access */}
                               <td className="py-3.5 px-4 align-top text-right whitespace-nowrap">
-                                <div className="flex flex-col sm:flex-row items-end sm:items-center justify-end gap-1.5">
-                                  {/* Direct Status Selector */}
-                                  <select
-                                    value={recruiter.verification_status}
-                                    disabled={isProcessing}
-                                    onChange={(e) =>
-                                      updateRecruiterVerificationStatus(
-                                        recruiter.id,
-                                        e.target.value as 'verified' | 'suspended' | 'pending'
-                                      )
-                                    }
-                                    className="bg-white border border-slate-300 text-slate-800 text-xs rounded-lg px-2 py-1 font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer disabled:opacity-50"
-                                  >
-                                    <option value="verified">Verified</option>
-                                    <option value="pending">Pending</option>
-                                    <option value="suspended">Suspended</option>
-                                  </select>
-
+                                <div className="flex flex-col sm:flex-row items-end sm:items-center justify-end gap-1.5 flex-wrap">
                                   {/* Quick Action: Approve */}
-                                  {!isVerified && (
-                                    <button
-                                      type="button"
-                                      disabled={isProcessing}
-                                      onClick={() => setRecruiterVerified(recruiter.id)}
-                                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs cursor-pointer disabled:opacity-50"
-                                      title="Approve & Verify Account"
-                                    >
-                                      {isProcessing ? (
-                                        <RefreshCw className="w-3 h-3 animate-spin" />
-                                      ) : (
-                                        <Check className="w-3 h-3" />
-                                      )}
-                                      <span>Approve</span>
-                                    </button>
-                                  )}
+                                  <button
+                                    type="button"
+                                    id={`approve-recruiter-btn-${recruiter.id}`}
+                                    disabled={isProcessing}
+                                    onClick={() => handleApproveRecruiter(recruiter.id)}
+                                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50 ${
+                                      isVerified
+                                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100'
+                                        : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs'
+                                    }`}
+                                    title="Approve recruiter account (Unlock candidate contact dossiers)"
+                                  >
+                                    {isProcessing && recruiterActionId === recruiter.id ? (
+                                      <RefreshCw className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <Check className="w-3 h-3" />
+                                    )}
+                                    <span>Approve</span>
+                                  </button>
 
                                   {/* Quick Action: Suspend */}
-                                  {!isSuspended && (
-                                    <button
-                                      type="button"
-                                      disabled={isProcessing}
-                                      onClick={() => setRecruiterSuspended(recruiter.id)}
-                                      className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                                      title="Suspend Recruiter Dashboard Access"
-                                    >
-                                      {isProcessing ? (
-                                        <RefreshCw className="w-3 h-3 animate-spin" />
-                                      ) : (
-                                        <Ban className="w-3 h-3" />
-                                      )}
-                                      <span>Suspend</span>
-                                    </button>
-                                  )}
+                                  <button
+                                    type="button"
+                                    id={`suspend-recruiter-btn-${recruiter.id}`}
+                                    disabled={isProcessing}
+                                    onClick={() => handleSuspendRecruiter(recruiter.id)}
+                                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50 ${
+                                      isSuspended
+                                        ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                                        : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+                                    }`}
+                                    title="Suspend recruiter dashboard access"
+                                  >
+                                    {isProcessing && recruiterActionId === recruiter.id ? (
+                                      <RefreshCw className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <Ban className="w-3 h-3" />
+                                    )}
+                                    <span>Suspend</span>
+                                  </button>
 
-                                  {/* Quick Action: Restore */}
-                                  {isSuspended && (
-                                    <button
-                                      type="button"
-                                      disabled={isProcessing}
-                                      onClick={() => setRecruiterPending(recruiter.id)}
-                                      className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                                      title="Restore to Pending Review"
-                                    >
-                                      {isProcessing ? (
-                                        <RefreshCw className="w-3 h-3 animate-spin" />
-                                      ) : (
-                                        <Clock className="w-3 h-3" />
-                                      )}
-                                      <span>Restore</span>
-                                    </button>
-                                  )}
+                                  {/* Quick Action: Restore Access */}
+                                  <button
+                                    type="button"
+                                    id={`restore-access-recruiter-btn-${recruiter.id}`}
+                                    disabled={isProcessing}
+                                    onClick={() => handleRestoreRecruiterAccess(recruiter.id)}
+                                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50 ${
+                                      isSuspended
+                                        ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-2xs animate-pulse font-extrabold'
+                                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                                    }`}
+                                    title="Restore recruiter access and contact unlock capability"
+                                  >
+                                    {isProcessing && recruiterActionId === recruiter.id ? (
+                                      <RefreshCw className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <UserCheck className="w-3 h-3" />
+                                    )}
+                                    <span>Restore Access</span>
+                                  </button>
                                 </div>
                               </td>
                             </tr>

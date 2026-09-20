@@ -60,6 +60,7 @@ import { QuizControlPanel } from '../../components/admin/QuizControlPanel';
 import { QuestionBank } from '../../components/admin/QuestionBank';
 import { UnlockedContactsTable } from '../../components/admin/UnlockedContactsTable';
 import { logAuditEvent } from '../../lib/auditLogger';
+import { updateRecruiterVerificationStatus } from '../../services/recruiterVerification';
 
 export const ADMIN_SKILL_CATEGORIES = [
   'Growth Marketing Strategy',
@@ -124,6 +125,7 @@ export interface RecruiterRecord {
   contact_name?: string;
   email: string;
   phone?: string;
+  verification_status?: string;
   is_approved: boolean;
   is_suspended: boolean;
   payment_status: 'verified' | 'rejected' | 'pending_verification' | string;
@@ -227,19 +229,30 @@ const fetchRecruitersList = async (): Promise<RecruiterRecord[]> => {
     .order('created_at', { ascending: false });
 
   if (!error && data) {
-    return data.map((r: any) => ({
-      id: r.id,
-      user_id: r.user_id,
-      company_name: r.company_name || r.name || 'Organization',
-      contact_name: r.contact_person || r.contact_name || r.name || '',
-      email: r.business_email || r.email || '',
-      phone: r.phone_number || r.phone || '',
-      is_approved: r.payment_status === 'verified',
-      is_suspended: Boolean(r.is_suspended),
-      payment_status: r.payment_status || 'pending_verification',
-      package_tier: r.selected_package || r.package_tier || 'Starter',
-      created_at: r.created_at,
-    }));
+    return data.map((r: any) => {
+      const isSuspended = Boolean(r.is_suspended || r.verification_status === 'suspended');
+      const isApproved = !isSuspended && Boolean(
+        r.verification_status === 'verified' ||
+        r.payment_status === 'verified' ||
+        r.is_approved === true ||
+        r.status === 'verified' ||
+        r.status === 'active'
+      );
+      return {
+        id: r.id,
+        user_id: r.user_id,
+        company_name: r.company_name || r.name || 'Organization',
+        contact_name: r.contact_person || r.contact_name || r.name || '',
+        email: r.business_email || r.email || '',
+        phone: r.phone_number || r.phone || '',
+        verification_status: r.verification_status || (isApproved ? 'verified' : isSuspended ? 'suspended' : 'pending_verification'),
+        is_approved: isApproved,
+        is_suspended: isSuspended,
+        payment_status: isApproved ? 'verified' : (r.payment_status || 'pending_verification'),
+        package_tier: r.selected_package || r.package_tier || 'Starter',
+        created_at: r.created_at,
+      };
+    });
   }
 
   // 3. Recruiter profiles fallback
@@ -248,19 +261,30 @@ const fetchRecruitersList = async (): Promise<RecruiterRecord[]> => {
     .select('*')
     .order('created_at', { ascending: false });
 
-  return (fallback || []).map((r: any) => ({
-    id: r.id,
-    user_id: r.user_id,
-    company_name: r.company_name || r.name || 'Organization',
-    contact_name: r.contact_person || r.contact_name || r.name || '',
-    email: r.business_email || r.email || '',
-    phone: r.phone_number || r.phone || '',
-    is_approved: r.payment_status === 'verified',
-    is_suspended: Boolean(r.is_suspended),
-    payment_status: r.payment_status || 'pending_verification',
-    package_tier: r.package_tier || 'Starter',
-    created_at: r.created_at,
-  }));
+  return (fallback || []).map((r: any) => {
+    const isSuspended = Boolean(r.is_suspended || r.verification_status === 'suspended');
+    const isApproved = !isSuspended && Boolean(
+      r.verification_status === 'verified' ||
+      r.payment_status === 'verified' ||
+      r.is_approved === true ||
+      r.status === 'verified' ||
+      r.status === 'active'
+    );
+    return {
+      id: r.id,
+      user_id: r.user_id,
+      company_name: r.company_name || r.name || 'Organization',
+      contact_name: r.contact_person || r.contact_name || r.name || '',
+      email: r.business_email || r.email || '',
+      phone: r.phone_number || r.phone || '',
+      verification_status: r.verification_status || (isApproved ? 'verified' : isSuspended ? 'suspended' : 'pending_verification'),
+      is_approved: isApproved,
+      is_suspended: isSuspended,
+      payment_status: isApproved ? 'verified' : (r.payment_status || 'pending_verification'),
+      package_tier: r.package_tier || 'Starter',
+      created_at: r.created_at,
+    };
+  });
 };
 
 const fetchAdminProfiles = async (): Promise<PendingAdminRecord[]> => {
@@ -694,41 +718,71 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // React Query Mutation: Recruiter Action (Approve, Disapprove, Suspend, Restore)
   const recruiterActionMutation = useMutation({
     mutationFn: async ({ recruiterId, action }: { recruiterId: string; action: 'approve' | 'disapprove' | 'suspend' | 'restore' }) => {
-      // 1. Primary: Server-side authoritative endpoint
-      try {
-        const res = await fetch('/api/admin/recruiter/status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ recruiterId, action }),
-        });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success) return { recruiterId, action, data: json };
-        }
-      } catch (e) {
-        console.warn('[AdminDashboard] Server status endpoint warning:', e);
-      }
+      // Use centralized recruiterVerification service to guarantee consistency across entire platform
+      const res = await updateRecruiterVerificationStatus({
+        recruiterId,
+        action,
+        actorId: user?.id
+      });
 
-      // 2. Direct Supabase Fallback
-      if (action === 'approve') {
-        await supabase.from('recruiters').update({ payment_status: 'verified' }).eq('id', recruiterId);
-      } else if (action === 'disapprove') {
-        await supabase.from('recruiters').update({ payment_status: 'rejected' }).eq('id', recruiterId);
-      }
-      return { recruiterId, action };
+      const isApproved = res.verification_status === 'verified';
+      const isSuspended = res.verification_status === 'suspended';
+
+      return {
+        recruiterId,
+        action,
+        verification_status: res.verification_status,
+        is_approved: isApproved,
+        is_suspended: isSuspended
+      };
     },
-    onSuccess: ({ action }) => {
+    onSuccess: ({ recruiterId, action, verification_status, is_approved, is_suspended }) => {
       const messages: Record<string, string> = {
         approve: 'Recruiter account approved! Contact unlock access activated according to package.',
         disapprove: 'Recruiter account marked as disapproved because payment was not received.',
         suspend: 'Recruiter account suspended. Dashboard access denied without deleting account records.',
-        restore: 'Recruiter account access restored successfully.',
+        restore: 'Recruiter account access restored successfully. Contact unlock access re-activated.',
       };
       setNotification({
         type: 'success',
         message: messages[action] || 'Recruiter account status updated.',
       });
+
+      // Invalidate queries immediately so UI reflects changes
       queryClient.invalidateQueries({ queryKey: ['admin', 'recruiters'] });
+
+      // Optimistically update React Query cache for instantaneous zero-latency UI reflection
+      queryClient.setQueryData(['admin', 'recruiters'], (old: any[]) => {
+        if (!Array.isArray(old)) return old;
+        return old.map(r => {
+          if (r.id === recruiterId || r.user_id === recruiterId) {
+            const vStat = verification_status || (action === 'approve' || action === 'restore' ? 'verified' : action === 'suspend' ? 'suspended' : 'rejected');
+            const isApp = is_approved ?? (action === 'approve' || action === 'restore');
+            const isSus = is_suspended ?? (action === 'suspend');
+            return {
+              ...r,
+              verification_status: vStat,
+              is_approved: isApp,
+              is_suspended: isSus,
+              payment_status: isApp ? 'verified' : (isSus ? 'suspended' : r.payment_status)
+            };
+          }
+          return r;
+        });
+      });
+
+      // Broadcast custom event so any open recruiter tab updates immediately
+      try {
+        window.dispatchEvent(new CustomEvent('dsp_recruiter_status_changed', {
+          detail: {
+            recruiterId,
+            action,
+            verification_status: verification_status || (action === 'approve' || action === 'restore' ? 'verified' : action === 'suspend' ? 'suspended' : 'rejected'),
+            is_approved: is_approved ?? (action === 'approve' || action === 'restore'),
+            is_suspended: is_suspended ?? (action === 'suspend')
+          }
+        }));
+      } catch (_) {}
     },
     onError: (err: any) => {
       setNotification({
@@ -2581,7 +2635,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               ) : rec.is_approved ? (
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                   <Check className="w-3 h-3 text-emerald-600" />
-                                  <span>Approved & Active</span>
+                                  <span>Account Activated</span>
                                 </span>
                               ) : rec.payment_status === 'rejected' ? (
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200">
@@ -2597,49 +2651,83 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </td>
                             <td className="py-4 px-6 text-right">
                               <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                                {rec.payment_status !== 'verified' && (
+                                {/* Approve Action Button */}
+                                {!rec.is_approved ? (
                                   <button
                                     onClick={() => recruiterActionMutation.mutate({ recruiterId: rec.id, action: 'approve' })}
                                     disabled={recruiterActionMutation.isPending}
                                     className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center gap-1 shadow-2xs cursor-pointer disabled:opacity-50"
-                                    title="Approve recruiter and activate full contact unlocking"
+                                    title="Approve recruiter account and activate contact unlocks"
                                   >
-                                    <Check className="w-3 h-3" />
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>Approve</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => recruiterActionMutation.mutate({ recruiterId: rec.id, action: 'approve' })}
+                                    disabled={recruiterActionMutation.isPending}
+                                    className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                    title="Account is approved. Click to re-confirm or re-sync permissions."
+                                  >
+                                    <Check className="w-3.5 h-3.5 text-emerald-600" />
                                     <span>Approve</span>
                                   </button>
                                 )}
 
-                                {rec.payment_status !== 'rejected' && (
-                                  <button
-                                    onClick={() => recruiterActionMutation.mutate({ recruiterId: rec.id, action: 'disapprove' })}
-                                    disabled={recruiterActionMutation.isPending}
-                                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 transition flex items-center gap-1 shadow-2xs cursor-pointer disabled:opacity-50"
-                                    title="Disapprove recruiter due to unverified payment"
-                                  >
-                                    <XCircle className="w-3 h-3 text-amber-600" />
-                                    <span>Disapprove</span>
-                                  </button>
-                                )}
-
-                                {rec.is_suspended ? (
-                                  <button
-                                    onClick={() => recruiterActionMutation.mutate({ recruiterId: rec.id, action: 'restore' })}
-                                    disabled={recruiterActionMutation.isPending}
-                                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-300 transition flex items-center gap-1 shadow-2xs cursor-pointer disabled:opacity-50"
-                                    title="Restore recruiter access to dashboard"
-                                  >
-                                    <ShieldCheck className="w-3 h-3 text-sky-600" />
-                                    <span>Restore Access</span>
-                                  </button>
-                                ) : (
+                                {/* Suspend Action Button */}
+                                {!rec.is_suspended ? (
                                   <button
                                     onClick={() => recruiterActionMutation.mutate({ recruiterId: rec.id, action: 'suspend' })}
                                     disabled={recruiterActionMutation.isPending}
                                     className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition flex items-center gap-1 shadow-2xs cursor-pointer disabled:opacity-50"
                                     title="Suspend recruiter access without deleting account"
                                   >
-                                    <Ban className="w-3 h-3 text-rose-600" />
+                                    <Ban className="w-3.5 h-3.5 text-rose-600" />
                                     <span>Suspend</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    disabled
+                                    className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-400 bg-rose-50/50 border border-rose-100 transition flex items-center gap-1 cursor-not-allowed opacity-60"
+                                    title="Account is already suspended"
+                                  >
+                                    <Ban className="w-3.5 h-3.5 text-rose-400" />
+                                    <span>Suspended</span>
+                                  </button>
+                                )}
+
+                                {/* Restore Access Action Button */}
+                                {rec.is_suspended ? (
+                                  <button
+                                    onClick={() => recruiterActionMutation.mutate({ recruiterId: rec.id, action: 'restore' })}
+                                    disabled={recruiterActionMutation.isPending}
+                                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 hover:bg-sky-700 text-white transition flex items-center gap-1 shadow-2xs cursor-pointer disabled:opacity-50"
+                                    title="Restore recruiter access and re-activate dashboard unlocks"
+                                  >
+                                    <ShieldCheck className="w-3.5 h-3.5" />
+                                    <span>Restore Access</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    disabled
+                                    className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 bg-slate-50 border border-slate-100 transition items-center gap-1 cursor-not-allowed opacity-50 hidden md:inline-flex"
+                                    title="Account is not suspended"
+                                  >
+                                    <ShieldCheck className="w-3.5 h-3.5 text-slate-300" />
+                                    <span>Restore Access</span>
+                                  </button>
+                                )}
+
+                                {/* Optional Disapprove Button if still in pending review */}
+                                {!rec.is_approved && !rec.is_suspended && rec.payment_status !== 'rejected' && (
+                                  <button
+                                    onClick={() => recruiterActionMutation.mutate({ recruiterId: rec.id, action: 'disapprove' })}
+                                    disabled={recruiterActionMutation.isPending}
+                                    className="px-2 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 transition flex items-center gap-1 shadow-2xs cursor-pointer disabled:opacity-50"
+                                    title="Disapprove recruiter due to unverified payment"
+                                  >
+                                    <XCircle className="w-3.5 h-3.5 text-amber-600" />
+                                    <span>Disapprove</span>
                                   </button>
                                 )}
                               </div>
