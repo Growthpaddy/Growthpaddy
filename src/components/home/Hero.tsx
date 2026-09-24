@@ -1,19 +1,22 @@
-import React, { useState, useRef, useEffect, MouseEvent } from 'react';
-import { motion, useMotionValue, useSpring } from 'motion/react';
+import React from 'react';
 import { 
-  Briefcase, 
-  Zap, 
   ArrowRight, 
   ShieldCheck, 
   Clock, 
-  Award, 
-  Sparkles, 
-  CheckCircle2 
+  Zap, 
+  Users, 
+  BarChart3, 
+  Sparkles,
+  CheckCircle2,
+  Briefcase
 } from 'lucide-react';
-import gridPatternAsset from '../../assets/images/images.jpg';
+import heroTeamImage from '../../assets/images/hero_professionals_collaborating_1790269787354.jpg';
 
 export interface HeroProps {
-  navigateToPage?: (page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login' | any) => void;
+  navigateToPage?: (
+    page: 'home' | 'directory' | 'employer' | 'talent' | 'assessment' | 'pricing' | 'admin' | 'admin-login' | any,
+    extraParams?: { package?: 'starter_tier' | 'annual_unlimited'; slug?: string }
+  ) => void;
   openHireModal?: () => void;
   openTalentModal?: () => void;
   title?: string;
@@ -27,179 +30,179 @@ export const Hero: React.FC<HeroProps> = ({
   title = "Unlock the World's Elite AI & Growth Talent",
   subtitle = "We curate the top 5% of digital operators, AI workflow architects, and performance growth specialists. Cut your sourcing cycles by 80% with verified technical accreditation and direct hiring."
 }) => {
-  const containerRef = useRef<HTMLElement>(null);
-  
-  // Interactive mouse follow coordinates
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-  const [isHovered, setIsHovered] = useState(false);
-
-  // Smooth spring physics for fluid interactive spotlight glow
-  const smoothX = useSpring(mouseX, { stiffness: 150, damping: 25 });
-  const smoothY = useSpring(mouseY, { stiffness: 150, damping: 25 });
-
-  const handleMouseMove = (e: MouseEvent<HTMLElement>) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    mouseX.set(x);
-    mouseY.set(y);
+  const handlePrimaryClick = () => {
+    if (navigateToPage) {
+      navigateToPage('directory');
+    } else if (openHireModal) {
+      openHireModal();
+    }
   };
 
-  const handleMouseEnter = () => {
-    setIsHovered(true);
-  };
-
-  const handleMouseLeave = () => {
-    setIsHovered(false);
+  const handleSecondaryClick = () => {
+    if (openTalentModal) {
+      openTalentModal();
+    } else if (navigateToPage) {
+      navigateToPage('talent');
+    }
   };
 
   return (
-    <section 
-      ref={containerRef}
-      onMouseMove={handleMouseMove}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      className="relative min-h-[640px] pt-16 sm:pt-24 pb-20 sm:pb-28 px-4 sm:px-6 lg:px-8 bg-slate-950 text-white overflow-hidden border-b border-slate-800/80 select-none selection:bg-emerald-500/30 selection:text-emerald-200"
-      id="homepage-hero-section"
-    >
-      {/* ========================================================================= */}
-      {/* 1. LAYER 0: BASE DARK BACKGROUND & RADIAL VIGNETTE GRADIENTS */}
-      {/* ========================================================================= */}
-      <div className="absolute inset-0 bg-slate-950 pointer-events-none" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(16,185,129,0.15),rgba(255,255,255,0))] pointer-events-none" />
-
-      {/* ========================================================================= */}
-      {/* 2. LAYER 1: GRID BACKGROUND IMPLEMENTATION (Subtle Tiled Grid + Color-Dodge) */}
-      {/* ========================================================================= */}
-      {/* Tiled Grid Image Layer with extreme subtlety (opacity <= 0.15) and mix-blend-mode: color-dodge */}
-      <div 
-        className="absolute inset-0 pointer-events-none hero-grid-tiled"
-        style={{
-          backgroundImage: `url(${gridPatternAsset}), linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px)`,
-          backgroundSize: '48px 48px, 48px 48px, 48px 48px',
-          backgroundRepeat: 'repeat',
-          opacity: 0.14,
-          mixBlendMode: 'color-dodge',
-        }}
-        aria-hidden="true"
-      />
-
-      {/* Top & Bottom Depth Mask to softly fade grid borders */}
-      <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-slate-950 via-transparent to-slate-950/80" />
-
-      {/* ========================================================================= */}
-      {/* 3. LAYER 2: INTERACTIVE DYNAMIC MOUSE-FOLLOW GLOW (Underneath Text) */}
-      {/* ========================================================================= */}
-      <motion.div
-        className="pointer-events-none absolute -inset-px opacity-0 transition-opacity duration-500"
-        style={{
-          opacity: isHovered ? 1 : 0,
-          background: `radial-gradient(650px circle at ${smoothX.get()}px ${smoothY.get()}px, rgba(16, 185, 129, 0.18), rgba(5, 150, 105, 0.08) 35%, transparent 70%)`,
-        }}
-      />
-      
-      {/* Subtle secondary ambient glow orbs */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none animate-pulse duration-1000" />
-      <div className="absolute bottom-10 right-10 w-72 h-72 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
-
-      {/* ========================================================================= */}
-      {/* 4. LAYER 3: FOREGROUND HERO CONTENT (High-Contrast White Typography) */}
-      {/* ========================================================================= */}
-      <div className="relative z-10 max-w-6xl mx-auto space-y-8 sm:space-y-10 text-left">
+    <section className="bg-white text-slate-900 border-b border-slate-200/80 pt-10 sm:pt-14 pb-14 sm:pb-20 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
         
-        {/* Live Status Pill */}
-        <motion.div 
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="inline-flex items-center gap-2 sm:gap-2.5 bg-slate-900/90 border border-slate-700/80 hover:border-emerald-500/50 backdrop-blur-md px-3.5 py-1.5 rounded-full text-xs font-semibold text-emerald-400 shadow-xl transition-colors duration-200"
-        >
-          <span className="relative flex h-2 w-2 shrink-0">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <span className="font-mono text-[10px] sm:text-xs uppercase tracking-wider font-bold text-slate-200">
-            ⚡ Speed-First Talent Network • Pre-Vetted AI & Growth Marketers
-          </span>
-        </motion.div>
-
-        {/* Main Title & Body Typography */}
-        <motion.div 
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="max-w-4xl space-y-6"
-        >
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-white leading-[1.08] font-sans">
-            {title}{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200">
-              — At 60% Less Cost.
-            </span>
-          </h1>
-
-          <p className="text-base sm:text-xl text-slate-300 font-normal max-w-3xl leading-relaxed">
-            {subtitle}
-          </p>
-        </motion.div>
-
-        {/* Action Buttons */}
-        <motion.div 
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-2"
-        >
-          <button
-            onClick={() => navigateToPage ? navigateToPage('directory') : openHireModal ? openHireModal() : null}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-4 px-8 rounded-xl text-sm flex items-center justify-center gap-3 cursor-pointer shadow-lg shadow-emerald-950/50 hover:shadow-emerald-900/60 transition-all duration-200 group"
-            id="hero-explore-talent-btn"
-          >
-            <Briefcase className="w-4 h-4 text-emerald-100 group-hover:scale-110 transition-transform" />
-            <span>Deploy Vetted Talent in 48 Hours →</span>
-            <ArrowRight className="w-4 h-4 text-emerald-100 group-hover:translate-x-0.5 transition-transform" />
-          </button>
-
-          <button
-            onClick={() => openTalentModal ? openTalentModal() : navigateToPage ? navigateToPage('talent') : null}
-            className="bg-slate-900/80 hover:bg-slate-800 text-slate-200 hover:text-white font-semibold py-4 px-8 rounded-xl text-sm border border-slate-700/90 hover:border-slate-600 flex items-center justify-center gap-3 cursor-pointer backdrop-blur-sm transition-all duration-200 shadow-xs"
-            id="hero-apply-talent-btn"
-          >
-            <Zap className="w-4 h-4 text-emerald-400" />
-            <span>Apply as a Specialist →</span>
-          </button>
-        </motion.div>
-
-        {/* Quick Metrics Strip */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="pt-10 border-t border-slate-800/80"
-        >
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
-            <div className="bg-slate-900/60 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-sm text-left hover:border-slate-700 transition-colors">
-              <span className="text-2xl sm:text-3xl font-extrabold font-mono text-emerald-400 block">&lt; 48 Hours</span>
-              <span className="text-xs text-slate-400 font-medium block mt-1">Average Matching Time</span>
+        {/* ========================================================================= */}
+        {/* TOP ROW: TWO-COLUMN COMPOSITION (TEXT ON LEFT, VISUAL ON RIGHT) */}
+        {/* ========================================================================= */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
+          
+          {/* LEFT COLUMN: HERO CONTENT */}
+          <div className="lg:col-span-7 space-y-6 sm:space-y-7 text-left">
+            
+            {/* Eyebrow Badge */}
+            <div className="inline-flex items-center gap-2 bg-slate-50 border border-slate-200/90 px-3.5 py-1.5 rounded-full text-slate-700 shadow-2xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+              <span className="font-mono text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-800">
+                Speed-Driven Talent Network
+              </span>
             </div>
 
-            <div className="bg-slate-900/60 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-sm text-left hover:border-slate-700 transition-colors">
-              <span className="text-2xl sm:text-3xl font-extrabold font-mono text-white block">Top 3%</span>
-              <span className="text-xs text-slate-400 font-medium block mt-1">Vetted Acceptance Rate</span>
+            {/* Headline */}
+            <h1 className="text-4xl sm:text-5xl lg:text-[54px] font-extrabold tracking-tight text-slate-950 leading-[1.12]">
+              Unlock the World's Elite AI & Growth Talent —{' '}
+              <span className="text-emerald-600 inline-block font-extrabold">
+                At 60% Less Cost.
+              </span>
+            </h1>
+
+            {/* Supporting Copy */}
+            <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl font-normal">
+              {subtitle}
+            </p>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 pt-2">
+              <button
+                type="button"
+                onClick={handlePrimaryClick}
+                className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-3.5 px-6 rounded-xl text-sm flex items-center justify-center gap-2.5 cursor-pointer shadow-sm hover:shadow transition-all duration-150 group"
+                id="hero-deploy-talent-btn"
+              >
+                <span>Deploy Vetted Talent in 48 Hours →</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSecondaryClick}
+                className="bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-800 hover:text-slate-950 font-semibold py-3.5 px-6 rounded-xl text-sm border border-slate-200/90 hover:border-slate-300 flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition-all duration-150"
+                id="hero-apply-specialist-btn"
+              >
+                <span>Apply as a Specialist →</span>
+              </button>
             </div>
 
-            <div className="bg-slate-900/60 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-sm text-left hover:border-slate-700 transition-colors">
-              <span className="text-2xl sm:text-3xl font-extrabold font-mono text-emerald-400 block">0% Markups</span>
-              <span className="text-xs text-slate-400 font-medium block mt-1">Direct Salary Billing</span>
-            </div>
+          </div>
 
-            <div className="bg-slate-900/60 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-sm text-left hover:border-slate-700 transition-colors">
-              <span className="text-2xl sm:text-3xl font-extrabold font-mono text-white block">100% Audited</span>
-              <span className="text-xs text-slate-400 font-medium block mt-1">Verified Technical Output</span>
+          {/* RIGHT COLUMN: PREMIUM VISUAL WITH FLOATING UI CARD */}
+          <div className="lg:col-span-5 relative mt-4 lg:mt-0">
+            <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-200/90 shadow-xl bg-slate-100">
+              <img 
+                src={heroTeamImage} 
+                alt="Modern technology professionals collaborating"
+                className="w-full h-[360px] sm:h-[440px] object-cover object-center"
+                referrerPolicy="no-referrer"
+              />
+
+              {/* Floating UI Card Overlay matching reference image */}
+              <div className="absolute top-4 right-4 sm:top-5 sm:right-5 bg-white/95 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-xl max-w-[210px] text-left transition-transform hover:scale-[1.02]">
+                <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-xs mb-3">
+                  <ShieldCheck className="w-5 h-5 text-white" />
+                </div>
+                <div className="space-y-0.5">
+                  <h4 className="font-display font-extrabold text-slate-950 text-sm leading-tight">
+                    Hire.
+                  </h4>
+                  <h4 className="font-display font-extrabold text-slate-950 text-sm leading-tight">
+                    Scale.
+                  </h4>
+                  <h4 className="font-display font-extrabold text-slate-950 text-sm leading-tight">
+                    Grow Faster.
+                  </h4>
+                </div>
+                <p className="text-[11px] text-slate-500 leading-snug mt-2">
+                  Verified talent for the modern business.
+                </p>
+              </div>
             </div>
           </div>
-        </motion.div>
+
+        </div>
+
+        {/* ========================================================================= */}
+        {/* BOTTOM ROW: 4 HERO METRIC CARDS */}
+        {/* ========================================================================= */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-12 sm:mt-16 pt-8 border-t border-slate-100">
+          
+          {/* Card 1: < 48 Hours */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs hover:shadow-xs transition-shadow text-left flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <Zap className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div>
+              <span className="text-xl sm:text-2xl font-bold font-mono text-slate-950 block leading-tight">
+                &lt; 48 Hours
+              </span>
+              <span className="text-xs text-slate-500 font-medium block mt-0.5">
+                Average Matching Time
+              </span>
+            </div>
+          </div>
+
+          {/* Card 2: Top 3% */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs hover:shadow-xs transition-shadow text-left flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+              <Users className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <span className="text-xl sm:text-2xl font-bold font-mono text-slate-950 block leading-tight">
+                Top 3%
+              </span>
+              <span className="text-xs text-slate-500 font-medium block mt-0.5">
+                Vetted Acceptance Rate
+              </span>
+            </div>
+          </div>
+
+          {/* Card 3: 0% Markups */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs hover:shadow-xs transition-shadow text-left flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <BarChart3 className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div>
+              <span className="text-xl sm:text-2xl font-bold font-mono text-slate-950 block leading-tight">
+                0% Markups
+              </span>
+              <span className="text-xs text-slate-500 font-medium block mt-0.5">
+                Direct Salary Billing
+              </span>
+            </div>
+          </div>
+
+          {/* Card 4: 100% Audited */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs hover:shadow-xs transition-shadow text-left flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-5 h-5 text-teal-600" />
+            </div>
+            <div>
+              <span className="text-xl sm:text-2xl font-bold font-mono text-slate-950 block leading-tight">
+                100% Audited
+              </span>
+              <span className="text-xs text-slate-500 font-medium block mt-0.5">
+                Verified Technical Output
+              </span>
+            </div>
+          </div>
+
+        </div>
 
       </div>
     </section>

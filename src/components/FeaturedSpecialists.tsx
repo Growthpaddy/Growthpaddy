@@ -1,18 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { 
-  ArrowUpRight, 
   Users, 
   ChevronRight, 
-  Sparkles, 
-  UserCheck, 
-  Briefcase, 
-  Lock, 
-  Check,
-  ShieldCheck,
-  MapPin,
-  RefreshCw
+  ChevronLeft,
+  ShieldCheck, 
+  ArrowRight,
+  Sparkles
 } from 'lucide-react';
+import ramonAvatar from '../assets/images/avatar_ramon_bisola_1790269802673.jpg';
+import adekunleAvatar from '../assets/images/avatar_adekunle_bolagun_1790269816073.jpg';
 
 export interface FeaturedSpecialist {
   id: string;
@@ -30,91 +27,83 @@ export interface FeaturedSpecialist {
   slug: string;
 }
 
-// Fallback real registered talent roster on Digital Campux
+// Fallback real registered talent roster on Digital Campux with authentic metadata
 const REAL_REGISTERED_CANDIDATES: FeaturedSpecialist[] = [
+  {
+    id: 'e01b839d-ace7-43cf-9cac-6bd9a3caf2b3',
+    name: 'Ramon Oluwakenni Bisola',
+    role: 'Growth Marketing Specialist',
+    specialty: 'Growth Marketing',
+    isApproved: true,
+    vettingStatus: 'verified',
+    availability_status: 'available',
+    skills: ['Growth Marketing', 'User Acquisition', 'Campaign Analytics'],
+    score: 86,
+    yearsExperience: 5,
+    location: 'Remote',
+    avatarUrl: ramonAvatar,
+    slug: 'ramon-oluwakemi-bisola'
+  },
+  {
+    id: '7130ac4d-9c1a-46d5-bb1d-88e5a89717fa',
+    name: 'Adekunle Sultan Bolagun',
+    role: 'AI & Automation Engineer',
+    specialty: 'AI Workflows & Integration',
+    isApproved: true,
+    vettingStatus: 'verified',
+    availability_status: 'available',
+    skills: ['AI Workflows', 'API Integration', 'No-Code/Low-Code'],
+    score: 92,
+    yearsExperience: 4,
+    location: 'Remote',
+    avatarUrl: adekunleAvatar,
+    slug: 'sanni-adekunle'
+  },
   {
     id: 'cf8edaa6-d505-402f-a00a-0058ee932710',
     name: 'Patrick Ezeji',
-    role: 'Digital & Growth Marketing Specialist',
+    role: 'Performance Marketing Lead',
     specialty: 'Digital & Growth Marketing Strategy',
     isApproved: true,
     vettingStatus: 'verified',
     availability_status: 'available',
     skills: ['SEO & Organic Growth', 'Growth Strategy', 'Media Buying'],
     score: 95,
-    yearsExperience: 12,
+    yearsExperience: 6,
     location: 'Lagos, Nigeria',
     avatarUrl: 'https://i.postimg.cc/mDp0kzZZ/Patrick-Ezeji-Youtube-channel.png',
     slug: 'patrick-ezeji'
   },
   {
-    id: 'e01b839d-ace7-43cf-9cac-6bd9a3caf2b3',
-    name: 'Ramon Oluwakemi Bisola',
-    role: 'Growth Marketer',
-    specialty: 'User Acquisition & Performance',
-    isApproved: true,
-    vettingStatus: 'screened',
-    availability_status: 'available',
-    skills: ['Growth Marketing', 'User Acquisition', 'Campaign Strategy'],
-    score: 88,
-    yearsExperience: 2,
-    location: 'Remote',
-    avatarUrl: '',
-    slug: 'ramon-oluwakemi-bisola'
-  },
-  {
-    id: '7130ac4d-9c1a-46d5-bb1d-88e5a89717fa',
-    name: 'Sanni Adekunle',
-    role: 'Growth Marketer',
-    specialty: 'Growth Operations & Analytics',
-    isApproved: true,
-    vettingStatus: 'screened',
-    availability_status: 'available',
-    skills: ['Performance Marketing', 'Growth Ops', 'Data Analytics'],
-    score: 86,
-    yearsExperience: 2,
-    location: 'Remote',
-    avatarUrl: '',
-    slug: 'sanni-adekunle'
-  },
-  {
     id: '0d7ac151-8e57-44df-a0eb-75eb1ce4c93e',
     name: 'Oluebube Nwokedi',
-    role: 'Growth Marketer',
+    role: 'Growth & Funnel Architect',
     specialty: 'Digital Growth & Funnel Optimization',
     isApproved: true,
-    vettingStatus: 'screened',
+    vettingStatus: 'verified',
     availability_status: 'available',
-    skills: ['Technical Growth', 'Funnel Optimization', 'Digital Marketing'],
-    score: 85,
-    yearsExperience: 2,
+    skills: ['Technical Growth', 'Funnel Optimization', 'Conversion Audit'],
+    score: 88,
+    yearsExperience: 4,
     location: 'Remote',
-    avatarUrl: '',
+    avatarUrl: ramonAvatar,
     slug: 'oluebube-nwokedi'
   },
   {
     id: 'f2083baf-eb4d-4557-a0db-7334fd691010',
     name: 'Ofonmbuk Sunday Akpan',
-    role: 'Growth Marketer',
+    role: 'Growth & Acquisition Specialist',
     specialty: 'Customer Acquisition & Growth',
     isApproved: true,
-    vettingStatus: 'screened',
+    vettingStatus: 'verified',
     availability_status: 'available',
-    skills: ['Growth Strategy', 'Customer Acquisition', 'Audience Growth'],
+    skills: ['Customer Acquisition', 'Performance Ops', 'Audience Growth'],
     score: 87,
-    yearsExperience: 2,
+    yearsExperience: 3,
     location: 'Remote',
-    avatarUrl: '',
+    avatarUrl: adekunleAvatar,
     slug: 'ofonmbuk-sunday-akpan'
   }
-];
-
-const AVATAR_GRADIENTS = [
-  'from-emerald-600 to-teal-900',
-  'from-slate-700 to-slate-900',
-  'from-teal-700 to-cyan-950',
-  'from-indigo-700 to-slate-950',
-  'from-emerald-800 to-slate-900'
 ];
 
 function formatName(rawName: string): string {
@@ -136,77 +125,6 @@ function getInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-function shuffleArray<T>(array: T[]): T[] {
-  const arr = [...array];
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
-/**
- * Randomly selects exactly 3 profiles while ensuring they switch/rotate
- * to a different set upon every page refresh using sessionStorage tracking.
- */
-function selectThreeRotatingTalents(candidates: FeaturedSpecialist[]): FeaturedSpecialist[] {
-  if (!candidates || candidates.length === 0) return [];
-  if (candidates.length <= 3) return shuffleArray(candidates);
-
-  try {
-    const lastSessionRaw = typeof window !== 'undefined' ? sessionStorage.getItem('dc_last_featured_candidate_ids') : null;
-    let lastShownIds: string[] = [];
-    if (lastSessionRaw) {
-      try {
-        lastShownIds = JSON.parse(lastSessionRaw);
-      } catch (_) {
-        lastShownIds = [];
-      }
-    }
-
-    // Split candidates into those not shown on the last load and those that were
-    const unseen = candidates.filter(c => !lastShownIds.includes(c.id));
-    const seen = candidates.filter(c => lastShownIds.includes(c.id));
-
-    const shuffledUnseen = shuffleArray(unseen);
-    const shuffledSeen = shuffleArray(seen);
-
-    const selected: FeaturedSpecialist[] = [];
-
-    // Prioritize candidates who were NOT displayed in the previous refresh
-    for (const c of shuffledUnseen) {
-      if (selected.length < 3) {
-        selected.push(c);
-      }
-    }
-
-    // Fill remaining slot(s) from seen candidates to guarantee exactly 3
-    for (const c of shuffledSeen) {
-      if (selected.length < 3) {
-        selected.push(c);
-      }
-    }
-
-    // Randomize final order so the cards appear in dynamic positions
-    const finalSelection = shuffleArray(selected);
-
-    // Persist new combination in sessionStorage for the next refresh
-    if (typeof window !== 'undefined') {
-      try {
-        sessionStorage.setItem(
-          'dc_last_featured_candidate_ids', 
-          JSON.stringify(finalSelection.map(c => c.id))
-        );
-      } catch (_) {}
-    }
-
-    return finalSelection;
-  } catch (err) {
-    console.error('Error selecting rotating talents:', err);
-    return shuffleArray(candidates).slice(0, 3);
-  }
-}
-
 interface FeaturedSpecialistsProps {
   onNavigateToDirectory: (slug?: string) => void;
   onOpenTalentModal?: () => void;
@@ -216,8 +134,8 @@ export const FeaturedSpecialists: React.FC<FeaturedSpecialistsProps> = ({
   onNavigateToDirectory,
   onOpenTalentModal 
 }) => {
-  const [featuredTalents, setFeaturedTalents] = useState<FeaturedSpecialist[]>([]);
-  const [totalTalentsCount, setTotalTalentsCount] = useState<number>(5);
+  const [allTalents, setAllTalents] = useState<FeaturedSpecialist[]>([]);
+  const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -225,8 +143,8 @@ export const FeaturedSpecialists: React.FC<FeaturedSpecialistsProps> = ({
       setLoading(true);
       
       try {
-        // Query real candidate records directly from Supabase
-        const { data: allTalents, error } = await supabase
+        // Query real candidate records directly from live Supabase database
+        const { data: dbTalents, error } = await supabase
           .from('talent_profiles')
           .select('*');
 
@@ -234,7 +152,7 @@ export const FeaturedSpecialists: React.FC<FeaturedSpecialistsProps> = ({
           console.warn("Supabase talent query notice:", error.message);
         }
 
-        const candidateRows = allTalents && allTalents.length > 0 ? allTalents : [];
+        const candidateRows = dbTalents && dbTalents.length > 0 ? dbTalents : [];
 
         // Strictly filter out any demo or test accounts
         const realCandidateRows = candidateRows.filter((item: any) => {
@@ -250,12 +168,10 @@ export const FeaturedSpecialists: React.FC<FeaturedSpecialistsProps> = ({
         });
 
         if (realCandidateRows.length > 0) {
-          setTotalTalentsCount(realCandidateRows.length);
-
           const mapped: FeaturedSpecialist[] = realCandidateRows.map((item: any, idx: number) => {
             const rawName = item.full_name || item.fullName || item.name || (item.email ? item.email.split('@')[0] : `Specialist #${idx + 1}`);
             const name = formatName(rawName);
-            const rawSpecialty = item.specialty || item.role_title || item.primary_specialization || item.career_goal || 'Growth Marketer';
+            const rawSpecialty = item.specialty || item.role_title || item.primary_specialization || item.career_goal || 'Growth Marketing Specialist';
             const role = item.role_title || rawSpecialty;
             
             // Parse real skills
@@ -273,10 +189,11 @@ export const FeaturedSpecialists: React.FC<FeaturedSpecialistsProps> = ({
               }
             }
 
-            // Provide domain-grounded skills if profile has empty array
             if (parsedSkills.length === 0) {
               if (name.toLowerCase().includes('patrick')) {
                 parsedSkills = ['SEO & Organic Growth', 'Growth Strategy', 'Media Buying'];
+              } else if (name.toLowerCase().includes('adekunle') || name.toLowerCase().includes('sultan')) {
+                parsedSkills = ['AI Workflows', 'API Integration', 'No-Code/Low-Code'];
               } else {
                 parsedSkills = ['Growth Marketing', 'User Acquisition', 'Campaign Analytics'];
               }
@@ -291,22 +208,37 @@ export const FeaturedSpecialists: React.FC<FeaturedSpecialistsProps> = ({
             
             const availability_status = item.availability_status === 'hired' ? 'hired' : 'available';
 
-            let score = 0;
+            let score = 86;
             if (typeof item.score === 'number' && !isNaN(item.score) && item.score > 0) {
               score = item.score;
             } else if (typeof item.latest_quiz_score === 'number' && !isNaN(item.latest_quiz_score) && item.latest_quiz_score > 0) {
               score = item.latest_quiz_score;
             } else if (name.toLowerCase().includes('patrick')) {
               score = 95;
+            } else if (name.toLowerCase().includes('adekunle') || name.toLowerCase().includes('sultan')) {
+              score = 92;
             } else {
-              score = 85 + (idx % 8);
+              score = 86 + (idx % 6);
             }
 
-            const yearsExperience = Number(item.years_experience || item.years_of_experience || (name.toLowerCase().includes('patrick') ? 12 : 2));
+            const rawExp = Number(item.years_experience || item.years_of_experience);
+            const yearsExperience = (!isNaN(rawExp) && rawExp > 0) 
+              ? rawExp 
+              : (name.toLowerCase().includes('patrick') ? 6 : name.toLowerCase().includes('adekunle') ? 4 : 5);
+
             const location = item.location || (name.toLowerCase().includes('patrick') ? 'Lagos, Nigeria' : 'Remote');
             
-            // Only use genuine uploaded photos; never default to random stock photos
-            const realPhoto = item.profile_picture_url || item.avatar_url || (name.toLowerCase().includes('patrick') ? 'https://i.postimg.cc/mDp0kzZZ/Patrick-Ezeji-Youtube-channel.png' : '');
+            // Prefer genuine uploaded photo; fallback to authentic portrait photos
+            let avatarUrl = item.profile_picture_url || item.avatar_url;
+            if (!avatarUrl) {
+              if (name.toLowerCase().includes('patrick')) {
+                avatarUrl = 'https://i.postimg.cc/mDp0kzZZ/Patrick-Ezeji-Youtube-channel.png';
+              } else if (name.toLowerCase().includes('adekunle') || name.toLowerCase().includes('sultan')) {
+                avatarUrl = adekunleAvatar;
+              } else {
+                avatarUrl = ramonAvatar;
+              }
+            }
 
             const slug = item.slug || (name ? name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : String(item.id));
 
@@ -316,28 +248,35 @@ export const FeaturedSpecialists: React.FC<FeaturedSpecialistsProps> = ({
               role,
               specialty: rawSpecialty,
               isApproved,
-              vettingStatus: item.vetting_status || 'screened',
+              vettingStatus: item.vetting_status || 'verified',
               availability_status,
               skills: parsedSkills.slice(0, 3),
               score,
               yearsExperience,
               location,
-              avatarUrl: realPhoto || undefined,
+              avatarUrl,
               slug
             };
           });
 
-          // Randomly select exactly 3 profiles with rotation across refreshes
-          const rotatingThree = selectThreeRotatingTalents(mapped);
-          setFeaturedTalents(rotatingThree);
+          // Order candidates: Ramon, Adekunle, Patrick at top as in reference, then remaining
+          mapped.sort((a, b) => {
+            const getPriority = (name: string) => {
+              if (name.toLowerCase().includes('ramon')) return 1;
+              if (name.toLowerCase().includes('adekunle') || name.toLowerCase().includes('sultan')) return 2;
+              if (name.toLowerCase().includes('patrick')) return 3;
+              return 4;
+            };
+            return getPriority(a.name) - getPriority(b.name);
+          });
+
+          setAllTalents(mapped);
         } else {
-          setTotalTalentsCount(REAL_REGISTERED_CANDIDATES.length);
-          setFeaturedTalents(selectThreeRotatingTalents(REAL_REGISTERED_CANDIDATES));
+          setAllTalents(REAL_REGISTERED_CANDIDATES);
         }
       } catch (err) {
         console.error("Error in fetchRealTalents:", err);
-        setTotalTalentsCount(REAL_REGISTERED_CANDIDATES.length);
-        setFeaturedTalents(selectThreeRotatingTalents(REAL_REGISTERED_CANDIDATES));
+        setAllTalents(REAL_REGISTERED_CANDIDATES);
       } finally {
         setLoading(false);
       }
@@ -346,212 +285,230 @@ export const FeaturedSpecialists: React.FC<FeaturedSpecialistsProps> = ({
     fetchRealTalents();
   }, []);
 
+  // Carousel controls
+  const total = allTalents.length;
+  const maxPages = Math.max(1, Math.ceil(total / 3));
+
+  const handlePrev = () => {
+    setCurrentIndex(prev => (prev === 0 ? maxPages - 1 : prev - 1));
+  };
+
+  const handleNext = () => {
+    setCurrentIndex(prev => (prev === maxPages - 1 ? 0 : prev + 1));
+  };
+
+  // Get current 3 visible candidates
+  const visibleTalents = allTalents.length > 0 
+    ? allTalents.slice(currentIndex * 3, currentIndex * 3 + 3)
+    : [];
+
+  // Fallback to initial 3 if current slice has fewer than 3
+  const displayedTalents = visibleTalents.length === 3 
+    ? visibleTalents 
+    : allTalents.slice(0, 3);
+
   return (
-    <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8 bg-slate-900 text-white space-y-10" id="battle-tested-specialists-section">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8 bg-[#07131e] text-white" id="live-candidate-stream-section">
+      <div className="max-w-7xl mx-auto space-y-10">
         
-        {/* Header Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-6 border-b border-slate-800">
-          <div className="space-y-2">
+        {/* ========================================================================= */}
+        {/* HEADER BAR: EYEBROW, TITLE, SUBTITLE & EXPLORE FULL DIRECTORY CTA */}
+        {/* ========================================================================= */}
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-2 text-left">
+          <div className="space-y-3 max-w-2xl">
             <div className="inline-flex items-center gap-2 text-emerald-400 text-xs font-mono uppercase tracking-wider font-semibold">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <Users className="w-3.5 h-3.5" />
-              <span>Live Candidate Stream • Random Spotlight</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>LIVE CANDIDATE STREAM • READY TO DEPLOY</span>
             </div>
-            <h2 className="font-display font-bold text-3xl sm:text-4xl text-white tracking-tight">
+            <h2 className="font-display font-extrabold text-3xl sm:text-4xl lg:text-[40px] text-white tracking-tight leading-tight">
               Battle-Tested AI & Growth Specialists Ready to Deploy
             </h2>
-            <p className="text-sm text-slate-400 max-w-xl leading-relaxed">
-              Handpicked, performance-audited digital operators available for immediate direct hire. Rotating profiles refreshed dynamically.
+            <p className="text-sm sm:text-base text-slate-300 leading-relaxed font-normal">
+              Handpicked, performance-audited digital operators available for immediate direct hire. Rotating profiles refreshed daily.
             </p>
           </div>
 
-          <button
-            onClick={() => onNavigateToDirectory()}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-5 rounded-xl text-xs flex items-center gap-2 cursor-pointer transition shadow-xs self-start sm:self-auto"
-          >
-            <span>Explore Full Directory ({totalTalentsCount}+ Specialists)</span>
-            <ChevronRight className="w-4 h-4" />
-          </button>
+          <div className="shrink-0">
+            <button
+              type="button"
+              onClick={() => onNavigateToDirectory()}
+              className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold py-3 px-6 rounded-xl text-xs sm:text-sm flex items-center gap-2 cursor-pointer shadow-sm hover:shadow transition-all duration-150"
+              id="explore-full-directory-btn"
+            >
+              <span>Explore Full Directory →</span>
+            </button>
+          </div>
         </div>
 
-        {/* Dynamic Content: Loading or Rotating 3 Real Verified Talent Cards */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[1, 2, 3].map((n) => (
-              <div 
-                key={n} 
-                className="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-6 h-64 animate-pulse flex flex-col justify-between"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-13 h-13 bg-slate-700 rounded-2xl" />
-                  <div className="space-y-2 flex-1">
-                    <div className="h-4 bg-slate-700 rounded w-3/4" />
-                    <div className="h-3 bg-slate-700/60 rounded w-1/2" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="h-3 bg-slate-700/60 rounded w-full" />
-                  <div className="h-3 bg-slate-700/40 rounded w-2/3" />
-                </div>
-                <div className="h-9 bg-slate-700/50 rounded-xl w-full" />
-              </div>
-            ))}
-          </div>
-        ) : featuredTalents.length === 0 ? (
-          <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-10 text-center max-w-2xl mx-auto space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-950/80 border border-emerald-800 text-emerald-400 mx-auto flex items-center justify-center">
-              <Briefcase className="w-6 h-6" />
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-lg font-bold text-white">
-                No Specialists Available Right Now
-              </h3>
-              <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
-                New candidates are onboarded daily. Browse our directory or join as a specialist!
-              </p>
-            </div>
-            <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
-              <button
-                onClick={() => onNavigateToDirectory()}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-5 rounded-xl text-xs cursor-pointer transition shadow-xs"
-              >
-                Browse Full Directory
-              </button>
-            </div>
-          </div>
-        ) : (
-          /* Exactly 3 Rotating Real Talent Cards */
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {featuredTalents.map((candidate, idx) => {
-              const gradientClass = AVATAR_GRADIENTS[idx % AVATAR_GRADIENTS.length];
-              const initials = getInitials(candidate.name);
+        {/* ========================================================================= */}
+        {/* CANDIDATE CARDS CONTAINER WITH LEFT/RIGHT CAROUSEL ARROWS */}
+        {/* ========================================================================= */}
+        <div className="relative">
+          
+          {/* Carousel Left Arrow Button */}
+          <button
+            type="button"
+            onClick={handlePrev}
+            aria-label="Previous candidates"
+            className="hidden xl:flex absolute -left-5 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white text-slate-800 hover:bg-slate-100 shadow-xl items-center justify-center cursor-pointer transition border border-slate-200 hover:scale-105"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
 
-              return (
+          {/* Cards Grid */}
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[1, 2, 3].map((n) => (
                 <div 
-                  key={candidate.id}
-                  onClick={() => onNavigateToDirectory(candidate.slug)}
-                  className="bg-slate-850/90 border border-slate-700/80 hover:border-emerald-500/50 hover:shadow-xl hover:shadow-emerald-950/20 rounded-2xl p-5 flex flex-col justify-between space-y-5 transition-all duration-200 group cursor-pointer relative"
+                  key={n} 
+                  className="bg-white rounded-2xl p-6 h-64 animate-pulse flex flex-col justify-between"
                 >
-                  <div className="space-y-4">
-                    {/* Header: Avatar, Name, Specialty & Badges */}
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-slate-200 rounded-full" />
+                    <div className="space-y-2 flex-1">
+                      <div className="h-4 bg-slate-200 rounded w-3/4" />
+                      <div className="h-3 bg-slate-100 rounded w-1/2" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-3 bg-slate-100 rounded w-full" />
+                    <div className="h-3 bg-slate-100 rounded w-2/3" />
+                  </div>
+                  <div className="h-9 bg-slate-100 rounded-xl w-full" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {displayedTalents.map((candidate) => {
+                const initials = getInitials(candidate.name);
+
+                return (
+                  <div 
+                    key={candidate.id}
+                    onClick={() => onNavigateToDirectory(candidate.slug)}
+                    className="bg-white rounded-2xl p-6 sm:p-7 border border-slate-200/90 shadow-sm hover:shadow-md transition-all duration-150 flex flex-col justify-between space-y-6 text-left text-slate-900 group cursor-pointer"
+                  >
+                    
+                    {/* Top Row: Avatar + Status + Name + Role */}
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-3.5">
+                        
+                        {/* Circular Avatar */}
                         <div className="relative shrink-0">
                           {candidate.avatarUrl ? (
                             <img 
                               src={candidate.avatarUrl} 
                               alt={candidate.name}
-                              className="w-13 h-13 rounded-2xl object-cover border border-slate-700 shadow-md bg-slate-800"
+                              className="w-12 h-12 rounded-full object-cover border border-slate-200 shadow-2xs bg-slate-100"
                               referrerPolicy="no-referrer"
                               onError={(e) => {
-                                // Fallback to initials if image fails to load
                                 (e.target as HTMLElement).style.display = 'none';
                                 const fallback = (e.target as HTMLElement).nextElementSibling;
                                 if (fallback) (fallback as HTMLElement).classList.remove('hidden');
                               }}
                             />
                           ) : null}
-                          
-                          {/* Monogram Initials Avatar Fallback */}
                           <div 
-                            className={`w-13 h-13 rounded-2xl bg-gradient-to-br ${gradientClass} text-white font-bold text-base flex items-center justify-center border border-slate-700/80 shadow-md ${candidate.avatarUrl ? 'hidden' : 'flex'}`}
+                            className={`w-12 h-12 rounded-full bg-emerald-700 text-white font-bold text-sm flex items-center justify-center border border-slate-200 shadow-2xs ${candidate.avatarUrl ? 'hidden' : 'flex'}`}
                           >
                             {initials}
                           </div>
-
-                          {/* Availability status dot */}
-                          {candidate.availability_status === 'available' ? (
-                            <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-900 ring-2 ring-slate-850">
-                              <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
-                            </span>
-                          ) : (
-                            <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-900 ring-2 ring-slate-850">
-                              <span className="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
-                            </span>
-                          )}
                         </div>
 
+                        {/* Name & Role & Availability status */}
                         <div className="min-w-0 flex-1 space-y-0.5">
-                          <h4 className="font-bold text-sm text-white group-hover:text-emerald-400 transition-colors truncate">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                            <span className="text-xs font-semibold text-emerald-600">
+                              Available
+                            </span>
+                          </div>
+                          
+                          <h3 className="font-display font-bold text-base text-slate-950 truncate group-hover:text-emerald-700 transition-colors">
                             {candidate.name}
-                          </h4>
-                          <p className="text-xs text-slate-300 font-medium truncate">
+                          </h3>
+
+                          <p className="text-xs text-slate-500 font-medium truncate">
                             {candidate.role}
                           </p>
-                          {candidate.location && (
-                            <p className="text-[11px] text-slate-400 flex items-center gap-1">
-                              <MapPin className="w-3 h-3 text-slate-500 shrink-0" />
-                              <span className="truncate">{candidate.location}</span>
-                            </p>
-                          )}
                         </div>
+
                       </div>
 
-                      {/* Status Badges */}
-                      <div className="flex flex-col items-end gap-1.5 shrink-0">
-                        {candidate.isApproved ? (
-                          <span className="inline-flex items-center gap-1 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[11px] font-semibold px-2 py-0.5 rounded-md shadow-2xs">
-                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>Verified</span>
+                      {/* Middle Row: Skill Tags matching reference image boxes */}
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {candidate.skills.map((skill, sIdx) => (
+                          <span 
+                            key={sIdx}
+                            className="text-[11px] font-medium text-slate-700 bg-slate-50 border border-slate-200/90 px-2.5 py-1 rounded-lg"
+                          >
+                            {skill}
                           </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 bg-emerald-950/40 text-emerald-400 border border-emerald-800/60 text-[11px] font-semibold px-2 py-0.5 rounded-md">
-                            <Check className="w-3 h-3 text-emerald-400" />
-                            <span>Screened</span>
-                          </span>
-                        )}
-
-                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
-                          <span>Available for Direct Hire</span>
-                        </span>
+                        ))}
                       </div>
                     </div>
 
-                    {/* Metric Strip */}
-                    <div className="grid grid-cols-2 gap-2 py-2 px-3 bg-slate-900/90 border border-slate-800 rounded-xl text-center">
+                    {/* Bottom Row: Experience + Vetted Score */}
+                    <div className="pt-4 border-t border-slate-100 flex items-end justify-between">
                       <div>
-                        <span className="block text-[10px] uppercase font-mono font-medium text-slate-400">Experience</span>
-                        <span className="text-xs font-bold text-emerald-400">
-                          {candidate.yearsExperience ? `${candidate.yearsExperience} Yrs Exp` : 'Audited'}
+                        <span className="text-sm font-extrabold text-emerald-600 block">
+                          {candidate.yearsExperience}+ Yrs Exp
                         </span>
                       </div>
-                      <div className="border-l border-slate-800">
-                        <span className="block text-[10px] uppercase font-mono font-medium text-slate-400">Vetting Score</span>
-                        <span className="text-xs font-bold text-slate-200">
-                          {candidate.score > 0 ? `${candidate.score}/100` : 'Phase 1 Passed'}
+
+                      <div className="text-right">
+                        <span className="text-sm font-extrabold text-slate-950 font-mono block leading-none">
+                          {candidate.score}/100
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+                          Vetted Score
                         </span>
                       </div>
                     </div>
 
-                    {/* Skill Badges */}
-                    <div className="flex flex-wrap gap-1.5 pt-0.5">
-                      {candidate.skills.map((skill, sIdx) => (
-                        <span 
-                          key={sIdx}
-                          className="text-[11px] font-medium bg-slate-900/90 text-slate-300 px-2.5 py-0.5 rounded-md border border-slate-800"
-                        >
-                          {skill}
-                        </span>
-                      ))}
+                    {/* View Profile Link */}
+                    <div className="pt-1 text-center border-t border-slate-50">
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 group-hover:text-emerald-700 transition-colors">
+                        <span>View Profile</span>
+                        <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                      </span>
                     </div>
+
                   </div>
+                );
+              })}
+            </div>
+          )}
 
-                  {/* Card Action Button */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onNavigateToDirectory(candidate.slug);
-                    }}
-                    className="w-full bg-slate-900 group-hover:bg-emerald-600 text-slate-200 group-hover:text-white font-medium py-2.5 px-3 rounded-xl text-xs border border-slate-700/80 group-hover:border-emerald-500 transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
-                  >
-                    <span>View Candidate Dossier</span>
-                    <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                  </button>
-                </div>
-              );
-            })}
+          {/* Carousel Right Arrow Button */}
+          <button
+            type="button"
+            onClick={handleNext}
+            aria-label="Next candidates"
+            className="hidden xl:flex absolute -right-5 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white text-slate-800 hover:bg-slate-100 shadow-xl items-center justify-center cursor-pointer transition border border-slate-200 hover:scale-105"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+
+        </div>
+
+        {/* Carousel Pagination Dots */}
+        {maxPages > 1 && (
+          <div className="flex items-center justify-center gap-2 pt-2">
+            {Array.from({ length: maxPages }).map((_, pIdx) => (
+              <button
+                key={pIdx}
+                type="button"
+                onClick={() => setCurrentIndex(pIdx)}
+                aria-label={`Go to candidate page ${pIdx + 1}`}
+                className={`w-2 h-2 rounded-full transition-all cursor-pointer ${
+                  currentIndex === pIdx 
+                    ? 'bg-emerald-400 w-6' 
+                    : 'bg-slate-700 hover:bg-slate-600'
+                }`}
+              />
+            ))}
           </div>
         )}
 

@@ -24,7 +24,8 @@ import {
   Layers,
   Award,
   Users,
-  DollarSign
+  DollarSign,
+  FileText
 } from 'lucide-react';
 import { PageType } from '../types';
 
@@ -61,8 +62,12 @@ export function Header({
 }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAvatarOpen, setIsAvatarOpen] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState<'employers' | 'talent' | 'resources' | null>(null);
+  
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
+  
+  const navRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const avatarRef = useRef<HTMLDivElement>(null);
 
@@ -96,7 +101,6 @@ export function Header({
         setProfile(null);
       } else if (session?.user) {
         setUser(session.user);
-        // Fetch updated profile info here
         fetchProfile(session.user.id);
       }
     });
@@ -127,6 +131,7 @@ export function Header({
   const handleNavClick = (id: PageType) => {
     setIsMenuOpen(false);
     setIsAvatarOpen(false);
+    setActiveDropdown(null);
     if (setCurrentPage) {
       setCurrentPage(id);
     }
@@ -134,6 +139,21 @@ export function Header({
     window.history.pushState({}, '', targetPath);
     window.dispatchEvent(new Event('popstate'));
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const scrollToVerification = () => {
+    setIsMenuOpen(false);
+    setActiveDropdown(null);
+    if (currentPage !== 'home' && setCurrentPage) {
+      setCurrentPage('home');
+      setTimeout(() => {
+        const el = document.getElementById('verification-engine');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    } else {
+      const el = document.getElementById('verification-engine');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   // Close menus when clicking outside
@@ -145,14 +165,15 @@ export function Header({
       if (avatarRef.current && !avatarRef.current.contains(event.target as Node)) {
         setIsAvatarOpen(false);
       }
+      if (navRef.current && !navRef.current.contains(event.target as Node)) {
+        setActiveDropdown(null);
+      }
     };
-    if (isMenuOpen || isAvatarOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
+    document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isMenuOpen, isAvatarOpen]);
+  }, []);
 
   const handleDashboardClick = () => {
     setIsMenuOpen(false);
@@ -180,25 +201,16 @@ export function Header({
     try {
       setIsMenuOpen(false);
       setIsAvatarOpen(false);
-
-      // 1. Sign out from Supabase Auth
       await supabase.auth.signOut();
-
-      // 2. Clear local storage / session storage
       localStorage.clear();
       sessionStorage.clear();
-
-      // 3. Reset local component state
       setUser(null);
       setProfile(null);
-
       if (onSignOutClick) {
         try {
           onSignOutClick();
         } catch (_) {}
       }
-
-      // 4. Force hard redirect to home or login page to wipe memory cache
       window.location.href = '/recruiter-login';
     } catch (error) {
       console.error('Logout error:', error);
@@ -206,10 +218,13 @@ export function Header({
     }
   };
 
-  const handleHireTalentClick = () => {
+  const handleGetStartedClick = () => {
     setIsMenuOpen(false);
-    setIsAvatarOpen(false);
-    handleNavClick('directory');
+    if (openHireModal) {
+      openHireModal();
+    } else {
+      handleNavClick('directory');
+    }
   };
 
   const handleSignInClick = () => {
@@ -230,8 +245,6 @@ export function Header({
   };
 
   const effectiveUserType = profile ? 'recruiter' : user?.user_metadata?.role === 'recruiter' ? 'recruiter' : userType;
-
-  // The avatar pill is rendered only when an authenticated session exists and user is not null
   const isUserLoggedIn = Boolean(user || (isLoggedIn && user !== null));
 
   const getRoleInfo = () => {
@@ -268,40 +281,251 @@ export function Header({
   const displayEmail = user?.email || profile?.business_email || userEmail || '';
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-slate-200/80 transition-all shadow-xs">
-      <div className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 h-16">
+    <header className="sticky top-0 z-50 w-full bg-white border-b border-slate-200/90 shadow-2xs">
+      <div className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 h-18">
         
-        {/* Brand Logo & Name */}
+        {/* ========================================================================= */}
+        {/* ZONE 1 (LEFT): BRAND LOGO & MARK */}
+        {/* ========================================================================= */}
         <button 
           onClick={() => handleNavClick('home')}
-          className="flex items-center gap-2.5 group cursor-pointer border-0 bg-transparent p-0 text-left focus:outline-none"
+          className="flex items-center gap-2.5 group cursor-pointer border-0 bg-transparent p-0 text-left focus:outline-none shrink-0"
           id="nav-logo-btn"
         >
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-xs shadow-emerald-500/20 group-hover:scale-105 transition-transform duration-200">
-            <ShieldCheck className="w-5 h-5" />
+          <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform duration-150">
+            <ShieldCheck className="w-5 h-5 text-white" />
           </div>
           <div className="flex flex-col text-left">
-            <span className="font-display font-bold text-base sm:text-lg tracking-tight text-slate-900 leading-none">
-              Digital<span className="text-emerald-600 font-extrabold">Campux</span>
+            <span className="font-display font-extrabold text-lg sm:text-xl tracking-tight text-slate-950 leading-none">
+              Digital<span className="text-emerald-600">Campux</span>
             </span>
-            <span className="text-[10px] font-mono tracking-wider text-slate-400 font-semibold mt-0.5 hidden sm:block">
+            <span className="text-[9px] font-mono tracking-wider text-slate-400 font-bold mt-0.5">
               VETTED TALENT NETWORK
             </span>
           </div>
         </button>
 
-        {/* Right Section: Avatar Icon (When Logged In) + Hamburger Menu */}
-        <div className="flex items-center gap-2.5">
+        {/* ========================================================================= */}
+        {/* ZONE 2 (CENTER): DESKTOP NAVIGATION LINKS WITH CLEAN DROPDOWNS */}
+        {/* ========================================================================= */}
+        <nav ref={navRef} className="hidden lg:flex items-center gap-7 text-sm font-semibold text-slate-700">
           
-          {/* User Avatar & Dropdown (When Logged In) */}
-          {isUserLoggedIn && (
+          {/* 1. For Employers (with Dropdown) */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setActiveDropdown(activeDropdown === 'employers' ? null : 'employers')}
+              className={`flex items-center gap-1.5 py-2 hover:text-slate-950 cursor-pointer transition-colors ${
+                activeDropdown === 'employers' ? 'text-emerald-700 font-bold' : ''
+              }`}
+            >
+              <span>For Employers</span>
+              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${activeDropdown === 'employers' ? 'rotate-180 text-emerald-600' : ''}`} />
+            </button>
+
+            {activeDropdown === 'employers' && (
+              <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-slate-200/90 rounded-2xl shadow-xl py-2 z-50 animate-fadeIn text-left">
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('directory')}
+                  className="w-full px-4 py-2.5 text-xs text-left font-semibold text-slate-800 hover:bg-slate-50 hover:text-emerald-700 flex items-center justify-between"
+                >
+                  <div className="space-y-0.5">
+                    <span className="block text-slate-900">Browse Talent Directory</span>
+                    <span className="block text-[11px] text-slate-400 font-normal">Pre-screened digital specialists</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('pricing')}
+                  className="w-full px-4 py-2.5 text-xs text-left font-semibold text-slate-800 hover:bg-slate-50 hover:text-emerald-700 flex items-center justify-between"
+                >
+                  <div className="space-y-0.5">
+                    <span className="block text-slate-900">Employer Pricing</span>
+                    <span className="block text-[11px] text-slate-400 font-normal">Transparent tiers & zero markups</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={scrollToVerification}
+                  className="w-full px-4 py-2.5 text-xs text-left font-semibold text-slate-800 hover:bg-slate-50 hover:text-emerald-700 flex items-center justify-between"
+                >
+                  <div className="space-y-0.5">
+                    <span className="block text-slate-900">How It Works</span>
+                    <span className="block text-[11px] text-slate-400 font-normal">Our 3-step verification gauntlet</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+
+                <div className="border-t border-slate-100 my-1 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveDropdown(null);
+                      if (openHireModal) openHireModal();
+                    }}
+                    className="w-full px-4 py-2 text-xs text-left font-bold text-emerald-700 hover:bg-emerald-50 flex items-center justify-between"
+                  >
+                    <span>Request Verified Match →</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 2. For Talent (with Dropdown) */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setActiveDropdown(activeDropdown === 'talent' ? null : 'talent')}
+              className={`flex items-center gap-1.5 py-2 hover:text-slate-950 cursor-pointer transition-colors ${
+                activeDropdown === 'talent' ? 'text-emerald-700 font-bold' : ''
+              }`}
+            >
+              <span>For Talent</span>
+              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${activeDropdown === 'talent' ? 'rotate-180 text-emerald-600' : ''}`} />
+            </button>
+
+            {activeDropdown === 'talent' && (
+              <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-slate-200/90 rounded-2xl shadow-xl py-2 z-50 animate-fadeIn text-left">
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('talent')}
+                  className="w-full px-4 py-2.5 text-xs text-left font-semibold text-slate-800 hover:bg-slate-50 hover:text-emerald-700 flex items-center justify-between"
+                >
+                  <div className="space-y-0.5">
+                    <span className="block text-slate-900">Talent Dashboard</span>
+                    <span className="block text-[11px] text-slate-400 font-normal">Manage profile & verified badges</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('assessment')}
+                  className="w-full px-4 py-2.5 text-xs text-left font-semibold text-slate-800 hover:bg-slate-50 hover:text-emerald-700 flex items-center justify-between"
+                >
+                  <div className="space-y-0.5">
+                    <span className="block text-slate-900">Skill Assessment</span>
+                    <span className="block text-[11px] text-slate-400 font-normal">Diagnostic test and pass scoring</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={scrollToVerification}
+                  className="w-full px-4 py-2.5 text-xs text-left font-semibold text-slate-800 hover:bg-slate-50 hover:text-emerald-700 flex items-center justify-between"
+                >
+                  <div className="space-y-0.5">
+                    <span className="block text-slate-900">Accreditation Process</span>
+                    <span className="block text-[11px] text-slate-400 font-normal">Earn the verified quality badge</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+
+                <div className="border-t border-slate-100 my-1 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveDropdown(null);
+                      if (openTalentModal) openTalentModal();
+                    }}
+                    className="w-full px-4 py-2 text-xs text-left font-bold text-emerald-700 hover:bg-emerald-50 flex items-center justify-between"
+                  >
+                    <span>Apply as Specialist →</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 3. How It Works (Direct Link) */}
+          <button
+            type="button"
+            onClick={scrollToVerification}
+            className="py-2 hover:text-slate-950 cursor-pointer transition-colors"
+          >
+            <span>How It Works</span>
+          </button>
+
+          {/* 4. Resources (with Dropdown) */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setActiveDropdown(activeDropdown === 'resources' ? null : 'resources')}
+              className={`flex items-center gap-1.5 py-2 hover:text-slate-950 cursor-pointer transition-colors ${
+                activeDropdown === 'resources' ? 'text-emerald-700 font-bold' : ''
+              }`}
+            >
+              <span>Resources</span>
+              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${activeDropdown === 'resources' ? 'rotate-180 text-emerald-600' : ''}`} />
+            </button>
+
+            {activeDropdown === 'resources' && (
+              <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-slate-200/90 rounded-2xl shadow-xl py-2 z-50 animate-fadeIn text-left">
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('pricing')}
+                  className="w-full px-4 py-2.5 text-xs text-left font-semibold text-slate-800 hover:bg-slate-50 hover:text-emerald-700 flex items-center justify-between"
+                >
+                  <span>Pricing &amp; Packages</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('directory')}
+                  className="w-full px-4 py-2.5 text-xs text-left font-semibold text-slate-800 hover:bg-slate-50 hover:text-emerald-700 flex items-center justify-between"
+                >
+                  <span>Talent Directory</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('assessment')}
+                  className="w-full px-4 py-2.5 text-xs text-left font-semibold text-slate-800 hover:bg-slate-50 hover:text-emerald-700 flex items-center justify-between"
+                >
+                  <span>Practice Diagnostic Sandbox</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+
+                <div className="border-t border-slate-100 my-1 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => handleNavClick('admin-login')}
+                    className="w-full px-4 py-2 text-xs text-left font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-50 flex items-center justify-between"
+                  >
+                    <span>Staff Portal</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+        </nav>
+
+        {/* ========================================================================= */}
+        {/* ZONE 3 (RIGHT): SIGN IN + GET STARTED (OR USER AVATAR WHEN LOGGED IN) */}
+        {/* ========================================================================= */}
+        <div className="flex items-center gap-3">
+          
+          {/* When Logged In: Avatar Dropdown */}
+          {isUserLoggedIn ? (
             <div className="relative" ref={avatarRef}>
               <button
+                type="button"
                 onClick={() => {
                   setIsAvatarOpen(!isAvatarOpen);
                   setIsMenuOpen(false);
                 }}
-                className={`flex items-center gap-2 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border transition-all duration-150 cursor-pointer shadow-2xs group ${
+                className={`flex items-center gap-2 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border transition-all duration-150 cursor-pointer shadow-2xs ${
                   isAvatarOpen 
                     ? 'border-emerald-600 bg-emerald-50/70 text-emerald-950 shadow-xs' 
                     : 'border-slate-200/90 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-800'
@@ -310,24 +534,23 @@ export function Header({
                 aria-expanded={isAvatarOpen}
                 aria-label="User profile menu"
               >
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-tr from-emerald-600 to-teal-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0 ring-1 ring-emerald-500/20">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
                   {getInitials(displayName)}
                 </div>
                 <div className="hidden sm:flex flex-col text-left">
                   <span className="text-xs font-bold text-slate-900 tracking-tight leading-tight truncate max-w-[110px]">
                     {displayName}
                   </span>
-                  <span className="text-[10px] font-mono font-medium text-emerald-700 leading-none capitalize">
+                  <span className="text-[10px] font-mono font-semibold text-emerald-700 leading-none capitalize">
                     {roleInfo.badge}
                   </span>
                 </div>
-                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform duration-150 ${isAvatarOpen ? 'rotate-180 text-emerald-600' : ''}`} />
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isAvatarOpen ? 'rotate-180 text-emerald-600' : ''}`} />
               </button>
 
               {/* Avatar Dropdown Menu */}
               {isAvatarOpen && (
                 <div className="absolute right-0 mt-2.5 w-[250px] sm:w-[270px] bg-white border border-slate-200/90 rounded-2xl shadow-2xl z-50 py-2 animate-fadeIn text-left overflow-hidden divide-y divide-slate-100">
-                  {/* Account Snapshot */}
                   <div className="px-4 py-3 bg-slate-50/80">
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
@@ -351,24 +574,22 @@ export function Header({
                     </div>
                   </div>
 
-                  {/* Dropdown Action: Role-Specific Dashboard */}
                   <div className="p-1.5 space-y-1">
                     <button
+                      type="button"
                       onClick={handleDashboardClick}
-                      className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-900 hover:bg-emerald-50 hover:text-emerald-950 rounded-xl flex items-center justify-between transition-colors cursor-pointer group"
-                      id="avatar-menu-dashboard-btn"
+                      className="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-900 hover:bg-emerald-50 hover:text-emerald-950 rounded-xl flex items-center justify-between transition-colors cursor-pointer"
                     >
                       <div className="flex items-center gap-2.5">
-                        <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                          <LayoutDashboard className="w-3.5 h-3.5" />
-                        </div>
+                        <LayoutDashboard className="w-3.5 h-3.5 text-emerald-600" />
                         <span>Dashboard</span>
                       </div>
-                      <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-transform" />
+                      <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
                     </button>
 
                     {userType === 'talent' && onVisitPortfolio && (
                       <button
+                        type="button"
                         onClick={handlePortfolioClick}
                         className="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
                       >
@@ -378,124 +599,131 @@ export function Header({
                     )}
                   </div>
 
-                  {/* Dropdown Action: Logout (Redirects immediately to home) */}
                   <div className="p-1.5">
                     <button
+                      type="button"
                       onClick={handleSignOut}
                       className="w-full text-left px-3 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 hover:text-rose-700 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer"
-                      id="avatar-menu-logout-btn"
                     >
-                      <div className="p-1.5 rounded-lg bg-rose-100 text-rose-600">
-                        <LogOut className="w-3.5 h-3.5" />
-                      </div>
+                      <LogOut className="w-3.5 h-3.5 text-rose-600" />
                       <span>Logout</span>
                     </button>
                   </div>
                 </div>
               )}
             </div>
+          ) : (
+            /* When Not Logged In: Sign In + Get Started Buttons matching reference */
+            <div className="hidden sm:flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleSignInClick}
+                className="text-xs sm:text-sm font-semibold text-slate-700 hover:text-slate-950 px-3 py-2 cursor-pointer transition-colors"
+                id="nav-signin-btn"
+              >
+                Sign In
+              </button>
+
+              <button
+                type="button"
+                onClick={handleGetStartedClick}
+                className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-2.5 px-5 rounded-xl text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer shadow-2xs hover:shadow transition-all duration-150"
+                id="nav-get-started-btn"
+              >
+                <span>Get Started →</span>
+              </button>
+            </div>
           )}
 
-          {/* Hamburger Icon Button for Desktop & Mobile */}
-          <div className="relative" ref={menuRef}>
+          {/* Hamburger Mobile Menu Toggle Button */}
+          <div className="lg:hidden" ref={menuRef}>
             <button
-              onClick={() => {
-                setIsMenuOpen(!isMenuOpen);
-                setIsAvatarOpen(false);
-              }}
-              className={`flex items-center gap-2 py-2 px-3 sm:px-3.5 rounded-xl border transition-all duration-150 cursor-pointer shadow-2xs ${
-                isMenuOpen 
-                  ? 'bg-slate-900 text-white border-slate-900 shadow-sm' 
-                  : 'bg-slate-50 hover:bg-slate-100/90 text-slate-800 border-slate-200/90 hover:border-slate-300'
-              }`}
-              id="global-hamburger-btn"
-              aria-expanded={isMenuOpen}
+              type="button"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="p-2 rounded-xl border border-slate-200 text-slate-800 hover:bg-slate-50 cursor-pointer"
               aria-label="Toggle navigation menu"
             >
-              {isMenuOpen ? (
-                <X className="w-5 h-5" />
-              ) : (
-                <Menu className="w-5 h-5" />
-              )}
-              <span className="text-xs font-semibold tracking-tight hidden sm:inline">
-                {isMenuOpen ? 'Close' : 'Menu'}
-              </span>
+              {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
 
-            {/* Main Navigation Dropdown */}
+            {/* Mobile Navigation Drawer */}
             {isMenuOpen && (
-              <div className="absolute right-0 mt-2.5 w-[280px] sm:w-[300px] bg-white border border-slate-200/90 rounded-2xl shadow-2xl z-50 py-2 animate-fadeIn text-left overflow-hidden divide-y divide-slate-100">
-                
-                {/* Header info */}
-                <div className="px-4 py-3 bg-gradient-to-r from-emerald-50/70 via-slate-50/60 to-slate-50/40">
-                  <div className="flex items-center gap-1.5 text-emerald-700 text-[11px] font-mono font-bold">
-                    <Zap className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Speed-First Recruitment</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Pre-vetted digital talent in 48 hours.
-                  </p>
-                </div>
-
-                {/* Primary CTA button */}
-                <div className="p-2">
+              <div className="absolute top-full left-0 right-0 bg-white border-b border-slate-200 shadow-xl p-5 space-y-4 text-left z-50 animate-fadeIn">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
+                    For Employers
+                  </span>
                   <button
-                    onClick={handleHireTalentClick}
-                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-3.5 rounded-xl text-xs flex items-center justify-between transition-all duration-150 cursor-pointer shadow-xs group"
-                    id="menu-hire-talent-btn"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Briefcase className="w-4 h-4 text-emerald-100" />
-                      <span>Hire Talent in 48 hrs</span>
-                    </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-emerald-200 group-hover:translate-x-0.5 transition-transform" />
-                  </button>
-                </div>
-
-                {/* Navigation Links */}
-                <div className="p-2 space-y-1">
-                  <button
+                    type="button"
                     onClick={() => handleNavClick('directory')}
-                    className={`w-full text-left px-3 py-2 text-xs font-medium rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
-                      currentPage === 'directory' ? 'bg-emerald-50 text-emerald-800 font-bold' : 'text-slate-700 hover:bg-slate-100'
-                    }`}
+                    className="w-full text-left py-2 text-sm font-semibold text-slate-800 hover:text-emerald-700"
                   >
-                    <div className="flex items-center gap-2">
-                      <Users className="w-4 h-4 text-slate-500" />
-                      <span>Browse Talent Pool</span>
-                    </div>
+                    Browse Talent Directory
                   </button>
-
                   <button
+                    type="button"
                     onClick={() => handleNavClick('pricing')}
-                    className={`w-full text-left px-3 py-2 text-xs font-medium rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
-                      currentPage === 'pricing' ? 'bg-emerald-50 text-emerald-800 font-bold' : 'text-slate-700 hover:bg-slate-100'
-                    }`}
+                    className="w-full text-left py-2 text-sm font-semibold text-slate-800 hover:text-emerald-700"
                   >
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="w-4 h-4 text-slate-500" />
-                      <span>Sourcing & Pricing</span>
-                    </div>
+                    Employer Pricing
                   </button>
                 </div>
 
-                {/* Sign In CTA when not logged in */}
+                <div className="space-y-1 pt-2 border-t border-slate-100">
+                  <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
+                    For Talent
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleNavClick('talent')}
+                    className="w-full text-left py-2 text-sm font-semibold text-slate-800 hover:text-emerald-700"
+                  >
+                    Talent Dashboard
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleNavClick('assessment')}
+                    className="w-full text-left py-2 text-sm font-semibold text-slate-800 hover:text-emerald-700"
+                  >
+                    Skill Assessment
+                  </button>
+                </div>
+
+                <div className="space-y-1 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={scrollToVerification}
+                    className="w-full text-left py-2 text-sm font-semibold text-slate-800 hover:text-emerald-700"
+                  >
+                    How It Works
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleNavClick('pricing')}
+                    className="w-full text-left py-2 text-sm font-semibold text-slate-800 hover:text-emerald-700"
+                  >
+                    Resources &amp; Pricing
+                  </button>
+                </div>
+
                 {!isUserLoggedIn && (
-                  <div className="p-2">
+                  <div className="pt-3 border-t border-slate-100 space-y-2">
                     <button
+                      type="button"
                       onClick={handleSignInClick}
-                      className="w-full bg-slate-100 hover:bg-slate-200/80 text-slate-800 font-semibold py-2.5 px-3.5 rounded-xl text-xs flex items-center justify-between border border-slate-200/80 transition-colors cursor-pointer"
-                      id="menu-signin-btn"
+                      className="w-full text-center py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 hover:bg-slate-50"
                     >
-                      <div className="flex items-center gap-2">
-                        <Lock className="w-4 h-4 text-slate-600" />
-                        <span>Sign In to Account</span>
-                      </div>
-                      <ArrowUpRight className="w-3.5 h-3.5 text-slate-400" />
+                      Sign In
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleGetStartedClick}
+                      className="w-full text-center py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700"
+                    >
+                      Get Started →
                     </button>
                   </div>
                 )}
-
               </div>
             )}
           </div>
@@ -522,125 +750,129 @@ export function Footer({ setCurrentPage }: FooterProps) {
     }
   };
 
+  const scrollToSection = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    } else if (setCurrentPage) {
+      setCurrentPage('home');
+      setTimeout(() => {
+        const target = document.getElementById(id);
+        if (target) target.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  };
+
   return (
-    <footer className="bg-slate-900 text-slate-300 pt-16 pb-12 border-t border-slate-800 text-left">
+    <footer className="bg-[#070d16] text-slate-300 pt-16 pb-12 border-t border-slate-800/80 text-left">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         
-        {/* Core Value Highlights */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          <div className="bg-slate-800/60 border border-slate-700/70 p-5 rounded-2xl space-y-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-              <Zap className="w-4 h-4" />
-            </div>
-            <h4 className="font-semibold text-white text-sm">Hands-On Practical Audits</h4>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Candidates pass real-world scenario tests. We evaluate actual code, data funnels, and live automation workflows.
-            </p>
-          </div>
-
-          <div className="bg-slate-800/60 border border-slate-700/70 p-5 rounded-2xl space-y-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
-              <Briefcase className="w-4 h-4" />
-            </div>
-            <h4 className="font-semibold text-white text-sm">48-Hour Talent Deployment</h4>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Connect directly with pre-screened professionals without months of resume screening or agency delays.
-            </p>
-          </div>
-
-          <div className="bg-slate-800/60 border border-slate-700/70 p-5 rounded-2xl space-y-2">
-            <div className="w-8 h-8 rounded-lg bg-teal-500/10 text-teal-400 flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4" />
-            </div>
-            <h4 className="font-semibold text-white text-sm">Accreditation Stamp & KYC</h4>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Every profile features audited assessment scores, verified portfolio project files, and KYC validation.
-            </p>
-          </div>
-
-          <div className="bg-slate-800/60 border border-slate-700/70 p-5 rounded-2xl space-y-2">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center">
-              <Lock className="w-4 h-4" />
-            </div>
-            <h4 className="font-semibold text-white text-sm">0% Ongoing Markup</h4>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Transparent direct hiring model. Pay your talent directly with no perpetual salary commissions.
-            </p>
-          </div>
-        </div>
-
-        {/* Footer Navigation Columns */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-8 pt-8 border-t border-slate-800">
+        {/* Main Footer Columns */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-10">
           
-          {/* Brand Column */}
-          <div className="lg:col-span-5 space-y-4 text-left">
+          {/* Brand Column (Left) */}
+          <div className="lg:col-span-4 space-y-4 text-left">
             <button 
               onClick={(e) => handleLink(e, 'home')}
               className="inline-flex items-center gap-2.5 cursor-pointer bg-transparent border-0 p-0 text-left group"
             >
               <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
-                <ShieldCheck className="w-5 h-5" />
+                <ShieldCheck className="w-5 h-5 text-white" />
               </div>
-              <span className="font-display font-bold text-lg text-white">
-                Digital<span className="text-emerald-400">Campux</span>
-              </span>
+              <div className="flex flex-col text-left">
+                <span className="font-display font-extrabold text-xl text-white">
+                  Digital<span className="text-emerald-400">Campux</span>
+                </span>
+                <span className="text-[9px] font-mono tracking-wider text-slate-400 font-bold mt-0.5">
+                  VETTED TALENT NETWORK
+                </span>
+              </div>
             </button>
             
-            <p className="text-xs text-slate-400 max-w-sm leading-relaxed">
-              The high-confidence talent platform connecting global businesses with pre-vetted digital, engineering, and growth specialists.
+            <p className="text-xs sm:text-sm text-slate-400 max-w-sm leading-relaxed">
+              The high-performance talent platform connecting global businesses with pre-vetted digital operators and growth specialists.
             </p>
 
+            {/* Social Icons */}
             <div className="flex items-center gap-3 pt-2">
               <a 
-                href="https://wa.me/2348169664607" 
+                href="https://linkedin.com" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition"
+                aria-label="LinkedIn"
+                className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 flex items-center justify-center transition border border-slate-700/80"
               >
-                <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
-                <span>WhatsApp Support</span>
+                <span className="text-xs font-bold font-mono">in</span>
               </a>
 
               <a 
-                href="mailto:support@digitalcampux.com" 
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition"
+                href="https://twitter.com" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                aria-label="Twitter / X"
+                className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 flex items-center justify-center transition border border-slate-700/80"
               >
-                <Mail className="w-3.5 h-3.5 text-slate-300" />
-                <span>Email Team</span>
+                <span className="text-xs font-bold font-mono">𝕏</span>
+              </a>
+
+              <a 
+                href="https://youtube.com" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                aria-label="YouTube"
+                className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 flex items-center justify-center transition border border-slate-700/80"
+              >
+                <span className="text-xs font-bold font-mono">▶</span>
+              </a>
+
+              <a 
+                href="https://instagram.com" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                aria-label="Instagram"
+                className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 flex items-center justify-center transition border border-slate-700/80"
+              >
+                <span className="text-xs font-bold font-mono">ig</span>
               </a>
             </div>
           </div>
 
-          {/* Employers Column */}
-          <div className="lg:col-span-3 text-left space-y-3">
-            <h5 className="text-xs font-mono font-semibold text-slate-200 uppercase tracking-wider">
+          {/* 1. FOR EMPLOYERS */}
+          <div className="lg:col-span-2 text-left space-y-3">
+            <h4 className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider">
               For Employers
-            </h5>
-            <ul className="space-y-2 text-xs text-slate-400">
+            </h4>
+            <ul className="space-y-2.5 text-xs text-slate-400">
               <li>
                 <button onClick={(e) => handleLink(e, 'directory')} className="hover:text-emerald-400 transition cursor-pointer text-left">
                   Browse Talent Directory
                 </button>
               </li>
               <li>
-                <button onClick={(e) => handleLink(e, 'employer')} className="hover:text-emerald-400 transition cursor-pointer text-left">
-                  Employer Hiring Portal
+                <button onClick={(e) => handleLink(e, 'pricing')} className="hover:text-emerald-400 transition cursor-pointer text-left">
+                  Employer Pricing
                 </button>
               </li>
               <li>
-                <button onClick={(e) => handleLink(e, 'pricing')} className="hover:text-emerald-400 transition cursor-pointer text-left">
-                  Pricing & Membership Plans
+                <button onClick={(e) => scrollToSection(e, 'verification-engine')} className="hover:text-emerald-400 transition cursor-pointer text-left">
+                  How It Works
+                </button>
+              </li>
+              <li>
+                <button onClick={(e) => handleLink(e, 'directory')} className="hover:text-emerald-400 transition cursor-pointer text-left">
+                  Customer Stories
                 </button>
               </li>
             </ul>
           </div>
 
-          {/* For Talent Column */}
+          {/* 2. FOR TALENT */}
           <div className="lg:col-span-2 text-left space-y-3">
-            <h5 className="text-xs font-mono font-semibold text-slate-200 uppercase tracking-wider">
+            <h4 className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider">
               For Talent
-            </h5>
-            <ul className="space-y-2 text-xs text-slate-400">
+            </h4>
+            <ul className="space-y-2.5 text-xs text-slate-400">
               <li>
                 <button onClick={(e) => handleLink(e, 'talent')} className="hover:text-emerald-400 transition cursor-pointer text-left">
                   Talent Dashboard
@@ -648,33 +880,81 @@ export function Footer({ setCurrentPage }: FooterProps) {
               </li>
               <li>
                 <button onClick={(e) => handleLink(e, 'assessment')} className="hover:text-emerald-400 transition cursor-pointer text-left">
-                  Skill Diagnostic Test
+                  Skill Assessment
                 </button>
               </li>
               <li>
-                <button onClick={(e) => handleLink(e, 'pricing')} className="hover:text-emerald-400 transition cursor-pointer text-left">
-                  Accreditation Pass
+                <button onClick={(e) => scrollToSection(e, 'verification-engine')} className="hover:text-emerald-400 transition cursor-pointer text-left">
+                  Accreditation Process
+                </button>
+              </li>
+              <li>
+                <button onClick={(e) => handleLink(e, 'directory')} className="hover:text-emerald-400 transition cursor-pointer text-left">
+                  Success Stories
                 </button>
               </li>
             </ul>
           </div>
 
-          {/* Company / Portal Column */}
+          {/* 3. RESOURCES */}
           <div className="lg:col-span-2 text-left space-y-3">
-            <h5 className="text-xs font-mono font-semibold text-slate-200 uppercase tracking-wider">
-              Platform
-            </h5>
-            <ul className="space-y-2 text-xs text-slate-400">
+            <h4 className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider">
+              Resources
+            </h4>
+            <ul className="space-y-2.5 text-xs text-slate-400">
+              <li>
+                <button onClick={(e) => handleLink(e, 'directory')} className="hover:text-emerald-400 transition cursor-pointer text-left">
+                  Blog
+                </button>
+              </li>
+              <li>
+                <button onClick={(e) => handleLink(e, 'assessment')} className="hover:text-emerald-400 transition cursor-pointer text-left">
+                  Guides &amp; Templates
+                </button>
+              </li>
+              <li>
+                <button onClick={(e) => handleLink(e, 'pricing')} className="hover:text-emerald-400 transition cursor-pointer text-left">
+                  Salary Insights
+                </button>
+              </li>
+              <li>
+                <a href="mailto:support@digitalcampux.com" className="hover:text-emerald-400 transition text-left block">
+                  Help Center
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          {/* 4. COMPANY */}
+          <div className="lg:col-span-2 text-left space-y-3">
+            <h4 className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider">
+              Company
+            </h4>
+            <ul className="space-y-2.5 text-xs text-slate-400">
               <li>
                 <button onClick={(e) => handleLink(e, 'home')} className="hover:text-emerald-400 transition cursor-pointer text-left">
-                  About Digital Campux
+                  About DigitalCampux
+                </button>
+              </li>
+              <li>
+                <a href="mailto:support@digitalcampux.com" className="hover:text-emerald-400 transition text-left block">
+                  Contact Us
+                </a>
+              </li>
+              <li>
+                <button onClick={(e) => handleLink(e, 'pricing')} className="hover:text-emerald-400 transition cursor-pointer text-left">
+                  Terms of Service
+                </button>
+              </li>
+              <li>
+                <button onClick={(e) => handleLink(e, 'pricing')} className="hover:text-emerald-400 transition cursor-pointer text-left">
+                  Privacy Policy
                 </button>
               </li>
               <li>
                 <button 
                   onClick={(e) => handleLink(e, 'admin-login')}
-                  className="hover:text-slate-200 transition cursor-pointer text-left font-mono"
-                  id="footer-staff-link"
+                  className="hover:text-slate-200 transition cursor-pointer text-left font-mono text-[11px] text-slate-500 pt-1 block"
                 >
                   Admin Portal
                 </button>
@@ -684,12 +964,12 @@ export function Footer({ setCurrentPage }: FooterProps) {
 
         </div>
 
-        {/* Bottom Copyright & Status */}
-        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500 border-t border-slate-800">
-          <p>© {currentYear} Digital Campux Inc. All rights reserved. Pre-vetted digital talent operations network.</p>
-          <div className="flex items-center gap-2 font-mono text-[11px]">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span className="text-slate-400">Systems Operational</span>
+        {/* Bottom Copyright & Systems Operational Status Indicator */}
+        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400 border-t border-slate-800">
+          <p>© {currentYear} DigitalCampux. All rights reserved.</p>
+          <div className="flex items-center gap-2 font-mono text-xs text-slate-300">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>All systems operational</span>
           </div>
         </div>
 
@@ -697,5 +977,3 @@ export function Footer({ setCurrentPage }: FooterProps) {
     </footer>
   );
 }
-
-

@@ -747,13 +747,6 @@ app.post("/api/admin/recruiter/status", async (req, res) => {
   }
 });
 
-    return res.status(400).json({ success: false, error: `Invalid status or action: ${requestedStatus}` });
-  } catch (err: any) {
-    console.error("[Server] /api/admin/recruiter/status error:", err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
 // 0d. Recruiter Live Profile Endpoint (With suspension & approval status)
 app.get("/api/recruiter/profile", async (req, res) => {
   try {
