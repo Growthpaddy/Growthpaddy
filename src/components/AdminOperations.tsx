@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { isDemoPicture, getFirstLetter } from '../lib/talentUtils';
 import { 
   ShieldCheck, 
   Lock, 
@@ -1079,12 +1080,24 @@ export default function AdminOperations({
                       {/* Basic Info */}
                       <td className="py-4.5 px-4 text-left">
                         <div className="flex items-center gap-3">
-                          <img 
-                            src={talent.avatar_url || talent.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'} 
-                            alt={talent.full_name || talent.name} 
-                            className="w-10 h-10 border-2 border-neutral-950 object-cover rounded-none shrink-0"
-                            referrerPolicy="no-referrer"
-                          />
+                          {((talent.avatar_url && !isDemoPicture(talent.avatar_url)) || (talent.avatarUrl && !isDemoPicture(talent.avatarUrl))) ? (
+                            <img 
+                              src={talent.avatar_url || talent.avatarUrl} 
+                              alt={talent.full_name || talent.name} 
+                              className="w-10 h-10 border-2 border-neutral-950 object-cover rounded-none shrink-0"
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = 'none';
+                                const fallback = (e.target as HTMLElement).nextElementSibling;
+                                if (fallback) (fallback as HTMLElement).classList.remove('hidden');
+                              }}
+                            />
+                          ) : null}
+                          <div 
+                            className={`w-10 h-10 border-2 border-neutral-950 bg-emerald-700 text-white font-bold flex items-center justify-center text-base shrink-0 select-none ${((talent.avatar_url && !isDemoPicture(talent.avatar_url)) || (talent.avatarUrl && !isDemoPicture(talent.avatarUrl))) ? 'hidden' : 'flex'}`}
+                          >
+                            {getFirstLetter(talent.full_name || talent.name)}
+                          </div>
                           <div>
                             <p className="font-extrabold text-sm text-neutral-950 uppercase">{talent.full_name || talent.name || 'Anonymous Candidate'}</p>
                             <p className="text-[10px] font-bold text-neutral-500 uppercase">{talent.email}</p>
@@ -2030,11 +2043,23 @@ export default function AdminOperations({
 
             {/* Candidate Header */}
             <div className="border-b-2 border-neutral-200 pb-4 flex items-center gap-4">
-              <img 
-                src={selectedTalentModal.avatar_url || selectedTalentModal.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'} 
-                alt={selectedTalentModal.full_name || selectedTalentModal.name} 
-                className="w-14 h-14 border-2 border-neutral-950 object-cover shrink-0"
-              />
+              {((selectedTalentModal.avatar_url && !isDemoPicture(selectedTalentModal.avatar_url)) || (selectedTalentModal.avatarUrl && !isDemoPicture(selectedTalentModal.avatarUrl))) ? (
+                <img 
+                  src={selectedTalentModal.avatar_url || selectedTalentModal.avatarUrl} 
+                  alt={selectedTalentModal.full_name || selectedTalentModal.name} 
+                  className="w-14 h-14 border-2 border-neutral-950 object-cover shrink-0"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                    const fallback = (e.target as HTMLElement).nextElementSibling;
+                    if (fallback) (fallback as HTMLElement).classList.remove('hidden');
+                  }}
+                />
+              ) : null}
+              <div 
+                className={`w-14 h-14 border-2 border-neutral-950 bg-emerald-700 text-white font-bold flex items-center justify-center text-2xl shrink-0 select-none ${((selectedTalentModal.avatar_url && !isDemoPicture(selectedTalentModal.avatar_url)) || (selectedTalentModal.avatarUrl && !isDemoPicture(selectedTalentModal.avatarUrl))) ? 'hidden' : 'flex'}`}
+              >
+                {getFirstLetter(selectedTalentModal.full_name || selectedTalentModal.name)}
+              </div>
               <div>
                 <span className="text-[9px] font-mono font-black text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 uppercase tracking-widest">
                   ACTION CONTROL MATRIX

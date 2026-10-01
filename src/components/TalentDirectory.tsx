@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createClient } from '../lib/supabase/client';
 import { recordProfileView, recordProfileClick } from '../lib/profileAnalytics';
+import { isDemoPicture, getFirstLetter } from '../lib/talentUtils';
 import {
   ShieldCheck,
   Search,
@@ -951,24 +952,27 @@ export default function TalentDirectory({
                   <div className="space-y-4">
                     <div className="flex items-start justify-between gap-3">
                       
-                      {/* Avatar with Initials Fallback */}
+                      {/* Avatar with First Letter Fallback */}
                       <div className="flex items-center gap-3.5 min-w-0">
-                        {avatarUrl ? (
+                        {avatarUrl && !isDemoPicture(avatarUrl) ? (
                           <img
                             src={avatarUrl}
                             alt={displayName}
                             referrerPolicy="no-referrer"
                             className="w-14 h-14 rounded-2xl object-cover border border-slate-200 shrink-0 bg-slate-100 shadow-2xs"
                             onError={(e) => {
-                              // If broken image URL, fallback to initials
+                              // If broken image URL, fallback to first letter
                               (e.target as HTMLElement).style.display = 'none';
+                              const fallback = (e.target as HTMLElement).nextElementSibling;
+                              if (fallback) (fallback as HTMLElement).classList.remove('hidden');
                             }}
                           />
-                        ) : (
-                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-950 text-white font-bold flex items-center justify-center text-lg shrink-0 shadow-xs border border-slate-700">
-                            {getInitials(displayName)}
-                          </div>
-                        )}
+                        ) : null}
+                        <div 
+                          className={`w-14 h-14 rounded-2xl bg-emerald-700 text-white font-bold flex items-center justify-center text-xl shrink-0 shadow-xs border border-emerald-800 select-none ${avatarUrl && !isDemoPicture(avatarUrl) ? 'hidden' : 'flex'}`}
+                        >
+                          {getFirstLetter(displayName)}
+                        </div>
 
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
@@ -1148,18 +1152,24 @@ export default function TalentDirectory({
               {/* Candidate Overview Card */}
               <div className="flex flex-col sm:flex-row items-start justify-between gap-6 pb-6 border-b border-slate-200">
                 <div className="flex items-start gap-4">
-                  {activePortfolioCandidate.profile_picture_url || activePortfolioCandidate.avatar_url ? (
+                  {(activePortfolioCandidate.profile_picture_url || activePortfolioCandidate.avatar_url) && !isDemoPicture(activePortfolioCandidate.profile_picture_url || activePortfolioCandidate.avatar_url) ? (
                     <img
                       src={activePortfolioCandidate.profile_picture_url || activePortfolioCandidate.avatar_url || ''}
                       alt={activePortfolioCandidate.full_name}
                       referrerPolicy="no-referrer"
                       className="w-20 h-20 rounded-3xl object-cover border border-slate-200 shrink-0 bg-slate-100 shadow-xs"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                        const fallback = (e.target as HTMLElement).nextElementSibling;
+                        if (fallback) (fallback as HTMLElement).classList.remove('hidden');
+                      }}
                     />
-                  ) : (
-                    <div className="w-20 h-20 rounded-3xl bg-slate-900 text-white font-bold flex items-center justify-center text-2xl shrink-0 shadow-md">
-                      {getInitials(activePortfolioCandidate.full_name)}
-                    </div>
-                  )}
+                  ) : null}
+                  <div 
+                    className={`w-20 h-20 rounded-3xl bg-emerald-700 text-white font-bold flex items-center justify-center text-3xl shrink-0 shadow-md select-none ${(activePortfolioCandidate.profile_picture_url || activePortfolioCandidate.avatar_url) && !isDemoPicture(activePortfolioCandidate.profile_picture_url || activePortfolioCandidate.avatar_url) ? 'hidden' : 'flex'}`}
+                  >
+                    {getFirstLetter(activePortfolioCandidate.full_name)}
+                  </div>
 
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">

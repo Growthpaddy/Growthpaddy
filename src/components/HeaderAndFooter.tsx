@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { getFirstLetter } from '../lib/talentUtils';
 import { 
   ShieldCheck, 
   Menu, 
@@ -236,12 +237,7 @@ export function Header({
   };
 
   const getInitials = (name?: string) => {
-    if (!name) return 'U';
-    const parts = name.trim().split(/\s+/);
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
-    return name.slice(0, 2).toUpperCase();
+    return getFirstLetter(name);
   };
 
   const effectiveUserType = profile ? 'recruiter' : user?.user_metadata?.role === 'recruiter' ? 'recruiter' : userType;

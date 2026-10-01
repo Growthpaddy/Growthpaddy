@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { isDemoPicture, getFirstLetter } from '../lib/talentUtils';
 import { CaseStudyItem, WorkHistoryItem, EducationItem } from '../types';
 import { 
   User, 
@@ -38,13 +39,6 @@ interface TalentResumeEditorProps {
   onProfileUpdated?: (updated: any) => void;
   onOpenPublicPreview?: (slug?: string) => void;
 }
-
-const PRESET_AVATARS = [
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300',
-  'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=300'
-];
 
 const PRESET_CORE_SKILLS = [
   'Workflow Automation', 'Full-Stack Development', 'Python & TypeScript', 
@@ -89,7 +83,10 @@ export default function TalentResumeEditor({
       ? initialProfile.years_of_experience
       : ''
   );
-  const [profilePictureUrl, setProfilePictureUrl] = useState(initialProfile?.profile_picture_url || PRESET_AVATARS[0]);
+  const [profilePictureUrl, setProfilePictureUrl] = useState<string>(() => {
+    const raw = initialProfile?.profile_picture_url;
+    return (raw && !isDemoPicture(raw)) ? raw : '';
+  });
   const [location, setLocation] = useState(initialProfile?.location || '');
   const [availabilityStatus, setAvailabilityStatus] = useState<'available' | 'hired'>(
     initialProfile?.availability_status === 'hired' ? 'hired' : 'available'
@@ -136,7 +133,8 @@ export default function TalentResumeEditor({
       : '';
     setYearsExperience(exp);
 
-    setProfilePictureUrl(initialProfile.profile_picture_url || PRESET_AVATARS[0]);
+    const rawPic = initialProfile.profile_picture_url;
+    setProfilePictureUrl((rawPic && !isDemoPicture(rawPic)) ? rawPic : '');
     setLocation(initialProfile.location || '');
     setAvailabilityStatus(initialProfile.availability_status === 'hired' ? 'hired' : 'available');
     setSlug(initialProfile.slug || (initialProfile.full_name ? initialProfile.full_name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : ''));
@@ -642,37 +640,35 @@ export default function TalentResumeEditor({
               </label>
 
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <img
-                  src={profilePictureUrl || PRESET_AVATARS[0]}
-                  alt="Candidate Avatar Preview"
-                  className="w-16 h-16 rounded-2xl object-cover border-2 border-slate-200 shadow-xs shrink-0 bg-slate-100"
-                />
+                {profilePictureUrl && !isDemoPicture(profilePictureUrl) ? (
+                  <img
+                    src={profilePictureUrl}
+                    alt="Candidate Avatar Preview"
+                    className="w-16 h-16 rounded-2xl object-cover border-2 border-slate-200 shadow-xs shrink-0 bg-slate-100"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                      const fallback = (e.target as HTMLElement).nextElementSibling;
+                      if (fallback) (fallback as HTMLElement).classList.remove('hidden');
+                    }}
+                  />
+                ) : null}
+                <div 
+                  className={`w-16 h-16 rounded-2xl bg-emerald-700 text-white font-bold flex items-center justify-center text-2xl border-2 border-emerald-800 shadow-xs shrink-0 select-none ${profilePictureUrl && !isDemoPicture(profilePictureUrl) ? 'hidden' : 'flex'}`}
+                >
+                  {getFirstLetter(fullName)}
+                </div>
 
                 <div className="space-y-2 flex-1 w-full">
                   <input
                     type="url"
-                    placeholder="Enter custom image URL..."
+                    placeholder="Enter direct image URL (PNG, JPG, WebP)..."
                     value={profilePictureUrl}
                     onChange={(e) => setProfilePictureUrl(e.target.value)}
                     className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-emerald-600"
                   />
-
-                  {/* Preset photo chips */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] font-mono text-slate-500">Preset Avatars:</span>
-                    {PRESET_AVATARS.map((url, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setProfilePictureUrl(url)}
-                        className={`w-7 h-7 rounded-lg overflow-hidden border-2 cursor-pointer transition ${
-                          profilePictureUrl === url ? 'border-emerald-600 scale-110' : 'border-slate-200 hover:border-slate-400'
-                        }`}
-                      >
-                        <img src={url} alt={`Preset ${idx + 1}`} className="w-full h-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Paste a direct image link for your profile photo. If empty, your profile automatically displays your first initial (<strong className="text-emerald-700">{getFirstLetter(fullName)}</strong>).
+                  </p>
                 </div>
               </div>
             </div>

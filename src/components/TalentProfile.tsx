@@ -61,6 +61,7 @@ import {
 import ConfettiSuccess from './ConfettiSuccess';
 import EmployerVisibilityCard from './talent/EmployerVisibilityCard';
 import TalentProfileEditForm from './TalentProfileEditForm';
+import { isDemoPicture, getFirstLetter } from '../lib/talentUtils';
 import { SKILL_QUIZ_DEFINITIONS, SkillCategoryDefinition, QuizQuestion } from '../data/quizQuestions';
 
 // ==============================================================================
@@ -210,15 +211,10 @@ const DEFAULT_SKILL_CATEGORIES = [
 ];
 
 /**
- * Generates uppercase candidate initials from full name or fallback.
+ * Generates uppercase candidate first letter from full name or fallback.
  */
 function getInitials(name?: string | null): string {
-  if (!name || !name.trim()) return 'TP';
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) {
-    return parts[0].substring(0, 2).toUpperCase();
-  }
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return getFirstLetter(name);
 }
 
 export default function TalentProfileComponent({ onSignOut, navigateToPage }: TalentProfileProps) {
@@ -1747,7 +1743,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
               
               {/* Avatar Zone: Picture with Initials Fallback */}
               <div className="relative shrink-0">
-                {profile?.profile_picture_url && !imageError ? (
+                {profile?.profile_picture_url && !imageError && !isDemoPicture(profile.profile_picture_url) ? (
                   <img
                     src={profile.profile_picture_url}
                     alt={profile?.full_name || 'Candidate Avatar'}
@@ -1756,7 +1752,7 @@ export default function TalentProfileComponent({ onSignOut, navigateToPage }: Ta
                     className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover border border-slate-200 shadow-inner bg-slate-100"
                   />
                 ) : (
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-800 font-bold text-xl sm:text-2xl shadow-inner tracking-wider">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-800 font-bold text-xl sm:text-2xl shadow-inner tracking-wider select-none">
                     {initials}
                   </div>
                 )}

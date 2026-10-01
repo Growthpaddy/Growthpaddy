@@ -18,6 +18,7 @@ import {
   EducationItem,
   CaseStudyItem
 } from './TalentProfile';
+import { isDemoPicture, getFirstLetter } from '../lib/talentUtils';
 
 interface TalentProfileEditFormProps {
   formData: ProfileFormData;
@@ -101,21 +102,24 @@ export default function TalentProfileEditForm({
         </div>
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-200 shrink-0 border border-slate-300 flex items-center justify-center">
-            {formData.profile_picture_url.trim() ? (
+            {formData.profile_picture_url.trim() && !isDemoPicture(formData.profile_picture_url.trim()) ? (
               <img
                 src={formData.profile_picture_url.trim()}
                 alt="Avatar Preview"
                 referrerPolicy="no-referrer"
                 onError={(e) => {
                   (e.target as HTMLElement).style.display = 'none';
+                  const fallback = (e.target as HTMLElement).nextElementSibling;
+                  if (fallback) (fallback as HTMLElement).classList.remove('hidden');
                 }}
                 className="w-full h-full object-cover"
               />
-            ) : (
-              <span className="text-sm font-bold text-slate-500">
-                {initials}
-              </span>
-            )}
+            ) : null}
+            <div 
+              className={`w-full h-full bg-emerald-700 text-white font-bold flex items-center justify-center text-xl select-none ${formData.profile_picture_url.trim() && !isDemoPicture(formData.profile_picture_url.trim()) ? 'hidden' : 'flex'}`}
+            >
+              {initials}
+            </div>
           </div>
           <div className="flex-1 w-full space-y-1">
             <label className="text-xs font-semibold text-slate-700">Avatar Image URL (Direct link to PNG, JPG, WebP)</label>
@@ -123,10 +127,10 @@ export default function TalentProfileEditForm({
               type="url"
               value={formData.profile_picture_url}
               onChange={(e) => setFormData({ ...formData, profile_picture_url: e.target.value })}
-              placeholder="https://images.unsplash.com/... or hosted picture link"
+              placeholder="https://... direct image link"
               className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
             />
-            <p className="text-[11px] text-slate-500">If empty or unreachable, the header automatically displays your initials ({initials}).</p>
+            <p className="text-[11px] text-slate-500">If empty or unreachable, the profile automatically displays your first initial ({initials}).</p>
           </div>
         </div>
       </div>

@@ -70,22 +70,22 @@ export interface CertificationItem {
 export interface TalentCandidate {
   id: string;
   name: string;
-  avatarUrl: string;
+  avatarUrl?: string;
   role: string;
   specialization: 'SEO' | 'Social Media' | 'Email Marketing' | 'Growth Marketing' | 'PPC' | 'AI Automation' | 'Full-Stack Developer' | string;
-  verificationBadge: 'Verified Intern' | 'Verified Professional' | 'Internship Graduate' | 'Top Performer';
+  verificationBadge?: 'Verified Intern' | 'Verified Professional' | 'Internship Graduate' | 'Top Performer' | string;
   isVerified?: boolean;
   skills: string[];
   aiTools?: string[];
   headline?: string;
   hourlyRate?: string | number;
   monthlyRetainer?: string | number;
-  availability: 'Available Immediately' | 'Interviews Open' | 'Onboard in 1 Week' | 'In Placement';
+  availability: 'Available Immediately' | 'Interviews Open' | 'Onboard in 1 Week' | 'In Placement' | string;
   availability_status?: 'available' | 'hired';
   work_availability_type?: string[];
   workAvailabilityType?: string[];
   portfolioScore: number;
-  featuredProject: {
+  featuredProject?: {
     title: string;
     metrics: string;
   };

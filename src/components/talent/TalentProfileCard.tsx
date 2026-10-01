@@ -15,6 +15,7 @@ import {
   Eye
 } from 'lucide-react';
 import { TalentCandidate } from '../../types';
+import { isDemoPicture, getFirstLetter } from '../../lib/talentUtils';
 
 interface TalentProfileCardProps {
   candidate: TalentCandidate | any;
@@ -30,6 +31,10 @@ export const TalentProfileCard: React.FC<TalentProfileCardProps> = ({
   const isAvailable = candidate.availability_status === 'available' || !candidate.availability_status;
   const isVerified = Boolean(candidate.isVerified || candidate.is_verified || candidate.phase_1_quiz_passed || candidate.phase_1_status === 'passed');
   const skillsList: string[] = Array.isArray(candidate.skills) ? candidate.skills : [];
+  const candidateName = candidate.name || candidate.full_name || 'Talent Specialist';
+  const firstLetter = getFirstLetter(candidateName);
+  const rawAvatar = candidate.avatarUrl || candidate.profile_picture_url;
+  const hasValidPhoto = Boolean(rawAvatar && !isDemoPicture(rawAvatar));
 
   return (
     <motion.div
@@ -47,12 +52,24 @@ export const TalentProfileCard: React.FC<TalentProfileCardProps> = ({
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3.5 min-w-0">
             <div className="relative shrink-0">
-              <img 
-                src={candidate.avatarUrl || candidate.profile_picture_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'} 
-                alt={candidate.name || candidate.full_name}
-                className="w-12 h-12 rounded-2xl object-cover border border-slate-200/80 shadow-2xs"
-                referrerPolicy="no-referrer"
-              />
+              {hasValidPhoto ? (
+                <img 
+                  src={rawAvatar} 
+                  alt={candidateName}
+                  className="w-12 h-12 rounded-2xl object-cover border border-slate-200/80 shadow-2xs bg-slate-100"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                    const fallback = (e.target as HTMLElement).nextElementSibling;
+                    if (fallback) (fallback as HTMLElement).classList.remove('hidden');
+                  }}
+                />
+              ) : null}
+              <div 
+                className={`w-12 h-12 rounded-2xl bg-emerald-700 text-white font-bold text-lg flex items-center justify-center border border-emerald-800 shadow-2xs select-none ${hasValidPhoto ? 'hidden' : 'flex'}`}
+              >
+                {firstLetter}
+              </div>
               {isAvailable ? (
                 <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white ring-2 ring-white">
                   <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
@@ -66,7 +83,7 @@ export const TalentProfileCard: React.FC<TalentProfileCardProps> = ({
 
             <div className="min-w-0 flex-1 space-y-0.5">
               <h4 className="font-display font-bold text-sm sm:text-base text-slate-900 group-hover:text-emerald-600 transition-colors truncate">
-                {candidate.name || candidate.full_name || 'Anonymous Candidate'}
+                {candidateName}
               </h4>
               <p className="text-xs text-emerald-700 font-medium truncate">
                 {candidate.role || candidate.headline || candidate.specialization || 'Growth Marketer'}

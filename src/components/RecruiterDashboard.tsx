@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useSupabase } from '../context/SupabaseContext';
 import { Preloader } from './Preloader';
 import PublicPortfolio from './PublicPortfolio';
+import { isDemoPicture, getFirstLetter } from '../lib/talentUtils';
 import { 
   Building2, 
   Users, 
@@ -202,37 +203,37 @@ export function AccessOverlay({
 export const TalentContactsSectionOverlay = AccessOverlay;
 export type TalentContactsSectionOverlayProps = AccessOverlayProps;
 
-// Sample talent dossiers displayed under blur when new recruiter has 0 unlocked candidates yet
-const SAMPLE_TALENT_DOSSIERS = [
+// Registered talent previews displayed under blur when new recruiter has 0 unlocked candidates yet
+const PREVIEW_TALENT_DOSSIERS = [
   {
-    id: 'sample-1',
-    full_name: 'Damilola Adeyemi',
-    headline: 'Senior Full-Stack AI Engineer',
-    specialty: 'Python, LangChain, React, FastAPI',
-    location: 'Lagos, Nigeria (Remote)',
+    id: 'e01b839d-ace7-43cf-9cac-6bd9a3caf2b3',
+    full_name: 'Ramon Oluwakemi Bisola',
+    headline: 'Growth Marketing Specialist',
+    specialty: 'Growth Marketing, User Acquisition',
+    location: 'Remote',
     vetting_status: 'verified',
-    skills: ['LangChain', 'Next.js', 'Python', 'FastAPI'],
-    profile_picture_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300'
+    skills: ['Growth Marketing', 'User Acquisition', 'Campaign Analytics'],
+    profile_picture_url: undefined
   },
   {
-    id: 'sample-2',
-    full_name: 'Chidi Okafor',
-    headline: 'Machine Learning & LLM Specialist',
-    specialty: 'PyTorch, Transformers, Agentic Systems',
-    location: 'Abuja, Nigeria (Hybrid)',
+    id: '7130ac4d-9c1a-46d5-bb1d-88e5a89717fa',
+    full_name: 'Adekunle Sultan Balogun',
+    headline: 'AI & Automation Engineer',
+    specialty: 'AI Workflows & Integration',
+    location: 'Remote',
     vetting_status: 'verified',
-    skills: ['PyTorch', 'HuggingFace', 'RAG', 'TypeScript'],
-    profile_picture_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300'
+    skills: ['AI Workflows', 'API Integration', 'No-Code/Low-Code'],
+    profile_picture_url: undefined
   },
   {
-    id: 'sample-3',
-    full_name: 'Fatima Bello',
-    headline: 'Growth Marketing & Technical Talent Lead',
-    specialty: 'Product Analytics, SQL, Growth Engineering',
-    location: 'Kano / Remote',
+    id: 'cf8edaa6-d505-402f-a00a-0058ee932710',
+    full_name: 'Patrick Ezeji',
+    headline: 'Performance Marketing Lead',
+    specialty: 'Digital & Growth Marketing Strategy',
+    location: 'Lagos, Nigeria',
     vetting_status: 'verified',
-    skills: ['Product Analytics', 'SQL', 'A/B Testing', 'Growth'],
-    profile_picture_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300'
+    skills: ['SEO & Organic Growth', 'Growth Strategy', 'Media Buying'],
+    profile_picture_url: 'https://i.postimg.cc/mDp0kzZZ/Patrick-Ezeji-Youtube-channel.png'
   }
 ];
 
@@ -1280,18 +1281,33 @@ export default function RecruiterDashboard({
             verificationStatus !== 'verified' ? (
               /* Sample candidate dossiers blurred underneath the overlay */
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
-                {SAMPLE_TALENT_DOSSIERS.map((candidate) => (
-                  <div
-                    key={candidate.id}
-                    className="bg-white border border-slate-200/90 rounded-2xl p-5 sm:p-6 shadow-2xs space-y-4 flex flex-col justify-between"
-                  >
-                    <div className="space-y-4">
-                      <div className="flex items-start gap-3.5">
-                        <img
-                          src={candidate.profile_picture_url}
-                          alt={candidate.full_name}
-                          className="w-14 h-14 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100"
-                        />
+                {PREVIEW_TALENT_DOSSIERS.map((candidate) => {
+                  const hasPhoto = Boolean(candidate.profile_picture_url && !isDemoPicture(candidate.profile_picture_url));
+                  const firstLetter = getFirstLetter(candidate.full_name);
+                  return (
+                    <div
+                      key={candidate.id}
+                      className="bg-white border border-slate-200/90 rounded-2xl p-5 sm:p-6 shadow-2xs space-y-4 flex flex-col justify-between"
+                    >
+                      <div className="space-y-4">
+                        <div className="flex items-start gap-3.5">
+                          {hasPhoto ? (
+                            <img
+                              src={candidate.profile_picture_url}
+                              alt={candidate.full_name}
+                              className="w-14 h-14 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = 'none';
+                                const fallback = (e.target as HTMLElement).nextElementSibling;
+                                if (fallback) (fallback as HTMLElement).classList.remove('hidden');
+                              }}
+                            />
+                          ) : null}
+                          <div 
+                            className={`w-14 h-14 rounded-xl bg-emerald-700 text-white font-bold flex items-center justify-center text-xl shrink-0 shadow-2xs border border-emerald-800 select-none ${hasPhoto ? 'hidden' : 'flex'}`}
+                          >
+                            {firstLetter}
+                          </div>
                         <div className="min-w-0 flex-1 space-y-1">
                           <div className="flex items-center gap-1.5">
                             <h4 className="font-display font-bold text-base text-slate-900 truncate">
@@ -1346,7 +1362,8 @@ export default function RecruiterDashboard({
                       </div>
                     </div>
                   </div>
-                ))}
+                );
+              })}
               </div>
             ) : (
               /* Empty Unlocked State */
@@ -1393,11 +1410,23 @@ export default function RecruiterDashboard({
                     <div className="space-y-4">
                       {/* Avatar, Name, Status */}
                       <div className="flex items-start gap-3.5">
-                        <img
-                          src={candidate.profile_picture_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300'}
-                          alt={candidate.full_name}
-                          className="w-14 h-14 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100 shadow-2xs"
-                        />
+                        {candidate.profile_picture_url && !isDemoPicture(candidate.profile_picture_url) ? (
+                          <img
+                            src={candidate.profile_picture_url}
+                            alt={candidate.full_name}
+                            className="w-14 h-14 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100 shadow-2xs"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                              const fallback = (e.target as HTMLElement).nextElementSibling;
+                              if (fallback) (fallback as HTMLElement).classList.remove('hidden');
+                            }}
+                          />
+                        ) : null}
+                        <div 
+                          className={`w-14 h-14 rounded-xl bg-emerald-700 text-white font-bold flex items-center justify-center text-xl shrink-0 shadow-2xs border border-emerald-800 select-none ${candidate.profile_picture_url && !isDemoPicture(candidate.profile_picture_url) ? 'hidden' : 'flex'}`}
+                        >
+                          {getFirstLetter(candidate.full_name)}
+                        </div>
                         <div className="min-w-0 flex-1 space-y-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <h4 className="font-display font-bold text-base text-slate-900 truncate">

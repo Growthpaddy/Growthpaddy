@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { isDemoPicture } from '../lib/talentUtils';
 
 export interface TalentProfile {
   id: string;
@@ -68,7 +69,7 @@ export function useAdminPipeline() {
           phase_4_portfolio_submitted: !!t.phase_4_portfolio_submitted,
           portfolio_url: t.portfolio_url || t.portfolioUrl,
           vetting_status: (t.vetting_status as any) || 'pending',
-          avatar_url: t.avatar_url || t.avatarUrl || `https://images.unsplash.com/photo-${1534528741775 + (idx * 1000)}?w=150&auto=format&fit=crop&q=80`,
+          avatar_url: (t.avatar_url && !isDemoPicture(t.avatar_url)) ? t.avatar_url : (t.avatarUrl && !isDemoPicture(t.avatarUrl)) ? t.avatarUrl : undefined,
           failedAttemptsCount: t.failed_attempts_count || 0
         }));
 

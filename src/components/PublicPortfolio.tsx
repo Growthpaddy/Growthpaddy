@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { recordProfileClick } from '../lib/profileAnalytics';
+import { isDemoPicture, getFirstLetter } from '../lib/talentUtils';
 import { CaseStudyItem, WorkHistoryItem, EducationItem } from '../types';
 import { 
   CheckCircle2, 
@@ -289,8 +290,9 @@ export default function PublicPortfolio({
   const rawEmail = talent?.contact_email || talent?.email || 'contact@digitalcampux.com';
   const cleanPhone = rawPhone.replace(/[^0-9+]/g, '').replace(/^0/, '234');
 
-  const defaultAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400';
-  const avatarUrl = talent?.profile_picture_url || talent?.avatarUrl || defaultAvatar;
+  const rawAvatarUrl = talent?.profile_picture_url || talent?.avatarUrl;
+  const hasValidPhoto = Boolean(rawAvatarUrl && !isDemoPicture(rawAvatarUrl));
+  const firstLetter = getFirstLetter(candidateName);
 
   const handleCopyLink = () => {
     const fullUrl = window.location.href;
@@ -535,16 +537,28 @@ export default function PublicPortfolio({
               
               {/* Profile Avatar with Live Media Locking / Vetting Check */}
               <div className="relative shrink-0">
-                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl border-2 border-slate-200 shadow-sm bg-slate-100 overflow-hidden relative">
-                  <img
-                    src={avatarUrl}
-                    alt={candidateName}
-                    className={`w-full h-full object-cover transition duration-300 ${
-                      isPhotoLocked ? 'filter blur-md scale-105' : ''
-                    }`}
-                  />
+                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl border-2 border-slate-200 shadow-sm bg-slate-100 overflow-hidden relative flex items-center justify-center">
+                  {hasValidPhoto ? (
+                    <img
+                      src={rawAvatarUrl}
+                      alt={candidateName}
+                      className={`w-full h-full object-cover transition duration-300 ${
+                        isPhotoLocked ? 'filter blur-md scale-105' : ''
+                      }`}
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                        const fallback = (e.target as HTMLElement).nextElementSibling;
+                        if (fallback) (fallback as HTMLElement).classList.remove('hidden');
+                      }}
+                    />
+                  ) : null}
+                  <div 
+                    className={`w-full h-full bg-emerald-700 text-white font-bold text-4xl flex items-center justify-center select-none ${hasValidPhoto ? 'hidden' : 'flex'}`}
+                  >
+                    {firstLetter}
+                  </div>
                   {/* Photo Lock Overlay */}
-                  {isPhotoLocked && (
+                  {isPhotoLocked && hasValidPhoto && (
                     <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs flex flex-col items-center justify-center p-2 text-center text-white">
                       <Lock className="w-5 h-5 text-amber-400 mb-1" />
                       <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-amber-300 leading-tight">

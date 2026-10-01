@@ -21,7 +21,7 @@ import {
   Lock,
   LogIn
 } from 'lucide-react';
-import { MOCK_TALENT } from '../data/mockTalent';
+import { isDemoPicture, getFirstLetter } from '../lib/talentUtils';
 import { useSupabase } from '../context/SupabaseContext';
 import { supabase } from '../lib/supabaseClient';
 
@@ -47,10 +47,14 @@ export default function EmployerWorkspace({
   const [unlockedProfiles, setUnlockedProfiles] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'unlocked' | 'interviews' | 'notes' | 'settings'>('unlocked');
   const [newInterview, setNewInterview] = useState({ candidateName: '', date: '', time: '', notes: '' });
-  const [interviews, setInterviews] = useState<any[]>([
-    { id: '1', name: 'Sarah Jenkins', role: 'Growth Marketing Lead', date: 'July 8th, 2026', time: '10:00 AM (UTC)', status: 'Confirmed' },
-    { id: '2', name: 'Marcus Chen', role: 'AI Automation Operations Architect', date: 'July 12th, 2026', time: '2:30 PM (UTC)', status: 'Pending Review' }
-  ]);
+  const [interviews, setInterviews] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('employer_scheduled_interviews');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [allNotes, setAllNotes] = useState<{ id: string; name: string; text: string }[]>([]);
 
   // Recruiter Corporate Preferences
@@ -118,27 +122,64 @@ export default function EmployerWorkspace({
     }
   };
 
-  // Reload notes & unlocked data from localStorage
+  // Reload notes & unlocked data from Supabase and localStorage
   useEffect(() => {
-    const savedNotesList: { id: string; name: string; text: string }[] = [];
-    MOCK_TALENT.forEach(candidate => {
-      const text = localStorage.getItem(`candidate-notes-${candidate.id}`);
-      if (text) {
-        savedNotesList.push({ id: candidate.id, name: candidate.name, text });
+    const fetchUnlocked = async () => {
+      try {
+        let list: any[] = [];
+        if (user) {
+          const { data } = await supabase
+            .from('unlocked_contacts')
+            .select('talent_id, talent_profiles(*)')
+            .or(`recruiter_id.eq.${user.id}`);
+          if (data && data.length > 0) {
+            list = data
+              .map((row: any) => row.talent_profiles)
+              .filter(Boolean)
+              .filter((c: any) => !String(c.full_name || '').toLowerCase().includes('demo'))
+              .map((c: any) => ({
+                id: c.id,
+                name: c.full_name || c.name,
+                role: c.role_title || c.specialty || 'Growth Specialist',
+                email: c.contact_email || c.email || 'Contact unlocked',
+                phone: c.whatsapp_number || c.phone || 'Phone unlocked',
+                avatarUrl: c.profile_picture_url || c.avatar_url
+              }));
+          }
+        }
+        setUnlockedProfiles(list);
+      } catch (err) {
+        console.warn('Could not fetch unlocked profiles:', err);
+        setUnlockedProfiles([]);
       }
-    });
-    setAllNotes(savedNotesList);
+    };
+    fetchUnlocked();
 
-    const unlocked = MOCK_TALENT.filter((c, idx) => idx === 0 || idx === 1);
-    setUnlockedProfiles(unlocked);
-  }, [activeTab]);
+    // Notes lookup
+    try {
+      const savedNotesList: { id: string; name: string; text: string }[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('candidate-notes-')) {
+          const id = k.replace('candidate-notes-', '');
+          const text = localStorage.getItem(k);
+          if (text) {
+            savedNotesList.push({ id, name: `Candidate ${id.slice(0, 4)}`, text });
+          }
+        }
+      }
+      setAllNotes(savedNotesList);
+    } catch {
+      setAllNotes([]);
+    }
+  }, [activeTab, user]);
 
   const handleAddInterview = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newInterview.candidateName || !newInterview.date) return;
     
-    setInterviews(prev => [
-      ...prev, 
+    const updated = [
+      ...interviews, 
       {
         id: Date.now().toString(),
         name: newInterview.candidateName,
@@ -147,12 +188,20 @@ export default function EmployerWorkspace({
         time: newInterview.time || '12:00 PM',
         status: 'Requested'
       }
-    ]);
+    ];
+    setInterviews(updated);
+    try {
+      localStorage.setItem('employer_scheduled_interviews', JSON.stringify(updated));
+    } catch {}
     setNewInterview({ candidateName: '', date: '', time: '', notes: '' });
   };
 
   const deleteInterview = (id: string) => {
-    setInterviews(prev => prev.filter(item => item.id !== id));
+    const updated = interviews.filter(item => item.id !== id);
+    setInterviews(updated);
+    try {
+      localStorage.setItem('employer_scheduled_interviews', JSON.stringify(updated));
+    } catch {}
   };
 
   const hasOnbRecruiter = (() => {
@@ -386,45 +435,85 @@ export default function EmployerWorkspace({
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {unlockedProfiles.map((c) => (
-                    <div key={c.id} className="border border-slate-200 rounded-2xl p-5 bg-white hover:border-emerald-500/40 hover:shadow-xs transition flex flex-col justify-between space-y-4">
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-3">
-                          <img src={c.avatarUrl} alt={c.name} className="w-11 h-11 rounded-xl object-cover border border-slate-200" referrerPolicy="no-referrer" />
-                          <div>
-                            <h4 className="font-bold text-slate-900 text-sm">{c.name}</h4>
-                            <p className="text-xs text-emerald-700 font-semibold">{c.role}</p>
+                {unlockedProfiles.length === 0 ? (
+                  <div className="py-12 text-center space-y-3 bg-slate-50 border border-slate-200 rounded-2xl p-6">
+                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center mx-auto border border-slate-200 text-slate-400">
+                      <Unlock className="w-6 h-6" />
+                    </div>
+                    <h4 className="font-bold text-slate-800 text-sm">No Unlocked Candidate Portfolios Yet</h4>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                      Explore our vetted talent pool in the directory to unlock direct contact details and schedule interviews.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => navigateToPage ? navigateToPage('directory') : onNavigateToDirectory ? onNavigateToDirectory() : null}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition cursor-pointer"
+                    >
+                      Browse Directory
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {unlockedProfiles.map((c) => {
+                      const hasPhoto = Boolean(c.avatarUrl && !isDemoPicture(c.avatarUrl));
+                      const firstLetter = getFirstLetter(c.name);
+                      return (
+                        <div key={c.id} className="border border-slate-200 rounded-2xl p-5 bg-white hover:border-emerald-500/40 hover:shadow-xs transition flex flex-col justify-between space-y-4">
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-3">
+                              {hasPhoto ? (
+                                <img 
+                                  src={c.avatarUrl} 
+                                  alt={c.name} 
+                                  className="w-11 h-11 rounded-xl object-cover border border-slate-200" 
+                                  referrerPolicy="no-referrer"
+                                  onError={(e) => {
+                                    (e.target as HTMLElement).style.display = 'none';
+                                    const fallback = (e.target as HTMLElement).nextElementSibling;
+                                    if (fallback) (fallback as HTMLElement).classList.remove('hidden');
+                                  }}
+                                />
+                              ) : null}
+                              <div 
+                                className={`w-11 h-11 rounded-xl bg-emerald-700 text-white font-bold flex items-center justify-center text-lg border border-emerald-800 select-none ${hasPhoto ? 'hidden' : 'flex'}`}
+                              >
+                                {firstLetter}
+                              </div>
+                              <div>
+                                <h4 className="font-bold text-slate-900 text-sm">{c.name}</h4>
+                                <p className="text-xs text-emerald-700 font-semibold">{c.role}</p>
+                              </div>
+                            </div>
+
+                            <div className="bg-slate-50 p-3 rounded-xl space-y-1 font-mono text-xs border border-slate-200">
+                              <p className="flex justify-between">
+                                <span className="text-slate-500">Email:</span>
+                                <span className="text-slate-900 font-bold select-all">{c.email}</span>
+                              </p>
+                              <p className="flex justify-between">
+                                <span className="text-slate-500">Phone:</span>
+                                <span className="text-slate-900 font-bold select-all">{c.phone}</span>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
+                            <button
+                              onClick={() => navigateToPage && navigateToPage('directory')}
+                              className="text-slate-900 hover:text-emerald-700 flex items-center gap-1 font-semibold text-xs cursor-pointer"
+                            >
+                              <span>Review Dossier</span>
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                              Vetted Active
+                            </span>
                           </div>
                         </div>
-
-                        <div className="bg-slate-50 p-3 rounded-xl space-y-1 font-mono text-xs border border-slate-200">
-                          <p className="flex justify-between">
-                            <span className="text-slate-500">Email:</span>
-                            <span className="text-slate-900 font-bold select-all">{c.email}</span>
-                          </p>
-                          <p className="flex justify-between">
-                            <span className="text-slate-500">Phone:</span>
-                            <span className="text-slate-900 font-bold select-all">{c.phone}</span>
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
-                        <button
-                          onClick={() => navigateToPage && navigateToPage('directory')}
-                          className="text-slate-900 hover:text-emerald-700 flex items-center gap-1 font-semibold text-xs cursor-pointer"
-                        >
-                          <span>Review Dossier</span>
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
-                        <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                          Vetted Active
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 <button
                   onClick={() => navigateToPage && navigateToPage('directory')}

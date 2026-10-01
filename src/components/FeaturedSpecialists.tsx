@@ -8,8 +8,7 @@ import {
   ArrowRight,
   Sparkles
 } from 'lucide-react';
-import ramonAvatar from '../assets/images/avatar_ramon_bisola_1790269802673.jpg';
-import adekunleAvatar from '../assets/images/avatar_adekunle_bolagun_1790269816073.jpg';
+import { isDemoPicture, getFirstLetter } from '../lib/talentUtils';
 
 export interface FeaturedSpecialist {
   id: string;
@@ -27,38 +26,8 @@ export interface FeaturedSpecialist {
   slug: string;
 }
 
-// Fallback real registered talent roster on Digital Campux with authentic metadata
+// Real registered talent roster on Digital Campux with authentic data (no demo talent, no demo photos)
 const REAL_REGISTERED_CANDIDATES: FeaturedSpecialist[] = [
-  {
-    id: 'e01b839d-ace7-43cf-9cac-6bd9a3caf2b3',
-    name: 'Ramon Oluwakenni Bisola',
-    role: 'Growth Marketing Specialist',
-    specialty: 'Growth Marketing',
-    isApproved: true,
-    vettingStatus: 'verified',
-    availability_status: 'available',
-    skills: ['Growth Marketing', 'User Acquisition', 'Campaign Analytics'],
-    score: 86,
-    yearsExperience: 5,
-    location: 'Remote',
-    avatarUrl: ramonAvatar,
-    slug: 'ramon-oluwakemi-bisola'
-  },
-  {
-    id: '7130ac4d-9c1a-46d5-bb1d-88e5a89717fa',
-    name: 'Adekunle Sultan Bolagun',
-    role: 'AI & Automation Engineer',
-    specialty: 'AI Workflows & Integration',
-    isApproved: true,
-    vettingStatus: 'verified',
-    availability_status: 'available',
-    skills: ['AI Workflows', 'API Integration', 'No-Code/Low-Code'],
-    score: 92,
-    yearsExperience: 4,
-    location: 'Remote',
-    avatarUrl: adekunleAvatar,
-    slug: 'sanni-adekunle'
-  },
   {
     id: 'cf8edaa6-d505-402f-a00a-0058ee932710',
     name: 'Patrick Ezeji',
@@ -75,6 +44,36 @@ const REAL_REGISTERED_CANDIDATES: FeaturedSpecialist[] = [
     slug: 'patrick-ezeji'
   },
   {
+    id: 'e01b839d-ace7-43cf-9cac-6bd9a3caf2b3',
+    name: 'Ramon Oluwakemi Bisola',
+    role: 'Growth Marketing Specialist',
+    specialty: 'Growth Marketing',
+    isApproved: true,
+    vettingStatus: 'verified',
+    availability_status: 'available',
+    skills: ['Growth Marketing', 'User Acquisition', 'Campaign Analytics'],
+    score: 86,
+    yearsExperience: 5,
+    location: 'Remote',
+    avatarUrl: undefined,
+    slug: 'ramon-oluwakemi-bisola'
+  },
+  {
+    id: '7130ac4d-9c1a-46d5-bb1d-88e5a89717fa',
+    name: 'Adekunle Sultan Balogun',
+    role: 'AI & Automation Engineer',
+    specialty: 'AI Workflows & Integration',
+    isApproved: true,
+    vettingStatus: 'verified',
+    availability_status: 'available',
+    skills: ['AI Workflows', 'API Integration', 'No-Code/Low-Code'],
+    score: 92,
+    yearsExperience: 4,
+    location: 'Remote',
+    avatarUrl: undefined,
+    slug: 'sanni-adekunle'
+  },
+  {
     id: '0d7ac151-8e57-44df-a0eb-75eb1ce4c93e',
     name: 'Oluebube Nwokedi',
     role: 'Growth & Funnel Architect',
@@ -86,7 +85,7 @@ const REAL_REGISTERED_CANDIDATES: FeaturedSpecialist[] = [
     score: 88,
     yearsExperience: 4,
     location: 'Remote',
-    avatarUrl: ramonAvatar,
+    avatarUrl: undefined,
     slug: 'oluebube-nwokedi'
   },
   {
@@ -101,7 +100,7 @@ const REAL_REGISTERED_CANDIDATES: FeaturedSpecialist[] = [
     score: 87,
     yearsExperience: 3,
     location: 'Remote',
-    avatarUrl: adekunleAvatar,
+    avatarUrl: undefined,
     slug: 'ofonmbuk-sunday-akpan'
   }
 ];
@@ -116,13 +115,6 @@ function formatName(rawName: string): string {
       return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
     })
     .join(' ');
-}
-
-function getInitials(name: string): string {
-  if (!name) return 'GS';
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 interface FeaturedSpecialistsProps {
@@ -228,16 +220,13 @@ export const FeaturedSpecialists: React.FC<FeaturedSpecialistsProps> = ({
 
             const location = item.location || (name.toLowerCase().includes('patrick') ? 'Lagos, Nigeria' : 'Remote');
             
-            // Prefer genuine uploaded photo; fallback to authentic portrait photos
-            let avatarUrl = item.profile_picture_url || item.avatar_url;
-            if (!avatarUrl) {
-              if (name.toLowerCase().includes('patrick')) {
-                avatarUrl = 'https://i.postimg.cc/mDp0kzZZ/Patrick-Ezeji-Youtube-channel.png';
-              } else if (name.toLowerCase().includes('adekunle') || name.toLowerCase().includes('sultan')) {
-                avatarUrl = adekunleAvatar;
-              } else {
-                avatarUrl = ramonAvatar;
-              }
+            // Only keep real profile picture; remove any demo or mock images
+            let avatarUrl: string | undefined = undefined;
+            const rawPhoto = item.profile_picture_url || item.avatar_url;
+            if (rawPhoto && !isDemoPicture(rawPhoto)) {
+              avatarUrl = rawPhoto;
+            } else if (name.toLowerCase().includes('patrick')) {
+              avatarUrl = 'https://i.postimg.cc/mDp0kzZZ/Patrick-Ezeji-Youtube-channel.png';
             }
 
             const slug = item.slug || (name ? name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : String(item.id));
@@ -381,7 +370,8 @@ export const FeaturedSpecialists: React.FC<FeaturedSpecialistsProps> = ({
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {displayedTalents.map((candidate) => {
-                const initials = getInitials(candidate.name);
+                const firstLetter = getFirstLetter(candidate.name);
+                const hasValidPhoto = Boolean(candidate.avatarUrl && !isDemoPicture(candidate.avatarUrl));
 
                 return (
                   <div 
@@ -394,9 +384,9 @@ export const FeaturedSpecialists: React.FC<FeaturedSpecialistsProps> = ({
                     <div className="space-y-4">
                       <div className="flex items-start gap-3.5">
                         
-                        {/* Circular Avatar */}
+                        {/* Circular Avatar with First Letter Fallback */}
                         <div className="relative shrink-0">
-                          {candidate.avatarUrl ? (
+                          {hasValidPhoto ? (
                             <img 
                               src={candidate.avatarUrl} 
                               alt={candidate.name}
@@ -410,9 +400,9 @@ export const FeaturedSpecialists: React.FC<FeaturedSpecialistsProps> = ({
                             />
                           ) : null}
                           <div 
-                            className={`w-12 h-12 rounded-full bg-emerald-700 text-white font-bold text-sm flex items-center justify-center border border-slate-200 shadow-2xs ${candidate.avatarUrl ? 'hidden' : 'flex'}`}
+                            className={`w-12 h-12 rounded-full bg-emerald-600 text-white font-bold text-lg flex items-center justify-center border border-slate-200 shadow-2xs select-none ${hasValidPhoto ? 'hidden' : 'flex'}`}
                           >
-                            {initials}
+                            {firstLetter}
                           </div>
                         </div>
 
