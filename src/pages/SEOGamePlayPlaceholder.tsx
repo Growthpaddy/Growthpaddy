@@ -1,19 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Gamepad2, 
-  Search, 
   ArrowLeft, 
-  Zap, 
-  Cpu, 
-  Database, 
-  Globe, 
   CheckCircle2, 
-  Layers, 
-  Building2, 
   Sparkles,
-  Play,
-  RotateCcw
+  Coins,
+  Zap,
+  Shield,
+  Loader2,
+  Building2,
+  Lock
 } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
 import { PageType } from '../types';
 
 interface SEOGamePlayPlaceholderProps {
@@ -31,162 +29,320 @@ export default function SEOGamePlayPlaceholder({
   navigateToPage,
   onOpenSignIn
 }: SEOGamePlayPlaceholderProps) {
-  const [selectedIndustry, setSelectedIndustry] = useState<string>('real-estate');
-  const [launchProgress, setLaunchProgress] = useState(100);
-  const [isInitializing, setIsInitializing] = useState(false);
-  const [launchMessage, setLaunchMessage] = useState<string | null>(null);
+  // Authentication & Profile state
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [playerData, setPlayerData] = useState<any>(null);
+  const [walletData, setWalletData] = useState<any>(null);
+  const [authError, setAuthError] = useState(false);
 
-  const handleLaunch = () => {
-    setIsInitializing(true);
-    setLaunchMessage('Initializing isolated sandbox container and deploying initial SERP rankings...');
-    setTimeout(() => {
-      setIsInitializing(false);
-      setLaunchMessage('Sandbox ready! Mission #1 "Rank Your First Keyword" active. Simulator environment connected.');
-    }, 1200);
-  };
+  // Flash entry animation sequence steps:
+  // 1. 'PLAYER VERIFIED'
+  // 2. 'LOADING SEO WORLD...'
+  // 3. 'PREPARING YOUR BUSINESS HQ...'
+  // 4. 'ENTERING THE SEO GAME...'
+  // 5. 'READY' -> Shows temporary "SEO GAME INITIALIZING - Your player profile is ready."
+  const [flashStep, setFlashStep] = useState<number>(1);
+  const [flashComplete, setFlashComplete] = useState<boolean>(false);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    async function verifyAndLoadPlayer() {
+      setCheckingAuth(true);
+      try {
+        const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+        const currentSession = sessionData?.session;
+
+        if (sessionErr || !currentSession?.user) {
+          if (isMounted) {
+            setAuthError(true);
+            setCheckingAuth(false);
+            onOpenSignIn();
+          }
+          return;
+        }
+
+        const user = currentSession.user;
+
+        // 1. Load Player Profile from `seo_game_players`
+        let { data: player, error: playerErr } = await supabase
+          .from('seo_game_players')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        // If authenticated but no dossier exists, initialize via RPC
+        if (!player) {
+          const fallbackName = user.user_metadata?.player_name || user.email?.split('@')[0] || 'Strategist';
+          await supabase.rpc('seo_game_initialize_player', {
+            p_display_name: fallbackName,
+            p_difficulty: 'intermediate'
+          });
+
+          const { data: createdPlayer } = await supabase
+            .from('seo_game_players')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          player = createdPlayer;
+        }
+
+        if (isMounted && player) {
+          setPlayerData(player);
+
+          // 2. Read Player Wallet from `seo_game_wallets`
+          const { data: wallet } = await supabase
+            .from('seo_game_wallets')
+            .select('*')
+            .eq('player_id', player.id)
+            .maybeSingle();
+
+          if (wallet) {
+            setWalletData(wallet);
+          }
+        }
+
+        if (isMounted) {
+          setCheckingAuth(false);
+        }
+      } catch (err) {
+        console.error('Error verifying SEO game player:', err);
+        if (isMounted) {
+          setAuthError(true);
+          setCheckingAuth(false);
+          onOpenSignIn();
+        }
+      }
+    }
+
+    verifyAndLoadPlayer();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [onOpenSignIn]);
+
+  // Flash animation step timing (Total duration ~ 2.4 seconds)
+  useEffect(() => {
+    if (checkingAuth || authError) return;
+
+    const t1 = setTimeout(() => setFlashStep(2), 600);   // LOADING SEO WORLD...
+    const t2 = setTimeout(() => setFlashStep(3), 1200);  // PREPARING YOUR BUSINESS HQ...
+    const t3 = setTimeout(() => setFlashStep(4), 1800);  // ENTERING THE SEO GAME...
+    const t4 = setTimeout(() => {
+      setFlashStep(5);
+      setFlashComplete(true);
+    }, 2400); // REVEAL INITIALIZING SCREEN
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      clearTimeout(t4);
+    };
+  }, [checkingAuth, authError]);
+
+  // If not authenticated or error, display clean SEO Game redirect trigger
+  if (authError || (!checkingAuth && !playerData)) {
+    return (
+      <div className="min-h-screen bg-[#06090F] text-slate-100 flex flex-col items-center justify-center p-6 text-center">
+        <div className="p-8 rounded-3xl bg-[#090D16] border border-slate-800 max-w-md w-full space-y-5 shadow-2xl">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400">
+            <Lock className="w-7 h-7" />
+          </div>
+          <div className="space-y-1.5">
+            <h2 className="font-display font-black text-xl text-white">PLAYER AUTHENTICATION REQUIRED</h2>
+            <p className="text-xs text-slate-400">
+              Please authenticate with your player credentials to enter the SEO world.
+            </p>
+          </div>
+          <div className="space-y-2 pt-2">
+            <button
+              onClick={onOpenSignIn}
+              className="w-full py-3 px-5 rounded-xl bg-[#18B892] hover:bg-[#149a7a] text-slate-950 font-display font-black text-xs uppercase tracking-wider transition cursor-pointer"
+            >
+              Sign In to SEO Game
+            </button>
+            <button
+              onClick={() => navigateToPage('the-seo-game')}
+              className="w-full py-2.5 px-5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 text-xs font-mono transition cursor-pointer"
+            >
+              Return to Landing Page
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 1. Initial Loading or Flash Animation Chamber (1.5 - 2.5s)
+  if (checkingAuth || !flashComplete) {
+    const flashMessages: Record<number, string> = {
+      1: 'PLAYER VERIFIED',
+      2: 'LOADING SEO WORLD...',
+      3: 'PREPARING YOUR BUSINESS HQ...',
+      4: 'ENTERING THE SEO GAME...'
+    };
+
+    return (
+      <div className="min-h-screen bg-[#06090F] text-slate-100 flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        {/* Ambient atmospheric glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#18B892]/15 rounded-full blur-[140px] pointer-events-none" />
+
+        <div className="relative z-10 text-center space-y-6 max-w-md">
+          {/* Logo Badge */}
+          <div className="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-br from-[#18B892] via-[#0E7A60] to-[#0A4D3C] p-0.5 shadow-2xl shadow-[#18B892]/30 animate-pulse">
+            <div className="w-full h-full bg-[#080E1A] rounded-[22px] flex items-center justify-center">
+              <Gamepad2 className="w-10 h-10 text-[#18B892]" />
+            </div>
+          </div>
+
+          {/* Flash Step Message */}
+          <div className="space-y-2">
+            <h2 className="font-display font-black text-2xl sm:text-3xl text-white tracking-wider uppercase">
+              {flashMessages[flashStep] || 'PLAYER VERIFIED'}
+            </h2>
+            <p className="font-mono text-xs text-slate-400">
+              Identity: <span className="text-[#18B892] font-bold">{playerData?.display_name || userName || 'Verified Strategist'}</span>
+            </p>
+          </div>
+
+          {/* Precision Micro Progress Bar */}
+          <div className="w-48 mx-auto h-1 bg-slate-800 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-[#18B892] transition-all duration-500 ease-out"
+              style={{ width: `${(flashStep / 4) * 100}%` }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Temporary Player Entry Screen
   return (
-    <div className="min-h-screen bg-[#06090F] text-slate-100 font-sans selection:bg-[#18B892]/30 selection:text-white pb-20">
+    <div className="min-h-screen bg-[#06090F] text-slate-100 font-sans selection:bg-[#18B892]/30 selection:text-white flex flex-col justify-between">
       
-      {/* Top Game Bar */}
-      <div className="w-full bg-[#080E1C] border-b border-slate-800/80 px-4 sm:px-8 py-3.5 flex items-center justify-between">
+      {/* Top Header Bar */}
+      <header className="w-full bg-[#070D18]/90 backdrop-blur-md border-b border-slate-800/80 px-4 sm:px-8 py-3.5 flex items-center justify-between">
         <button
           onClick={() => navigateToPage('the-seo-game')}
           className="flex items-center gap-2 text-xs font-mono font-bold text-slate-400 hover:text-[#18B892] transition cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Return to /The-SEO-Game Landing</span>
+          <span>Exit to Overview</span>
         </button>
 
-        <div className="flex items-center gap-2.5">
-          <div className="w-2 h-2 rounded-full bg-[#18B892] animate-pulse" />
-          <span className="text-xs font-mono text-slate-300">
-            Player: <strong className="text-white">{userName || 'Authenticated Strategist'}</strong>
-          </span>
-        </div>
-      </div>
-
-      <div className="max-w-4xl mx-auto px-4 pt-12 sm:pt-16 text-left space-y-8">
-        
-        {/* Header Banner */}
-        <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-[#0B1528] to-[#080E1A] border-2 border-slate-800 text-left relative overflow-hidden shadow-2xl">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-[#18B892]/10 rounded-full blur-3xl pointer-events-none" />
-          
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#18B892]/10 border border-[#18B892]/30 text-[#18B892] text-xs font-mono font-bold mb-4">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>GAMEPLAY STAGING CHAMBER</span>
+        {/* Player Status Dossier Pill */}
+        <div className="flex items-center gap-3">
+          {/* Wallet Readout (From verified Supabase records) */}
+          <div className="hidden sm:flex items-center gap-3 text-xs font-mono bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800">
+            <div className="flex items-center gap-1.5 text-amber-400 font-bold">
+              <Coins className="w-3.5 h-3.5" />
+              <span>{walletData?.coins?.toLocaleString() ?? 1000}</span>
+            </div>
+            <span className="text-slate-700">|</span>
+            <div className="flex items-center gap-1.5 text-[#18B892] font-bold">
+              <Zap className="w-3.5 h-3.5" />
+              <span>{walletData?.energy ?? 100}/{walletData?.max_energy ?? 100}</span>
+            </div>
           </div>
 
-          <h1 className="font-display font-black text-2xl sm:text-4xl text-white mb-2">
-            The SEO Game Simulator Hub
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="w-2 h-2 rounded-full bg-[#18B892] animate-pulse" />
+            <span className="text-slate-200 font-bold">
+              {playerData?.display_name || userName || 'Strategist'}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Chamber: TEMPORARY PLACEHOLDER */}
+      <main className="max-w-3xl mx-auto px-4 py-16 sm:py-24 text-center space-y-8 flex-1 flex flex-col items-center justify-center">
+        
+        {/* Glow & Badge */}
+        <div className="relative">
+          <div className="w-20 h-20 rounded-3xl bg-[#091120] border-2 border-[#18B892]/40 flex items-center justify-center text-[#18B892] shadow-[0_0_40px_rgba(24,184,146,0.2)] mx-auto">
+            <Building2 className="w-10 h-10" />
+          </div>
+        </div>
+
+        {/* Required Screen Text */}
+        <div className="space-y-3 max-w-xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#18B892]/15 border border-[#18B892]/30 text-[#18B892] text-xs font-mono font-bold">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>AUTHENTICATION COMPLETE</span>
+          </div>
+
+          <h1 className="font-display font-black text-3xl sm:text-5xl text-white tracking-tight uppercase">
+            SEO GAME INITIALIZING
           </h1>
 
-          <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-2xl">
-            Welcome to your interactive SEO strategy command room. Choose your target business sector below to provision your simulated website and real-time competitor sandbox.
+          <p className="font-mono text-sm sm:text-base text-slate-300">
+            Your player profile is ready.
           </p>
         </div>
 
-        {/* System Checklist / Preparation Status */}
-        <div className="bg-[#091020] border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-4">
-          <h3 className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-            <Cpu className="w-4 h-4 text-[#18B892]" />
-            Simulation Environment Status
-          </h3>
+        {/* Player Profile & Wallet Dossier Card */}
+        <div className="w-full max-w-md bg-[#080E1C] border border-slate-800 rounded-2xl p-5 text-left space-y-3.5 font-mono text-xs">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
+            <span className="text-slate-400">PLAYER DOSSIER</span>
+            <span className="text-[#18B892] font-bold uppercase">{playerData?.difficulty || 'STRATEGIST'}</span>
+          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-mono">
-            <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800 flex items-center justify-between">
-              <span className="text-slate-400">SERP Crawler Engine:</span>
-              <span className="text-emerald-400 font-bold flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Ready
-              </span>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
+              <span className="text-slate-400 block text-[10px]">CALL SIGN</span>
+              <strong className="text-white text-xs block truncate mt-0.5">
+                {playerData?.display_name || 'Strategist'}
+              </strong>
             </div>
 
-            <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800 flex items-center justify-between">
-              <span className="text-slate-400">Algorithm Volatility:</span>
-              <span className="text-cyan-400 font-bold flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Calibrated
-              </span>
+            <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
+              <span className="text-slate-400 block text-[10px]">CURRENT LEVEL</span>
+              <strong className="text-white text-xs block mt-0.5">
+                LEVEL {playerData?.level || 1} (0 XP)
+              </strong>
             </div>
 
-            <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800 flex items-center justify-between">
-              <span className="text-slate-400">AI Overview Grounding:</span>
-              <span className="text-purple-400 font-bold flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Online
-              </span>
+            <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
+              <span className="text-slate-400 block text-[10px]">STARTING COINS</span>
+              <strong className="text-amber-400 text-xs flex items-center gap-1 mt-0.5 font-bold">
+                <Coins className="w-3.5 h-3.5" />
+                {walletData?.coins?.toLocaleString() ?? 1000}
+              </strong>
             </div>
+
+            <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
+              <span className="text-slate-400 block text-[10px]">STARTING ENERGY</span>
+              <strong className="text-[#18B892] text-xs flex items-center gap-1 mt-0.5 font-bold">
+                <Zap className="w-3.5 h-3.5" />
+                {walletData?.energy ?? 100} / {walletData?.max_energy ?? 100}
+              </strong>
+            </div>
+          </div>
+
+          <div className="pt-2 text-[11px] text-slate-500 text-center">
+            Database records verified. Interactive dashboard will launch in Phase 2.
           </div>
         </div>
 
-        {/* Choose Industry Niche */}
-        <div className="bg-[#091020] border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-4">
-          <h3 className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
-            Choose Your Business Sector
-          </h3>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            {[
-              { id: 'real-estate', title: 'Real Estate & Rentals', desc: 'Apex Realty — High competition, localized search intent, competitive luxury rentals.' },
-              { id: 'b2b-saas', title: 'B2B Enterprise SaaS', desc: 'CloudMetrics — Technical search terms, bottom-of-funnel comparison keywords, high LTV.' },
-              { id: 'ecommerce', title: 'DTC E-Commerce', desc: 'Aura Lifestyle — Faceted navigation, product structured data, high volume head terms.' },
-              { id: 'local-clinic', title: 'Local Healthcare & Services', desc: 'Metro Clinic — Google Map pack dominance, service landing pages, localized reviews.' }
-            ].map(item => (
-              <button
-                key={item.id}
-                onClick={() => setSelectedIndustry(item.id)}
-                className={`p-4 rounded-xl border text-left transition cursor-pointer ${
-                  selectedIndustry === item.id
-                    ? 'bg-[#0E1C2E] border-[#18B892] shadow-lg shadow-[#18B892]/15'
-                    : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <h4 className="font-bold text-white text-sm">{item.title}</h4>
-                  {selectedIndustry === item.id && (
-                    <span className="text-[10px] font-mono text-[#18B892] bg-[#18B892]/20 px-2 py-0.5 rounded">
-                      Selected
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-slate-400 leading-relaxed">{item.desc}</p>
-              </button>
-            ))}
-          </div>
+        {/* Back action */}
+        <div>
+          <button
+            onClick={() => navigateToPage('the-seo-game')}
+            className="px-6 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 text-slate-300 font-bold text-xs uppercase tracking-wider transition cursor-pointer"
+          >
+            Return to SEO Game Landing
+          </button>
         </div>
 
-        {/* Launch Action */}
-        <div className="text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-800">
-          <div>
-            <div className="text-xs text-slate-400 font-mono">
-              Ready to execute your initial keyword audit and content plan.
-            </div>
-            {launchMessage && (
-              <div className="text-xs text-[#18B892] font-semibold mt-1 flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>{launchMessage}</span>
-              </div>
-            )}
-          </div>
+      </main>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigateToPage('the-seo-game')}
-              className="px-4 py-2.5 rounded-xl border border-slate-700 text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer"
-            >
-              Back to Overview
-            </button>
-
-            <button
-              onClick={handleLaunch}
-              disabled={isInitializing}
-              className="px-6 py-3 rounded-xl bg-[#18B892] hover:bg-[#149f7e] text-slate-950 font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-[#18B892]/25 cursor-pointer active:scale-95 disabled:opacity-50"
-            >
-              <Play className="w-4 h-4 fill-current" />
-              <span>{isInitializing ? 'Provisioning...' : 'Launch Sandbox Session'}</span>
-            </button>
-          </div>
-        </div>
-
-      </div>
+      {/* Footer bar */}
+      <footer className="w-full py-4 text-center text-xs font-mono text-slate-600 border-t border-slate-800/60">
+        DSP Academy · THE SEO GAME · Secure Supabase Authentication
+      </footer>
 
     </div>
   );

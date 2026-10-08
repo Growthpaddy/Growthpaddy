@@ -52,6 +52,8 @@ import Packages from './components/Packages';
 import HowItWorks from './pages/HowItWorks';
 import SEOGameLandingPage from './pages/SEOGameLandingPage';
 import SEOGamePlayPlaceholder from './pages/SEOGamePlayPlaceholder';
+import SEOGameRegistrationModal from './components/seo-game/SEOGameRegistrationModal';
+import SEOGameLoginModal from './components/seo-game/SEOGameLoginModal';
 import { PageType } from './types';
 
 export default function App() {
@@ -297,6 +299,10 @@ export default function App() {
   const [signInPassword, setSignInPassword] = useState('');
   const [signInError, setSignInError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // Dedicated SEO Game Modals State
+  const [isSEOGameRegModalOpen, setIsSEOGameRegModalOpen] = useState(false);
+  const [isSEOGameLoginModalOpen, setIsSEOGameLoginModalOpen] = useState(false);
 
   // Modals Core Settings
   const [isHireModalOpen, setIsHireModalOpen] = useState(false);
@@ -788,11 +794,10 @@ export default function App() {
                 userEmail={onboardingData?.email || adminProfile?.email || user?.email || ''}
                 navigateToPage={navigateToPage}
                 openSignInModal={() => {
-                  setSignInError('');
-                  setIsSignInModalOpen(true);
+                  setIsSEOGameLoginModalOpen(true);
                 }}
                 openSignupModal={() => {
-                  setIsTalentModalOpen(true);
+                  setIsSEOGameRegModalOpen(true);
                 }}
               />
             )}
@@ -805,8 +810,7 @@ export default function App() {
                 isLoggedIn={Boolean(onboardingData !== null || user !== null || (adminUser && adminProfile?.is_active))}
                 navigateToPage={navigateToPage}
                 onOpenSignIn={() => {
-                  setSignInError('');
-                  setIsSignInModalOpen(true);
+                  setIsSEOGameLoginModalOpen(true);
                 }}
               />
             )}
@@ -1247,6 +1251,44 @@ export default function App() {
         isActive={showConfetti} 
         onComplete={() => setShowConfetti(false)} 
         message={confettiMessage} 
+      />
+
+      {/* DEDICATED SEO GAME REGISTRATION MODAL */}
+      <SEOGameRegistrationModal
+        isOpen={isSEOGameRegModalOpen}
+        onClose={() => setIsSEOGameRegModalOpen(false)}
+        onSwitchToLogin={() => {
+          setIsSEOGameRegModalOpen(false);
+          setIsSEOGameLoginModalOpen(true);
+        }}
+        onSuccess={() => {
+          setIsSEOGameRegModalOpen(false);
+          setIsSEOGameLoginModalOpen(true);
+        }}
+      />
+
+      {/* DEDICATED SEO GAME LOGIN MODAL */}
+      <SEOGameLoginModal
+        isOpen={isSEOGameLoginModalOpen}
+        onClose={() => setIsSEOGameLoginModalOpen(false)}
+        onSwitchToRegister={() => {
+          setIsSEOGameLoginModalOpen(false);
+          setIsSEOGameRegModalOpen(true);
+        }}
+        onSuccess={(userData) => {
+          setOnboardingDataState({
+            userType: 'talent',
+            userName: userData.name || userData.email.split('@')[0],
+            email: userData.email,
+            specialty: 'Search Engine Optimization',
+            careerGoal: 'Full-Time Remote Job'
+          });
+          setConfettiMessage(`WELCOME BACK TO THE SEO GAME!`);
+          setShowConfetti(true);
+          // Route immediately to /The-SEO-Game/play
+          setCurrentPage('the-seo-game-play');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
       />
 
       {/* DEDICATED TALENT PORTFOLIO SHOWCASE MODAL */}
