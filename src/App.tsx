@@ -49,6 +49,9 @@ import RecruiterSignup from './components/RecruiterSignup';
 import RecruiterLogin from './components/RecruiterLogin';
 import RecruiterDashboard from './components/RecruiterDashboard';
 import Packages from './components/Packages';
+import HowItWorks from './pages/HowItWorks';
+import SEOGameLandingPage from './pages/SEOGameLandingPage';
+import SEOGamePlayPlaceholder from './pages/SEOGamePlayPlaceholder';
 import { PageType } from './types';
 
 export default function App() {
@@ -74,15 +77,18 @@ export default function App() {
   const pageToPath = (page: PageType) => {
     switch (page) {
       case 'home': return '/';
-      case 'directory': return '/directory';
-      case 'packages': return '/packages';
+      case 'directory': return '/talent-directory';
+      case 'how-it-works': return '/how-it-works';
+      case 'the-seo-game': return '/The-SEO-Game';
+      case 'the-seo-game-play': return '/The-SEO-Game/play';
+      case 'packages': return '/pricing';
+      case 'pricing': return '/pricing';
       case 'employer': return '/employer';
       case 'recruiter-signup': return '/recruiter/signup';
       case 'recruiter-login': return '/recruiter/login';
       case 'recruiter-dashboard': return '/recruiter/dashboard';
       case 'talent': return '/talent-profile';
       case 'assessment': return '/assessment';
-      case 'pricing': return '/packages';
       case 'admin': return '/admin';
       case 'admin-dashboard': return '/admin/dashboard';
       case 'admin-login': return '/admin/login';
@@ -133,7 +139,14 @@ export default function App() {
 
     const lower = cleaned.toLowerCase();
     if (lower === '' || lower === '/' || lower === '/index.html' || lower === '/index') return { page: 'home' };
-    if (lower === '/directory') return { page: 'directory' };
+    if (lower === '/directory' || lower === '/talent-directory' || lower === '/talents') return { page: 'directory' };
+    if (lower === '/how-it-works' || lower === '/howitworks') return { page: 'how-it-works' };
+    if (lower === '/the-seo-game' || lower === '/theseogame' || lower === '/seo-game') {
+      return { page: 'the-seo-game' };
+    }
+    if (lower === '/the-seo-game/play' || lower === '/theseogame/play' || lower === '/seo-game/play') {
+      return { page: 'the-seo-game-play' };
+    }
     if (lower === '/packages' || lower === '/recruiter/packages' || lower === '/recruiter-packages' || lower === '/pricing') {
       return { page: 'packages' };
     }
@@ -166,7 +179,9 @@ export default function App() {
     const reservedSlugs = [
       'index.html', 'index', 'favicon.ico', 'assets', 'api', 'manifest.json', 
       'robots.txt', 'sitemap.xml', 'home', 'login', 'signup', 'dashboard',
-      'packages', 'pricing', 'directory', 'talent', 'assessment', 'admin', 'recruiter'
+      'packages', 'pricing', 'directory', 'talent-directory', 'how-it-works', 'howitworks', 
+      'the-seo-game', 'the-seo-game-play', 'theseogame', 'seo-game',
+      'talent', 'assessment', 'admin', 'recruiter'
     ];
 
     // Direct candidate slug / name route: /[talent-name] or /[talent-slug]
@@ -599,10 +614,14 @@ export default function App() {
   }, [adminSignOut]);
 
   return (
-    <div className="min-h-screen bg-white text-neutral-850 font-sans antialiased selection:bg-emerald-500/30 selection:text-neutral-900">
+    <div className={`min-h-screen font-sans antialiased ${
+      currentPage === 'the-seo-game' || currentPage === 'the-seo-game-play'
+        ? 'bg-[#06090F] text-slate-100 selection:bg-[#18B892]/30 selection:text-white'
+        : 'bg-white text-neutral-850 selection:bg-emerald-500/30 selection:text-neutral-900'
+    }`}>
       
-      {/* GLOBAL HEADER (Hidden on isolated dashboards: Talent, Recruiter, Employer, and Admin) */}
-      {!isDashboardPage && (
+      {/* GLOBAL HEADER (Hidden on isolated dashboards and dedicated game pages) */}
+      {!isDashboardPage && currentPage !== 'the-seo-game' && currentPage !== 'the-seo-game-play' && (
         <Header 
           currentPage={currentPage} 
           setCurrentPage={setCurrentPage} 
@@ -741,7 +760,7 @@ export default function App() {
               </section>
             )}
 
-            {/* View 6: Pricing Plans & Recruiter Packages (/packages) */}
+            {/* View 6: Pricing Plans & Recruiter Packages (/packages or /pricing) */}
             {(currentPage === 'packages' || currentPage === 'pricing') && (
               <section className="max-w-7xl mx-auto py-8 px-4">
                 <Packages 
@@ -750,7 +769,49 @@ export default function App() {
               </section>
             )}
 
-            {/* View 7: Admin Registration (/admin/register) */}
+            {/* View 7: Dedicated How It Works Page (/how-it-works) */}
+            {currentPage === 'how-it-works' && (
+              <div className="w-full">
+                <HowItWorks 
+                  onNavigateToDirectory={() => navigateToPage('directory')}
+                  onNavigateToPricing={() => navigateToPage('pricing')}
+                  onOpenMatchmakingModal={() => setIsHireModalOpen(true)}
+                />
+              </div>
+            )}
+
+            {/* View 10: The SEO Game Landing Page (/The-SEO-Game) */}
+            {currentPage === 'the-seo-game' && (
+              <SEOGameLandingPage
+                isLoggedIn={Boolean(onboardingData !== null || user !== null || (adminUser && adminProfile?.is_active))}
+                userName={onboardingData?.userName || adminProfile?.full_name || (user?.user_metadata?.name as string) || (user?.email ? user.email.split('@')[0] : '')}
+                userEmail={onboardingData?.email || adminProfile?.email || user?.email || ''}
+                navigateToPage={navigateToPage}
+                openSignInModal={() => {
+                  setSignInError('');
+                  setIsSignInModalOpen(true);
+                }}
+                openSignupModal={() => {
+                  setIsTalentModalOpen(true);
+                }}
+              />
+            )}
+
+            {/* View 10b: The SEO Game Play Simulator Chamber (/The-SEO-Game/play) */}
+            {currentPage === 'the-seo-game-play' && (
+              <SEOGamePlayPlaceholder
+                userName={onboardingData?.userName || adminProfile?.full_name || (user?.user_metadata?.name as string) || (user?.email ? user.email.split('@')[0] : '')}
+                userEmail={onboardingData?.email || adminProfile?.email || user?.email || ''}
+                isLoggedIn={Boolean(onboardingData !== null || user !== null || (adminUser && adminProfile?.is_active))}
+                navigateToPage={navigateToPage}
+                onOpenSignIn={() => {
+                  setSignInError('');
+                  setIsSignInModalOpen(true);
+                }}
+              />
+            )}
+
+            {/* View 8: Admin Registration (/admin/register) */}
             {currentPage === 'admin-register' && (
               <AdminRegister 
                 onNavigateToLogin={() => navigateToPage('admin-login')} 
@@ -1176,8 +1237,8 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* GLOBAL FOOTER (Hidden on isolated dashboard views) */}
-      {!isDashboardPage && (
+      {/* GLOBAL FOOTER (Hidden on isolated dashboard views and dedicated game pages) */}
+      {!isDashboardPage && currentPage !== 'the-seo-game' && currentPage !== 'the-seo-game-play' && (
         <Footer setCurrentPage={setCurrentPage} />
       )}
 

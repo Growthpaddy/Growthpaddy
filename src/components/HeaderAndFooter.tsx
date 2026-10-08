@@ -112,7 +112,10 @@ export function Header({
   const pageToRoutePath = (id: PageType): string => {
     switch (id) {
       case 'home': return '/';
-      case 'directory': return '/directory';
+      case 'directory': return '/talent-directory';
+      case 'how-it-works': return '/how-it-works';
+      case 'the-seo-game': return '/The-SEO-Game';
+      case 'the-seo-game-play': return '/The-SEO-Game/play';
       case 'employer': return '/employer';
       case 'recruiter-signup': return '/recruiter/signup';
       case 'recruiter-login': return '/recruiter/login';
@@ -120,6 +123,7 @@ export function Header({
       case 'talent': return '/talent-profile';
       case 'assessment': return '/assessment';
       case 'pricing': return '/pricing';
+      case 'packages': return '/pricing';
       case 'admin': return '/admin';
       case 'admin-dashboard': return '/admin/dashboard';
       case 'admin-login': return '/admin/login';
@@ -320,55 +324,42 @@ export function Header({
             </button>
 
             {activeDropdown === 'employers' && (
-              <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-slate-200/90 rounded-2xl shadow-xl py-2 z-50 animate-fadeIn text-left">
+              <div className="absolute top-full left-0 mt-2 w-72 bg-white border border-slate-200/90 rounded-2xl shadow-xl py-2 z-50 animate-fadeIn text-left">
                 <button
                   type="button"
                   onClick={() => handleNavClick('directory')}
-                  className="w-full px-4 py-2.5 text-xs text-left font-semibold text-slate-800 hover:bg-slate-50 hover:text-emerald-700 flex items-center justify-between"
+                  className="w-full px-4 py-2.5 text-xs text-left font-semibold text-slate-800 hover:bg-slate-50 hover:text-emerald-700 flex items-center justify-between group transition-colors"
                 >
                   <div className="space-y-0.5">
-                    <span className="block text-slate-900">Browse Talent Directory</span>
-                    <span className="block text-[11px] text-slate-400 font-normal">Pre-screened digital specialists</span>
+                    <span className="block text-slate-900 font-bold group-hover:text-emerald-700 transition-colors">Browse Talents</span>
+                    <span className="block text-[11px] text-slate-400 font-normal">Explore pre-screened digital &amp; growth specialists</span>
                   </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600 transition-colors" />
                 </button>
 
                 <button
                   type="button"
                   onClick={() => handleNavClick('pricing')}
-                  className="w-full px-4 py-2.5 text-xs text-left font-semibold text-slate-800 hover:bg-slate-50 hover:text-emerald-700 flex items-center justify-between"
+                  className="w-full px-4 py-2.5 text-xs text-left font-semibold text-slate-800 hover:bg-slate-50 hover:text-emerald-700 flex items-center justify-between group transition-colors"
                 >
                   <div className="space-y-0.5">
-                    <span className="block text-slate-900">Employer Pricing</span>
-                    <span className="block text-[11px] text-slate-400 font-normal">Transparent tiers & zero markups</span>
+                    <span className="block text-slate-900 font-bold group-hover:text-emerald-700 transition-colors">Employer Pricing</span>
+                    <span className="block text-[11px] text-slate-400 font-normal">Transparent tiers &amp; zero markups</span>
                   </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600 transition-colors" />
                 </button>
 
                 <button
                   type="button"
-                  onClick={scrollToVerification}
-                  className="w-full px-4 py-2.5 text-xs text-left font-semibold text-slate-800 hover:bg-slate-50 hover:text-emerald-700 flex items-center justify-between"
+                  onClick={() => handleNavClick('how-it-works')}
+                  className="w-full px-4 py-2.5 text-xs text-left font-semibold text-slate-800 hover:bg-slate-50 hover:text-emerald-700 flex items-center justify-between group transition-colors"
                 >
                   <div className="space-y-0.5">
-                    <span className="block text-slate-900">How It Works</span>
-                    <span className="block text-[11px] text-slate-400 font-normal">Our 3-step verification gauntlet</span>
+                    <span className="block text-slate-900 font-bold group-hover:text-emerald-700 transition-colors">How It Works</span>
+                    <span className="block text-[11px] text-slate-400 font-normal">Our 3-step vetting &amp; matching process</span>
                   </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600 transition-colors" />
                 </button>
-
-                <div className="border-t border-slate-100 my-1 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveDropdown(null);
-                      if (openHireModal) openHireModal();
-                    }}
-                    className="w-full px-4 py-2 text-xs text-left font-bold text-emerald-700 hover:bg-emerald-50 flex items-center justify-between"
-                  >
-                    <span>Request Verified Match →</span>
-                  </button>
-                </div>
               </div>
             )}
           </div>
@@ -414,7 +405,7 @@ export function Header({
 
                 <button
                   type="button"
-                  onClick={scrollToVerification}
+                  onClick={() => handleNavClick('how-it-works')}
                   className="w-full px-4 py-2.5 text-xs text-left font-semibold text-slate-800 hover:bg-slate-50 hover:text-emerald-700 flex items-center justify-between"
                 >
                   <div className="space-y-0.5">
@@ -443,8 +434,10 @@ export function Header({
           {/* 3. How It Works (Direct Link) */}
           <button
             type="button"
-            onClick={scrollToVerification}
-            className="py-2 hover:text-slate-950 cursor-pointer transition-colors"
+            onClick={() => handleNavClick('how-it-works')}
+            className={`py-2 hover:text-slate-950 cursor-pointer transition-colors ${
+              currentPage === 'how-it-works' ? 'text-emerald-700 font-bold' : ''
+            }`}
           >
             <span>How It Works</span>
           </button>
@@ -471,6 +464,20 @@ export function Header({
                 >
                   <span>Pricing &amp; Packages</span>
                   <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('the-seo-game')}
+                  className="w-full px-4 py-2.5 text-xs text-left font-semibold text-slate-800 hover:bg-slate-50 hover:text-emerald-700 flex items-center justify-between group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span>The SEO Game</span>
+                    <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                      Game
+                    </span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600 transition-colors" />
                 </button>
 
                 <button
@@ -646,40 +653,50 @@ export function Header({
             {isMenuOpen && (
               <div className="absolute top-full left-0 right-0 bg-white border-b border-slate-200 shadow-xl p-5 space-y-4 text-left z-50 animate-fadeIn">
                 <div className="space-y-1">
-                  <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
+                  <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block mb-1">
                     For Employers
                   </span>
                   <button
                     type="button"
                     onClick={() => handleNavClick('directory')}
-                    className="w-full text-left py-2 text-sm font-semibold text-slate-800 hover:text-emerald-700"
+                    className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-slate-50 group flex flex-col transition-colors"
                   >
-                    Browse Talent Directory
+                    <span className="text-sm font-semibold text-slate-800 group-hover:text-emerald-700">Browse Talents</span>
+                    <span className="text-[11px] text-slate-400 font-normal">Explore pre-screened digital &amp; growth specialists</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => handleNavClick('pricing')}
-                    className="w-full text-left py-2 text-sm font-semibold text-slate-800 hover:text-emerald-700"
+                    className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-slate-50 group flex flex-col transition-colors"
                   >
-                    Employer Pricing
+                    <span className="text-sm font-semibold text-slate-800 group-hover:text-emerald-700">Employer Pricing</span>
+                    <span className="text-[11px] text-slate-400 font-normal">Transparent tiers &amp; zero markups</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleNavClick('how-it-works')}
+                    className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-slate-50 group flex flex-col transition-colors"
+                  >
+                    <span className="text-sm font-semibold text-slate-800 group-hover:text-emerald-700">How It Works</span>
+                    <span className="text-[11px] text-slate-400 font-normal">Our 3-step vetting &amp; matching process</span>
                   </button>
                 </div>
 
                 <div className="space-y-1 pt-2 border-t border-slate-100">
-                  <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
+                  <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block mb-1">
                     For Talent
                   </span>
                   <button
                     type="button"
                     onClick={() => handleNavClick('talent')}
-                    className="w-full text-left py-2 text-sm font-semibold text-slate-800 hover:text-emerald-700"
+                    className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-slate-50 text-sm font-semibold text-slate-800 hover:text-emerald-700"
                   >
                     Talent Dashboard
                   </button>
                   <button
                     type="button"
                     onClick={() => handleNavClick('assessment')}
-                    className="w-full text-left py-2 text-sm font-semibold text-slate-800 hover:text-emerald-700"
+                    className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-slate-50 text-sm font-semibold text-slate-800 hover:text-emerald-700"
                   >
                     Skill Assessment
                   </button>
@@ -688,15 +705,23 @@ export function Header({
                 <div className="space-y-1 pt-2 border-t border-slate-100">
                   <button
                     type="button"
-                    onClick={scrollToVerification}
-                    className="w-full text-left py-2 text-sm font-semibold text-slate-800 hover:text-emerald-700"
+                    onClick={() => handleNavClick('how-it-works')}
+                    className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-slate-50 text-sm font-semibold text-slate-800 hover:text-emerald-700"
                   >
                     How It Works
                   </button>
                   <button
                     type="button"
+                    onClick={() => handleNavClick('the-seo-game')}
+                    className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-slate-50 text-sm font-semibold text-slate-800 hover:text-emerald-700 flex items-center justify-between"
+                  >
+                    <span>The SEO Game</span>
+                    <span className="text-[10px] font-mono bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">NEW</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => handleNavClick('pricing')}
-                    className="w-full text-left py-2 text-sm font-semibold text-slate-800 hover:text-emerald-700"
+                    className="w-full text-left py-2 px-2.5 rounded-xl hover:bg-slate-50 text-sm font-semibold text-slate-800 hover:text-emerald-700"
                   >
                     Resources &amp; Pricing
                   </button>
@@ -851,7 +876,7 @@ export function Footer({ setCurrentPage }: FooterProps) {
                 </button>
               </li>
               <li>
-                <button onClick={(e) => scrollToSection(e, 'verification-engine')} className="hover:text-emerald-400 transition cursor-pointer text-left">
+                <button onClick={(e) => handleLink(e, 'how-it-works')} className="hover:text-emerald-400 transition cursor-pointer text-left">
                   How It Works
                 </button>
               </li>
@@ -898,6 +923,12 @@ export function Footer({ setCurrentPage }: FooterProps) {
               Resources
             </h4>
             <ul className="space-y-2.5 text-xs text-slate-400">
+              <li>
+                <button onClick={(e) => handleLink(e, 'the-seo-game')} className="hover:text-emerald-400 transition cursor-pointer text-left flex items-center gap-1.5 font-medium text-emerald-400">
+                  <span>The SEO Game</span>
+                  <span className="text-[9px] font-mono bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded">NEW</span>
+                </button>
+              </li>
               <li>
                 <button onClick={(e) => handleLink(e, 'directory')} className="hover:text-emerald-400 transition cursor-pointer text-left">
                   Blog
