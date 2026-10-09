@@ -13,8 +13,15 @@ import { createClient } from '@supabase/supabase-js';
  * your hosting environment config.
  */
 
-const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL || 'https://placeholder-ref.supabase.co';
-const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key';
+const supabaseUrl = 
+  (typeof import.meta !== 'undefined' && (import.meta as any)?.env?.VITE_SUPABASE_URL) || 
+  (typeof process !== 'undefined' && process?.env?.VITE_SUPABASE_URL) || 
+  'https://placeholder-ref.supabase.co';
+
+const supabaseAnonKey = 
+  (typeof import.meta !== 'undefined' && (import.meta as any)?.env?.VITE_SUPABASE_ANON_KEY) || 
+  (typeof process !== 'undefined' && process?.env?.VITE_SUPABASE_ANON_KEY) || 
+  'placeholder-anon-key';
 
 if (supabaseUrl === 'https://placeholder-ref.supabase.co' || supabaseAnonKey === 'placeholder-anon-key') {
   console.warn(
