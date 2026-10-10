@@ -39,7 +39,10 @@ import {
   DollarSign,
   PieChart,
   Info,
-  Scale
+  Scale,
+  Volume2,
+  VolumeX,
+  MapPin
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { PageType } from '../types';
@@ -75,6 +78,9 @@ import {
   StrategicTradeOff, 
   StrategicRecommendation 
 } from '../lib/seo-game/strategicAdvisory';
+import { ImmersiveDistrictView } from '../components/seo-game/ImmersiveDistrictView';
+import { ImmersiveOfficeView } from '../components/seo-game/ImmersiveOfficeView';
+import { useSEOGameAudio } from '../hooks/useSEOGameAudio';
 
 interface SEOGamePlayPlaceholderProps {
   userName?: string;
@@ -95,7 +101,13 @@ export default function SEOGamePlayPlaceholder({
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [authError, setAuthError] = useState(false);
   const [dashboard, setDashboard] = useState<any>(null);
+  
+  // Immersive Business World Destinations: District vs Agency Office vs Deep Cockpit
+  const [activeDestination, setActiveDestination] = useState<'district' | 'office' | 'cockpit'>('district');
   const [activeTab, setActiveTab] = useState<'command_centre' | 'lifecycle' | 'keywords' | 'competitors' | 'events' | 'actions' | 'business'>('command_centre');
+
+  // Game Audio (scoped to SEO game with respectful autoplay)
+  const { isMuted, toggleSound, playSfx } = useSEOGameAudio({ initialVolume: 0.2 });
 
   // Selected entities for deep views
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
@@ -596,71 +608,138 @@ export default function SEOGamePlayPlaceholder({
         </div>
       </header>
 
-      {/* 2. REALISTIC COMMERCIAL DISTRICT DAYLIGHT HERO BANNER */}
-      <div className="relative border-b border-slate-200 bg-white overflow-hidden shadow-xs">
-        {/* Subtle high-rise office architecture backdrop */}
-        <div 
-          className="absolute inset-0 opacity-[0.07] bg-cover bg-center pointer-events-none"
-          style={{ backgroundImage: `url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&auto=format&fit=crop&q=80')` }}
-        />
-        
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          
-          {/* Left: Business Dossier & Strategic Title */}
-          <div className="space-y-2 text-left">
-            <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-              <span>{business?.industry || 'Technology'} Sector</span>
-              <span aria-hidden="true">·</span>
-              <span>Commercial District HQ</span>
-              <span aria-hidden="true">·</span>
-              <span className="text-emerald-700 font-semibold">Simulated Search Environment</span>
-            </div>
-            
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
-              <span>{business?.name || 'OmniCorp SEO'}</span>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
-                Operating Level {business?.business_level || 1}
+      {/* EXECUTIVE WORLD NAVIGATION BAR (2.5D Environment Hub Switcher) */}
+      <div className="bg-slate-900/95 border-b border-slate-800 text-white py-2.5 px-4 sm:px-6 sticky top-14 z-30 backdrop-blur-md shadow-xs">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-1.5 p-1 bg-slate-800/90 rounded-xl border border-slate-700">
+            <button
+              onClick={() => { setActiveDestination('district'); playSfx?.('toggle'); }}
+              className={`py-1.5 px-3 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeDestination === 'district'
+                  ? 'bg-[#18B892] text-slate-950 shadow-xs'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              <span>Commercial District</span>
+            </button>
+
+            <button
+              onClick={() => { setActiveDestination('office'); playSfx?.('toggle'); }}
+              className={`py-1.5 px-3 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeDestination === 'office'
+                  ? 'bg-[#18B892] text-slate-950 shadow-xs'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+              }`}
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>Agency Headquarters</span>
+            </button>
+
+            <button
+              onClick={() => { setActiveDestination('cockpit'); playSfx?.('toggle'); }}
+              className={`py-1.5 px-3 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeDestination === 'cockpit'
+                  ? 'bg-[#18B892] text-slate-950 shadow-xs'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+              }`}
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>Strategy Cockpit</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2 text-slate-400 font-mono text-[11px]">
+              <MapPin className="w-3.5 h-3.5 text-[#18B892]" />
+              <span>
+                {activeDestination === 'district' 
+                  ? 'Victoria Commercial Plaza · Ground Level' 
+                  : activeDestination === 'office' 
+                  ? 'Agency Penthouse Office · 24th Floor' 
+                  : 'Strategy Operations Chamber'}
               </span>
-            </h1>
-
-            <p className="text-sm text-slate-600 max-w-2xl leading-relaxed">
-              Target commercial buyer search queries, build topical entity depth, resolve crawl bottlenecks, and out-compete established market giants in Google organic search.
-            </p>
-          </div>
-
-          {/* Right: Executive Advisor Card Spotlight */}
-          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 max-w-sm w-full shadow-sm text-left flex items-start gap-3">
-            <ExecutiveAvatar avatar={EXECUTIVE_ADVISORS[0]} size="lg" />
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-900">{EXECUTIVE_ADVISORS[0].name}</span>
-                <span className="text-[10px] text-slate-500 uppercase font-mono">Strategy Lead</span>
-              </div>
-              <p className="text-xs text-slate-600 line-clamp-2 italic">
-                "{strategicAnalysis.primaryRecommendation.description}"
-              </p>
-              <div className="pt-1">
-                <button
-                  onClick={() => {
-                    if (strategicAnalysis.primaryRecommendation.actionCode) {
-                      handleTriggerAction(strategicAnalysis.primaryRecommendation.actionCode);
-                    } else if (strategicAnalysis.primaryRecommendation.id === 'publish_first_draft' && pages[0]) {
-                      handlePublish(pages[0].id);
-                    } else {
-                      setActiveTab('lifecycle');
-                    }
-                  }}
-                  className="text-xs font-bold text-[#18B892] hover:text-[#129273] inline-flex items-center gap-1 transition cursor-pointer"
-                >
-                  <span>{strategicAnalysis.primaryRecommendation.suggestedActionLabel || 'Review Strategy'}</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
             </div>
-          </div>
 
+            <button
+              onClick={toggleSound}
+              className="p-1.5 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer flex items-center gap-1.5 font-mono text-[11px]"
+              title={isMuted ? 'Unmute Game Audio' : 'Mute Game Audio'}
+            >
+              {isMuted ? <VolumeX className="w-3.5 h-3.5 text-slate-500" /> : <Volume2 className="w-3.5 h-3.5 text-[#18B892]" />}
+              <span>{isMuted ? 'Muted' : 'Sound ON'}</span>
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* 2. REALISTIC COMMERCIAL DISTRICT DAYLIGHT HERO BANNER (Shown in Deep Cockpit mode) */}
+      {activeDestination === 'cockpit' && (
+        <div className="relative border-b border-slate-200 bg-white overflow-hidden shadow-xs">
+          {/* Subtle high-rise office architecture backdrop */}
+          <div 
+            className="absolute inset-0 opacity-[0.07] bg-cover bg-center pointer-events-none"
+            style={{ backgroundImage: `url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&auto=format&fit=crop&q=80')` }}
+          />
+          
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            
+            {/* Left: Business Dossier & Strategic Title */}
+            <div className="space-y-2 text-left">
+              <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+                <span>{business?.industry || 'Technology'} Sector</span>
+                <span aria-hidden="true">·</span>
+                <span>Commercial District HQ</span>
+                <span aria-hidden="true">·</span>
+                <span className="text-emerald-700 font-semibold">Simulated Search Environment</span>
+              </div>
+              
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
+                <span>{business?.name || 'OmniCorp SEO'}</span>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  Operating Level {business?.business_level || 1}
+                </span>
+              </h1>
+
+              <p className="text-sm text-slate-600 max-w-2xl leading-relaxed">
+                Target commercial buyer search queries, build topical entity depth, resolve crawl bottlenecks, and out-compete established market giants in Google organic search.
+              </p>
+            </div>
+
+            {/* Right: Executive Advisor Card Spotlight */}
+            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 max-w-sm w-full shadow-sm text-left flex items-start gap-3">
+              <ExecutiveAvatar avatar={EXECUTIVE_ADVISORS[0]} size="lg" />
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-900">{EXECUTIVE_ADVISORS[0].name}</span>
+                  <span className="text-[10px] text-slate-500 uppercase font-mono">Strategy Lead</span>
+                </div>
+                <p className="text-xs text-slate-600 line-clamp-2 italic">
+                  "{strategicAnalysis.primaryRecommendation.description}"
+                </p>
+                <div className="pt-1">
+                  <button
+                    onClick={() => {
+                      if (strategicAnalysis.primaryRecommendation.actionCode) {
+                        handleTriggerAction(strategicAnalysis.primaryRecommendation.actionCode);
+                      } else if (strategicAnalysis.primaryRecommendation.id === 'publish_first_draft' && pages[0]) {
+                        handlePublish(pages[0].id);
+                      } else {
+                        setActiveTab('lifecycle');
+                      }
+                    }}
+                    className="text-xs font-bold text-[#18B892] hover:text-[#129273] inline-flex items-center gap-1 transition cursor-pointer"
+                  >
+                    <span>{strategicAnalysis.primaryRecommendation.suggestedActionLabel || 'Review Strategy'}</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* 3. MAIN WORKSPACE CONTAINER */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 flex-1 w-full text-left">
@@ -693,13 +772,75 @@ export default function SEOGamePlayPlaceholder({
               </div>
               <button 
                 onClick={() => setActionNotice(null)}
-                className="text-slate-400 hover:text-slate-700 transition p-1"
+                className="text-slate-400 hover:text-slate-700 transition p-1 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
           </div>
         )}
+
+        {/* 1. IMMERSIVE DESTINATION A: COMMERCIAL DISTRICT VIEW */}
+        {activeDestination === 'district' && (
+          <ImmersiveDistrictView
+            player={player}
+            business={business}
+            website={website}
+            wallet={wallet}
+            pages={pages}
+            keywords={keywords}
+            competitors={competitors}
+            metrics={metrics}
+            onEnterOffice={() => {
+              playSfx?.('confirm');
+              setActiveDestination('office');
+            }}
+            onOpenCockpitTab={(tab) => {
+              playSfx?.('click');
+              setActiveTab(tab);
+              setActiveDestination('cockpit');
+            }}
+            playSfx={playSfx}
+          />
+        )}
+
+        {/* 2. IMMERSIVE DESTINATION B: AGENCY HEADQUARTERS INTERIOR */}
+        {activeDestination === 'office' && (
+          <ImmersiveOfficeView
+            player={player}
+            business={business}
+            website={website}
+            wallet={wallet}
+            pages={pages}
+            keywords={keywords}
+            competitors={competitors}
+            metrics={metrics}
+            strategicAnalysis={strategicAnalysis}
+            onExitToDistrict={() => {
+              playSfx?.('click');
+              setActiveDestination('district');
+            }}
+            onOpenCockpitTab={(tab) => {
+              playSfx?.('click');
+              setActiveTab(tab);
+              setActiveDestination('cockpit');
+            }}
+            onTriggerAction={handleTriggerAction}
+            onPublishPage={handlePublish}
+            onDraftPageModal={() => {
+              playSfx?.('click');
+              setShowCreatePageModal(true);
+            }}
+            onAdvanceDay={handleAdvanceDay}
+            isAdvancingDay={isAdvancingDay}
+            isProcessingAction={isProcessingAction}
+            playSfx={playSfx}
+          />
+        )}
+
+        {/* 3. IMMERSIVE DESTINATION C: DEEP STRATEGY COCKPIT */}
+        {activeDestination === 'cockpit' && (
+          <>
 
         {/* 4. REAL-TIME BUSINESS KPI METRICS STRIP (Crisp Clean White Cards) */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
@@ -1753,6 +1894,8 @@ export default function SEOGamePlayPlaceholder({
             </div>
           </div>
         )}
+        </>
+      )}
 
       </main>
 

@@ -85,17 +85,20 @@ export default function SEOGameRegistrationModal({
       });
 
       if (authErr) {
+        const msg = authErr.message?.toLowerCase() || '';
         if (
-          authErr.message?.toLowerCase().includes('already registered') || 
-          authErr.message?.toLowerCase().includes('already exists') ||
-          authErr.status === 400 && authErr.message?.toLowerCase().includes('user already exists')
+          msg.includes('already registered') || 
+          msg.includes('already exists') ||
+          msg.includes('user already exists') ||
+          (authErr.status === 400 && msg.includes('user')) ||
+          authErr.status === 422
         ) {
           throw new Error('An active player dossier already exists for this email. Sign in instead.');
         }
-        if (authErr.message?.toLowerCase().includes('password')) {
+        if (msg.includes('password')) {
           throw new Error('Your access key does not meet the required security requirements.');
         }
-        throw new Error('An active player dossier already exists for this email. Sign in instead.');
+        throw new Error(authErr.message || 'Registration failed. Please check your credentials and try again.');
       }
 
       // Check if session was returned or if email confirmation is required

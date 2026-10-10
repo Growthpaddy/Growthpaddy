@@ -107,6 +107,25 @@ export default function SEOGameLoginModal({
         finalPlayerRecord = freshPlayer || initData;
       }
 
+      // Safe wallet self-healing: if player dossier exists but wallet is missing, provision it safely without duplicating existing balances
+      if (finalPlayerRecord?.id) {
+        const { data: userWallet } = await supabase
+          .from('seo_game_wallets')
+          .select('id')
+          .eq('player_id', finalPlayerRecord.id)
+          .maybeSingle();
+
+        if (!userWallet) {
+          await supabase.from('seo_game_wallets').insert({
+            player_id: finalPlayerRecord.id,
+            coins: 1000,
+            energy: 100,
+            max_energy: 100,
+            ai_credits: 100
+          });
+        }
+      }
+
       playSfx?.('confirm');
       
       onSuccess({

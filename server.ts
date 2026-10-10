@@ -2105,6 +2105,7 @@ app.post("/api/seo-game/process-action", async (req, res) => {
         coins: actionConfig.coin_cost,
         aiCredits: actionConfig.ai_credit_cost
       },
+      wallet: walletAfter,
       walletAfter,
       xpEarned: actionConfig.xp_reward + progressionReport.totalXpAwarded,
       playerAfter: {
@@ -2197,12 +2198,23 @@ app.get("/api/seo-game/dashboard-data", async (req, res) => {
     if (!auth) return;
     const { supabase, player } = auth;
 
-    // 1. Wallet
-    const { data: wallet } = await supabase
+    // 1. Wallet (with safe missing-wallet self-healing)
+    let { data: wallet } = await supabase
       .from("seo_game_wallets")
       .select("*")
       .eq("player_id", player.id)
       .maybeSingle();
+
+    if (!wallet) {
+      const { data: newWallet } = await supabase.from("seo_game_wallets").insert({
+        player_id: player.id,
+        coins: 1000,
+        energy: 100,
+        max_energy: 100,
+        ai_credits: 100
+      }).select().single();
+      wallet = newWallet;
+    }
 
     // 2. Business
     let { data: business } = await supabase
