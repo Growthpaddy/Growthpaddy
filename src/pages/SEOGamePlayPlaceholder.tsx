@@ -466,7 +466,7 @@ export default function SEOGamePlayPlaceholder({
               Sign In to Resume Game
             </button>
             <button
-              onClick={() => navigateToPage('seo-game')}
+              onClick={() => navigateToPage('the-seo-game')}
               className="w-full py-2.5 px-5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition cursor-pointer"
             >
               Back to Game Overview
@@ -517,7 +517,7 @@ export default function SEOGamePlayPlaceholder({
           {/* Left: Brand Identity & Domain */}
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigateToPage('seo-game')}
+              onClick={() => navigateToPage('the-seo-game')}
               className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 hover:text-white transition"
             >
               <ArrowLeft className="w-4 h-4 text-slate-400" />
