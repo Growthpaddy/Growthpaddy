@@ -57,19 +57,29 @@ export default function SEOGameLoginModal({
       });
 
       if (authError) {
+        const rawMsg = authError.message?.toLowerCase() || '';
         if (
-          authError.message?.toLowerCase().includes('invalid login credentials') ||
-          authError.message?.toLowerCase().includes('invalid credentials') ||
-          authError.message?.toLowerCase().includes('email not confirmed')
+          rawMsg.includes('invalid login credentials') ||
+          rawMsg.includes('invalid credentials') ||
+          rawMsg.includes('user not found')
         ) {
           throw new Error('Incorrect player credentials. Please try again.');
         }
-        throw new Error('Incorrect player credentials. Please try again.');
+        if (rawMsg.includes('email not confirmed')) {
+          throw new Error('Email verification required. Please verify your email before signing in.');
+        }
+        if (rawMsg.includes('fetch') || rawMsg.includes('network') || rawMsg.includes('failed to fetch')) {
+          throw new Error('Unable to connect to authentication service. Please check your internet connection.');
+        }
+        if (rawMsg.includes('too many requests') || rawMsg.includes('rate limit')) {
+          throw new Error('Too many sign-in attempts. Please wait a moment and try again.');
+        }
+        throw new Error(authError.message || 'Authentication failed. Please verify your credentials and try again.');
       }
 
       const sessionUser = authData?.user;
       if (!sessionUser) {
-        throw new Error('Incorrect player credentials. Please try again.');
+        throw new Error('Unable to establish an authenticated player session. Please try again.');
       }
 
       // 2. Load player profile from seo_game_players

@@ -14,19 +14,19 @@ import { createClient } from '@supabase/supabase-js';
  */
 
 const supabaseUrl = 
-  (typeof import.meta !== 'undefined' && (import.meta as any)?.env?.VITE_SUPABASE_URL) || 
-  (typeof process !== 'undefined' && process?.env?.VITE_SUPABASE_URL) || 
-  'https://placeholder-ref.supabase.co';
+  typeof import.meta.env !== 'undefined' 
+    ? import.meta.env.VITE_SUPABASE_URL 
+    : (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : '');
 
 const supabaseAnonKey = 
-  (typeof import.meta !== 'undefined' && (import.meta as any)?.env?.VITE_SUPABASE_ANON_KEY) || 
-  (typeof process !== 'undefined' && process?.env?.VITE_SUPABASE_ANON_KEY) || 
-  'placeholder-anon-key';
+  typeof import.meta.env !== 'undefined' 
+    ? import.meta.env.VITE_SUPABASE_ANON_KEY 
+    : (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : '');
 
-if (supabaseUrl === 'https://placeholder-ref.supabase.co' || supabaseAnonKey === 'placeholder-anon-key') {
-  console.warn(
-    'Supabase environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY) are missing. ' +
-    'The app will use mock fallbacks or placeholder credentials until they are provided.'
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    'Supabase configuration error: VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is missing. ' +
+    'Please set these environment variables to connect to Supabase.'
   );
 }
 
