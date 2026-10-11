@@ -14,7 +14,7 @@ import {
   normalizeFactors, 
   RankingFactors 
 } from "./src/lib/seo-game/rankingScoringEngine";
-import { CANONICAL_ACTION_TYPES } from "./src/lib/seo-game/gameEngine";
+import { CANONICAL_ACTION_TYPES } from "./src/lib/seo-game/actionTypes";
 import { determinePageLifecycle, LIFECYCLE_THRESHOLDS } from "./src/lib/seo-game/lifecycleEngine";
 import { 
   simulateSerpRankings, 
@@ -58,11 +58,29 @@ function getGeminiClient(): GoogleGenAI {
   return geminiClient;
 }
 
-// Lazy initializer for Supabase client
-function getSupabaseClient() {
-  const url = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder-ref.supabase.co";
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-anon-key";
-  return createClient(url, key);
+// Server-side Supabase client singleton
+let _serverSupabaseClient: any = null;
+
+function getSupabaseClient(): any {
+  if (_serverSupabaseClient) return _serverSupabaseClient;
+
+  const url = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !key) {
+    throw new Error(
+      "[Supabase Configuration Error] Supabase URL or credentials are missing on the server. " +
+      "Please ensure VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_ANON_KEY are set."
+    );
+  }
+
+  _serverSupabaseClient = createClient(url, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false
+    }
+  });
+  return _serverSupabaseClient;
 }
 
 // ========================================================
@@ -1731,10 +1749,17 @@ app.post("/api/seo-game/process-action", async (req, res) => {
     }
 
     // Step 2: Atomic PostgreSQL RPC Execution via user session client
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://orc23koevjbbywdcivenno.supabase.co";
-    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || "";
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return res.status(500).json({ error: "Server missing Supabase client configuration" });
+    }
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } }
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false
+      }
     });
 
     const { data: rpcResult, error: rpcError } = await userClient.rpc("seo_game_process_action", {

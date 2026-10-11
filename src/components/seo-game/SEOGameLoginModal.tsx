@@ -61,18 +61,28 @@ export default function SEOGameLoginModal({
         if (
           rawMsg.includes('invalid login credentials') ||
           rawMsg.includes('invalid credentials') ||
-          rawMsg.includes('user not found')
+          rawMsg.includes('user not found') ||
+          authError.status === 400 && rawMsg.includes('invalid')
         ) {
           throw new Error('Incorrect player credentials. Please try again.');
         }
-        if (rawMsg.includes('email not confirmed')) {
-          throw new Error('Email verification required. Please verify your email before signing in.');
+        if (rawMsg.includes('email not confirmed') || rawMsg.includes('unconfirmed')) {
+          throw new Error('Email verification is required. Please check your inbox and verify your email before signing in.');
         }
-        if (rawMsg.includes('fetch') || rawMsg.includes('network') || rawMsg.includes('failed to fetch')) {
-          throw new Error('Unable to connect to authentication service. Please check your internet connection.');
+        if (
+          rawMsg.includes('fetch') || 
+          rawMsg.includes('network') || 
+          rawMsg.includes('failed to fetch') ||
+          authError.status === 0
+        ) {
+          throw new Error('The authentication service could not be reached. Please check your network connection and try again.');
         }
-        if (rawMsg.includes('too many requests') || rawMsg.includes('rate limit')) {
-          throw new Error('Too many sign-in attempts. Please wait a moment and try again.');
+        if (
+          rawMsg.includes('too many requests') || 
+          rawMsg.includes('rate limit') || 
+          authError.status === 429
+        ) {
+          throw new Error('Too many sign-in attempts. Please wait a moment and try again later.');
         }
         throw new Error(authError.message || 'Authentication failed. Please verify your credentials and try again.');
       }
@@ -82,58 +92,63 @@ export default function SEOGameLoginModal({
         throw new Error('Unable to establish an authenticated player session. Please try again.');
       }
 
-      // 2. Load player profile from seo_game_players
-      const { data: player, error: playerError } = await supabase
-        .from('seo_game_players')
-        .select('*')
-        .eq('user_id', sessionUser.id)
-        .maybeSingle();
-
-      if (playerError) {
-        console.warn('Error querying seo_game_players:', playerError);
-      }
-
-      let finalPlayerRecord = player;
-
-      // If user is authenticated in Supabase but hasn't had their seo_game_players dossier created yet,
-      // safely initialize it via RPC
-      if (!finalPlayerRecord) {
-        const fallbackName = sessionUser.user_metadata?.player_name || sessionUser.email?.split('@')[0] || 'Player';
-        const { data: initData, error: initErr } = await supabase.rpc('seo_game_initialize_player', {
-          p_display_name: fallbackName,
-          p_difficulty: 'intermediate'
-        });
-
-        if (initErr) {
-          console.warn('Initialization note on login:', initErr);
-        }
-
-        // Re-fetch player
-        const { data: freshPlayer } = await supabase
+      // 2. Load player profile from seo_game_players (non-blocking for session establishment)
+      let finalPlayerRecord: any = null;
+      try {
+        const { data: player, error: playerError } = await supabase
           .from('seo_game_players')
           .select('*')
           .eq('user_id', sessionUser.id)
           .maybeSingle();
-        finalPlayerRecord = freshPlayer || initData;
-      }
 
-      // Safe wallet self-healing: if player dossier exists but wallet is missing, provision it safely without duplicating existing balances
-      if (finalPlayerRecord?.id) {
-        const { data: userWallet } = await supabase
-          .from('seo_game_wallets')
-          .select('id')
-          .eq('player_id', finalPlayerRecord.id)
-          .maybeSingle();
-
-        if (!userWallet) {
-          await supabase.from('seo_game_wallets').insert({
-            player_id: finalPlayerRecord.id,
-            coins: 1000,
-            energy: 100,
-            max_energy: 100,
-            ai_credits: 100
-          });
+        if (playerError) {
+          console.warn('Error querying seo_game_players:', playerError);
         }
+
+        finalPlayerRecord = player;
+
+        // If user is authenticated in Supabase but hasn't had their seo_game_players dossier created yet,
+        // safely initialize it via RPC
+        if (!finalPlayerRecord) {
+          const fallbackName = sessionUser.user_metadata?.player_name || sessionUser.email?.split('@')[0] || 'Player';
+          const { data: initData, error: initErr } = await supabase.rpc('seo_game_initialize_player', {
+            p_display_name: fallbackName,
+            p_difficulty: 'intermediate'
+          });
+
+          if (initErr) {
+            console.warn('Initialization note on login:', initErr);
+          }
+
+          // Re-fetch player
+          const { data: freshPlayer } = await supabase
+            .from('seo_game_players')
+            .select('*')
+            .eq('user_id', sessionUser.id)
+            .maybeSingle();
+          finalPlayerRecord = freshPlayer || initData;
+        }
+
+        // Safe wallet self-healing: if player dossier exists but wallet is missing, provision it safely without duplicating existing balances
+        if (finalPlayerRecord?.id) {
+          const { data: userWallet } = await supabase
+            .from('seo_game_wallets')
+            .select('id')
+            .eq('player_id', finalPlayerRecord.id)
+            .maybeSingle();
+
+          if (!userWallet) {
+            await supabase.from('seo_game_wallets').insert({
+              player_id: finalPlayerRecord.id,
+              coins: 1000,
+              energy: 100,
+              max_energy: 100,
+              ai_credits: 100
+            });
+          }
+        }
+      } catch (dossierErr) {
+        console.warn('Non-blocking player dossier recovery note:', dossierErr);
       }
 
       playSfx?.('confirm');
@@ -148,7 +163,25 @@ export default function SEOGameLoginModal({
       onClose();
     } catch (err: any) {
       console.error('SEO Game Sign In error:', err);
-      const msg = err.message || 'Incorrect player credentials. Please try again.';
+      const rawMsg = (err?.message || '').toLowerCase();
+      let msg = 'Authentication failed. Please verify your credentials and try again.';
+
+      if (
+        rawMsg.includes('incorrect player credentials') || 
+        rawMsg.includes('invalid credentials') || 
+        rawMsg.includes('invalid login credentials')
+      ) {
+        msg = 'Incorrect player credentials. Please try again.';
+      } else if (rawMsg.includes('email verification') || rawMsg.includes('email not confirmed')) {
+        msg = 'Email verification is required. Please check your inbox and verify your email before signing in.';
+      } else if (rawMsg.includes('could not be reached') || rawMsg.includes('network') || rawMsg.includes('failed to fetch')) {
+        msg = 'The authentication service could not be reached. Please check your network connection and try again.';
+      } else if (rawMsg.includes('too many') || rawMsg.includes('rate limit')) {
+        msg = 'Too many sign-in attempts. Please wait a moment and try again later.';
+      } else if (err?.message) {
+        msg = err.message;
+      }
+
       setErrorMessage(msg);
       playSfx?.('warning');
     } finally {

@@ -90,13 +90,19 @@ export default function SEOGameRegistrationModal({
           msg.includes('already registered') || 
           msg.includes('already exists') ||
           msg.includes('user already exists') ||
-          (authErr.status === 400 && msg.includes('user')) ||
+          (authErr.status === 400 && (msg.includes('user') || msg.includes('email'))) ||
           authErr.status === 422
         ) {
           throw new Error('An active player dossier already exists for this email. Sign in instead.');
         }
         if (msg.includes('password')) {
           throw new Error('Your access key does not meet the required security requirements.');
+        }
+        if (msg.includes('fetch') || msg.includes('network') || msg.includes('failed to fetch') || authErr.status === 0) {
+          throw new Error('The authentication service could not be reached. Please check your network connection.');
+        }
+        if (msg.includes('rate limit') || msg.includes('too many') || authErr.status === 429) {
+          throw new Error('Too many registration attempts. Please wait a moment and try again later.');
         }
         throw new Error(authErr.message || 'Registration failed. Please check your credentials and try again.');
       }

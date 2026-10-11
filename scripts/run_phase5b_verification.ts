@@ -58,7 +58,7 @@ async function runPhase5BVerification() {
   totalTests++;
   console.log('--- TEST 2: Registration Error Mapping Verification ---');
   // Attempt signup with an already registered email
-  const existingEmail = 'audit_suite_tester@seogame.local';
+  const existingEmail = 'd-intellectual@gmail.com';
   const { error: dupSignupErr } = await sbAuth.auth.signUp({
     email: existingEmail,
     password: 'Password123!',

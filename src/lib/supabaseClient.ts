@@ -13,24 +13,25 @@ import { createClient } from '@supabase/supabase-js';
  * your hosting environment config.
  */
 
-const supabaseUrl = 
-  typeof import.meta.env !== 'undefined' 
-    ? import.meta.env.VITE_SUPABASE_URL 
-    : (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : '');
-
-const supabaseAnonKey = 
-  typeof import.meta.env !== 'undefined' 
-    ? import.meta.env.VITE_SUPABASE_ANON_KEY 
-    : (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : '');
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
     'Supabase configuration error: VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is missing. ' +
-    'Please set these environment variables to connect to Supabase.'
+    'Please configure valid Supabase credentials in your environment.'
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true
+  }
+});
+
+export default supabase;
 
 /**
  * Inserts a skill into the talent_profiles.skills array (if not already present),
