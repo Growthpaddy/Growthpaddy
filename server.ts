@@ -1554,13 +1554,43 @@ app.post("/api/seo-game/process-action", async (req, res) => {
     }
 
     // Authoritative Player Resolution
-    const { data: playerOwner, error: ownerErr } = await supabase
+    let { data: playerOwner, error: ownerErr } = await supabase
       .from("seo_game_players")
       .select("id, user_id, level, xp, current_day")
       .eq("user_id", userData.user.id)
-      .single();
+      .maybeSingle();
 
-    if (ownerErr || !playerOwner) {
+    if (!playerOwner) {
+      const displayName = (userData.user.user_metadata?.player_name || 
+                          userData.user.user_metadata?.name || 
+                          userData.user.email?.split('@')[0] || 
+                          "Lead Strategist").trim();
+      const { data: newPlayer } = await supabase
+        .from("seo_game_players")
+        .insert({
+          user_id: userData.user.id,
+          display_name: displayName,
+          difficulty: "intermediate",
+          level: 1,
+          xp: 0,
+          current_day: 1
+        })
+        .select("id, user_id, level, xp, current_day")
+        .maybeSingle();
+
+      if (newPlayer) {
+        playerOwner = newPlayer;
+        await supabase.from("seo_game_wallets").insert({
+          player_id: playerOwner.id,
+          coins: 1000,
+          energy: 100,
+          max_energy: 100,
+          ai_credits: 100
+        });
+      }
+    }
+
+    if (!playerOwner) {
       return res.status(404).json({ 
         success: false, 
         error: "PLAYER_NOT_FOUND", 
@@ -2203,14 +2233,48 @@ async function resolveAuthPlayer(req: express.Request, res: express.Response) {
     res.status(401).json({ success: false, error: "UNAUTHENTICATED", message: "Session token is invalid or expired." });
     return null;
   }
-  const { data: player, error: playerErr } = await supabase
+  let { data: player, error: playerErr } = await supabase
     .from("seo_game_players")
     .select("*")
     .eq("user_id", userData.user.id)
-    .single();
+    .maybeSingle();
 
-  if (playerErr || !player) {
-    res.status(404).json({ success: false, error: "PLAYER_NOT_FOUND", message: "SEO Game player profile not found." });
+  if (!player) {
+    // Auto-heal player creation so authenticated existing users are never locked out
+    const displayName = (userData.user.user_metadata?.player_name || 
+                        userData.user.user_metadata?.name || 
+                        userData.user.email?.split('@')[0] || 
+                        "Lead Strategist").trim();
+    const { data: newPlayer, error: createPlayerErr } = await supabase
+      .from("seo_game_players")
+      .insert({
+        user_id: userData.user.id,
+        display_name: displayName,
+        difficulty: "intermediate",
+        level: 1,
+        xp: 0,
+        current_day: 1
+      })
+      .select()
+      .maybeSingle();
+
+    if (newPlayer) {
+      player = newPlayer;
+      // Auto-provision starter wallet
+      await supabase.from("seo_game_wallets").insert({
+        player_id: player.id,
+        coins: 1000,
+        energy: 100,
+        max_energy: 100,
+        ai_credits: 100
+      });
+    } else {
+      console.warn("Auto player provisioning note:", createPlayerErr);
+    }
+  }
+
+  if (!player) {
+    res.status(404).json({ success: false, error: "PLAYER_NOT_FOUND", message: "SEO Game player profile could not be resolved." });
     return null;
   }
   return { supabase, user: userData.user, player };

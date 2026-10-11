@@ -1261,9 +1261,22 @@ export default function App() {
           setIsSEOGameRegModalOpen(false);
           setIsSEOGameLoginModalOpen(true);
         }}
-        onSuccess={() => {
+        onSuccess={(userData) => {
           setIsSEOGameRegModalOpen(false);
-          setIsSEOGameLoginModalOpen(true);
+          if (userData) {
+            setOnboardingDataState({
+              userType: 'talent',
+              userName: userData.name || userData.email.split('@')[0],
+              email: userData.email,
+              specialty: 'Search Engine Optimization',
+              careerGoal: 'Full-Time Remote Job'
+            });
+          }
+          setConfettiMessage(`WELCOME TO THE SEO GAME!`);
+          setShowConfetti(true);
+          // Route immediately to /The-SEO-Game/play
+          setCurrentPage('the-seo-game-play');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
 

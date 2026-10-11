@@ -80,7 +80,11 @@ import {
 } from '../lib/seo-game/strategicAdvisory';
 import { ImmersiveDistrictView } from '../components/seo-game/ImmersiveDistrictView';
 import { ImmersiveOfficeView } from '../components/seo-game/ImmersiveOfficeView';
-import { useSEOGameAudio } from '../hooks/useSEOGameAudio';
+import { CitySkyline3D } from '../components/seo-game/3d/CitySkyline3D';
+import { RealisticOffice3D } from '../components/seo-game/3d/RealisticOffice3D';
+import { SEOWorkstationModal } from '../components/seo-game/3d/SEOWorkstationModal';
+import { EnvironmentSelector } from '../components/seo-game/3d/EnvironmentSelector';
+import { useEnvironmentalAudio, CityEnvironment } from '../hooks/useEnvironmentalAudio';
 
 interface SEOGamePlayPlaceholderProps {
   userName?: string;
@@ -101,13 +105,37 @@ export default function SEOGamePlayPlaceholder({
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [authError, setAuthError] = useState(false);
   const [dashboard, setDashboard] = useState<any>(null);
+  const [sessionUser, setSessionUser] = useState<any>(null);
   
-  // Immersive Business World Destinations: District vs Agency Office vs Deep Cockpit
-  const [activeDestination, setActiveDestination] = useState<'district' | 'office' | 'cockpit'>('district');
-  const [activeTab, setActiveTab] = useState<'command_centre' | 'lifecycle' | 'keywords' | 'competitors' | 'events' | 'actions' | 'business'>('command_centre');
+  // Selected City Environment (Lagos vs London)
+  const [currentCity, setCurrentCity] = useState<CityEnvironment>(() => {
+    try {
+      const saved = localStorage.getItem('seo_game_selected_environment');
+      return (saved === 'london' || saved === 'lagos') ? saved : 'lagos';
+    } catch (_) {
+      return 'lagos';
+    }
+  });
 
-  // Game Audio (scoped to SEO game with respectful autoplay)
-  const { isMuted, toggleSound, playSfx } = useSEOGameAudio({ initialVolume: 0.2 });
+  // Immersive Business World Destinations: Office vs District vs Deep Cockpit
+  const [activeDestination, setActiveDestination] = useState<'office' | 'district' | 'cockpit'>('office');
+  const [activeTab, setActiveTab] = useState<'command_centre' | 'lifecycle' | 'keywords' | 'competitors' | 'events' | 'actions' | 'business'>('command_centre');
+  const [isWorkstationOpen, setIsWorkstationOpen] = useState(false);
+  const [officeRenderMode, setOfficeRenderMode] = useState<'3d' | '2d'>('3d');
+  const [districtRenderMode, setDistrictRenderMode] = useState<'3d' | '2d'>('3d');
+
+  // Environmental Audio System with Lagos/London profile & Office muffle
+  const audio = useEnvironmentalAudio({ initialVolume: 0.25 });
+  const { isMuted, toggleMute, playSfx, unlockAudio } = audio;
+
+  // Sync environmental audio with city and room mode
+  useEffect(() => {
+    audio.changeCity(currentCity);
+  }, [currentCity, audio]);
+
+  useEffect(() => {
+    audio.setOfficeInterior(activeDestination === 'office');
+  }, [activeDestination, audio]);
 
   // Selected entities for deep views
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
@@ -131,7 +159,7 @@ export default function SEOGamePlayPlaceholder({
 
   // Flash sequence animation
   const [flashStep, setFlashStep] = useState<number>(1);
-  const [flashComplete, setFlashComplete] = useState<boolean>(false);
+  const [flashComplete, setFlashComplete] = useState<boolean>(true);
 
   // Load authoritative game dashboard data from server
   const loadDashboardState = useCallback(async () => {
@@ -142,10 +170,12 @@ export default function SEOGamePlayPlaceholder({
         if (!selectedPageId && data.pages?.length > 0) {
           setSelectedPageId(data.pages[0].id);
         }
+        return data;
       }
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
     }
+    return null;
   }, [selectedPageId]);
 
   useEffect(() => {
@@ -153,17 +183,21 @@ export default function SEOGamePlayPlaceholder({
 
     async function verifyAndInitialize() {
       setCheckingAuth(true);
+      setAuthError(false);
       try {
         const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
         const currentSession = sessionData?.session;
 
         if (sessionErr || !currentSession?.user) {
           if (isMounted) {
-            setAuthError(true);
             setCheckingAuth(false);
-            onOpenSignIn();
+            setAuthError(true);
           }
           return;
+        }
+
+        if (isMounted) {
+          setSessionUser(currentSession.user);
         }
 
         const data = await fetchDashboardData();
@@ -172,24 +206,36 @@ export default function SEOGamePlayPlaceholder({
           if (data.pages?.length > 0) {
             setSelectedPageId(data.pages[0].id);
           }
+          setAuthError(false);
+        } else if (isMounted) {
+          // If dashboard data failed, set authError to false but allow retry
+          setAuthError(false);
         }
         if (isMounted) setCheckingAuth(false);
       } catch (err) {
         console.error('Initial verification error:', err);
         if (isMounted) {
-          setAuthError(true);
           setCheckingAuth(false);
-          onOpenSignIn();
+          // If we had no session, set authError
+          setAuthError(!sessionUser);
         }
       }
     }
 
     verifyAndInitialize();
 
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setSessionUser(session.user);
+        loadDashboardState();
+      }
+    });
+
     return () => {
       isMounted = false;
+      subscription.unsubscribe();
     };
-  }, [onOpenSignIn]);
+  }, [loadDashboardState]);
 
   // Flash sequence timing
   useEffect(() => {
@@ -439,49 +485,63 @@ export default function SEOGamePlayPlaceholder({
     });
   }, [pages, keywords, metrics, wallet, business, competitors, player?.current_day]);
 
-  // Loading state
+  // 1. Loading state during session resolution
   if (checkingAuth) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full p-8 rounded-3xl bg-white border border-slate-200 shadow-xl text-center space-y-6">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-50 text-[#18B892] flex items-center justify-center">
+      <div className="min-h-screen bg-[#06090F] flex items-center justify-center p-4">
+        <div className="max-w-md w-full p-8 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-2xl text-center space-y-6">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-[#18B892] flex items-center justify-center">
             <Loader2 className="w-8 h-8 animate-spin" />
           </div>
           <div className="space-y-2">
-            <h3 className="font-display font-black text-xl text-slate-900 tracking-tight">Loading Business HQ</h3>
-            <p className="text-sm text-slate-500">Connecting to authoritative PostgreSQL session...</p>
+            <h3 className="font-display font-black text-xl text-white tracking-tight">
+              Loading Executive Workplace
+            </h3>
+            <p className="text-xs text-slate-400 font-mono">
+              Connecting to authoritative PostgreSQL session & resolving player state...
+            </p>
           </div>
         </div>
       </div>
     );
   }
 
-  // Auth Error Screen
-  if (authError || !isLoggedIn) {
+  // 2. Unauthenticated Screen (Only when session is verified absent and no player data exists)
+  const isPlayerAuthenticated = Boolean(dashboard?.player?.id || sessionUser);
+  if (!isPlayerAuthenticated && authError) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full p-8 rounded-3xl bg-white border border-slate-200 shadow-xl text-center space-y-6">
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
+      <div className="min-h-screen bg-[#06090F] flex items-center justify-center p-4">
+        <div className="max-w-md w-full p-8 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl text-center space-y-6">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/30">
             <Lock className="w-7 h-7" />
           </div>
           <div className="space-y-2">
-            <h3 className="font-display font-black text-xl text-slate-900">Protected Simulation Workspace</h3>
-            <p className="text-sm text-slate-500">
-              Authentication is required to access your company dashboard, resource wallets, and ranking records.
+            <h3 className="font-display font-black text-xl text-white">Protected SEO Simulation Chamber</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              An active player session is required to access your agency office, financial wallets, and organic search index.
             </p>
           </div>
           <div className="space-y-3 pt-2">
             <button
               onClick={onOpenSignIn}
-              className="w-full py-3 px-6 rounded-xl bg-[#18B892] hover:bg-[#149a7a] text-white font-bold text-sm tracking-wide transition shadow-md shadow-[#18B892]/20 cursor-pointer"
+              className="w-full py-3.5 px-6 rounded-xl bg-[#18B892] hover:bg-[#15a381] text-slate-950 font-bold text-xs uppercase tracking-wider transition shadow-lg shadow-[#18B892]/25 cursor-pointer"
             >
-              Sign In to Resume Game
+              Sign In to Enter Game
+            </button>
+            <button
+              onClick={() => {
+                setCheckingAuth(true);
+                loadDashboardState().finally(() => setCheckingAuth(false));
+              }}
+              className="w-full py-2.5 px-5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition cursor-pointer"
+            >
+              Retry Session Connection
             </button>
             <button
               onClick={() => navigateToPage('the-seo-game')}
-              className="w-full py-2.5 px-5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition cursor-pointer"
+              className="w-full py-2 px-5 text-slate-500 hover:text-slate-400 text-xs font-mono transition cursor-pointer"
             >
-              Back to Game Overview
+              Back to Game Lobby
             </button>
           </div>
         </div>
@@ -513,6 +573,42 @@ export default function SEOGamePlayPlaceholder({
               className="bg-[#18B892] h-full transition-all duration-300"
               style={{ width: `${(flashStep / 4) * 100}%` }}
             />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. Fallback Screen when authenticated but dashboard data failed to load
+  if (!dashboard) {
+    return (
+      <div className="min-h-screen bg-[#06090F] flex items-center justify-center p-4">
+        <div className="max-w-md w-full p-8 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl text-center space-y-6">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
+            <RefreshCw className="w-7 h-7 animate-spin" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="font-display font-black text-xl text-white">Synchronizing Agency Dossier</h3>
+            <p className="text-xs text-slate-400 leading-relaxed font-mono">
+              Establishing connection with authoritative game engine and restoring business state...
+            </p>
+          </div>
+          <div className="space-y-3 pt-2">
+            <button
+              onClick={() => {
+                setCheckingAuth(true);
+                loadDashboardState().finally(() => setCheckingAuth(false));
+              }}
+              className="w-full py-3.5 px-6 rounded-xl bg-[#18B892] hover:bg-[#15a381] text-slate-950 font-bold text-xs uppercase tracking-wider transition shadow-lg shadow-[#18B892]/25 cursor-pointer"
+            >
+              Retry State Synchronization
+            </button>
+            <button
+              onClick={() => navigateToPage('the-seo-game')}
+              className="w-full py-2 px-5 text-slate-500 hover:text-slate-400 text-xs font-mono transition cursor-pointer"
+            >
+              Back to Game Lobby
+            </button>
           </div>
         </div>
       </div>
@@ -650,11 +746,22 @@ export default function SEOGamePlayPlaceholder({
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 text-slate-400 font-mono text-[11px]">
+            {/* World / City Environment Selector (Lagos vs London) */}
+            <EnvironmentSelector
+              currentCity={currentCity}
+              onSelectCity={(city) => {
+                setCurrentCity(city);
+                audio.changeCity(city);
+              }}
+              playSfx={playSfx}
+            />
+
+            <div className="hidden lg:flex items-center gap-2 text-slate-400 font-mono text-[11px]">
               <MapPin className="w-3.5 h-3.5 text-[#18B892]" />
               <span>
+                {currentCity === 'lagos' ? '🇳🇬 Lagos ' : '🇬🇧 London '}
                 {activeDestination === 'district' 
-                  ? 'Victoria Commercial Plaza · Ground Level' 
+                  ? 'Commercial Plaza · Ground Level' 
                   : activeDestination === 'office' 
                   ? 'Agency Penthouse Office · 24th Floor' 
                   : 'Strategy Operations Chamber'}
@@ -662,12 +769,12 @@ export default function SEOGamePlayPlaceholder({
             </div>
 
             <button
-              onClick={toggleSound}
+              onClick={toggleMute}
               className="p-1.5 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer flex items-center gap-1.5 font-mono text-[11px]"
-              title={isMuted ? 'Unmute Game Audio' : 'Mute Game Audio'}
+              title={isMuted ? 'Unmute Environmental Audio' : 'Mute Environmental Audio'}
             >
               {isMuted ? <VolumeX className="w-3.5 h-3.5 text-slate-500" /> : <Volume2 className="w-3.5 h-3.5 text-[#18B892]" />}
-              <span>{isMuted ? 'Muted' : 'Sound ON'}</span>
+              <span>{isMuted ? 'Muted' : 'Audio ON'}</span>
             </button>
           </div>
         </div>
@@ -782,60 +889,165 @@ export default function SEOGamePlayPlaceholder({
 
         {/* 1. IMMERSIVE DESTINATION A: COMMERCIAL DISTRICT VIEW */}
         {activeDestination === 'district' && (
-          <ImmersiveDistrictView
-            player={player}
-            business={business}
-            website={website}
-            wallet={wallet}
-            pages={pages}
-            keywords={keywords}
-            competitors={competitors}
-            metrics={metrics}
-            onEnterOffice={() => {
-              playSfx?.('confirm');
-              setActiveDestination('office');
-            }}
-            onOpenCockpitTab={(tab) => {
-              playSfx?.('click');
-              setActiveTab(tab);
-              setActiveDestination('cockpit');
-            }}
-            playSfx={playSfx}
-          />
+          <div className="space-y-4">
+            {/* District View Mode Header */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-slate-900/90 rounded-2xl border border-slate-800 text-xs">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    playSfx?.('toggle');
+                    setDistrictRenderMode(districtRenderMode === '3d' ? '2d' : '3d');
+                  }}
+                  className="py-1.5 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  {districtRenderMode === '3d' ? '📋 View 2D District Directory' : '🏙️ Enter 3D City Skyline Simulation'}
+                </button>
+
+                <button
+                  onClick={() => {
+                    playSfx?.('confirm');
+                    setActiveDestination('office');
+                  }}
+                  className="py-1.5 px-3.5 rounded-xl bg-[#18B892] hover:bg-[#15a381] text-slate-950 font-bold text-xs flex items-center gap-1.5 transition shadow-md shadow-[#18B892]/20 cursor-pointer"
+                >
+                  <Compass className="w-3.5 h-3.5" />
+                  <span>Enter Agency Penthouse Suite</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 font-mono text-slate-400">
+                <span className="hidden sm:inline">District:</span>
+                <span className="text-white font-bold">{currentCity === 'lagos' ? 'Victoria Island & Marina' : 'Canary Wharf & The City'}</span>
+                <span className="text-emerald-400">· Realtime 3D</span>
+              </div>
+            </div>
+
+            {districtRenderMode === '3d' ? (
+              <CitySkyline3D
+                city={currentCity}
+                timeOfDay="day"
+                onEnterOffice={() => {
+                  playSfx?.('confirm');
+                  setActiveDestination('office');
+                }}
+                onSelectBuilding={(buildingName) => {
+                  playSfx?.('click');
+                  if (buildingName.toLowerCase().includes('agency') || buildingName.toLowerCase().includes('apex') || buildingName.toLowerCase().includes('digital')) {
+                    setActiveDestination('office');
+                  }
+                }}
+                playSfx={playSfx}
+              />
+            ) : (
+              <ImmersiveDistrictView
+                player={player}
+                business={business}
+                website={website}
+                wallet={wallet}
+                pages={pages}
+                keywords={keywords}
+                competitors={competitors}
+                metrics={metrics}
+                onEnterOffice={() => {
+                  playSfx?.('confirm');
+                  setActiveDestination('office');
+                }}
+                onOpenCockpitTab={(tab) => {
+                  playSfx?.('click');
+                  setActiveTab(tab);
+                  setActiveDestination('cockpit');
+                }}
+                playSfx={playSfx}
+              />
+            )}
+          </div>
         )}
 
         {/* 2. IMMERSIVE DESTINATION B: AGENCY HEADQUARTERS INTERIOR */}
         {activeDestination === 'office' && (
-          <ImmersiveOfficeView
-            player={player}
-            business={business}
-            website={website}
-            wallet={wallet}
-            pages={pages}
-            keywords={keywords}
-            competitors={competitors}
-            metrics={metrics}
-            strategicAnalysis={strategicAnalysis}
-            onExitToDistrict={() => {
-              playSfx?.('click');
-              setActiveDestination('district');
-            }}
-            onOpenCockpitTab={(tab) => {
-              playSfx?.('click');
-              setActiveTab(tab);
-              setActiveDestination('cockpit');
-            }}
-            onTriggerAction={handleTriggerAction}
-            onPublishPage={handlePublish}
-            onDraftPageModal={() => {
-              playSfx?.('click');
-              setShowCreatePageModal(true);
-            }}
-            onAdvanceDay={handleAdvanceDay}
-            isAdvancingDay={isAdvancingDay}
-            isProcessingAction={isProcessingAction}
-            playSfx={playSfx}
-          />
+          <div className="space-y-4">
+            {/* Office View Mode Header */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-slate-900/90 rounded-2xl border border-slate-800 text-xs">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    playSfx?.('toggle');
+                    setOfficeRenderMode(officeRenderMode === '3d' ? '2d' : '3d');
+                  }}
+                  className="py-1.5 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  {officeRenderMode === '3d' ? '🏢 View 2D Operations Board' : '🕶️ Enter 3D Executive Penthouse'}
+                </button>
+
+                <button
+                  onClick={() => {
+                    playSfx?.('workstation');
+                    setIsWorkstationOpen(true);
+                  }}
+                  className="py-1.5 px-3.5 rounded-xl bg-[#18B892] hover:bg-[#15a381] text-slate-950 font-bold text-xs flex items-center gap-1.5 transition shadow-md shadow-[#18B892]/20 cursor-pointer"
+                >
+                  <Cpu className="w-3.5 h-3.5" />
+                  <span>Sit at Workstation Terminal</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 font-mono text-slate-400">
+                <span className="hidden sm:inline">Executive Suite:</span>
+                <span className="text-white font-bold">{business?.name || 'OmniCorp SEO'}</span>
+                <span className="text-emerald-400">· 24th Floor Panorama</span>
+              </div>
+            </div>
+
+            {officeRenderMode === '3d' ? (
+              <RealisticOffice3D
+                city={currentCity}
+                player={player}
+                business={business}
+                website={website}
+                wallet={wallet}
+                onOpenWorkstation={() => {
+                  playSfx?.('workstation');
+                  setIsWorkstationOpen(true);
+                }}
+                onExitToDistrict={() => {
+                  playSfx?.('click');
+                  setActiveDestination('district');
+                }}
+                playSfx={playSfx}
+              />
+            ) : (
+              <ImmersiveOfficeView
+                player={player}
+                business={business}
+                website={website}
+                wallet={wallet}
+                pages={pages}
+                keywords={keywords}
+                competitors={competitors}
+                metrics={metrics}
+                strategicAnalysis={strategicAnalysis}
+                onExitToDistrict={() => {
+                  playSfx?.('click');
+                  setActiveDestination('district');
+                }}
+                onOpenCockpitTab={(tab) => {
+                  playSfx?.('click');
+                  setActiveTab(tab);
+                  setActiveDestination('cockpit');
+                }}
+                onTriggerAction={handleTriggerAction}
+                onPublishPage={handlePublish}
+                onDraftPageModal={() => {
+                  playSfx?.('click');
+                  setShowCreatePageModal(true);
+                }}
+                onAdvanceDay={handleAdvanceDay}
+                isAdvancingDay={isAdvancingDay}
+                isProcessingAction={isProcessingAction}
+                playSfx={playSfx}
+              />
+            )}
+          </div>
         )}
 
         {/* 3. IMMERSIVE DESTINATION C: DEEP STRATEGY COCKPIT */}
@@ -2169,6 +2381,27 @@ export default function SEOGamePlayPlaceholder({
           </div>
         </div>
       )}
+
+      {/* 4. REALISTIC 3D WORKSTATION TERMINAL MODAL */}
+      <SEOWorkstationModal
+        isOpen={isWorkstationOpen}
+        onClose={() => setIsWorkstationOpen(false)}
+        dashboard={dashboard}
+        selectedPageId={selectedPageId}
+        onSelectPageId={(id) => setSelectedPageId(id)}
+        onTriggerAction={handleTriggerAction}
+        onPublishPage={handlePublish}
+        onToggleRobots={async (pageId, allowIndex) => {
+          await handleToggleRobots(pageId, !allowIndex);
+        }}
+        onAdvanceDay={handleAdvanceDay}
+        onCreateNewPage={async (title) => {
+          await handleTriggerAction('CREATE_PAGE', { pageTitle: title });
+        }}
+        isProcessingAction={isProcessingAction}
+        isAdvancingDay={isAdvancingDay}
+        playSfx={playSfx}
+      />
 
       {/* Footer bar */}
       <footer className="w-full py-4 text-center text-xs text-slate-500 border-t border-slate-200 bg-white">

@@ -45,22 +45,9 @@ export default function SEOGameLandingPage({
       const currentSession = sessionData?.session;
 
       if (currentSession?.user) {
-        // Check if player profile already exists
-        const { data: player } = await supabase
-          .from('seo_game_players')
-          .select('id')
-          .eq('user_id', currentSession.user.id)
-          .maybeSingle();
-
-        if (player) {
-          // Player already exists -> go directly to /The-SEO-Game/play
-          navigateToPage('the-seo-game-play');
-          return;
-        } else {
-          // Authenticated but does not have player profile -> show custom player setup form
-          openSignupModal();
-          return;
-        }
+        // Active authenticated session -> route directly into the game simulation
+        navigateToPage('the-seo-game-play');
+        return;
       }
     } catch (err) {
       console.warn('Session verification note on Start Playing:', err);

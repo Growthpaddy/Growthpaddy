@@ -17,7 +17,7 @@ export type SEOExperienceLevel = 'beginner' | 'strategist' | 'expert';
 interface SEOGameRegistrationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (userData?: { id: string; email: string; name: string }) => void;
   onSwitchToLogin: () => void;
   playSfx?: (type: 'click' | 'confirm' | 'warning' | 'upgrade' | 'success') => void;
 }
@@ -157,12 +157,15 @@ export default function SEOGameRegistrationModal({
       playSfx?.('confirm');
       setIsSuccessConfirmed(true);
 
-      // SIGNUP → SAVE TO SUPABASE → REDIRECT TO SIGN IN
+      // Route directly into game session
       setTimeout(() => {
-        onSuccess();
+        onSuccess({
+          id: currentSession.user.id,
+          email: currentSession.user.email || cleanEmail,
+          name: cleanPlayerName
+        });
         onClose();
-        onSwitchToLogin();
-      }, 2400);
+      }, 1500);
 
     } catch (err: any) {
       console.error('SEO Game Registration error:', err);
@@ -242,8 +245,8 @@ export default function SEOGameRegistrationModal({
               <p className="font-mono text-sm font-bold text-[#18B892] tracking-wider uppercase">
                 PLAYER PROFILE INITIALIZED
               </p>
-              <p className="text-xs text-slate-400 font-mono tracking-wide pt-2">
-                REDIRECTING TO AUTHENTICATION...
+              <p className="text-xs text-[#18B892] font-mono font-bold tracking-wide pt-2 animate-pulse">
+                ENTERING THE GAME...
               </p>
             </div>
 
@@ -273,9 +276,23 @@ export default function SEOGameRegistrationModal({
 
             {/* Error message */}
             {errorMessage && (
-              <div className="mb-5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2 text-left">
-                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-                <span>{errorMessage}</span>
+              <div className="mb-5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex flex-col gap-2 text-left">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                  <span>{errorMessage}</span>
+                </div>
+                {errorMessage.toLowerCase().includes('sign in') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onSwitchToLogin();
+                    }}
+                    className="self-start py-1 px-3 bg-emerald-500/20 hover:bg-emerald-500/30 text-[#18B892] rounded-lg font-bold text-[11px] transition cursor-pointer"
+                  >
+                    Go to Sign In →
+                  </button>
+                )}
               </div>
             )}
 
