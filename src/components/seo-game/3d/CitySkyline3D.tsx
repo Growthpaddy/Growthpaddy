@@ -551,6 +551,29 @@ export function CitySkyline3D({
         className="w-full h-[460px] sm:h-[540px] lg:h-[600px] select-none touch-none"
       />
 
+      {/* Fallback when WebGL is unavailable */}
+      {!webglSupported && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-950/95 z-20 space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center">
+            <Sun className="w-7 h-7" />
+          </div>
+          <div className="space-y-1">
+            <h4 className="text-white font-bold text-base">3D WebGL Acceleration Unavailable</h4>
+            <p className="text-xs text-slate-400 max-w-md font-mono">
+              Hardware WebGL rendering is disabled on this device. The commercial district remains fully accessible via the 2D directory view.
+            </p>
+          </div>
+          {onEnterOffice && (
+            <button
+              onClick={onEnterOffice}
+              className="py-3 px-6 rounded-xl bg-[#18B892] hover:bg-[#15a381] text-slate-950 font-bold text-xs uppercase tracking-wider transition shadow-lg shadow-[#18B892]/25 cursor-pointer"
+            >
+              Enter Agency Headquarters Suite
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Floating City HUD & Controls */}
       <div className="absolute top-4 left-4 right-4 flex items-center justify-between pointer-events-none">
         {/* Left: Current Environment Badge */}

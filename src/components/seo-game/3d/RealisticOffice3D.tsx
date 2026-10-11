@@ -26,6 +26,7 @@ export function RealisticOffice3D({
 }: RealisticOffice3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoveredObject, setHoveredObject] = useState<string | null>(null);
+  const [webglSupported, setWebglSupported] = useState(true);
 
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -35,6 +36,19 @@ export function RealisticOffice3D({
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+
+    // Verify WebGL availability
+    try {
+      const canvas = document.createElement('canvas');
+      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+      if (!gl) {
+        setWebglSupported(false);
+        return;
+      }
+    } catch (_) {
+      setWebglSupported(false);
+      return;
+    }
 
     const width = container.clientWidth || 800;
     const height = container.clientHeight || 520;
@@ -434,6 +448,30 @@ export function RealisticOffice3D({
         ref={containerRef} 
         className="w-full h-[480px] sm:h-[560px] lg:h-[620px] select-none touch-none"
       />
+
+      {/* Fallback when WebGL is unavailable */}
+      {!webglSupported && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-950/95 z-20 space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center">
+            <Monitor className="w-7 h-7" />
+          </div>
+          <div className="space-y-1">
+            <h4 className="text-white font-bold text-base">3D WebGL Acceleration Unavailable</h4>
+            <p className="text-xs text-slate-400 max-w-md font-mono">
+              Hardware WebGL context is not active in this environment. All SEO strategies and operational suites are fully usable via the workstation terminal or 2D operations board.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              playSfx?.('workstation');
+              onOpenWorkstation();
+            }}
+            className="py-3 px-6 rounded-xl bg-[#18B892] hover:bg-[#15a381] text-slate-950 font-bold text-xs uppercase tracking-wider transition shadow-lg shadow-[#18B892]/25 cursor-pointer"
+          >
+            Launch Workstation Terminal
+          </button>
+        </div>
+      )}
 
       {/* Floating Office Navigation HUD */}
       <div className="absolute top-4 left-4 right-4 flex items-center justify-between pointer-events-none">
