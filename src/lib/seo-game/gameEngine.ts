@@ -199,7 +199,7 @@ export async function processGameAction(params: ProcessActionParams): Promise<Ga
 let inFlightDashboardPromise: Promise<any> | null = null;
 
 /**
- * Retrieves authenticated session token with graceful session restoration retry
+ * Retrieves authenticated session token with graceful session restoration retry and fallback
  */
 async function getAuthToken(client = supabase): Promise<string | null> {
   const { data } = await client.auth.getSession();
@@ -214,6 +214,19 @@ async function getAuthToken(client = supabase): Promise<string | null> {
     if (retry.data?.session?.access_token) {
       return retry.data.session.access_token;
     }
+  }
+
+  // Fallback to local storage cached auth session if present
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem('dsp_local_auth_session');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.access_token) {
+          return parsed.access_token;
+        }
+      }
+    } catch (_) {}
   }
 
   return null;
@@ -232,7 +245,10 @@ export async function fetchDashboardData(client = supabase): Promise<any> {
     try {
       const token = await getAuthToken(client);
       if (!token) {
-        throw new Error('UNAUTHENTICATED: No active session token found. Please sign in.');
+        const syncError: any = new Error('UNAUTHENTICATED: No active session token found. Please sign in to enter gameplay.');
+        syncError.code = 'UNAUTHENTICATED';
+        syncError.stage = 'auth_token';
+        throw syncError;
       }
 
       const controller = new AbortController();
@@ -253,11 +269,27 @@ export async function fetchDashboardData(client = supabase): Promise<any> {
         clearTimeout(timeoutId);
       });
 
-      const data = await res.json().catch(() => ({}));
+      let text = '';
+      let data: any = null;
+      try {
+        text = await res.text();
+        data = JSON.parse(text);
+      } catch (parseErr) {
+        console.error('[Dashboard Sync] Response is not valid JSON. First 200 chars:', text.slice(0, 200));
+        const syncErr: any = new Error(`HTTP ${res.status}: Server returned non-JSON response.`);
+        syncErr.code = 'INVALID_JSON_RESPONSE';
+        syncErr.stage = 'response_parse';
+        syncErr.status = res.status;
+        throw syncErr;
+      }
 
-      if (!res.ok || data.success === false) {
-        const errorMsg = data.message || data.error || `HTTP ${res.status}: Failed to synchronize dashboard state.`;
-        throw new Error(errorMsg);
+      if (!res.ok || !data || data.success !== true) {
+        const errorMsg = data?.message || data?.error || `HTTP ${res.status}: Failed to synchronize dashboard state.`;
+        const syncError: any = new Error(errorMsg);
+        syncError.code = data?.code || 'DOSSIER_SYNC_FAILED';
+        syncError.stage = data?.stage || 'server_processing';
+        syncError.status = res.status;
+        throw syncError;
       }
 
       return data;
