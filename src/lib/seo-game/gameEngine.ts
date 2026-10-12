@@ -195,25 +195,78 @@ export async function processGameAction(params: ProcessActionParams): Promise<Ga
   }
 }
 
+// In-flight dashboard fetch promise deduplication
+let inFlightDashboardPromise: Promise<any> | null = null;
+
 /**
- * Retrieves authenticated session token
+ * Retrieves authenticated session token with graceful session restoration retry
  */
 async function getAuthToken(client = supabase): Promise<string | null> {
   const { data } = await client.auth.getSession();
-  return data?.session?.access_token || null;
+  if (data?.session?.access_token) {
+    return data.session.access_token;
+  }
+
+  // Gracefully retry up to 3 times with brief backoff to allow localStorage hydration
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const retry = await client.auth.getSession();
+    if (retry.data?.session?.access_token) {
+      return retry.data.session.access_token;
+    }
+  }
+
+  return null;
 }
 
 /**
- * Fetches the complete, authoritative dashboard dataset from the server
+ * Fetches the complete, authoritative dashboard dataset from the server.
+ * Includes request timeout, deduplication of concurrent in-flight calls, and HTTP error checking.
  */
-export async function fetchDashboardData(client = supabase) {
-  const token = await getAuthToken(client);
-  if (!token) throw new Error('Unauthenticated');
+export async function fetchDashboardData(client = supabase): Promise<any> {
+  if (inFlightDashboardPromise) {
+    return inFlightDashboardPromise;
+  }
 
-  const res = await fetch('/api/seo-game/dashboard-data', {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  return res.json();
+  inFlightDashboardPromise = (async () => {
+    try {
+      const token = await getAuthToken(client);
+      if (!token) {
+        throw new Error('UNAUTHENTICATED: No active session token found. Please sign in.');
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      let baseUrl = '';
+      if (typeof window === 'undefined') {
+        baseUrl = process.env.VITE_APP_URL || 'http://localhost:3000';
+      }
+
+      const res = await fetch(`${baseUrl}/api/seo-game/dashboard-data`, {
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        signal: controller.signal
+      }).finally(() => {
+        clearTimeout(timeoutId);
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || data.success === false) {
+        const errorMsg = data.message || data.error || `HTTP ${res.status}: Failed to synchronize dashboard state.`;
+        throw new Error(errorMsg);
+      }
+
+      return data;
+    } finally {
+      inFlightDashboardPromise = null;
+    }
+  })();
+
+  return inFlightDashboardPromise;
 }
 
 /**

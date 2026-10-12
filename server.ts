@@ -2295,14 +2295,20 @@ app.get("/api/seo-game/dashboard-data", async (req, res) => {
       .maybeSingle();
 
     if (!wallet) {
-      const { data: newWallet } = await supabase.from("seo_game_wallets").insert({
-        player_id: player.id,
-        coins: 1000,
-        energy: 100,
-        max_energy: 100,
-        ai_credits: 100
-      }).select().single();
-      wallet = newWallet;
+      try {
+        const { data: newWallet } = await supabase.from("seo_game_wallets").insert({
+          player_id: player.id,
+          coins: 1000,
+          energy: 100,
+          max_energy: 100,
+          ai_credits: 100
+        }).select().maybeSingle();
+        wallet = newWallet;
+      } catch (_) {}
+      if (!wallet) {
+        const { data: fallbackWallet } = await supabase.from("seo_game_wallets").select("*").eq("player_id", player.id).maybeSingle();
+        wallet = fallbackWallet;
+      }
     }
 
     // 2. Business
@@ -2313,41 +2319,53 @@ app.get("/api/seo-game/dashboard-data", async (req, res) => {
       .maybeSingle();
 
     if (!business) {
-      const { data: newBiz } = await supabase.from("seo_game_businesses").insert({
-        player_id: player.id,
-        name: `${player.display_name || "Apex"} Digital HQ`,
-        industry: "Technology",
-        current_budget: 500000,
-        starting_budget: 500000,
-        business_level: 1,
-        reputation: 50,
-        authority_score: 10
-      }).select().single();
-      business = newBiz;
+      try {
+        const { data: newBiz } = await supabase.from("seo_game_businesses").insert({
+          player_id: player.id,
+          name: `${player.display_name || "Apex"} Digital HQ`,
+          industry: "Technology",
+          current_budget: 500000,
+          starting_budget: 500000,
+          business_level: 1,
+          reputation: 50,
+          authority_score: 10
+        }).select().maybeSingle();
+        business = newBiz;
+      } catch (_) {}
+      if (!business) {
+        const { data: fallbackBiz } = await supabase.from("seo_game_businesses").select("*").eq("player_id", player.id).maybeSingle();
+        business = fallbackBiz;
+      }
     }
 
     // 3. Website
-    let { data: website } = await supabase
+    let { data: website } = business ? await supabase
       .from("seo_game_websites")
       .select("*")
       .eq("business_id", business.id)
-      .maybeSingle();
+      .maybeSingle() : { data: null };
 
-    if (!website) {
+    if (!website && business) {
       const cleanDomain = `${(player.display_name || "growth").toLowerCase().replace(/[^a-z0-9]/g, "")}-digital.com`;
-      const { data: newWeb } = await supabase.from("seo_game_websites").insert({
-        business_id: business.id,
-        domain: cleanDomain,
-        website_name: `${player.display_name || "Apex"} Digital`,
-        site_health_score: 50,
-        crawlability_score: 50,
-        indexability_score: 50,
-        technical_score: 50,
-        content_score: 50,
-        trust_score: 50,
-        topical_authority_score: 10
-      }).select().single();
-      website = newWeb;
+      try {
+        const { data: newWeb } = await supabase.from("seo_game_websites").insert({
+          business_id: business.id,
+          domain: cleanDomain,
+          website_name: `${player.display_name || "Apex"} Digital`,
+          site_health_score: 50,
+          crawlability_score: 50,
+          indexability_score: 50,
+          technical_score: 50,
+          content_score: 50,
+          trust_score: 50,
+          topical_authority_score: 10
+        }).select().maybeSingle();
+        website = newWeb;
+      } catch (_) {}
+      if (!website) {
+        const { data: fallbackWeb } = await supabase.from("seo_game_websites").select("*").eq("business_id", business.id).maybeSingle();
+        website = fallbackWeb;
+      }
     }
 
     // 4. Ensure Competitors exist for this business
@@ -2409,24 +2427,30 @@ app.get("/api/seo-game/dashboard-data", async (req, res) => {
     }
 
     // 9. Business Metrics
-    let { data: metrics } = await supabase
+    let { data: metrics } = business ? await supabase
       .from("seo_game_business_metrics")
       .select("*")
       .eq("business_id", business.id)
-      .maybeSingle();
+      .maybeSingle() : { data: null };
 
-    if (!metrics) {
-      const { data: newMetrics } = await supabase.from("seo_game_business_metrics").insert({
-        business_id: business.id,
-        traffic: 0,
-        leads: 0,
-        customers: 0,
-        revenue: 0,
-        conversion_rate: 0,
-        brand_strength: 50,
-        market_position: 10
-      }).select().single();
-      metrics = newMetrics;
+    if (!metrics && business) {
+      try {
+        const { data: newMetrics } = await supabase.from("seo_game_business_metrics").insert({
+          business_id: business.id,
+          traffic: 0,
+          leads: 0,
+          customers: 0,
+          revenue: 0,
+          conversion_rate: 0,
+          brand_strength: 50,
+          market_position: 10
+        }).select().maybeSingle();
+        metrics = newMetrics;
+      } catch (_) {}
+      if (!metrics) {
+        const { data: fallbackMetrics } = await supabase.from("seo_game_business_metrics").select("*").eq("business_id", business.id).maybeSingle();
+        metrics = fallbackMetrics;
+      }
     }
 
     // 10. Player State
@@ -2437,19 +2461,25 @@ app.get("/api/seo-game/dashboard-data", async (req, res) => {
       .maybeSingle();
 
     if (!playerState) {
-      const { data: newState } = await supabase.from("seo_game_player_state").insert({
-        player_id: player.id,
-        current_day: player.current_day || 1,
-        total_traffic: 0,
-        total_leads: 0,
-        total_revenue: 0,
-        indexed_pages: 0,
-        ranking_keywords: 0,
-        page_one_keywords: 0,
-        authority_score: 10,
-        business_health: 100
-      }).select().single();
-      playerState = newState;
+      try {
+        const { data: newState } = await supabase.from("seo_game_player_state").insert({
+          player_id: player.id,
+          current_day: player.current_day || 1,
+          total_traffic: 0,
+          total_leads: 0,
+          total_revenue: 0,
+          indexed_pages: 0,
+          ranking_keywords: 0,
+          page_one_keywords: 0,
+          authority_score: 10,
+          business_health: 100
+        }).select().maybeSingle();
+        playerState = newState;
+      } catch (_) {}
+      if (!playerState) {
+        const { data: fallbackState } = await supabase.from("seo_game_player_state").select("*").eq("player_id", player.id).maybeSingle();
+        playerState = fallbackState;
+      }
     }
 
     // 11. Missions

@@ -1276,6 +1276,7 @@ export default function App() {
           setShowConfetti(true);
           // Route immediately to /The-SEO-Game/play
           setCurrentPage('the-seo-game-play');
+          window.history.pushState(null, '', '/The-SEO-Game/play');
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
@@ -1300,6 +1301,7 @@ export default function App() {
           setShowConfetti(true);
           // Route immediately to /The-SEO-Game/play
           setCurrentPage('the-seo-game-play');
+          window.history.pushState(null, '', '/The-SEO-Game/play');
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { 
   Gamepad2, 
   ArrowLeft, 
@@ -106,6 +106,9 @@ export default function SEOGamePlayPlaceholder({
   const [authError, setAuthError] = useState(false);
   const [dashboard, setDashboard] = useState<any>(null);
   const [sessionUser, setSessionUser] = useState<any>(null);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('syncing');
+  const [syncErrorMessage, setSyncErrorMessage] = useState<string | null>(null);
+  const isSyncingRef = useRef(false);
   
   // Selected City Environment (Lagos vs London)
   const [currentCity, setCurrentCity] = useState<CityEnvironment>(() => {
@@ -161,22 +164,39 @@ export default function SEOGamePlayPlaceholder({
   const [flashStep, setFlashStep] = useState<number>(1);
   const [flashComplete, setFlashComplete] = useState<boolean>(true);
 
-  // Load authoritative game dashboard data from server
+  // Load authoritative game dashboard data from server with deduplication and error handling
   const loadDashboardState = useCallback(async () => {
+    if (isSyncingRef.current) return null;
+    isSyncingRef.current = true;
+    setSyncStatus('syncing');
+    setSyncErrorMessage(null);
+
     try {
       const data = await fetchDashboardData();
       if (data?.success) {
         setDashboard(data);
-        if (!selectedPageId && data.pages?.length > 0) {
-          setSelectedPageId(data.pages[0].id);
-        }
+        setSyncStatus('success');
+        setSyncErrorMessage(null);
+        setAuthError(false);
+        // Safely set initial selectedPageId without retriggering callbacks
+        setSelectedPageId(prev => prev || (data.pages?.length > 0 ? data.pages[0].id : null));
         return data;
+      } else {
+        const errorMsg = data?.message || data?.error || 'Authoritative game server returned unsuccessful response.';
+        setSyncStatus('error');
+        setSyncErrorMessage(errorMsg);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load dashboard data:', err);
+      const errorMsg = err?.message || 'Unable to connect to the authoritative game server.';
+      setSyncStatus('error');
+      setSyncErrorMessage(errorMsg);
+    } finally {
+      isSyncingRef.current = false;
+      setCheckingAuth(false);
     }
     return null;
-  }, [selectedPageId]);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -184,14 +204,28 @@ export default function SEOGamePlayPlaceholder({
     async function verifyAndInitialize() {
       setCheckingAuth(true);
       setAuthError(false);
-      try {
-        const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-        const currentSession = sessionData?.session;
+      setSyncErrorMessage(null);
 
-        if (sessionErr || !currentSession?.user) {
+      try {
+        // 1. Session verification with hydration retry
+        let currentSession: any = (await supabase.auth.getSession()).data?.session;
+        if (!currentSession?.user) {
+          for (let attempt = 0; attempt < 3; attempt++) {
+            await new Promise(r => setTimeout(r, 200));
+            const retry = await supabase.auth.getSession();
+            if (retry.data?.session?.user) {
+              currentSession = retry.data.session;
+              break;
+            }
+          }
+        }
+
+        if (sessionErrCheck(currentSession)) {
           if (isMounted) {
             setCheckingAuth(false);
             setAuthError(true);
+            setSyncStatus('error');
+            setSyncErrorMessage('No active player session. Please sign in to enter the simulation.');
           }
           return;
         }
@@ -200,34 +234,32 @@ export default function SEOGamePlayPlaceholder({
           setSessionUser(currentSession.user);
         }
 
-        const data = await fetchDashboardData();
-        if (isMounted && data?.success) {
-          setDashboard(data);
-          if (data.pages?.length > 0) {
-            setSelectedPageId(data.pages[0].id);
-          }
-          setAuthError(false);
-        } else if (isMounted) {
-          // If dashboard data failed, set authError to false but allow retry
-          setAuthError(false);
+        // 2. Fetch authoritative dashboard state
+        if (isMounted) {
+          await loadDashboardState();
         }
-        if (isMounted) setCheckingAuth(false);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Initial verification error:', err);
         if (isMounted) {
           setCheckingAuth(false);
-          // If we had no session, set authError
-          setAuthError(!sessionUser);
+          setSyncStatus('error');
+          setSyncErrorMessage(err?.message || 'Failed to initialize player state.');
         }
       }
     }
 
+    function sessionErrCheck(sess: any) {
+      return !sess || !sess.user;
+    }
+
     verifyAndInitialize();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user && isMounted) {
         setSessionUser(session.user);
-        loadDashboardState();
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          loadDashboardState();
+        }
       }
     });
 
@@ -579,29 +611,52 @@ export default function SEOGamePlayPlaceholder({
     );
   }
 
-  // 3. Fallback Screen when authenticated but dashboard data failed to load
+  // 3. Fallback Screen when authenticated but dashboard data is loading or failed
   if (!dashboard) {
+    const isError = syncStatus === 'error';
+    const isSyncing = syncStatus === 'syncing';
+
     return (
       <div className="min-h-screen bg-[#06090F] flex items-center justify-center p-4">
         <div className="max-w-md w-full p-8 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl text-center space-y-6">
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
-            <RefreshCw className="w-7 h-7 animate-spin" />
+          <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center border ${
+            isError
+              ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+              : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+          }`}>
+            {isError ? (
+              <AlertTriangle className="w-7 h-7" />
+            ) : (
+              <RefreshCw className="w-7 h-7 animate-spin" />
+            )}
           </div>
           <div className="space-y-2">
-            <h3 className="font-display font-black text-xl text-white">Synchronizing Agency Dossier</h3>
+            <h3 className="font-display font-black text-xl text-white">
+              {isError ? 'Agency Dossier Synchronization Interrupted' : 'Synchronizing Agency Dossier'}
+            </h3>
             <p className="text-xs text-slate-400 leading-relaxed font-mono">
-              Establishing connection with authoritative game engine and restoring business state...
+              {isError 
+                ? (syncErrorMessage || 'Authoritative game engine encountered a temporary synchronization issue. Please retry.')
+                : 'Establishing connection with authoritative game engine and restoring business state...'}
             </p>
           </div>
           <div className="space-y-3 pt-2">
             <button
               onClick={() => {
                 setCheckingAuth(true);
-                loadDashboardState().finally(() => setCheckingAuth(false));
+                loadDashboardState();
               }}
-              className="w-full py-3.5 px-6 rounded-xl bg-[#18B892] hover:bg-[#15a381] text-slate-950 font-bold text-xs uppercase tracking-wider transition shadow-lg shadow-[#18B892]/25 cursor-pointer"
+              disabled={isSyncing}
+              className="w-full py-3.5 px-6 rounded-xl bg-[#18B892] hover:bg-[#15a381] disabled:opacity-50 text-slate-950 font-bold text-xs uppercase tracking-wider transition shadow-lg shadow-[#18B892]/25 cursor-pointer flex items-center justify-center gap-2"
             >
-              Retry State Synchronization
+              {isSyncing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Synchronizing Engine...</span>
+                </>
+              ) : (
+                <span>Retry State Synchronization</span>
+              )}
             </button>
             <button
               onClick={() => navigateToPage('the-seo-game')}
