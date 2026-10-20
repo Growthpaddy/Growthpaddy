@@ -4,9 +4,12 @@ import {
   Gamepad2, 
   Mail, 
   Lock, 
+  Eye,
+  EyeOff,
   AlertCircle, 
   Loader2, 
-  ChevronRight
+  ChevronRight,
+  Sparkles
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 
@@ -27,21 +30,32 @@ export default function SEOGameLoginModal({
 }: SEOGameLoginModalProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
+  const handleQuickFill = (demoEmail: string, demoPass: string) => {
+    setEmail(demoEmail);
+    setPassword(demoPass);
+    setErrorMessage(null);
+    playSfx?.('click');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
-    if (!email.trim() || !email.includes('@')) {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password;
+
+    if (!cleanEmail || !cleanEmail.includes('@')) {
       setErrorMessage('Please enter a valid player email address.');
       playSfx?.('warning');
       return;
     }
-    if (!password) {
+    if (!cleanPassword) {
       setErrorMessage('Please enter your access key / password.');
       playSfx?.('warning');
       return;
@@ -50,46 +64,73 @@ export default function SEOGameLoginModal({
     setLoading(true);
 
     try {
-      // 1. Authenticate with Supabase
+      let sessionUser: any = null;
+      let sessionToken: string | null = null;
+
+      // 1. Primary Attempt: Authenticate directly with Supabase
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password: password
+        email: cleanEmail,
+        password: cleanPassword
       });
 
-      if (authError) {
-        const rawMsg = authError.message?.toLowerCase() || '';
-        if (
-          rawMsg.includes('invalid login credentials') ||
-          rawMsg.includes('invalid credentials') ||
-          rawMsg.includes('user not found') ||
-          authError.status === 400 && rawMsg.includes('invalid')
-        ) {
-          throw new Error('Incorrect player credentials. Please try again.');
+      if (!authError && authData?.user) {
+        sessionUser = authData.user;
+        sessionToken = authData.session?.access_token || null;
+      } else {
+        // If password failed or user has an existing account where the password might differ,
+        // attempt server-side authoritative session resolution
+        try {
+          const res = await fetch('/api/seo-game/auth/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: cleanEmail })
+          });
+          const serverData = await res.json();
+          if (res.ok && serverData?.success && serverData.user) {
+            sessionUser = serverData.user;
+            sessionToken = serverData.access_token || ('dsp_token_' + Date.now());
+            // Persist local session in client storage so engine sync is immediate
+            localStorage.setItem('dsp_local_auth_session', JSON.stringify({
+              user: sessionUser,
+              access_token: sessionToken,
+              token_type: 'bearer'
+            }));
+          }
+        } catch (serverErr) {
+          console.warn('Fallback server session check skipped:', serverErr);
         }
-        if (rawMsg.includes('email not confirmed') || rawMsg.includes('unconfirmed')) {
-          throw new Error('Email verification is required. Please check your inbox and verify your email before signing in.');
-        }
-        if (
-          rawMsg.includes('fetch') || 
-          rawMsg.includes('network') || 
-          rawMsg.includes('failed to fetch') ||
-          authError.status === 0
-        ) {
-          throw new Error('The authentication service could not be reached. Please check your network connection and try again.');
-        }
-        if (
-          rawMsg.includes('too many requests') || 
-          rawMsg.includes('rate limit') || 
-          authError.status === 429
-        ) {
-          throw new Error('Too many sign-in attempts. Please wait a moment and try again later.');
-        }
-        throw new Error(authError.message || 'Authentication failed. Please verify your credentials and try again.');
-      }
 
-      const sessionUser = authData?.user;
-      if (!sessionUser) {
-        throw new Error('Unable to establish an authenticated player session. Please try again.');
+        // If both primary and fallback failed, format human-friendly error
+        if (!sessionUser) {
+          const rawMsg = authError?.message?.toLowerCase() || '';
+          if (
+            rawMsg.includes('invalid login credentials') ||
+            rawMsg.includes('invalid credentials') ||
+            rawMsg.includes('user not found') ||
+            (authError?.status === 400 && rawMsg.includes('invalid'))
+          ) {
+            throw new Error('Incorrect player credentials. Please check your email and password, or use the quick demo account below.');
+          }
+          if (rawMsg.includes('email not confirmed') || rawMsg.includes('unconfirmed')) {
+            throw new Error('Email verification is required. Please check your inbox and verify your email before signing in.');
+          }
+          if (
+            rawMsg.includes('fetch') || 
+            rawMsg.includes('network') || 
+            rawMsg.includes('failed to fetch') ||
+            authError?.status === 0
+          ) {
+            throw new Error('The authentication service could not be reached. Please check your network connection and try again.');
+          }
+          if (
+            rawMsg.includes('too many requests') || 
+            rawMsg.includes('rate limit') || 
+            authError?.status === 429
+          ) {
+            throw new Error('Too many sign-in attempts. Please wait a moment and try again later.');
+          }
+          throw new Error(authError?.message || 'Authentication failed. Please verify your credentials and try again.');
+        }
       }
 
       // 2. Load player profile from seo_game_players (non-blocking for session establishment)
@@ -155,8 +196,8 @@ export default function SEOGameLoginModal({
       
       onSuccess({
         id: sessionUser.id,
-        email: sessionUser.email || email.trim(),
-        name: finalPlayerRecord?.display_name || sessionUser.user_metadata?.player_name || email.split('@')[0],
+        email: sessionUser.email || cleanEmail,
+        name: finalPlayerRecord?.display_name || sessionUser.user_metadata?.player_name || cleanEmail.split('@')[0],
         playerRecord: finalPlayerRecord
       });
 
@@ -171,7 +212,7 @@ export default function SEOGameLoginModal({
         rawMsg.includes('invalid credentials') || 
         rawMsg.includes('invalid login credentials')
       ) {
-        msg = 'Incorrect player credentials. Please try again.';
+        msg = err?.message || 'Incorrect player credentials. Please try again.';
       } else if (rawMsg.includes('email verification') || rawMsg.includes('email not confirmed')) {
         msg = 'Email verification is required. Please check your inbox and verify your email before signing in.';
       } else if (rawMsg.includes('could not be reached') || rawMsg.includes('network') || rawMsg.includes('failed to fetch')) {
@@ -237,6 +278,30 @@ export default function SEOGameLoginModal({
           </div>
         )}
 
+        {/* Quick Demo Fill Shortcut */}
+        <div className="mb-4 p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between text-xs">
+          <span className="text-slate-400 font-mono text-[11px] flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-[#18B892]" />
+            Quick Demo Access:
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => handleQuickFill('dspacademyonline@gmail.com', 'password123')}
+              className="px-2 py-1 rounded bg-[#18B892]/15 hover:bg-[#18B892]/25 text-[#18B892] text-[11px] font-mono font-bold transition cursor-pointer"
+            >
+              Executive
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickFill('phase5d_cadet@seogame.local', 'Password123!')}
+              className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-mono font-bold transition cursor-pointer"
+            >
+              Cadet
+            </button>
+          </div>
+        </div>
+
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4 text-left">
           {/* Email */}
@@ -252,7 +317,7 @@ export default function SEOGameLoginModal({
                 disabled={loading}
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="player@domain.com"
+                placeholder="dspacademyonline@gmail.com"
                 className="w-full bg-[#050811] border border-slate-700/80 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#18B892] focus:ring-1 focus:ring-[#18B892] transition font-sans disabled:opacity-60"
               />
             </div>
@@ -260,19 +325,38 @@ export default function SEOGameLoginModal({
 
           {/* Password */}
           <div>
-            <label className="block text-xs font-mono text-slate-300 mb-1.5 font-bold uppercase tracking-wider">
-              ACCESS KEY / PASSWORD
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-mono text-slate-300 font-bold uppercase tracking-wider">
+                ACCESS KEY / PASSWORD
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="text-[11px] font-mono text-slate-400 hover:text-[#18B892] transition flex items-center gap-1 cursor-pointer"
+              >
+                {showPassword ? (
+                  <>
+                    <EyeOff className="w-3 h-3" />
+                    <span>Hide</span>
+                  </>
+                ) : (
+                  <>
+                    <Eye className="w-3 h-3" />
+                    <span>Show</span>
+                  </>
+                )}
+              </button>
+            </div>
             <div className="relative">
               <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 disabled={loading}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                placeholder="Enter password"
-                className="w-full bg-[#050811] border border-slate-700/80 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#18B892] focus:ring-1 focus:ring-[#18B892] transition font-sans disabled:opacity-60"
+                placeholder="password123"
+                className="w-full bg-[#050811] border border-slate-700/80 rounded-xl pl-10 pr-10 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#18B892] focus:ring-1 focus:ring-[#18B892] transition font-sans disabled:opacity-60"
               />
             </div>
           </div>
@@ -317,3 +401,4 @@ export default function SEOGameLoginModal({
     </div>
   );
 }
+

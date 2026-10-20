@@ -1,6 +1,6 @@
 {
   "name": "Digital Campux",
-  "description": "Digital Campux - Premium pre-vetted talent ecosystem and verified digital skills accreditation platform.",
+  "description": "A platform for young and emerging founders in Nigeria to share their stories, gain visibility, connect with a supportive community and unlock real opportunities.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

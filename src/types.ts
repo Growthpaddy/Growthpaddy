@@ -136,6 +136,7 @@ export interface StepInfo {
 
 export type PageType = 
   | 'home' 
+  | 'digital-jobs'
   | 'directory' 
   | 'employer' 
   | 'talent' 
@@ -153,6 +154,27 @@ export type PageType =
   | 'recruiter-signup'
   | 'recruiter-login'
   | 'recruiter-dashboard';
+
+export interface FounderApplication {
+  id?: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  location: string;
+  business_name: string;
+  founder_stage: string;
+  industry?: string;
+  website_or_social_url?: string;
+  business_description?: string;
+  founder_story?: string;
+  biggest_challenge?: string;
+  visibility_goal?: string;
+  interview_interest?: boolean;
+  whatsapp_opt_in?: boolean;
+  publication_consent?: boolean;
+  application_status?: string;
+  created_at?: string;
+}
 
 export type AdminRole = 'super_admin' | 'admin';
 

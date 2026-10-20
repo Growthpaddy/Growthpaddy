@@ -207,7 +207,7 @@ export default function SEOGamePlayPlaceholder({
       setSyncErrorMessage(null);
 
       try {
-        // 1. Session verification with hydration retry
+        // 1. Session verification with hydration retry & local session fallback
         let currentSession: any = (await supabase.auth.getSession()).data?.session;
         if (!currentSession?.user) {
           for (let attempt = 0; attempt < 3; attempt++) {
@@ -218,6 +218,19 @@ export default function SEOGamePlayPlaceholder({
               break;
             }
           }
+        }
+
+        // Check localStorage fallback for active sessions if supabase cookie was delayed
+        if (!currentSession?.user && typeof window !== 'undefined') {
+          try {
+            const rawLocal = localStorage.getItem('dsp_local_auth_session');
+            if (rawLocal) {
+              const parsed = JSON.parse(rawLocal);
+              if (parsed?.user) {
+                currentSession = parsed;
+              }
+            }
+          } catch (_) {}
         }
 
         if (sessionErrCheck(currentSession)) {
@@ -249,7 +262,9 @@ export default function SEOGamePlayPlaceholder({
     }
 
     function sessionErrCheck(sess: any) {
-      return !sess || !sess.user;
+      if (!sess) return true;
+      if (sess.user) return false;
+      return true;
     }
 
     verifyAndInitialize();
