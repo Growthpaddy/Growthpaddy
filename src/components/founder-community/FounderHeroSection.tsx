@@ -1,6 +1,6 @@
 import React from 'react';
 import { ArrowRight, Play, Users, Video } from 'lucide-react';
-import heroFounderImg from '../../assets/images/nigerian_founder_hero_1792406308716.jpg';
+import heroBackgroundImg from '../../assets/images/Founder Stories in Focus.png';
 
 interface FounderHeroSectionProps {
   onJoinClick: () => void;
@@ -12,32 +12,47 @@ export const FounderHeroSection: React.FC<FounderHeroSectionProps> = ({
   onWatchIntroClick
 }) => {
   return (
-    <section id="hero" className="relative bg-[#080D14] text-white pt-12 pb-16 lg:pt-16 lg:pb-24 overflow-hidden border-b border-slate-900">
-      
-      {/* Subtle ambient radial background glow */}
-      <div className="absolute top-0 right-1/4 w-[600px] h-[600px] bg-[#16834A]/10 rounded-full blur-3xl pointer-events-none -z-0" />
-      <div className="absolute bottom-0 left-10 w-[400px] h-[400px] bg-[#18B892]/5 rounded-full blur-3xl pointer-events-none -z-0" />
+    <section 
+      id="hero" 
+      className="relative bg-[#05090F] text-white pt-12 pb-16 lg:pt-16 lg:pb-24 overflow-hidden border-b border-slate-900 min-h-[580px] lg:min-h-[640px] flex items-center"
+      style={{
+        backgroundImage: `url("${heroBackgroundImg}")`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'right 20% center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
+      {/* Restrained dark gradient overlay to guarantee copy legibility while keeping the founder and handwritten artwork clearly visible */}
+      <div 
+        className="absolute inset-0 bg-gradient-to-r from-[#05090F] via-[#05090F]/90 to-transparent lg:w-[68%] pointer-events-none z-0" 
+      />
+      <div 
+        className="absolute inset-0 bg-[#05090F]/30 lg:hidden pointer-events-none z-0" 
+      />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+      {/* Subtle ambient radial background glow */}
+      <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-[#16834A]/10 rounded-full blur-3xl pointer-events-none z-0" />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
           
-          {/* LEFT COLUMN: HERO HEADLINE & COPY */}
-          <div className="lg:col-span-7 space-y-6 sm:space-y-8">
+          {/* HERO HEADLINE & COPY */}
+          <div className="lg:col-span-7 space-y-6 sm:space-y-8 text-left">
             
             {/* Pill Tag */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#111A24]/90 border border-[#16834A]/50 text-[#18B892] text-[11px] sm:text-xs font-bold tracking-wider uppercase">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#0E1622]/90 border border-[#16834A]/50 text-[#18B892] text-[11px] sm:text-xs font-bold tracking-wider uppercase shadow-xs">
               <span>THE DIGITAL CAMPUX FOUNDER COMMUNITY</span>
             </div>
 
             {/* Main Headline */}
-            <h1 className="font-sans font-black text-4xl sm:text-5xl lg:text-[62px] leading-[1.08] tracking-tight text-white">
+            <h1 className="font-sans font-black text-4xl sm:text-5xl lg:text-[62px] leading-[1.08] tracking-tight text-white drop-shadow-sm">
               Real Founders.<br />
               Real Stories.<br />
               Greater <span className="text-[#18B892]">Opportunities.</span>
             </h1>
 
             {/* Subtitle */}
-            <p className="text-slate-300 text-base sm:text-lg leading-relaxed max-w-xl font-normal">
+            <p className="text-slate-300 text-base sm:text-lg leading-relaxed max-w-xl font-normal drop-shadow-xs">
               A platform for young and emerging founders in Nigeria to share their stories, gain visibility, connect with a supportive community and unlock real opportunities.
             </p>
 
@@ -53,7 +68,7 @@ export const FounderHeroSection: React.FC<FounderHeroSectionProps> = ({
 
               <button
                 onClick={onWatchIntroClick}
-                className="bg-[#111A24] hover:bg-[#182433] border border-slate-700/80 text-slate-200 font-semibold text-sm sm:text-base px-6 py-3.5 rounded-full transition flex items-center gap-2.5 cursor-pointer"
+                className="bg-[#111A24]/90 hover:bg-[#182433] border border-slate-700/80 text-slate-200 font-semibold text-sm sm:text-base px-6 py-3.5 rounded-full transition flex items-center gap-2.5 cursor-pointer backdrop-blur-xs"
               >
                 <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center">
                   <Play className="w-3 h-3 text-white fill-white ml-0.5" />
@@ -67,7 +82,7 @@ export const FounderHeroSection: React.FC<FounderHeroSectionProps> = ({
               
               {/* Stat 1 */}
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#16834A]/15 border border-[#16834A]/30 flex items-center justify-center text-[#18B892] shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-[#16834A]/20 border border-[#16834A]/30 flex items-center justify-center text-[#18B892] shrink-0">
                   <Users className="w-5 h-5" />
                 </div>
                 <div>
@@ -78,7 +93,7 @@ export const FounderHeroSection: React.FC<FounderHeroSectionProps> = ({
 
               {/* Stat 2 */}
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#18B892]/15 border border-[#18B892]/30 flex items-center justify-center text-[#18B892] shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-[#18B892]/20 border border-[#18B892]/30 flex items-center justify-center text-[#18B892] shrink-0">
                   <Video className="w-5 h-5" />
                 </div>
                 <div>
@@ -89,7 +104,7 @@ export const FounderHeroSection: React.FC<FounderHeroSectionProps> = ({
 
               {/* Stat 3 */}
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#16834A]/15 border border-[#16834A]/30 flex items-center justify-center text-[#18B892] shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-[#16834A]/20 border border-[#16834A]/30 flex items-center justify-center text-[#18B892] shrink-0">
                   <div className="w-2.5 h-2.5 rounded-full bg-[#18B892] animate-pulse" />
                 </div>
                 <div>
@@ -102,63 +117,8 @@ export const FounderHeroSection: React.FC<FounderHeroSectionProps> = ({
 
           </div>
 
-          {/* RIGHT COLUMN: HERO FOUNDER IMAGE & HANDWRITTEN ANNOTATIONS */}
-          <div className="lg:col-span-5 relative flex justify-center lg:justify-end">
-            <div className="relative w-full max-w-[420px]">
-              
-              {/* TOP RIGHT HANDWRITTEN LIST */}
-              <div className="absolute -top-6 sm:-top-8 -right-2 sm:-right-4 z-20 text-right pointer-events-none select-none">
-                <div 
-                  className="text-slate-300 font-normal text-xl sm:text-2xl leading-tight opacity-90"
-                  style={{ fontFamily: "'Caveat', cursive, sans-serif" }}
-                >
-                  <p>Founders</p>
-                  <p>Ideas</p>
-                  <p>People</p>
-                  <p>Opportunities</p>
-                  <p className="text-[#18B892] font-semibold">Nigeria</p>
-                </div>
-              </div>
-
-              {/* FOUNDER PHOTOGRAPH CONTAINER */}
-              <div className="relative rounded-3xl overflow-hidden border-2 border-slate-800 shadow-2xl bg-slate-900 group">
-                <img
-                  src={heroFounderImg}
-                  alt="Young Nigerian Tech Founder with Laptop"
-                  className="w-full h-auto object-cover object-center max-h-[520px] transition duration-500 group-hover:scale-[1.02]"
-                  loading="eager"
-                />
-                
-                {/* Subtle gradient vignette at bottom */}
-                <div className="absolute inset-0 bg-gradient-to-t from-[#080D14]/80 via-transparent to-transparent pointer-events-none" />
-              </div>
-
-              {/* BOTTOM RIGHT HANDWRITTEN ARROW & NOTE */}
-              <div className="absolute -bottom-6 -right-2 sm:-right-6 z-20 flex items-center gap-2 pointer-events-none select-none">
-                {/* Hand-drawn SVG curving arrow */}
-                <svg 
-                  className="w-12 h-12 text-[#18B892] transform -rotate-12" 
-                  viewBox="0 0 50 50" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  strokeWidth="2.5" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                >
-                  <path d="M 10 38 Q 28 42 35 24 Q 40 12 25 15" />
-                  <path d="M 22 10 L 25 15 L 20 20" />
-                </svg>
-
-                <span 
-                  className="text-[#18B892] font-bold text-2xl sm:text-3xl leading-none drop-shadow-md whitespace-nowrap"
-                  style={{ fontFamily: "'Caveat', cursive, sans-serif" }}
-                >
-                  Your story<br />could be next.
-                </span>
-              </div>
-
-            </div>
-          </div>
+          {/* RIGHT COLUMN: Spacer to allow the founder portrait and handwritten art on the right to shine unobstructed */}
+          <div className="hidden lg:block lg:col-span-5 pointer-events-none" />
 
         </div>
       </div>

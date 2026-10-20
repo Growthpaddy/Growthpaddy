@@ -15,13 +15,13 @@ import {
 import { FounderApplication } from '../../types';
 
 interface WhyDigitalCampuxSectionProps {
-  onSuccessSubmit?: (data: FounderApplication) => void;
+  onSuccessSubmit?: (data: any) => void;
 }
 
 export const WhyDigitalCampuxSection: React.FC<WhyDigitalCampuxSectionProps> = ({
   onSuccessSubmit
 }) => {
-  // Form state
+  // Required form state
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -29,73 +29,103 @@ export const WhyDigitalCampuxSection: React.FC<WhyDigitalCampuxSectionProps> = (
   const [businessName, setBusinessName] = useState('');
   const [founderStage, setFounderStage] = useState('');
   
-  // Optional expanded fields
+  // Optional expandable story details
   const [showExtendedFields, setShowExtendedFields] = useState(false);
   const [industry, setIndustry] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [businessDescription, setBusinessDescription] = useState('');
   const [biggestChallenge, setBiggestChallenge] = useState('');
   const [visibilityGoal, setVisibilityGoal] = useState('');
+
+  // Checkbox fields
   const [interviewInterest, setInterviewInterest] = useState(true);
   const [whatsappOptIn, setWhatsappOptIn] = useState(true);
-  const [publicationConsent, setPublicationConsent] = useState(true);
 
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [submittedData, setSubmittedData] = useState<{
     id: string;
-    whatsappUrl?: string;
+    fullName: string;
+    businessName: string;
+    whatsappOptIn: boolean;
+    whatsappUrl: string;
   } | null>(null);
+
+  const exactWhatsAppUrl = "https://chat.whatsapp.com/HjVefSGI3nCFXCYTCjni0F?s=sw&p=a&mlu=4&ilr=4";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return; // Prevent duplicate submissions caused by repeated clicks
     setFormError(null);
 
-    // Validation
-    if (!fullName.trim()) {
+    const cleanFullName = fullName.trim();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPhone = phone.trim();
+    const cleanLocation = location.trim();
+    const cleanBusinessName = businessName.trim();
+    const cleanStage = founderStage.trim();
+
+    // 1. Validate the six required fields
+    if (!cleanFullName) {
       setFormError('Please enter your full name.');
       return;
     }
-    if (!email.trim() || !email.includes('@')) {
+    if (!cleanEmail) {
+      setFormError('Please enter your email address.');
+      return;
+    }
+
+    // 2. Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
       setFormError('Please enter a valid email address.');
       return;
     }
-    if (!phone.trim() || phone.replace(/\D/g, '').length < 8) {
+
+    if (!cleanPhone || cleanPhone.replace(/\D/g, '').length < 8) {
       setFormError('Please enter a valid phone number (at least 8 digits).');
       return;
     }
-    if (!location.trim()) {
+    if (!cleanLocation) {
       setFormError('Please provide your city and state in Nigeria.');
       return;
     }
-    if (!businessName.trim()) {
-      setFormError('Please provide your business or project/idea name.');
+    if (!cleanBusinessName) {
+      setFormError('Please provide your business or idea name.');
       return;
     }
-    if (!founderStage) {
-      setFormError('Please select your current business stage.');
+
+    // 3. Validate business stage against the four permitted options
+    const permittedStages = [
+      'Aspiring Founder (Idea phase)',
+      'Idea Validation (Customer discovery)',
+      'Early-stage Business (Building MVP / First sales)',
+      'Established Business (Revenue & Traction)'
+    ];
+    if (!permittedStages.includes(cleanStage)) {
+      setFormError('Please select a valid business stage from the options provided.');
       return;
     }
 
     setIsSubmitting(true);
 
-    const payload: FounderApplication = {
-      full_name: fullName.trim(),
-      email: email.trim().toLowerCase(),
-      phone: phone.startsWith('+234') ? phone.trim() : `+234 ${phone.trim()}`,
-      location: location.trim(),
-      business_name: businessName.trim(),
-      founder_stage: founderStage,
-      industry: industry.trim() || undefined,
-      website_or_social_url: websiteUrl.trim() || undefined,
-      business_description: businessDescription.trim() || undefined,
-      biggest_challenge: biggestChallenge.trim() || undefined,
-      visibility_goal: visibilityGoal.trim() || undefined,
-      interview_interest: interviewInterest,
-      whatsapp_opt_in: whatsappOptIn,
-      publication_consent: publicationConsent,
-      application_status: 'pending_review'
+    // 4 & 5. Trim text inputs, convert empty optional fields to null, and pass exact booleans
+    const payload = {
+      full_name: cleanFullName,
+      email: cleanEmail,
+      phone_number: cleanPhone.startsWith('+234') ? cleanPhone : `+234 ${cleanPhone}`,
+      location: cleanLocation,
+      business_idea_name: cleanBusinessName,
+      business_stage: cleanStage,
+      industry_sector: industry.trim() || null,
+      website_social_link: websiteUrl.trim() || null,
+      business_description: businessDescription.trim() || null,
+      biggest_challenge: biggestChallenge.trim() || null,
+      visibility_goal: visibilityGoal.trim() || null,
+      interview_interest: Boolean(interviewInterest),
+      whatsapp_opt_in: Boolean(whatsappOptIn),
+      application_status: 'pending'
     };
 
     try {
@@ -108,20 +138,25 @@ export const WhyDigitalCampuxSection: React.FC<WhyDigitalCampuxSectionProps> = (
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.message || 'Unable to submit your application. Please retry.');
+        throw new Error(result.message || 'Unable to submit your application to the database. Please try again.');
       }
 
+      // 10. Only show success screen after Supabase confirms the insert succeeded
       setSubmittedData({
-        id: result.applicationId,
-        whatsappUrl: result.whatsappCommunityUrl || 'https://chat.whatsapp.com/invite/digitalcampux-founders'
+        id: result.applicationId || result.application?.id,
+        fullName: cleanFullName,
+        businessName: cleanBusinessName,
+        whatsappOptIn: Boolean(whatsappOptIn),
+        whatsappUrl: exactWhatsAppUrl
       });
 
       if (onSuccessSubmit) {
-        onSuccessSubmit(payload);
+        onSuccessSubmit(result.application || payload);
       }
     } catch (err: any) {
       console.error('Founder application submission error:', err);
-      setFormError(err.message || 'Could not connect to submission service. Please check your network.');
+      // 12. Preserve entered values after an error so applicant doesn't re-type everything
+      setFormError(err.message || 'Could not connect to the database. Please check your network connection and try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -481,31 +516,31 @@ export const WhyDigitalCampuxSection: React.FC<WhyDigitalCampuxSectionProps> = (
                     <CheckCircle2 className="w-9 h-9" />
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <h3 className="font-sans font-black text-2xl text-white">
                       Welcome to the Community!
                     </h3>
                     <p className="text-sm text-slate-300 max-w-sm mx-auto leading-relaxed">
-                      Thank you, <strong className="text-white">{fullName}</strong>! Your founder dossier for <strong className="text-white">{businessName}</strong> has been received and registered.
+                      Thank you, <strong className="text-white font-bold">{submittedData.fullName}</strong>! Your founder dossier for <strong className="text-white font-bold">{submittedData.businessName}</strong> has been received and registered.
                     </p>
                   </div>
 
-                  {submittedData.whatsappUrl && (
-                    <div className="p-5 rounded-2xl bg-[#111A24] border border-[#16834A]/40 space-y-3 max-w-sm mx-auto">
-                      <p className="text-xs text-slate-300">
-                        Step 2: Join the temporary WhatsApp community of founders while we build our in-house platform.
-                      </p>
-                      <a
-                        href={submittedData.whatsappUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full bg-[#128C4E] hover:bg-[#0E743E] text-white font-bold text-xs uppercase tracking-wider py-3 px-4 rounded-xl flex items-center justify-center gap-2 shadow-md transition"
-                      >
-                        <span>Join WhatsApp Community</span>
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                    </div>
-                  )}
+                  <div className="p-5 rounded-2xl bg-[#111A24] border border-[#16834A]/40 space-y-3 max-w-sm mx-auto text-left">
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      <strong className="text-white">Step 2:</strong> {submittedData.whatsappOptIn 
+                        ? "Join the temporary WhatsApp community of founders while we build our in-house platform."
+                        : "You can optionally join our temporary WhatsApp community of founders whenever you wish to connect directly with fellow entrepreneurs."}
+                    </p>
+                    <a
+                      href={submittedData.whatsappUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full bg-[#16834A] hover:bg-[#13723f] text-white font-bold text-xs uppercase tracking-wider py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-md transition"
+                    >
+                      <span>Join WhatsApp Community</span>
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  </div>
 
                   <div className="pt-2">
                     <button
@@ -518,6 +553,13 @@ export const WhyDigitalCampuxSection: React.FC<WhyDigitalCampuxSectionProps> = (
                         setLocation('');
                         setBusinessName('');
                         setFounderStage('');
+                        setIndustry('');
+                        setWebsiteUrl('');
+                        setBusinessDescription('');
+                        setBiggestChallenge('');
+                        setVisibilityGoal('');
+                        setInterviewInterest(true);
+                        setWhatsappOptIn(true);
                       }}
                       className="text-xs text-slate-400 hover:text-white underline transition cursor-pointer"
                     >

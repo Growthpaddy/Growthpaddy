@@ -54,6 +54,7 @@ import SEOGameLandingPage from './pages/SEOGameLandingPage';
 import SEOGamePlayPlaceholder from './pages/SEOGamePlayPlaceholder';
 import SEOGameRegistrationModal from './components/seo-game/SEOGameRegistrationModal';
 import SEOGameLoginModal from './components/seo-game/SEOGameLoginModal';
+import FounderCommunityLanding from './pages/FounderCommunityLanding';
 import { PageType } from './types';
 
 export default function App() {
@@ -79,6 +80,7 @@ export default function App() {
   const pageToPath = (page: PageType) => {
     switch (page) {
       case 'home': return '/';
+      case 'digital-jobs': return '/digital-jobs';
       case 'directory': return '/talent-directory';
       case 'how-it-works': return '/how-it-works';
       case 'the-seo-game': return '/The-SEO-Game';
@@ -141,6 +143,7 @@ export default function App() {
 
     const lower = cleaned.toLowerCase();
     if (lower === '' || lower === '/' || lower === '/index.html' || lower === '/index') return { page: 'home' };
+    if (lower === '/digital-jobs' || lower === '/jobs' || lower === '/digitaljobs') return { page: 'digital-jobs' };
     if (lower === '/directory' || lower === '/talent-directory' || lower === '/talents') return { page: 'directory' };
     if (lower === '/how-it-works' || lower === '/howitworks') return { page: 'how-it-works' };
     if (lower === '/the-seo-game' || lower === '/theseogame' || lower === '/seo-game') {
@@ -626,8 +629,8 @@ export default function App() {
         : 'bg-white text-neutral-850 selection:bg-emerald-500/30 selection:text-neutral-900'
     }`}>
       
-      {/* GLOBAL HEADER (Hidden on isolated dashboards and dedicated game pages) */}
-      {!isDashboardPage && currentPage !== 'the-seo-game' && currentPage !== 'the-seo-game-play' && (
+      {/* GLOBAL HEADER (Hidden on isolated dashboards, dedicated game pages, and founder homepage which has its authoritative header) */}
+      {!isDashboardPage && currentPage !== 'home' && currentPage !== 'the-seo-game' && currentPage !== 'the-seo-game-play' && (
         <Header 
           currentPage={currentPage} 
           setCurrentPage={setCurrentPage} 
@@ -671,8 +674,15 @@ export default function App() {
             transition={{ duration: 0.2, ease: 'easeOut' }}
           >
             
-            {/* View 1: Home/Overview Landing Page */}
+            {/* View 1: Digital Campux Founder Community Homepage (Root /) */}
             {currentPage === 'home' && (
+              <FounderCommunityLanding 
+                navigateToPage={navigateToPage} 
+              />
+            )}
+
+            {/* View 1b: Digital Jobs & Talent Sourcing Hub (/digital-jobs) */}
+            {currentPage === 'digital-jobs' && (
               <div>
                 {onboardingData && (
                   <div className="bg-emerald-50/90 text-emerald-900 px-4 sm:px-8 py-2.5 text-xs font-semibold flex flex-col sm:flex-row items-center justify-between gap-2 border-b border-emerald-200/80">
@@ -683,7 +693,7 @@ export default function App() {
                     <button 
                       onClick={() => {
                         setOnboardingData(null);
-                        setCurrentPage('home');
+                        setCurrentPage('digital-jobs');
                       }}
                       className="bg-white hover:bg-slate-100 text-slate-700 font-semibold py-1 px-3 border border-slate-200 rounded-lg text-xs cursor-pointer transition shadow-2xs"
                     >
@@ -1241,8 +1251,8 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* GLOBAL FOOTER (Hidden on isolated dashboard views and dedicated game pages) */}
-      {!isDashboardPage && currentPage !== 'the-seo-game' && currentPage !== 'the-seo-game-play' && (
+      {/* GLOBAL FOOTER (Hidden on isolated dashboard views, dedicated game pages, and founder homepage which has its dedicated footer) */}
+      {!isDashboardPage && currentPage !== 'home' && currentPage !== 'the-seo-game' && currentPage !== 'the-seo-game-play' && (
         <Footer setCurrentPage={setCurrentPage} />
       )}
 

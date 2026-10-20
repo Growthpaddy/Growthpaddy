@@ -140,20 +140,23 @@ app.post("/api/founder-applications", async (req, res) => {
       full_name,
       fullName,
       email,
+      phone_number,
       phone,
       phoneNumber,
       location,
+      business_idea_name,
       business_name,
       businessName,
+      business_stage,
       founder_stage,
       founderStage,
+      industry_sector,
       industry,
+      website_social_link,
       website_or_social_url,
       websiteOrSocialUrl,
       business_description,
       businessDescription,
-      founder_story,
-      founderStory,
       biggest_challenge,
       biggestChallenge,
       visibility_goal,
@@ -161,49 +164,71 @@ app.post("/api/founder-applications", async (req, res) => {
       interview_interest = true,
       interviewInterest = true,
       whatsapp_opt_in = true,
-      whatsappOptIn = true,
-      publication_consent = false,
-      publicationConsent = false
+      whatsappOptIn = true
     } = req.body || {};
 
     const cleanFullName = (full_name || fullName || "").trim();
     const cleanEmail = (email || "").trim().toLowerCase();
-    const cleanPhone = (phone || phoneNumber || "").trim();
+    const cleanPhone = (phone_number || phone || phoneNumber || "").trim();
     const cleanLocation = (location || "").trim();
-    const cleanBusinessName = (business_name || businessName || "").trim();
-    const cleanFounderStage = (founder_stage || founderStage || "Early-stage Business").trim();
+    const cleanBusinessName = (business_idea_name || business_name || businessName || "").trim();
+    const cleanBusinessStage = (business_stage || founder_stage || founderStage || "").trim();
 
-    if (!cleanFullName || !cleanEmail || !cleanPhone || !cleanLocation || !cleanBusinessName) {
+    // 1. Validate the six required fields
+    if (!cleanFullName || !cleanEmail || !cleanPhone || !cleanLocation || !cleanBusinessName || !cleanBusinessStage) {
       return res.status(400).json({
         success: false,
         error: "MISSING_REQUIRED_FIELDS",
-        message: "Please fill in all required fields (Full Name, Email, Phone, Location, and Business Name)."
+        message: "Please fill in all six required fields: Full Name, Email, Phone Number, Location, Business / Idea Name, and Business Stage."
       });
     }
 
+    // 2. Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      return res.status(400).json({
+        success: false,
+        error: "INVALID_EMAIL",
+        message: "Please enter a valid email address format."
+      });
+    }
+
+    // 3. Validate business stage against the four permitted options
+    const permittedStages = [
+      "Aspiring Founder (Idea phase)",
+      "Idea Validation (Customer discovery)",
+      "Early-stage Business (Building MVP / First sales)",
+      "Established Business (Revenue & Traction)"
+    ];
+    if (!permittedStages.includes(cleanBusinessStage)) {
+      return res.status(400).json({
+        success: false,
+        error: "INVALID_BUSINESS_STAGE",
+        message: "Please select a valid business stage from the provided options."
+      });
+    }
+
+    // 4 & 5. Prepare record with trimmed values and null conversion for optional fields
     const applicationRecord = {
-      id: crypto.randomUUID ? crypto.randomUUID() : `fa_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       full_name: cleanFullName,
       email: cleanEmail,
-      phone: cleanPhone,
+      phone_number: cleanPhone,
       location: cleanLocation,
-      business_name: cleanBusinessName,
-      founder_stage: cleanFounderStage,
-      industry: (industry || "").trim() || null,
-      website_or_social_url: (website_or_social_url || websiteOrSocialUrl || "").trim() || null,
+      business_idea_name: cleanBusinessName,
+      business_stage: cleanBusinessStage,
+      industry_sector: (industry_sector || industry || "").trim() || null,
+      website_social_link: (website_social_link || website_or_social_url || websiteOrSocialUrl || "").trim() || null,
       business_description: (business_description || businessDescription || "").trim() || null,
-      founder_story: (founder_story || founderStory || "").trim() || null,
       biggest_challenge: (biggest_challenge || biggestChallenge || "").trim() || null,
       visibility_goal: (visibility_goal || visibilityGoal || "").trim() || null,
-      interview_interest: Boolean(interview_interest && interviewInterest),
-      whatsapp_opt_in: Boolean(whatsapp_opt_in && whatsappOptIn),
-      publication_consent: Boolean(publication_consent || publicationConsent),
-      application_status: "pending_review",
-      created_at: new Date().toISOString()
+      interview_interest: Boolean(interview_interest !== undefined ? interview_interest : interviewInterest),
+      whatsapp_opt_in: Boolean(whatsapp_opt_in !== undefined ? whatsapp_opt_in : whatsappOptIn),
+      application_status: "pending"
     };
 
     let savedToSupabase = false;
-    let supabaseErrorMsg = null;
+    let savedRecord: any = null;
+    let supabaseErrorMsg: string | null = null;
 
     try {
       const supabase = getSupabaseClient();
@@ -211,31 +236,42 @@ app.post("/api/founder-applications", async (req, res) => {
         .from("founder_applications")
         .insert([applicationRecord])
         .select()
-        .maybeSingle();
+        .single();
 
-      if (!dbErr) {
+      if (!dbErr && dbData) {
         savedToSupabase = true;
-      } else {
+        savedRecord = dbData;
+      } else if (dbErr) {
         supabaseErrorMsg = dbErr.message;
-        console.warn("[Founder Application] Supabase insert warning:", dbErr.message);
+        console.error("[Founder Application] Supabase insert error:", dbErr);
       }
     } catch (sbErr: any) {
-      supabaseErrorMsg = sbErr?.message;
-      console.warn("[Founder Application] Supabase client warning:", sbErr?.message);
+      supabaseErrorMsg = sbErr?.message || "Failed to connect to database";
+      console.error("[Founder Application] Supabase client exception:", sbErr);
     }
 
-    // Always ensure local redundant persistence so founder applications are never lost
-    saveLocalFounderApp(applicationRecord);
+    // If Supabase insert failed, fail explicitly so no false success message is shown
+    if (!savedToSupabase || !savedRecord) {
+      return res.status(500).json({
+        success: false,
+        error: "DATABASE_INSERT_FAILED",
+        message: `Database submission failed: ${supabaseErrorMsg || "Unable to save application to Supabase."}`
+      });
+    }
 
-    console.log(`[Founder Application] New submission from ${cleanFullName} (${cleanEmail}) - Business: ${cleanBusinessName} | Supabase: ${savedToSupabase ? "YES" : "FALLBACK_SAVED"}`);
+    // Always maintain local redundant log of saved records
+    saveLocalFounderApp(savedRecord);
 
-    const whatsappCommunityUrl = process.env.WHATSAPP_COMMUNITY_URL || process.env.VITE_WHATSAPP_COMMUNITY_URL || "https://chat.whatsapp.com/invite/digitalcampux-founders";
+    console.log(`[Founder Application] New verified submission saved in Supabase: ID ${savedRecord.id} from ${cleanFullName} (${cleanEmail}) - Business: ${cleanBusinessName}`);
+
+    const exactWhatsAppUrl = "https://chat.whatsapp.com/HjVefSGI3nCFXCYTCjni0F?s=sw&p=a&mlu=4&ilr=4";
 
     return res.status(200).json({
       success: true,
       message: "Your application to join the Digital Campux Founder Community has been received!",
-      applicationId: applicationRecord.id,
-      whatsappCommunityUrl: applicationRecord.whatsapp_opt_in ? whatsappCommunityUrl : null
+      applicationId: savedRecord.id,
+      application: savedRecord,
+      whatsappCommunityUrl: exactWhatsAppUrl
     });
 
   } catch (err: any) {
