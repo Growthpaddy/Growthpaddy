@@ -299,8 +299,8 @@ export const WhyDigitalCampuxSection: React.FC<WhyDigitalCampuxSectionProps> = (
           </div>
 
           {/* RIGHT COLUMN: EMBEDDED "JOIN AS A FOUNDER" FORM CARD */}
-          <div id="founder-form" className="lg:col-span-6 scroll-mt-24">
-            <div className="bg-[#0C121A] text-white rounded-3xl p-6 sm:p-8 lg:p-9 border border-slate-800 shadow-2xl relative overflow-hidden">
+          <div id="founder-form" className="lg:col-span-6 scroll-mt-20 sm:scroll-mt-24">
+            <div className="bg-[#0C121A] text-white rounded-3xl p-5 sm:p-8 lg:p-9 border border-slate-800 shadow-2xl relative overflow-hidden">
               
               {/* Subtle ambient lighting inside card */}
               <div className="absolute top-0 right-0 w-64 h-64 bg-[#16834A]/15 rounded-full blur-3xl pointer-events-none" />

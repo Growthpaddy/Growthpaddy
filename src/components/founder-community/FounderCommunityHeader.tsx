@@ -98,66 +98,76 @@ export const FounderCommunityHeader: React.FC<FounderCommunityHeaderProps> = ({
           </button>
         </div>
 
-        {/* MOBILE MENU TOGGLE */}
-        <div className="flex sm:hidden items-center gap-2">
+        {/* MOBILE MENU TOGGLE & QUICK CTA */}
+        <div className="flex md:hidden items-center gap-2.5">
           <button
             onClick={onJoinClick}
-            className="bg-[#16834A] text-white text-xs font-bold px-3 py-2 rounded-full cursor-pointer"
+            className="bg-[#16834A] hover:bg-[#13723f] text-white text-xs font-bold px-3.5 py-2 rounded-full cursor-pointer shadow-xs active:scale-95 transition"
           >
             Join
           </button>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 text-neutral-700 hover:text-neutral-900 focus:outline-none"
+            className="p-2 -mr-1 rounded-xl text-neutral-800 hover:text-neutral-950 hover:bg-neutral-100 transition active:scale-95 focus:outline-none"
             aria-label="Toggle navigation menu"
+            aria-expanded={mobileMenuOpen}
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
       </div>
 
-      {/* MOBILE MENU ACCORDION */}
+      {/* MOBILE MENU ACCORDION / DRAWER */}
       {mobileMenuOpen && (
-        <div className="sm:hidden bg-white border-b border-slate-100 px-4 pt-3 pb-6 space-y-3 animate-fadeIn">
+        <div className="md:hidden bg-white/98 backdrop-blur-xl border-b border-slate-200/80 px-5 pt-3 pb-6 space-y-1 animate-fadeIn shadow-xl">
+          <div className="py-2 text-[10px] font-mono font-bold tracking-wider text-neutral-400 uppercase">
+            Menu Navigation
+          </div>
+
           <button 
             onClick={() => scrollToSection('hero')}
-            className="block w-full text-left py-2 text-sm font-semibold text-[#16834A]"
+            className="w-full text-left py-2.5 px-3 rounded-lg text-sm font-semibold text-[#16834A] hover:bg-emerald-50/70 transition flex items-center justify-between"
           >
-            Home
+            <span>Home</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-[#16834A]" />
           </button>
+          
           <button 
             onClick={() => scrollToSection('why-digital-campux')}
-            className="block w-full text-left py-2 text-sm font-medium text-neutral-700"
+            className="w-full text-left py-2.5 px-3 rounded-lg text-sm font-medium text-neutral-700 hover:text-neutral-900 hover:bg-slate-50 transition"
           >
             About
           </button>
+          
           <button 
             onClick={() => scrollToSection('founder-stories')}
-            className="block w-full text-left py-2 text-sm font-medium text-neutral-700"
+            className="w-full text-left py-2.5 px-3 rounded-lg text-sm font-medium text-neutral-700 hover:text-neutral-900 hover:bg-slate-50 transition"
           >
             Founder Stories
           </button>
+          
           <button 
             onClick={() => scrollToSection('our-mission')}
-            className="block w-full text-left py-2 text-sm font-medium text-neutral-700"
+            className="w-full text-left py-2.5 px-3 rounded-lg text-sm font-medium text-neutral-700 hover:text-neutral-900 hover:bg-slate-50 transition"
           >
             Our Mission
           </button>
+          
           <button 
             onClick={() => scrollToSection('faq')}
-            className="block w-full text-left py-2 text-sm font-medium text-neutral-700"
+            className="w-full text-left py-2.5 px-3 rounded-lg text-sm font-medium text-neutral-700 hover:text-neutral-900 hover:bg-slate-50 transition"
           >
             FAQ
           </button>
 
-          <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
+          <div className="pt-4 mt-2 border-t border-slate-100 flex flex-col gap-2.5">
             {onNavigateToDigitalJobs && (
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
                   onNavigateToDigitalJobs();
                 }}
-                className="w-full text-center py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-neutral-700 flex items-center justify-center gap-2"
+                className="w-full text-center py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-neutral-700 hover:bg-slate-50 flex items-center justify-center gap-2 transition"
               >
                 <Briefcase className="w-4 h-4 text-[#16834A]" />
                 <span>Switch to Digital Jobs Portal</span>
@@ -169,7 +179,7 @@ export const FounderCommunityHeader: React.FC<FounderCommunityHeaderProps> = ({
                 setMobileMenuOpen(false);
                 onJoinClick();
               }}
-              className="w-full bg-[#16834A] text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow"
+              className="w-full bg-[#16834A] hover:bg-[#13723f] text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-md shadow-[#16834A]/20 active:scale-[0.99] transition cursor-pointer"
             >
               <span>Join as a Founder</span>
               <ArrowRight className="w-4 h-4" />
