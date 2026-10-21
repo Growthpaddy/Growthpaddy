@@ -36,7 +36,7 @@ export const FounderStoriesSection: React.FC = () => {
             {/* Watch CTA Button */}
             <div className="pt-2">
               <a
-                href="https://www.youtube.com/@EzejiPatrick"
+                href="https://www.youtube.com/watch?v=DrpZwdPNnIY&list=PLcnpxLL0jyxk"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2.5 bg-[#16834A] hover:bg-[#13723f] text-white font-bold text-sm sm:text-base px-6 sm:px-7 py-3.5 rounded-full shadow-lg shadow-[#16834A]/25 transition cursor-pointer active:scale-[0.98]"
@@ -138,22 +138,22 @@ export const FounderStoriesSection: React.FC = () => {
             <div className="aspect-video w-full bg-black relative">
               <iframe
                 className="w-full h-full"
-                src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1"
+                src="https://www.youtube-nocookie.com/embed/DrpZwdPNnIY?autoplay=1&list=PLcnpxLL0jyxk"
                 title="Founder Interview Preview"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               />
             </div>
 
-            <div className="p-4 bg-slate-950 flex items-center justify-between text-xs text-slate-400">
+            <div className="p-4 bg-slate-950 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
               <span>Subscribe on YouTube for weekly episodes featuring Nigerian founders</span>
               <a
-                href="https://www.youtube.com/@EzejiPatrick"
+                href="https://www.youtube.com/watch?v=DrpZwdPNnIY&list=PLcnpxLL0jyxk"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[#18B892] hover:underline font-semibold flex items-center gap-1"
               >
-                <span>Visit YouTube Channel</span>
+                <span>Open Full Playlist on YouTube</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
             </div>
