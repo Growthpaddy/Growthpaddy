@@ -12,7 +12,7 @@ import {
   ChevronUp, 
   ExternalLink 
 } from 'lucide-react';
-import { FounderApplication } from '../../types';
+import { FounderApplication, ALLOWED_BUSINESS_STAGES, BusinessStage } from '../../types';
 
 interface WhyDigitalCampuxSectionProps {
   onSuccessSubmit?: (data: any) => void;
@@ -27,7 +27,7 @@ export const WhyDigitalCampuxSection: React.FC<WhyDigitalCampuxSectionProps> = (
   const [phone, setPhone] = useState('');
   const [location, setLocation] = useState('');
   const [businessName, setBusinessName] = useState('');
-  const [founderStage, setFounderStage] = useState('');
+  const [founderStage, setFounderStage] = useState<string>('');
   
   // Optional expandable story details
   const [showExtendedFields, setShowExtendedFields] = useState(false);
@@ -96,14 +96,8 @@ export const WhyDigitalCampuxSection: React.FC<WhyDigitalCampuxSectionProps> = (
       return;
     }
 
-    // 3. Validate business stage against the four permitted options
-    const permittedStages = [
-      'Aspiring Founder (Idea phase)',
-      'Idea Validation (Customer discovery)',
-      'Early-stage Business (Building MVP / First sales)',
-      'Established Business (Revenue & Traction)'
-    ];
-    if (!permittedStages.includes(cleanStage)) {
+    // 3. Validate business stage against the authoritative permitted options
+    if (!cleanStage || !(ALLOWED_BUSINESS_STAGES as readonly string[]).includes(cleanStage)) {
       setFormError('Please select a valid business stage from the options provided.');
       return;
     }
@@ -379,10 +373,11 @@ export const WhyDigitalCampuxSection: React.FC<WhyDigitalCampuxSectionProps> = (
                           required
                         >
                           <option value="" disabled>Select your stage</option>
-                          <option value="Aspiring Founder">Aspiring Founder (Idea phase)</option>
-                          <option value="Idea Validation">Idea Validation (Customer discovery)</option>
-                          <option value="Early-stage Business">Early-stage Business (Building MVP / First sales)</option>
-                          <option value="Established Business">Established Business (Revenue & Traction)</option>
+                          {ALLOWED_BUSINESS_STAGES.map((stage) => (
+                            <option key={stage} value={stage}>
+                              {stage}
+                            </option>
+                          ))}
                         </select>
                         <ChevronDown className="w-4 h-4 text-slate-500 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                       </div>

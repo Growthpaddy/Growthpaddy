@@ -155,25 +155,33 @@ export type PageType =
   | 'recruiter-login'
   | 'recruiter-dashboard';
 
+export const ALLOWED_BUSINESS_STAGES = [
+  'Aspiring Founder (Idea phase)',
+  'Idea Validation (Customer discovery)',
+  'Early-stage Business (Building MVP / First sales)',
+  'Established Business (Revenue & Traction)'
+] as const;
+
+export type BusinessStage = typeof ALLOWED_BUSINESS_STAGES[number];
+
 export interface FounderApplication {
   id?: string;
   full_name: string;
   email: string;
-  phone: string;
+  phone_number: string;
   location: string;
-  business_name: string;
-  founder_stage: string;
-  industry?: string;
-  website_or_social_url?: string;
-  business_description?: string;
-  founder_story?: string;
-  biggest_challenge?: string;
-  visibility_goal?: string;
+  business_idea_name: string;
+  business_stage: BusinessStage | string;
+  industry_sector?: string | null;
+  website_social_link?: string | null;
+  business_description?: string | null;
+  biggest_challenge?: string | null;
+  visibility_goal?: string | null;
   interview_interest?: boolean;
   whatsapp_opt_in?: boolean;
-  publication_consent?: boolean;
   application_status?: string;
   created_at?: string;
+  updated_at?: string;
 }
 
 export type AdminRole = 'super_admin' | 'admin';
