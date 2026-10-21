@@ -284,6 +284,153 @@ app.post("/api/founder-applications", async (req, res) => {
   }
 });
 
+// ==============================================================================
+// META CONVERSIONS API (CAPI) SERVER PROXY & DISPATCH
+// Endpoint: https://graph.facebook.com/{API_VERSION}/{PIXEL_ID}/events?access_token={TOKEN}
+// ==============================================================================
+interface MetaUserData {
+  em?: string[];
+  ph?: (string | null)[];
+  fn?: string[];
+  ln?: string[];
+  ct?: string[];
+  st?: string[];
+  zp?: string[];
+  country?: string[];
+  client_ip_address?: string;
+  client_user_agent?: string;
+  fbc?: string;
+  fbp?: string;
+  [key: string]: any;
+}
+
+interface MetaEventPayload {
+  event_name: string;
+  event_time?: number;
+  event_id?: string;
+  event_source_url?: string;
+  action_source?: "website" | "app" | "physical_store" | "system_generated" | "other" | string;
+  user_data?: MetaUserData;
+  attribution_data?: {
+    attribution_share?: string;
+    [key: string]: any;
+  };
+  custom_data?: {
+    currency?: string;
+    value?: string | number;
+    content_name?: string;
+    content_category?: string;
+    content_ids?: string[];
+    [key: string]: any;
+  };
+  original_event_data?: {
+    event_name?: string;
+    event_time?: number;
+    [key: string]: any;
+  };
+  [key: string]: any;
+}
+
+function hashMetaField(val: string | null | undefined): string | null {
+  if (!val) return null;
+  const normalized = val.trim().toLowerCase();
+  if (/^[a-f0-9]{64}$/.test(normalized)) {
+    return normalized; // Already sha256 hashed
+  }
+  return crypto.createHash("sha256").update(normalized).digest("hex");
+}
+
+app.post("/api/meta-conversions/events", async (req, res) => {
+  try {
+    const pixelId = process.env.META_PIXEL_ID || process.env.VITE_META_PIXEL_ID || "1427163166227290";
+    const apiVersion = process.env.META_API_VERSION || "v19.0";
+    const accessToken = process.env.META_ACCESS_TOKEN || process.env.FACEBOOK_ACCESS_TOKEN || req.query.access_token;
+
+    const rawData = Array.isArray(req.body?.data) ? req.body.data : [req.body];
+    const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress;
+    const userAgent = req.headers["user-agent"] || "";
+
+    const formattedEvents = rawData.map((ev: MetaEventPayload) => {
+      const currentTime = Math.floor(Date.now() / 1000);
+      const rawUser = ev.user_data || {};
+
+      // Normalize user data with SHA-256 where required by Meta
+      const normalizedUser: Record<string, any> = {
+        client_ip_address: rawUser.client_ip_address || clientIp,
+        client_user_agent: rawUser.client_user_agent || userAgent
+      };
+
+      if (rawUser.em) {
+        normalizedUser.em = Array.isArray(rawUser.em)
+          ? rawUser.em.map((e: any) => hashMetaField(e)).filter(Boolean)
+          : [hashMetaField(rawUser.em)].filter(Boolean);
+      }
+      if (rawUser.ph) {
+        normalizedUser.ph = Array.isArray(rawUser.ph)
+          ? rawUser.ph.map((p: any) => (p ? hashMetaField(String(p).replace(/\D/g, "")) : null))
+          : [rawUser.ph ? hashMetaField(String(rawUser.ph).replace(/\D/g, "")) : null];
+      }
+      if (rawUser.fbp) normalizedUser.fbp = rawUser.fbp;
+      if (rawUser.fbc) normalizedUser.fbc = rawUser.fbc;
+
+      const eventPayload: any = {
+        event_name: ev.event_name || "Purchase",
+        event_time: ev.event_time || currentTime,
+        action_source: ev.action_source || "website",
+        user_data: normalizedUser
+      };
+
+      if (ev.event_id) eventPayload.event_id = ev.event_id;
+      if (ev.event_source_url) eventPayload.event_source_url = ev.event_source_url;
+      if (ev.attribution_data) eventPayload.attribution_data = ev.attribution_data;
+      if (ev.custom_data) eventPayload.custom_data = ev.custom_data;
+      if (ev.original_event_data) {
+        eventPayload.original_event_data = {
+          event_name: ev.original_event_data.event_name || eventPayload.event_name,
+          event_time: ev.original_event_data.event_time || eventPayload.event_time
+        };
+      }
+
+      return eventPayload;
+    });
+
+    if (!accessToken) {
+      console.warn("[Meta Conversions API] META_ACCESS_TOKEN is not configured yet in the environment. Request logged and prepared.");
+      return res.status(200).json({
+        success: true,
+        warning: "META_ACCESS_TOKEN_NOT_CONFIGURED",
+        message: "Events received and formatted successfully. To dispatch to Graph API, configure META_ACCESS_TOKEN in your environment.",
+        pixelId,
+        apiVersion,
+        eventsReceived: formattedEvents.length,
+        data: formattedEvents
+      });
+    }
+
+    const graphUrl = `https://graph.facebook.com/${apiVersion}/${pixelId}/events?access_token=${accessToken}`;
+    const fbResponse = await fetch(graphUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: formattedEvents })
+    });
+
+    const fbJson = await fbResponse.json();
+    return res.status(fbResponse.status).json({
+      success: fbResponse.ok,
+      meta_response: fbJson,
+      eventsProcessed: formattedEvents.length
+    });
+
+  } catch (err: any) {
+    console.error("[Meta Conversions API] Error processing event:", err);
+    return res.status(500).json({
+      success: false,
+      error: "META_EVENT_FAILED",
+      message: err?.message || "Failed to process Meta Conversions API event"
+    });
+  }
+});
+
 // 0b. Founder Community Stats Endpoint
 app.get("/api/founder-applications/stats", async (_req, res) => {
   try {
