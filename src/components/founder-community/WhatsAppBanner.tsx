@@ -2,14 +2,24 @@ import React from 'react';
 import { ArrowRight, MessageCircle } from 'lucide-react';
 
 interface WhatsAppBannerProps {
-  customWhatsAppUrl?: string;
+  onJoinClick?: () => void;
 }
 
-export const WhatsAppBanner: React.FC<WhatsAppBannerProps> = ({ customWhatsAppUrl }) => {
-  const whatsappUrl = 
-    customWhatsAppUrl || 
-    import.meta.env.VITE_WHATSAPP_COMMUNITY_URL || 
-    'https://chat.whatsapp.com/HjVefSGI3nCFXCYTCjni0F?s=sw&p=a&mlu=4&ilr=4';
+export const WhatsAppBanner: React.FC<WhatsAppBannerProps> = ({ onJoinClick }) => {
+  const handleAction = () => {
+    if (onJoinClick) {
+      onJoinClick();
+    } else {
+      const el = document.getElementById('founder-form');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const firstInput = el.querySelector('input') as HTMLInputElement | null;
+        if (firstInput) {
+          firstInput.focus();
+        }
+      }
+    }
+  };
 
   return (
     <section className="bg-[#0B3B24] text-white py-6 sm:py-8 border-y border-[#0E4A2E]">
@@ -34,17 +44,16 @@ export const WhatsAppBanner: React.FC<WhatsAppBannerProps> = ({ customWhatsAppUr
             </div>
           </div>
 
-          {/* Right: Join WhatsApp Community Button */}
+          {/* Right: Join WhatsApp Community Button -> Smoothly jumps up to application form */}
           <div className="shrink-0">
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={handleAction}
               className="bg-white hover:bg-slate-100 text-[#0B3B24] font-bold text-xs sm:text-sm px-6 py-3.5 rounded-full shadow-md transition flex items-center gap-2 cursor-pointer active:scale-[0.98]"
             >
               <span>Join WhatsApp Community</span>
               <ArrowRight className="w-4 h-4 text-[#0B3B24]" />
-            </a>
+            </button>
           </div>
 
         </div>

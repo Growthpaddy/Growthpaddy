@@ -63,7 +63,7 @@ export const FounderCommunityLanding: React.FC<FounderCommunityLandingProps> = (
       <ProcessSection />
 
       {/* 8. WhatsApp Community Invitation Banner */}
-      <WhatsAppBanner />
+      <WhatsAppBanner onJoinClick={scrollToForm} />
 
       {/* 9. Frequently Asked Questions: Quick Answers */}
       <FAQFounderSection />
