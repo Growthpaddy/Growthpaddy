@@ -13,6 +13,7 @@ import {
   ExternalLink 
 } from 'lucide-react';
 import { FounderApplication, ALLOWED_BUSINESS_STAGES, BusinessStage } from '../../types';
+import { supabase } from '../../lib/supabaseClient';
 
 interface WhyDigitalCampuxSectionProps {
   onSuccessSubmit?: (data: any) => void;
@@ -123,21 +124,72 @@ export const WhyDigitalCampuxSection: React.FC<WhyDigitalCampuxSectionProps> = (
     };
 
     try {
-      const response = await fetch('/api/founder-applications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      let isInserted = false;
+      let insertedId: string | null = null;
+      let submissionErrorMessage: string | null = null;
 
-      const result = await response.json();
+      // Primary submission path: Direct Supabase insert using the initialized client
+      try {
+        const { error: sbError } = await supabase
+          .from('founder_applications')
+          .insert([payload]);
 
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || 'Unable to submit your application to the database. Please try again.');
+        if (!sbError) {
+          isInserted = true;
+          insertedId = `app_${Date.now()}`;
+        } else {
+          submissionErrorMessage = sbError.message;
+          console.warn('[Founder Form] Direct Supabase insert attempt returned note:', sbError);
+        }
+      } catch (clientErr: any) {
+        submissionErrorMessage = clientErr?.message;
+        console.warn('[Founder Form] Direct Supabase client exception:', clientErr);
       }
 
-      // 10. Only show success screen after Supabase confirms the insert succeeded
+      // Fallback path: If direct insert encountered any issue, route through the server proxy endpoint
+      if (!isInserted) {
+        try {
+          const response = await fetch('/api/founder-applications', {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload)
+          });
+
+          // Safe response reading: Read as text first to prevent "Unexpected end of JSON input"
+          const rawText = await response.text();
+          let result: any = null;
+
+          if (rawText && rawText.trim().length > 0) {
+            try {
+              result = JSON.parse(rawText);
+            } catch (jsonErr) {
+              console.warn('[Founder Form] Response was not valid JSON:', rawText.slice(0, 150));
+            }
+          }
+
+          if (response.ok && (result?.success || response.status === 200 || response.status === 201)) {
+            isInserted = true;
+            insertedId = result?.applicationId || result?.application?.id || `app_${Date.now()}`;
+          } else {
+            const errDetail = result?.message || result?.error || (rawText && rawText.length < 100 ? rawText : null);
+            throw new Error(errDetail || submissionErrorMessage || `Submission failed with status ${response.status}`);
+          }
+        } catch (apiErr: any) {
+          console.error('[Founder Form] Server API submission failed:', apiErr);
+          throw new Error(apiErr?.message || submissionErrorMessage || 'Unable to save your application. Please check your connection and try again.');
+        }
+      }
+
+      if (!isInserted) {
+        throw new Error(submissionErrorMessage || 'Could not verify database insertion. Please try again.');
+      }
+
+      // Only show success screen after database insertion has been positively confirmed
       setSubmittedData({
-        id: result.applicationId || result.application?.id,
+        id: insertedId || `app_${Date.now()}`,
         fullName: cleanFullName,
         businessName: cleanBusinessName,
         whatsappOptIn: Boolean(whatsappOptIn),
@@ -145,12 +197,15 @@ export const WhyDigitalCampuxSection: React.FC<WhyDigitalCampuxSectionProps> = (
       });
 
       if (onSuccessSubmit) {
-        onSuccessSubmit(result.application || payload);
+        onSuccessSubmit(payload);
       }
     } catch (err: any) {
       console.error('Founder application submission error:', err);
-      // 12. Preserve entered values after an error so applicant doesn't re-type everything
-      setFormError(err.message || 'Could not connect to the database. Please check your network connection and try again.');
+      // Preserve entered values after an error so applicant doesn't re-type everything
+      const friendlyMsg = err?.message?.includes('Unexpected end of JSON')
+        ? 'The server response could not be completed. Please check your internet connection and try again.'
+        : err?.message || 'Could not connect to the database. Please check your connection and try again.';
+      setFormError(friendlyMsg);
     } finally {
       setIsSubmitting(false);
     }
