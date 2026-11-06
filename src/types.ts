@@ -153,7 +153,10 @@ export type PageType =
   | 'admin-approvals'
   | 'recruiter-signup'
   | 'recruiter-login'
-  | 'recruiter-dashboard';
+  | 'recruiter-dashboard'
+  | 'founder-register'
+  | 'founder-login'
+  | 'founder-dashboard';
 
 export const ALLOWED_BUSINESS_STAGES = [
   'Aspiring Founder (Idea phase)',

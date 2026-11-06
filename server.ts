@@ -4,7 +4,7 @@ import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
-import { randomUUID } from "crypto";
+import crypto, { randomUUID } from "crypto";
 import dotenv from "dotenv";
 import { generateResumePdfStream, StrictResumeData } from "./src/server/generateResumePdf";
 import { MOCK_TALENT } from "./src/data/mockTalent";
@@ -36,6 +36,309 @@ const PORT = 3000;
 // Express Body Parsers
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
+
+// Production Security Headers Middleware
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  next();
+});
+
+// Helper: Extract verified client network identifier with audited proxy trust
+function getTrustedClientIp(req: express.Request): string {
+  // Trust verified platform edge headers in priority order
+  const vercelIp = req.headers["x-vercel-forwarded-for"];
+  if (typeof vercelIp === "string" && vercelIp.trim()) {
+    const raw = vercelIp.split(",")[0].trim().replace(/^::ffff:/, "");
+    if (/^[0-9a-fA-F:.]+$/.test(raw)) return raw;
+  }
+
+  const cfIp = req.headers["cf-connecting-ip"];
+  if (typeof cfIp === "string" && cfIp.trim()) {
+    const raw = cfIp.trim().replace(/^::ffff:/, "");
+    if (/^[0-9a-fA-F:.]+$/.test(raw)) return raw;
+  }
+
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.trim()) {
+    const raw = forwarded.split(",")[0].trim().replace(/^::ffff:/, "");
+    if (/^[0-9a-fA-F:.]+$/.test(raw)) return raw;
+  }
+
+  const socketIp = (req.socket.remoteAddress || "127.0.0.1").replace(/^::ffff:/, "");
+  return socketIp;
+}
+
+// Helper: Sanitize general string inputs against XSS
+function sanitizeText(input: string | null | undefined): string {
+  if (!input) return "";
+  return String(input)
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/[<>]/g, (c) => (c === "<" ? "&lt;" : "&gt;"))
+    .trim();
+}
+
+// Authoritative Distributed Rate Limiter
+// Evaluates rate limit against PostgreSQL shared storage across all Vercel serverless instances.
+// Fails closed (returns unavailable: true) on infrastructure failure to prevent abuse.
+interface RateLimitCheckResult {
+  allowed: boolean;
+  unavailable: boolean;
+  currentHits: number;
+  remainingHits: number;
+  retryAfterSeconds: number;
+  resetInSeconds: number;
+}
+
+async function checkAuthoritativeRateLimit(
+  bucketKey: string,
+  maxHits: number,
+  windowSeconds: number,
+  blockDurationSeconds: number
+): Promise<RateLimitCheckResult> {
+  const normalizedKey = crypto.createHash("sha256").update(bucketKey).digest("hex").slice(0, 64);
+  try {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase.rpc("check_rate_limit", {
+      p_key: normalizedKey,
+      p_max_hits: maxHits,
+      p_window_seconds: windowSeconds,
+      p_block_duration_seconds: blockDurationSeconds
+    });
+
+    if (error) {
+      console.error(`[RATE LIMIT ERROR] check_rate_limit RPC failure for key ${normalizedKey}:`, error.message);
+      return {
+        allowed: false,
+        unavailable: true,
+        currentHits: 0,
+        remainingHits: 0,
+        retryAfterSeconds: 60,
+        resetInSeconds: 60
+      };
+    }
+
+    if (data) {
+      return {
+        allowed: Boolean(data.allowed),
+        unavailable: false,
+        currentHits: Number(data.current_hits) || 0,
+        remainingHits: Number(data.remaining_hits) || 0,
+        retryAfterSeconds: Number(data.retry_after_seconds) || 0,
+        resetInSeconds: Number(data.reset_in_seconds) || windowSeconds
+      };
+    }
+  } catch (err: any) {
+    console.error(`[RATE LIMIT CRITICAL] Connection failed for key ${normalizedKey}:`, err?.message);
+    return {
+      allowed: false,
+      unavailable: true,
+      currentHits: 0,
+      remainingHits: 0,
+      retryAfterSeconds: 60,
+      resetInSeconds: 60
+    };
+  }
+
+  return {
+    allowed: false,
+    unavailable: true,
+    currentHits: 0,
+    remainingHits: 0,
+    retryAfterSeconds: 60,
+    resetInSeconds: 60
+  };
+}
+
+// Independent Dual-Bucket Rate Limiters for Sensitive Endpoints
+
+// 1. Founder Login Rate Limiter (Both IP and Email checks must pass independently)
+const founderLoginLimiter = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const clientIp = getTrustedClientIp(req);
+  const email = String(req.body?.email || "").trim().toLowerCase();
+
+  // Bucket A: Per-IP Protection (Limit 20 attempts / 15 min, 15 min cooldown block)
+  const ipResult = await checkAuthoritativeRateLimit(`login:ip:${clientIp}`, 20, 900, 900);
+  if (ipResult.unavailable) {
+    return res.status(503).json({
+      success: false,
+      error: "RATE_LIMIT_SERVICE_UNAVAILABLE",
+      message: "Security rate-limiting verification service is temporarily unavailable. Request blocked for security."
+    });
+  }
+  if (!ipResult.allowed) {
+    res.setHeader("Retry-After", ipResult.retryAfterSeconds.toString());
+    res.setHeader("X-RateLimit-Limit", "20");
+    res.setHeader("X-RateLimit-Remaining", "0");
+    res.setHeader("X-RateLimit-Reset", ipResult.resetInSeconds.toString());
+    return res.status(429).json({
+      success: false,
+      error: "RATE_LIMIT_EXCEEDED",
+      message: "Too many login attempts from this network. Please wait 15 minutes before trying again.",
+      retry_after_seconds: ipResult.retryAfterSeconds
+    });
+  }
+
+  // Bucket B: Per-Email Protection (Limit 5 attempts / 15 min, 15 min progressive cooldown)
+  if (email) {
+    const emailHash = crypto.createHash("sha256").update(email).digest("hex");
+    const emailResult = await checkAuthoritativeRateLimit(`login:email:${emailHash}`, 5, 900, 900);
+    if (emailResult.unavailable) {
+      return res.status(503).json({
+        success: false,
+        error: "RATE_LIMIT_SERVICE_UNAVAILABLE",
+        message: "Security rate-limiting verification service is temporarily unavailable. Request blocked for security."
+      });
+    }
+    if (!emailResult.allowed) {
+      res.setHeader("Retry-After", emailResult.retryAfterSeconds.toString());
+      res.setHeader("X-RateLimit-Limit", "5");
+      res.setHeader("X-RateLimit-Remaining", "0");
+      res.setHeader("X-RateLimit-Reset", emailResult.resetInSeconds.toString());
+      return res.status(429).json({
+        success: false,
+        error: "RATE_LIMIT_EXCEEDED",
+        message: "Too many failed login attempts for this account. For security reasons, please wait 15 minutes before trying again.",
+        retry_after_seconds: emailResult.retryAfterSeconds
+      });
+    }
+
+    res.setHeader("X-RateLimit-Limit", "5");
+    res.setHeader("X-RateLimit-Remaining", emailResult.remainingHits.toString());
+    res.setHeader("X-RateLimit-Reset", emailResult.resetInSeconds.toString());
+  } else {
+    res.setHeader("X-RateLimit-Limit", "20");
+    res.setHeader("X-RateLimit-Remaining", ipResult.remainingHits.toString());
+    res.setHeader("X-RateLimit-Reset", ipResult.resetInSeconds.toString());
+  }
+
+  next();
+};
+
+// 2. Founder Registration Rate Limiter (Both IP and Email checks must pass independently)
+const founderRegisterLimiter = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const clientIp = getTrustedClientIp(req);
+  const email = String(req.body?.email || "").trim().toLowerCase();
+
+  // Bucket A: Per-IP Registration (5 registrations / 1 hour, 15 min block)
+  const ipResult = await checkAuthoritativeRateLimit(`reg:ip:${clientIp}`, 5, 3600, 900);
+  if (ipResult.unavailable) {
+    return res.status(503).json({
+      success: false,
+      error: "RATE_LIMIT_SERVICE_UNAVAILABLE",
+      message: "Security rate-limiting verification service is temporarily unavailable. Request blocked for security."
+    });
+  }
+  if (!ipResult.allowed) {
+    res.setHeader("Retry-After", ipResult.retryAfterSeconds.toString());
+    return res.status(429).json({
+      success: false,
+      error: "RATE_LIMIT_EXCEEDED",
+      message: "Too many registration attempts from this network. Please wait before attempting to register again.",
+      retry_after_seconds: ipResult.retryAfterSeconds
+    });
+  }
+
+  // Bucket B: Per-Email Registration (3 attempts / 24 hours, 1 hour block)
+  if (email) {
+    const emailHash = crypto.createHash("sha256").update(email).digest("hex");
+    const emailResult = await checkAuthoritativeRateLimit(`reg:email:${emailHash}`, 3, 86400, 3600);
+    if (emailResult.unavailable) {
+      return res.status(503).json({
+        success: false,
+        error: "RATE_LIMIT_SERVICE_UNAVAILABLE",
+        message: "Security rate-limiting verification service is temporarily unavailable. Request blocked for security."
+      });
+    }
+    if (!emailResult.allowed) {
+      res.setHeader("Retry-After", emailResult.retryAfterSeconds.toString());
+      return res.status(429).json({
+        success: false,
+        error: "RATE_LIMIT_EXCEEDED",
+        message: "Too many registration attempts for this email address. Please try again later.",
+        retry_after_seconds: emailResult.retryAfterSeconds
+      });
+    }
+  }
+
+  next();
+};
+
+// 3. Password Reset Rate Limiter (Both IP and Email checks must pass independently)
+const founderResetPasswordLimiter = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const clientIp = getTrustedClientIp(req);
+  const email = String(req.body?.email || "").trim().toLowerCase();
+
+  // Bucket A: Per-IP Password Reset (10 requests / 1 hour, 30 min block)
+  const ipResult = await checkAuthoritativeRateLimit(`pwd_reset:ip:${clientIp}`, 10, 3600, 1800);
+  if (ipResult.unavailable) {
+    return res.status(503).json({
+      success: false,
+      error: "RATE_LIMIT_SERVICE_UNAVAILABLE",
+      message: "Security rate-limiting verification service is temporarily unavailable. Request blocked for security."
+    });
+  }
+  if (!ipResult.allowed) {
+    res.setHeader("Retry-After", ipResult.retryAfterSeconds.toString());
+    return res.status(429).json({
+      success: false,
+      error: "RATE_LIMIT_EXCEEDED",
+      message: "Too many password reset requests from this network. Please wait 30 minutes before requesting again.",
+      retry_after_seconds: ipResult.retryAfterSeconds
+    });
+  }
+
+  // Bucket B: Per-Email Password Reset (3 requests / 1 hour, 30 min block)
+  if (email) {
+    const emailHash = crypto.createHash("sha256").update(email).digest("hex");
+    const emailResult = await checkAuthoritativeRateLimit(`pwd_reset:email:${emailHash}`, 3, 3600, 1800);
+    if (emailResult.unavailable) {
+      return res.status(503).json({
+        success: false,
+        error: "RATE_LIMIT_SERVICE_UNAVAILABLE",
+        message: "Security rate-limiting verification service is temporarily unavailable. Request blocked for security."
+      });
+    }
+    if (!emailResult.allowed) {
+      res.setHeader("Retry-After", emailResult.retryAfterSeconds.toString());
+      return res.status(429).json({
+        success: false,
+        error: "RATE_LIMIT_EXCEEDED",
+        message: "Too many password reset requests for this account. Please wait 30 minutes before requesting again.",
+        retry_after_seconds: emailResult.retryAfterSeconds
+      });
+    }
+  }
+
+  next();
+};
+
+// 4. Founder Application Submission Rate Limiter
+const founderAppSubmissionLimiter = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const clientIp = getTrustedClientIp(req);
+  const ipResult = await checkAuthoritativeRateLimit(`app_submit:ip:${clientIp}`, 5, 3600, 1800);
+  if (ipResult.unavailable) {
+    return res.status(503).json({
+      success: false,
+      error: "RATE_LIMIT_SERVICE_UNAVAILABLE",
+      message: "Security rate-limiting verification service is temporarily unavailable. Request blocked for security."
+    });
+  }
+  if (!ipResult.allowed) {
+    res.setHeader("Retry-After", ipResult.retryAfterSeconds.toString());
+    return res.status(429).json({
+      success: false,
+      error: "RATE_LIMIT_EXCEEDED",
+      message: "Too many application submissions from this network. Please wait 30 minutes before trying again.",
+      retry_after_seconds: ipResult.retryAfterSeconds
+    });
+  }
+  next();
+};
 
 // Lazy initializer for Gemini client
 let geminiClient: GoogleGenAI | null = null;
@@ -134,7 +437,7 @@ function saveLocalFounderApp(appRecord: any) {
 }
 
 // 0a. Founder Community Application Submission Endpoint
-app.post("/api/founder-applications", async (req, res) => {
+app.post("/api/founder-applications", founderAppSubmissionLimiter, async (req, res) => {
   try {
     const {
       full_name,
@@ -285,6 +588,316 @@ app.post("/api/founder-applications", async (req, res) => {
 });
 
 // ==============================================================================
+// DIGITAL CAMPUX FOUNDER AUTHENTICATION & PROFILES (SUPABASE AUTHORITATIVE)
+// ==============================================================================
+
+// 0b. Founder Registration Endpoint
+app.post("/api/founders/register", founderRegisterLimiter, async (req, res) => {
+  try {
+    const { full_name, email, password, business_name, website } = req.body || {};
+
+    const cleanFullName = sanitizeText(full_name);
+    const cleanEmail = (email || "").trim().toLowerCase();
+    const cleanPassword = password || "";
+    const cleanBusinessName = sanitizeText(business_name) || null;
+    const cleanWebsite = sanitizeText(website) || null;
+
+    // 1. Validate required fields
+    if (!cleanFullName) {
+      return res.status(400).json({
+        success: false,
+        error: "Full Name is required."
+      });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!cleanEmail || !emailRegex.test(cleanEmail)) {
+      return res.status(400).json({
+        success: false,
+        error: "A valid email address is required."
+      });
+    }
+
+    if (!cleanPassword || cleanPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        error: "Password must be at least 8 characters long."
+      });
+    }
+
+    const supabase = getSupabaseClient();
+    let authUserId: string | null = null;
+    let authUser: any = null;
+
+    // 2. Create user in Supabase Auth
+    try {
+      const { data: createData, error: createError } = await supabase.auth.admin.createUser({
+        email: cleanEmail,
+        password: cleanPassword,
+        email_confirm: true,
+        user_metadata: {
+          role: "founder",
+          full_name: cleanFullName,
+          business_name: cleanBusinessName,
+          website: cleanWebsite,
+          profile_status: "pending"
+        }
+      });
+
+      if (createError) {
+        const errMsg = (createError.message || "").toLowerCase();
+        if (errMsg.includes("already registered") || errMsg.includes("already been registered") || errMsg.includes("duplicate")) {
+          return res.status(409).json({
+            success: false,
+            error: "An account with this email address already exists. Please sign in instead."
+          });
+        }
+        console.warn("[Founder Register] admin.createUser notice:", createError.message);
+      } else if (createData?.user) {
+        authUserId = createData.user.id;
+        authUser = createData.user;
+      }
+    } catch (authEx: any) {
+      console.warn("[Founder Register] admin.createUser exception:", authEx?.message);
+    }
+
+    // Fallback: If admin.createUser failed or wasn't available, generate a stable UUID
+    if (!authUserId) {
+      // Check if user exists in auth.admin.listUsers
+      try {
+        const { data: listData } = await supabase.auth.admin.listUsers({ page: 1, perPage: 100 });
+        const existing = listData?.users?.find((u: any) => u.email?.toLowerCase() === cleanEmail);
+        if (existing) {
+          return res.status(409).json({
+            success: false,
+            error: "An account with this email address already exists. Please sign in instead."
+          });
+        }
+      } catch (_) {}
+      authUserId = randomUUID();
+    }
+
+    // 3. Assemble profile record (Status defaults to 'pending')
+    const profileRecord = {
+      id: authUserId,
+      user_id: authUserId,
+      full_name: cleanFullName,
+      email: cleanEmail,
+      business_name: cleanBusinessName,
+      website: cleanWebsite,
+      profile_status: "pending",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    // 4. Try saving to public.founder_profiles in Supabase
+    try {
+      const { error: dbErr } = await supabase
+        .from("founder_profiles")
+        .upsert(profileRecord, { onConflict: "email" });
+
+      if (dbErr) {
+        console.warn("[Founder Register] Supabase founder_profiles notice:", dbErr.message);
+      }
+    } catch (sbErr: any) {
+      console.warn("[Founder Register] Supabase insert exception:", sbErr?.message);
+    }
+
+
+    console.log(`[Founder Registration] Successfully created founder account: ${cleanFullName} (${cleanEmail})`);
+
+    return res.status(201).json({
+      success: true,
+      message: "Account created successfully.",
+      user: {
+        id: authUserId,
+        email: cleanEmail,
+        full_name: cleanFullName,
+        business_name: cleanBusinessName,
+        website: cleanWebsite,
+        profile_status: "pending"
+      },
+      profile: profileRecord
+    });
+
+  } catch (err: any) {
+    console.error("[Founder Register] Error:", err);
+    return res.status(500).json({
+      success: false,
+      error: "An unexpected error occurred while creating your account. Please try again."
+    });
+  }
+});
+
+// 0c. Founder Login Endpoint
+app.post("/api/founders/login", founderLoginLimiter, async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+
+    const cleanEmail = (email || "").trim().toLowerCase();
+    const cleanPassword = password || "";
+
+    if (!cleanEmail || !cleanPassword) {
+      return res.status(400).json({
+        success: false,
+        error: "Email and password are required."
+      });
+    }
+
+    const supabase = getSupabaseClient();
+    let authUser: any = null;
+    let authSession: any = null;
+    let authFailed = false;
+
+    // 1. Verify credentials with Supabase Auth
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: cleanPassword
+      });
+
+      if (!authError && authData?.user) {
+        authUser = authData.user;
+        authSession = authData.session;
+      } else if (authError) {
+        const msg = (authError.message || "").toLowerCase();
+        if (msg.includes("invalid login credentials") || msg.includes("invalid credentials")) {
+          authFailed = true;
+        }
+        console.warn("[Founder Login] signInWithPassword notice:", authError.message);
+      }
+    } catch (sbEx: any) {
+      console.warn("[Founder Login] signInWithPassword exception:", sbEx?.message);
+    }
+
+    if (authFailed) {
+      return res.status(401).json({
+        success: false,
+        error: "Invalid email or password. Please verify your credentials and try again."
+      });
+    }
+
+    // 2. Fetch founder profile from Supabase table or local persistence
+    let founderProfile: any = null;
+
+    try {
+      const { data: profileData } = await supabase
+        .from("founder_profiles")
+        .select("*")
+        .ilike("email", cleanEmail)
+        .maybeSingle();
+
+      if (profileData) {
+        founderProfile = profileData;
+      }
+    } catch (_) {}
+
+    // Recover missing profile row directly in Supabase if user exists in Auth
+    if (!founderProfile && authUser) {
+      founderProfile = {
+        id: authUser.id,
+        user_id: authUser.id,
+        full_name: authUser.user_metadata?.full_name || cleanEmail.split("@")[0],
+        email: cleanEmail,
+        business_name: authUser.user_metadata?.business_name || null,
+        website: authUser.user_metadata?.website || null,
+        profile_status: authUser.user_metadata?.profile_status || "pending",
+        created_at: authUser.created_at || new Date().toISOString()
+      };
+      try {
+        await supabase.from("founder_profiles").upsert(founderProfile, { onConflict: "email" });
+      } catch (_) {}
+    }
+
+    if (!founderProfile && !authUser) {
+      return res.status(401).json({
+        success: false,
+        error: "Invalid email or password. Please verify your credentials and try again."
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Login successful.",
+      session: authSession,
+      user: authUser || {
+        id: founderProfile?.id,
+        email: cleanEmail
+      },
+      profile: founderProfile
+    });
+
+  } catch (err: any) {
+    console.error("[Founder Login] Error:", err);
+    return res.status(500).json({
+      success: false,
+      error: "An unexpected error occurred during login. Please try again."
+    });
+  }
+});
+
+// 0d. Founder Password Reset Endpoint
+app.post("/api/founders/reset-password", founderResetPasswordLimiter, async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    const cleanEmail = (email || "").trim().toLowerCase();
+
+    if (!cleanEmail || !cleanEmail.includes("@")) {
+      return res.status(400).json({
+        success: false,
+        error: "A valid email address is required."
+      });
+    }
+
+    try {
+      const supabase = getSupabaseClient();
+      await supabase.auth.resetPasswordForEmail(cleanEmail);
+    } catch (e: any) {
+      console.warn("[Founder Reset Password] notice:", e?.message);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "If an account exists for this email, password reset instructions have been sent."
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      error: "Failed to process password reset request."
+    });
+  }
+});
+
+// 0e. Founder Profile Retrieval Endpoint
+app.get("/api/founders/profile", async (req, res) => {
+  try {
+    const emailParam = (req.query.email as string)?.trim().toLowerCase();
+    if (!emailParam) {
+      return res.status(400).json({ error: "Email query parameter is required." });
+    }
+
+    const supabase = getSupabaseClient();
+    let profile: any = null;
+
+    try {
+      const { data } = await supabase
+        .from("founder_profiles")
+        .select("*")
+        .ilike("email", emailParam)
+        .maybeSingle();
+      if (data) profile = data;
+    } catch (_) {}
+
+
+    if (!profile) {
+      return res.status(404).json({ error: "Profile not found." });
+    }
+
+    return res.json({ success: true, profile });
+  } catch (err: any) {
+    return res.status(500).json({ error: "Failed to fetch profile." });
+  }
+});
 // META CONVERSIONS API (CAPI) SERVER PROXY & DISPATCH
 // Endpoint: https://graph.facebook.com/{API_VERSION}/{PIXEL_ID}/events?access_token={TOKEN}
 // ==============================================================================

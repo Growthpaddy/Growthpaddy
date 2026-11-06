@@ -55,6 +55,9 @@ import SEOGamePlayPlaceholder from './pages/SEOGamePlayPlaceholder';
 import SEOGameRegistrationModal from './components/seo-game/SEOGameRegistrationModal';
 import SEOGameLoginModal from './components/seo-game/SEOGameLoginModal';
 import FounderCommunityLanding from './pages/FounderCommunityLanding';
+import { FounderRegister } from './pages/founders/FounderRegister';
+import { FounderLogin } from './pages/founders/FounderLogin';
+import { FounderDashboard } from './pages/founders/FounderDashboard';
 import { PageType } from './types';
 
 export default function App() {
@@ -98,6 +101,9 @@ export default function App() {
       case 'admin-login': return '/admin/login';
       case 'admin-register': return '/admin/register';
       case 'admin-approvals': return '/admin/approvals';
+      case 'founder-register': return '/founders/register';
+      case 'founder-login': return '/founders/login';
+      case 'founder-dashboard': return '/founders/dashboard';
       default: return '/';
     }
   };
@@ -179,6 +185,15 @@ export default function App() {
     if (lower === '/admin/dashboard' || lower === '/admin-dashboard' || lower === '/admin' || lower === '/admin-profile') {
       return { page: 'admin-dashboard' };
     }
+    if (lower === '/founders/register' || lower === '/founder/register' || lower === '/founders-register') {
+      return { page: 'founder-register' };
+    }
+    if (lower === '/founders/login' || lower === '/founder/login' || lower === '/founders-login') {
+      return { page: 'founder-login' };
+    }
+    if (lower === '/founders/dashboard' || lower === '/founder/dashboard' || lower === '/founders-dashboard') {
+      return { page: 'founder-dashboard' };
+    }
 
     // Reserved keywords and static assets that should NEVER be treated as candidate slugs
     const reservedSlugs = [
@@ -186,7 +201,7 @@ export default function App() {
       'robots.txt', 'sitemap.xml', 'home', 'login', 'signup', 'dashboard',
       'packages', 'pricing', 'directory', 'talent-directory', 'how-it-works', 'howitworks', 
       'the-seo-game', 'the-seo-game-play', 'theseogame', 'seo-game',
-      'talent', 'assessment', 'admin', 'recruiter'
+      'talent', 'assessment', 'admin', 'recruiter', 'founders', 'founder'
     ];
 
     // Direct candidate slug / name route: /[talent-name] or /[talent-slug]
@@ -289,8 +304,15 @@ export default function App() {
     'admin-dashboard',
     'admin-login', 
     'admin-register', 
-    'admin-approvals'
+    'admin-approvals',
+    'founder-register',
+    'founder-login',
+    'founder-dashboard'
   ].includes(currentPage);
+
+  // Founder Authentication Notifications & Registration Flow
+  const [founderRegisteredEmail, setFounderRegisteredEmail] = useState<string>('');
+  const [founderNotification, setFounderNotification] = useState<string | null>(null);
 
   // Shared Global States
   const [employerSlots, setEmployerSlots] = useState<number>(1);
@@ -924,6 +946,46 @@ export default function App() {
                   }}
                 />
               </ProtectedRoute>
+            )}
+
+            {/* View 12: Founder Registration (/founders/register) */}
+            {currentPage === 'founder-register' && (
+              <FounderRegister 
+                onNavigateToLogin={(email) => {
+                  setFounderRegisteredEmail(email || '');
+                  setFounderNotification('Account created successfully! Please sign in with your credentials to access your dashboard.');
+                  navigateToPage('founder-login');
+                }}
+                onNavigateHome={() => navigateToPage('home')}
+              />
+            )}
+
+            {/* View 13: Founder Login (/founders/login) */}
+            {currentPage === 'founder-login' && (
+              <FounderLogin 
+                onLoginSuccess={() => {
+                  navigateToPage('founder-dashboard');
+                }}
+                onNavigateToRegister={() => {
+                  setFounderNotification(null);
+                  navigateToPage('founder-register');
+                }}
+                onNavigateHome={() => navigateToPage('home')}
+                initialNotification={founderNotification}
+                initialEmail={founderRegisteredEmail}
+              />
+            )}
+
+            {/* View 14: Founder Workspace / Dashboard Redirect Target (/founders/dashboard) */}
+            {currentPage === 'founder-dashboard' && (
+              <FounderDashboard 
+                onSignOut={() => {
+                  setFounderNotification(null);
+                  navigateToPage('founder-login');
+                }}
+                onNavigateHome={() => navigateToPage('home')}
+                onNavigateToDigitalJobs={() => navigateToPage('digital-jobs')}
+              />
             )}
 
           </motion.div>

@@ -4,11 +4,15 @@ import { Menu, X, ArrowRight, Briefcase } from 'lucide-react';
 interface FounderCommunityHeaderProps {
   onJoinClick: () => void;
   onNavigateToDigitalJobs?: () => void;
+  onNavigateToFounderLogin?: () => void;
+  onNavigateToFounderRegister?: () => void;
 }
 
 export const FounderCommunityHeader: React.FC<FounderCommunityHeaderProps> = ({
   onJoinClick,
-  onNavigateToDigitalJobs
+  onNavigateToDigitalJobs,
+  onNavigateToFounderLogin,
+  onNavigateToFounderRegister
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -89,8 +93,17 @@ export const FounderCommunityHeader: React.FC<FounderCommunityHeaderProps> = ({
             </button>
           )}
 
+          {onNavigateToFounderLogin && (
+            <button
+              onClick={onNavigateToFounderLogin}
+              className="text-xs sm:text-sm font-semibold text-neutral-700 hover:text-[#16834A] px-3.5 py-2 rounded-lg transition cursor-pointer"
+            >
+              Sign In
+            </button>
+          )}
+
           <button
-            onClick={onJoinClick}
+            onClick={onNavigateToFounderRegister || onJoinClick}
             className="bg-[#16834A] hover:bg-[#13723f] text-white text-xs sm:text-sm font-bold px-5 py-2.5 rounded-full transition shadow-sm hover:shadow flex items-center gap-2 cursor-pointer active:scale-[0.98]"
           >
             <span>Join as a Founder</span>
@@ -174,10 +187,26 @@ export const FounderCommunityHeader: React.FC<FounderCommunityHeaderProps> = ({
               </button>
             )}
 
+            {onNavigateToFounderLogin && (
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onNavigateToFounderLogin();
+                }}
+                className="w-full text-center py-2.5 rounded-xl border border-neutral-300 text-xs font-bold text-neutral-800 hover:bg-neutral-50 transition"
+              >
+                Sign In to Founder Hub
+              </button>
+            )}
+
             <button
               onClick={() => {
                 setMobileMenuOpen(false);
-                onJoinClick();
+                if (onNavigateToFounderRegister) {
+                  onNavigateToFounderRegister();
+                } else {
+                  onJoinClick();
+                }
               }}
               className="w-full bg-[#16834A] hover:bg-[#13723f] text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-md shadow-[#16834A]/20 active:scale-[0.99] transition cursor-pointer"
             >
