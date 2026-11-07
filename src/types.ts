@@ -156,7 +156,109 @@ export type PageType =
   | 'recruiter-dashboard'
   | 'founder-register'
   | 'founder-login'
-  | 'founder-dashboard';
+  | 'founder-dashboard'
+  | 'founder-overview'
+  | 'founder-articles'
+  | 'founder-podcasts'
+  | 'founder-planner'
+  | 'founder-distractions'
+  | 'founder-appointments';
+
+export interface FounderArticle {
+  id: string;
+  founder_id?: string;
+  title: string;
+  slug: string;
+  excerpt?: string;
+  content: string;
+  cover_image_url?: string;
+  reading_time_minutes: number;
+  status: 'draft' | 'pending_review' | 'published' | 'archived';
+  views_count?: number;
+  published_at?: string | null;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface FounderPodcast {
+  id: string;
+  founder_id?: string;
+  title: string;
+  channel_name: string;
+  video_url: string;
+  embed_url?: string;
+  duration_display: string;
+  thumbnail_url?: string;
+  recorded_at: string;
+  created_at?: string;
+}
+
+export interface FounderTask {
+  id: string;
+  founder_id?: string;
+  task_date: string;
+  title: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  estimated_minutes: number;
+  is_completed: boolean;
+  completed_at?: string | null;
+  order_index?: number;
+  created_at?: string;
+}
+
+export interface FounderDailyGoal {
+  id: string;
+  founder_id?: string;
+  goal_date: string;
+  title: string;
+  benchmark_percent: number;
+  created_at?: string;
+}
+
+export interface FounderDistraction {
+  id: string;
+  name: string;
+  category: 'Digital' | 'Habits' | 'Social' | 'Mindset' | 'Productivity';
+  icon: string;
+  description?: string;
+  is_active_today: boolean;
+}
+
+export interface FounderAppointment {
+  id: string;
+  founder_id?: string;
+  title: string;
+  attendee_name: string;
+  attendee_email?: string;
+  start_time: string;
+  end_time?: string;
+  meeting_url?: string;
+  status: 'upcoming' | 'completed' | 'cancelled';
+  notes?: string;
+  created_at?: string;
+}
+
+export interface FounderObjective {
+  id: string;
+  founder_id?: string;
+  title: string;
+  quarter_or_month: string;
+  year: number;
+  status: 'not_started' | 'in_progress' | 'completed';
+  progress_percent: number;
+  created_at?: string;
+}
+
+export interface FounderKeyResult {
+  id: string;
+  objective_id: string;
+  founder_id?: string;
+  title: string;
+  target_value: number;
+  current_value: number;
+  unit: string;
+  weight: number;
+}
 
 export const ALLOWED_BUSINESS_STAGES = [
   'Aspiring Founder (Idea phase)',

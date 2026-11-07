@@ -5,6 +5,13 @@ export interface FounderProfile {
   user_id?: string;
   full_name: string;
   email: string;
+  headline?: string | null;
+  bio?: string | null;
+  avatar_url?: string | null;
+  slug?: string | null;
+  location?: string | null;
+  linkedin_url?: string | null;
+  twitter_url?: string | null;
   business_name?: string | null;
   website?: string | null;
   profile_status: 'pending' | 'approved' | 'rejected' | 'suspended';

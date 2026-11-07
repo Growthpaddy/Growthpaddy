@@ -1,288 +1,487 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { FounderProfile, logoutFounder, getCachedFounderProfile } from '../../lib/founderAuth';
+import { PageType, FounderArticle, FounderPodcast, FounderTask, FounderDailyGoal, FounderDistraction, FounderAppointment, FounderObjective, FounderKeyResult } from '../../types';
 import { 
-  Building2, 
-  Globe, 
-  Mail, 
-  User, 
-  Clock, 
-  CheckCircle2, 
-  ExternalLink, 
-  LogOut, 
-  Sparkles, 
-  MessageSquare, 
-  Youtube, 
-  Briefcase 
-} from 'lucide-react';
-import { getCachedFounderProfile, logoutFounder, FounderProfile } from '../../lib/founderAuth';
+  getFounderDashboardData,
+  toggleTaskCompletion,
+  createFounderTask,
+  deleteFounderTask,
+  updateDailyGoal,
+  saveFounderArticle,
+  deleteFounderArticle,
+  saveFounderPodcast,
+  deleteFounderPodcast,
+  toggleDistractionSelection,
+  addCustomDistraction,
+  saveFounderAppointment,
+  updateAppointmentStatus,
+  updateFounderProfileData,
+  DEFAULT_EZEJI_PROFILE
+} from '../../lib/founderDashboardService';
+
+import { FounderDashboardLayout } from '../../components/founders/FounderDashboardLayout';
+import { FounderOverviewView } from '../../components/founders/FounderOverviewView';
+import { FounderArticlesView } from '../../components/founders/FounderArticlesView';
+import { FounderPodcastsView } from '../../components/founders/FounderPodcastsView';
+import { FounderPlannerView } from '../../components/founders/FounderPlannerView';
+import { FounderDistractionsView } from '../../components/founders/FounderDistractionsView';
+import { FounderAppointmentsView } from '../../components/founders/FounderAppointmentsView';
+
+import { FounderEditProfileModal } from '../../components/founders/FounderEditProfileModal';
+import { FounderPublicProfileModal } from '../../components/founders/FounderPublicProfileModal';
+import { FounderArticleEditorModal } from '../../components/founders/FounderArticleEditorModal';
+import { FounderArticleReaderModal } from '../../components/founders/FounderArticleReaderModal';
+import { FounderPodcastModal } from '../../components/founders/FounderPodcastModal';
+import { FounderVideoPlayerModal } from '../../components/founders/FounderVideoPlayerModal';
+import { FounderAIBreakdownModal } from '../../components/founders/FounderAIBreakdownModal';
+import { FounderScheduleModal } from '../../components/founders/FounderScheduleModal';
 
 interface FounderDashboardProps {
   onSignOut: () => void;
   onNavigateHome: () => void;
   onNavigateToDigitalJobs?: () => void;
+  initialSubpage?: PageType;
+  onNavigateSubpage?: (page: PageType) => void;
 }
 
 export const FounderDashboard: React.FC<FounderDashboardProps> = ({
   onSignOut,
   onNavigateHome,
-  onNavigateToDigitalJobs
+  onNavigateToDigitalJobs,
+  initialSubpage = 'founder-overview',
+  onNavigateSubpage
 }) => {
-  const [profile, setProfile] = useState<FounderProfile | null>(null);
+  // Active subpage tab
+  const [currentSubpage, setCurrentSubpage] = useState<PageType>(initialSubpage);
 
+  // Synchronize when parent passes subpage
   useEffect(() => {
-    const cached = getCachedFounderProfile();
-    if (cached) {
-      setProfile(cached);
+    if (initialSubpage && initialSubpage !== currentSubpage) {
+      setCurrentSubpage(initialSubpage);
+    }
+  }, [initialSubpage]);
+
+  // Main Dashboard Data State
+  const [profile, setProfile] = useState<FounderProfile>(DEFAULT_EZEJI_PROFILE);
+  const [publishedArticles, setPublishedArticles] = useState<FounderArticle[]>([]);
+  const [draftArticles, setDraftArticles] = useState<FounderArticle[]>([]);
+  const [podcasts, setPodcasts] = useState<FounderPodcast[]>([]);
+  const [dailyGoal, setDailyGoal] = useState<FounderDailyGoal>({
+    id: 'goal_init',
+    goal_date: new Date().toISOString().split('T')[0],
+    title: 'Make progress on content, partnerships and product development.',
+    benchmark_percent: 80
+  });
+  const [todayTasks, setTodayTasks] = useState<FounderTask[]>([]);
+  const [distractions, setDistractions] = useState<FounderDistraction[]>([]);
+  const [appointments, setAppointments] = useState<FounderAppointment[]>([]);
+  const [objectives, setObjectives] = useState<FounderObjective[]>([]);
+  const [keyResults, setKeyResults] = useState<FounderKeyResult[]>([]);
+  const [stats, setStats] = useState({
+    publishedArticlesCount: 8,
+    draftArticlesCount: 3,
+    podcastsCount: 4,
+    todayProgressPercent: 72,
+    completedTasksCount: 4,
+    totalTasksCount: 6
+  });
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Modals state
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [isPublicProfileOpen, setIsPublicProfileOpen] = useState(false);
+  const [isArticleEditorOpen, setIsArticleEditorOpen] = useState(false);
+  const [editingArticle, setEditingArticle] = useState<FounderArticle | null>(null);
+  const [readingArticle, setReadingArticle] = useState<FounderArticle | null>(null);
+  const [isPodcastModalOpen, setIsPodcastModalOpen] = useState(false);
+  const [activeVideoModal, setActiveVideoModal] = useState<FounderPodcast | null>(null);
+  const [isAIBreakdownOpen, setIsAIBreakdownOpen] = useState(false);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Load authoritative data from service
+  const refreshData = useCallback(async () => {
+    try {
+      const data = await getFounderDashboardData();
+      setProfile(data.profile);
+      setPublishedArticles(data.publishedArticles);
+      setDraftArticles(data.draftArticles);
+      setPodcasts(data.podcasts);
+      setDailyGoal(data.dailyGoal);
+      setTodayTasks(data.todayTasks);
+      setDistractions(data.distractions);
+      setAppointments(data.appointments);
+      setObjectives(data.objectives);
+      setKeyResults(data.keyResults);
+      setStats(data.stats);
+    } catch (err) {
+      console.warn('Dashboard data fetch notification:', err);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
-  const handleSignOutClick = async () => {
-    await logoutFounder();
-    onSignOut();
+  useEffect(() => {
+    refreshData();
+  }, [refreshData]);
+
+  // Navigate handler that also notifies parent route listener
+  const handleNavigate = (page: PageType) => {
+    if (page === 'home') {
+      onNavigateHome();
+      return;
+    }
+    if (page === 'digital-jobs' && onNavigateToDigitalJobs) {
+      onNavigateToDigitalJobs();
+      return;
+    }
+    setCurrentSubpage(page);
+    if (onNavigateSubpage) {
+      onNavigateSubpage(page);
+    } else {
+      // Direct history push
+      const pathMap: Record<string, string> = {
+        'founder-overview': '/founders/overview',
+        'founder-articles': '/founders/articles',
+        'founder-podcasts': '/founders/podcasts',
+        'founder-planner': '/founders/planner',
+        'founder-distractions': '/founders/distractions',
+        'founder-appointments': '/founders/appointments'
+      };
+      if (pathMap[page]) {
+        window.history.pushState(null, '', pathMap[page]);
+      }
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const displayName = profile?.full_name || 'Founder';
-  const displayEmail = profile?.email || 'founder@digitalcampux.com';
-  const displayBusiness = profile?.business_name || 'Your Emerging Business';
-  const displayWebsite = profile?.website || null;
-  const status = profile?.profile_status || 'pending';
+  // Task Actions
+  const handleToggleTask = async (taskId: string) => {
+    const updatedTasks = await toggleTaskCompletion(taskId);
+    setTodayTasks(updatedTasks);
+    // Recalculate stats live
+    const total = updatedTasks.length;
+    const completed = updatedTasks.filter(t => t.is_completed).length;
+    const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+    setStats(prev => ({
+      ...prev,
+      todayProgressPercent: percent,
+      completedTasksCount: completed,
+      totalTasksCount: total
+    }));
+  };
+
+  const handleAddTask = async (title: string, priority: 'low' | 'medium' | 'high' | 'urgent', estimatedMinutes: number) => {
+    const updatedTasks = await createFounderTask(title, priority, estimatedMinutes);
+    setTodayTasks(updatedTasks);
+    const total = updatedTasks.length;
+    const completed = updatedTasks.filter(t => t.is_completed).length;
+    const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+    setStats(prev => ({
+      ...prev,
+      todayProgressPercent: percent,
+      completedTasksCount: completed,
+      totalTasksCount: total
+    }));
+    showToast('Task added to today\'s planner');
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    const updatedTasks = await deleteFounderTask(taskId);
+    setTodayTasks(updatedTasks);
+    const total = updatedTasks.length;
+    const completed = updatedTasks.filter(t => t.is_completed).length;
+    const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+    setStats(prev => ({
+      ...prev,
+      todayProgressPercent: percent,
+      completedTasksCount: completed,
+      totalTasksCount: total
+    }));
+  };
+
+  // Daily Goal Update
+  const handleUpdateDailyGoal = async (title: string, benchmarkPercent: number) => {
+    const updated = await updateDailyGoal(title, benchmarkPercent);
+    setDailyGoal(updated);
+    showToast('Daily goal updated');
+  };
+
+  // Article Actions
+  const handleSaveArticle = async (articleData: Partial<FounderArticle>) => {
+    await saveFounderArticle(articleData);
+    await refreshData();
+    showToast(articleData.status === 'published' ? 'Article published successfully' : 'Draft saved');
+  };
+
+  const handleDeleteArticle = async (articleId: string) => {
+    await deleteFounderArticle(articleId);
+    await refreshData();
+    showToast('Article deleted');
+  };
+
+  // Podcast Actions
+  const handleSavePodcast = async (data: any) => {
+    await saveFounderPodcast(data);
+    await refreshData();
+    showToast('Podcast session added');
+  };
+
+  const handleDeletePodcast = async (podcastId: string) => {
+    await deleteFounderPodcast(podcastId);
+    await refreshData();
+    showToast('Podcast session removed');
+  };
+
+  // Distraction Actions
+  const handleToggleDistraction = async (id: string) => {
+    const updated = await toggleDistractionSelection(id);
+    setDistractions(updated);
+  };
+
+  const handleAddCustomDistraction = async (name: string, category: any, icon: string) => {
+    const updated = await addCustomDistraction(name, category, icon);
+    setDistractions(updated);
+    showToast('Custom distraction added');
+  };
+
+  // Appointment Actions
+  const handleScheduleAppointment = async (data: any) => {
+    await saveFounderAppointment(data);
+    await refreshData();
+    showToast('Appointment scheduled');
+  };
+
+  const handleUpdateAppointmentStatus = async (id: string, newStatus: any) => {
+    const updated = await updateAppointmentStatus(id, newStatus);
+    setAppointments(updated);
+    showToast(`Appointment marked as ${newStatus}`);
+  };
+
+  const handleDeleteAppointment = async (id: string) => {
+    // Local filter and sync
+    setAppointments(prev => prev.filter(a => a.id !== id));
+    showToast('Appointment record removed');
+  };
+
+  // Profile Save
+  const handleSaveProfile = async (updates: Partial<FounderProfile>) => {
+    const updated = await updateFounderProfileData(updates);
+    setProfile(updated);
+    showToast('Profile updated successfully');
+  };
+
+  // Share helpers
+  const handleShareProfile = () => {
+    const url = `https://digitalcampux.com/founders/${profile.slug || 'ezeji-patrick'}`;
+    navigator.clipboard.writeText(url);
+    showToast('Public profile link copied to clipboard!');
+  };
+
+  const handleShareArticle = (art: FounderArticle) => {
+    const url = `https://digitalcampux.com/founders/${profile.slug || 'ezeji-patrick'}/articles/${art.slug}`;
+    navigator.clipboard.writeText(url);
+    showToast('Article link copied to clipboard!');
+  };
+
+  const handleSharePodcast = (pod: FounderPodcast) => {
+    navigator.clipboard.writeText(pod.video_url);
+    showToast('Podcast video link copied to clipboard!');
+  };
+
+  // AI Task Breakdown Apply
+  const handleApplyAITasks = async (newTasks: Array<{ title: string; priority: any; estimatedMinutes: number }>) => {
+    for (const t of newTasks) {
+      await createFounderTask(t.title, t.priority, t.estimatedMinutes);
+    }
+    await refreshData();
+    showToast(`Added ${newTasks.length} tasks to today's focus`);
+  };
+
+  const allArticlesCombined = [...publishedArticles, ...draftArticles];
 
   return (
-    <div className="min-h-screen bg-[#F3F5F3] flex flex-col justify-between selection:bg-[#16834A]/20 selection:text-[#111111]">
-      {/* TOP BAR */}
-      <header className="w-full bg-white border-b border-neutral-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onNavigateHome}
-              className="flex items-center gap-1.5 cursor-pointer select-none group text-left focus:outline-none"
-              aria-label="Back to Digital Campux Home"
-            >
-              <span className="font-extrabold text-2xl tracking-tight text-[#111111] group-hover:text-neutral-800 transition">
-                Digital
-              </span>
-              <span className="font-extrabold text-2xl tracking-tight text-[#16834A]">
-                Campux
-              </span>
-            </button>
-            <span className="text-neutral-300 hidden sm:inline">|</span>
-            <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500 hidden sm:inline">
-              Founders Workspace
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="hidden md:flex items-center gap-2.5 text-right">
-              <div className="w-8 h-8 rounded-full bg-[#16834A]/10 text-[#16834A] flex items-center justify-center font-bold text-xs">
-                {displayName.charAt(0).toUpperCase()}
-              </div>
-              <div className="text-xs">
-                <p className="font-bold text-[#111111] leading-none">{displayName}</p>
-                <p className="text-neutral-500 text-[11px] mt-0.5">{displayEmail}</p>
-              </div>
-            </div>
-
-            <button
-              onClick={handleSignOutClick}
-              className="text-xs font-semibold text-neutral-600 hover:text-neutral-900 px-3.5 py-2 rounded-xl border border-neutral-200 hover:bg-neutral-100 flex items-center gap-1.5 transition cursor-pointer"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Sign Out</span>
-            </button>
-          </div>
+    <FounderDashboardLayout
+      currentPage={currentSubpage}
+      onNavigate={handleNavigate}
+      onSignOut={onSignOut}
+      profile={profile}
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      onOpenEditProfile={() => setIsEditProfileOpen(true)}
+      onOpenPublicProfile={() => setIsPublicProfileOpen(true)}
+    >
+      {/* GLOBAL TOAST NOTIFICATION */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-2xl shadow-2xl border border-slate-700 text-xs font-semibold flex items-center gap-2 animate-fadeIn">
+          <span className="w-2 h-2 rounded-full bg-emerald-400" />
+          <span>{toastMessage}</span>
         </div>
-      </header>
+      )}
 
-      {/* WORKSPACE BODY */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-8">
-        
-        {/* WELCOME BANNER */}
-        <div className="bg-white rounded-3xl border border-neutral-200 p-6 sm:p-10 shadow-sm relative overflow-hidden">
-          <div className="max-w-2xl space-y-3 relative z-10">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-[#16834A] text-xs font-bold border border-emerald-100">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Founder Community Member</span>
-            </div>
+      {/* VIEW 1: OVERVIEW (EXACT SCREENSHOT REPLICA) */}
+      {(currentSubpage === 'founder-overview' || currentSubpage === 'founder-dashboard') && (
+        <FounderOverviewView
+          profile={profile}
+          publishedArticles={publishedArticles}
+          draftArticles={draftArticles}
+          podcasts={podcasts}
+          dailyGoal={dailyGoal}
+          todayTasks={todayTasks}
+          distractions={distractions}
+          stats={stats}
+          onNavigate={handleNavigate}
+          onOpenWriteArticle={() => {
+            setEditingArticle(null);
+            setIsArticleEditorOpen(true);
+          }}
+          onOpenEditProfile={() => setIsEditProfileOpen(true)}
+          onOpenPublicProfile={() => setIsPublicProfileOpen(true)}
+          onShareProfile={handleShareProfile}
+          onShareArticle={handleShareArticle}
+          onSharePodcast={handleSharePodcast}
+          onPlayPodcast={(pod) => setActiveVideoModal(pod)}
+          onReadArticle={(art) => setReadingArticle(art)}
+        />
+      )}
 
-            <h1 className="text-2xl sm:text-4xl font-extrabold text-[#111111] tracking-tight">
-              Welcome, {displayName}!
-            </h1>
-            <p className="text-sm sm:text-base text-neutral-600 leading-relaxed">
-              Your founder account is active. This workspace connects you to community updates, visibility opportunities, and peer collaborations.
-            </p>
-          </div>
-        </div>
+      {/* VIEW 2: ARTICLES */}
+      {currentSubpage === 'founder-articles' && (
+        <FounderArticlesView
+          articles={allArticlesCombined}
+          onOpenWriteArticle={() => {
+            setEditingArticle(null);
+            setIsArticleEditorOpen(true);
+          }}
+          onEditArticle={(art) => {
+            setEditingArticle(art);
+            setIsArticleEditorOpen(true);
+          }}
+          onDeleteArticle={handleDeleteArticle}
+          onReadArticle={(art) => setReadingArticle(art)}
+          onShareArticle={handleShareArticle}
+        />
+      )}
 
-        {/* STATUS & PROFILE GRID */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
-          
-          {/* PROFILE STATUS CARD (7 Cols) */}
-          <div className="lg:col-span-7 bg-white rounded-3xl border border-neutral-200 p-6 sm:p-8 shadow-sm space-y-6">
-            <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
-              <div>
-                <h2 className="text-lg font-bold text-[#111111]">Application &amp; Profile Status</h2>
-                <p className="text-xs text-neutral-500">Editorial review process for community visibility</p>
-              </div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200">
-                <Clock className="w-3.5 h-3.5 text-amber-600 animate-spin" />
-                <span>{status === 'pending' ? 'Pending Review' : status}</span>
-              </div>
-            </div>
+      {/* VIEW 3: PODCASTS */}
+      {currentSubpage === 'founder-podcasts' && (
+        <FounderPodcastsView
+          podcasts={podcasts}
+          onOpenAddPodcast={() => setIsPodcastModalOpen(true)}
+          onPlayPodcast={(pod) => setActiveVideoModal(pod)}
+          onDeletePodcast={handleDeletePodcast}
+          onSharePodcast={handleSharePodcast}
+        />
+      )}
 
-            {/* Explanatory Callout */}
-            <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/70 text-amber-900 text-xs sm:text-sm space-y-1.5 leading-relaxed">
-              <p className="font-bold flex items-center gap-1.5 text-amber-950">
-                <span>Profile Under Editorial Review</span>
-              </p>
-              <p>
-                Your founder profile has been submitted and is currently queued for editorial verification. Once approved, your business will receive official visibility across our community directory and be considered for upcoming Founder Stories spotlight interviews.
-              </p>
-            </div>
+      {/* VIEW 4: PLANNER */}
+      {currentSubpage === 'founder-planner' && (
+        <FounderPlannerView
+          dailyGoal={dailyGoal}
+          tasks={todayTasks}
+          objectives={objectives}
+          keyResults={keyResults}
+          onToggleTask={handleToggleTask}
+          onAddTask={handleAddTask}
+          onDeleteTask={handleDeleteTask}
+          onUpdateDailyGoal={handleUpdateDailyGoal}
+          onOpenAIBreakdown={() => setIsAIBreakdownOpen(true)}
+        />
+      )}
 
-            {/* Profile Fields List */}
-            <div className="space-y-4 pt-2">
-              <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
-                Submitted Details
-              </h3>
+      {/* VIEW 5: DISTRACTIONS */}
+      {currentSubpage === 'founder-distractions' && (
+        <FounderDistractionsView
+          distractions={distractions}
+          onToggleDistraction={handleToggleDistraction}
+          onAddCustomDistraction={handleAddCustomDistraction}
+        />
+      )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl bg-neutral-50 border border-neutral-100 space-y-1">
-                  <div className="flex items-center gap-2 text-neutral-500 text-xs">
-                    <User className="w-3.5 h-3.5 text-[#16834A]" />
-                    <span>Full Name</span>
-                  </div>
-                  <p className="text-sm font-bold text-[#111111]">{displayName}</p>
-                </div>
+      {/* VIEW 6: APPOINTMENTS */}
+      {currentSubpage === 'founder-appointments' && (
+        <FounderAppointmentsView
+          appointments={appointments}
+          onOpenSchedule={() => setIsScheduleModalOpen(true)}
+          onUpdateStatus={handleUpdateAppointmentStatus}
+          onDeleteAppointment={handleDeleteAppointment}
+        />
+      )}
 
-                <div className="p-4 rounded-xl bg-neutral-50 border border-neutral-100 space-y-1">
-                  <div className="flex items-center gap-2 text-neutral-500 text-xs">
-                    <Mail className="w-3.5 h-3.5 text-[#16834A]" />
-                    <span>Email Address</span>
-                  </div>
-                  <p className="text-sm font-bold text-[#111111] truncate">{displayEmail}</p>
-                </div>
+      {/* MODALS */}
+      <FounderEditProfileModal
+        profile={profile}
+        isOpen={isEditProfileOpen}
+        onClose={() => setIsEditProfileOpen(false)}
+        onSave={handleSaveProfile}
+      />
 
-                <div className="p-4 rounded-xl bg-neutral-50 border border-neutral-100 space-y-1">
-                  <div className="flex items-center gap-2 text-neutral-500 text-xs">
-                    <Building2 className="w-3.5 h-3.5 text-[#16834A]" />
-                    <span>Business Name</span>
-                  </div>
-                  <p className="text-sm font-bold text-[#111111]">{displayBusiness}</p>
-                </div>
+      <FounderPublicProfileModal
+        profile={profile}
+        publishedArticles={publishedArticles}
+        podcasts={podcasts}
+        isOpen={isPublicProfileOpen}
+        onClose={() => setIsPublicProfileOpen(false)}
+        onReadArticle={(art) => {
+          setIsPublicProfileOpen(false);
+          setReadingArticle(art);
+        }}
+        onPlayPodcast={(pod) => {
+          setIsPublicProfileOpen(false);
+          setActiveVideoModal(pod)}
+        }
+      />
 
-                <div className="p-4 rounded-xl bg-neutral-50 border border-neutral-100 space-y-1">
-                  <div className="flex items-center gap-2 text-neutral-500 text-xs">
-                    <Globe className="w-3.5 h-3.5 text-[#16834A]" />
-                    <span>Website</span>
-                  </div>
-                  {displayWebsite ? (
-                    <a
-                      href={displayWebsite}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm font-bold text-[#16834A] hover:underline flex items-center gap-1 truncate"
-                    >
-                      <span className="truncate">{displayWebsite}</span>
-                      <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-                    </a>
-                  ) : (
-                    <p className="text-sm text-neutral-400 italic">Not specified</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+      <FounderArticleEditorModal
+        isOpen={isArticleEditorOpen}
+        onClose={() => {
+          setIsArticleEditorOpen(false);
+          setEditingArticle(null);
+        }}
+        onSave={handleSaveArticle}
+        initialArticle={editingArticle}
+      />
 
-          {/* RIGHT COLUMN: COMMUNITY NEXT STEPS (5 Cols) */}
-          <div className="lg:col-span-5 space-y-6">
-            
-            {/* WhatsApp Community Card */}
-            <div className="bg-white rounded-3xl border border-neutral-200 p-6 sm:p-7 shadow-sm space-y-4">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#16834A] flex items-center justify-center">
-                <MessageSquare className="w-5 h-5" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="font-bold text-[#111111] text-base">
-                  Founder WhatsApp Circle
-                </h3>
-                <p className="text-xs text-neutral-600 leading-relaxed">
-                  Join fellow founders in our temporary community channel to network, share milestones, and exchange insights.
-                </p>
-              </div>
-              <a
-                href="https://chat.whatsapp.com/HjVefSGI3nCFXCYTCjni0F?s=sw&p=a&mlu=4&ilr=4"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full inline-flex items-center justify-center gap-2 bg-[#16834A] hover:bg-[#13723f] text-white font-bold py-2.5 px-4 rounded-xl text-xs transition cursor-pointer"
-              >
-                <span>Open WhatsApp Community</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
+      <FounderArticleReaderModal
+        article={readingArticle}
+        isOpen={Boolean(readingArticle)}
+        onClose={() => setReadingArticle(null)}
+        onShare={handleShareArticle}
+        authorName={profile.full_name}
+      />
 
-            {/* YouTube Stories Card */}
-            <div className="bg-white rounded-3xl border border-neutral-200 p-6 sm:p-7 shadow-sm space-y-4">
-              <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
-                <Youtube className="w-5 h-5" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="font-bold text-[#111111] text-base">
-                  Watch Founder Stories
-                </h3>
-                <p className="text-xs text-neutral-600 leading-relaxed">
-                  Discover how Nigerian builders validate ideas, launch MVPs, and scale real revenues in challenging environments.
-                </p>
-              </div>
-              <a
-                href="https://www.youtube.com/watch?v=DrpZwdPNnIY&list=PLcnpxLL0jyxk"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full inline-flex items-center justify-center gap-2 border border-neutral-300 hover:border-neutral-400 bg-white text-neutral-800 font-bold py-2.5 px-4 rounded-xl text-xs transition cursor-pointer"
-              >
-                <span>Watch on YouTube</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
+      <FounderPodcastModal
+        isOpen={isPodcastModalOpen}
+        onClose={() => setIsPodcastModalOpen(false)}
+        onSave={handleSavePodcast}
+      />
 
-            {/* Digital Jobs Link Card */}
-            {onNavigateToDigitalJobs && (
-              <div className="bg-white rounded-3xl border border-neutral-200 p-6 sm:p-7 shadow-sm space-y-4">
-                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                  <Briefcase className="w-5 h-5" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="font-bold text-[#111111] text-base">
-                    Hire Vetted Digital Talent
-                  </h3>
-                  <p className="text-xs text-neutral-600 leading-relaxed">
-                    Need an SEO specialist, growth marketer, or developer for your business? Browse assessed and accredited candidates.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={onNavigateToDigitalJobs}
-                  className="w-full inline-flex items-center justify-center gap-2 border border-neutral-300 hover:border-neutral-400 bg-white text-neutral-800 font-bold py-2.5 px-4 rounded-xl text-xs transition cursor-pointer"
-                >
-                  <span>Explore Talent Directory</span>
-                </button>
-              </div>
-            )}
+      <FounderVideoPlayerModal
+        podcast={activeVideoModal}
+        isOpen={Boolean(activeVideoModal)}
+        onClose={() => setActiveVideoModal(null)}
+        onShare={handleSharePodcast}
+      />
 
-          </div>
-        </div>
+      <FounderAIBreakdownModal
+        isOpen={isAIBreakdownOpen}
+        onClose={() => setIsAIBreakdownOpen(false)}
+        onApplyTasks={handleApplyAITasks}
+      />
 
-      </main>
+      <FounderScheduleModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        onSchedule={handleScheduleAppointment}
+      />
 
-      {/* FOOTER */}
-      <footer className="w-full bg-white border-t border-neutral-200 py-4 text-center text-xs text-neutral-500">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>&copy; {new Date().getFullYear()} Digital Campux Founders Community. All rights reserved.</span>
-          <div className="flex items-center gap-4 text-neutral-500">
-            <button onClick={onNavigateHome} className="hover:text-neutral-900 transition">Home</button>
-            <span>·</span>
-            <button onClick={handleSignOutClick} className="hover:text-neutral-900 transition">Sign Out</button>
-          </div>
-        </div>
-      </footer>
-    </div>
+    </FounderDashboardLayout>
   );
 };

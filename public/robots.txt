@@ -1,0 +1,22 @@
+User-agent: *
+Disallow: /founders/overview
+Disallow: /founders/articles
+Disallow: /founders/podcasts
+Disallow: /founders/planner
+Disallow: /founders/distractions
+Disallow: /founders/appointments
+Disallow: /founders/dashboard
+Disallow: /admin/
+Disallow: /recruiter/dashboard
+Disallow: /talent-profile
+Disallow: /assessment
+Allow: /
+Allow: /founders/register
+Allow: /founders/login
+Allow: /talent-directory
+Allow: /p/
+Allow: /digital-jobs
+Allow: /how-it-works
+Allow: /pricing
+
+Sitemap: https://digitalcampux.com.ng/sitemap.xml

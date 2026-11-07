@@ -104,6 +104,12 @@ export default function App() {
       case 'founder-register': return '/founders/register';
       case 'founder-login': return '/founders/login';
       case 'founder-dashboard': return '/founders/dashboard';
+      case 'founder-overview': return '/founders/overview';
+      case 'founder-articles': return '/founders/articles';
+      case 'founder-podcasts': return '/founders/podcasts';
+      case 'founder-planner': return '/founders/planner';
+      case 'founder-distractions': return '/founders/distractions';
+      case 'founder-appointments': return '/founders/appointments';
       default: return '/';
     }
   };
@@ -188,11 +194,29 @@ export default function App() {
     if (lower === '/founders/register' || lower === '/founder/register' || lower === '/founders-register') {
       return { page: 'founder-register' };
     }
-    if (lower === '/founders/login' || lower === '/founder/login' || lower === '/founders-login') {
+    if (lower === '/founders/login' || lower === '/founder/login' || lower === '/founders-login' || lower === '/founders/sign-in' || lower === '/founder/sign-in' || lower === '/founders-sign-in') {
       return { page: 'founder-login' };
     }
+    if (lower === '/founders/overview' || lower === '/founder/overview' || lower === '/founders-overview') {
+      return { page: 'founder-overview' };
+    }
+    if (lower === '/founders/articles' || lower === '/founder/articles' || lower === '/founders-articles') {
+      return { page: 'founder-articles' };
+    }
+    if (lower === '/founders/podcasts' || lower === '/founder/podcasts' || lower === '/founders-podcasts') {
+      return { page: 'founder-podcasts' };
+    }
+    if (lower === '/founders/planner' || lower === '/founder/planner' || lower === '/founders-planner') {
+      return { page: 'founder-planner' };
+    }
+    if (lower === '/founders/distractions' || lower === '/founder/distractions' || lower === '/founders-distractions') {
+      return { page: 'founder-distractions' };
+    }
+    if (lower === '/founders/appointments' || lower === '/founder/appointments' || lower === '/founders-appointments') {
+      return { page: 'founder-appointments' };
+    }
     if (lower === '/founders/dashboard' || lower === '/founder/dashboard' || lower === '/founders-dashboard') {
-      return { page: 'founder-dashboard' };
+      return { page: 'founder-overview' };
     }
 
     // Reserved keywords and static assets that should NEVER be treated as candidate slugs
@@ -307,8 +331,29 @@ export default function App() {
     'admin-approvals',
     'founder-register',
     'founder-login',
-    'founder-dashboard'
+    'founder-dashboard',
+    'founder-overview',
+    'founder-articles',
+    'founder-podcasts',
+    'founder-planner',
+    'founder-distractions',
+    'founder-appointments'
   ].includes(currentPage);
+
+  // Enforce noindex, nofollow on all private dashboard routes to protect founder privacy
+  useEffect(() => {
+    let robotsMeta = document.querySelector('meta[name="robots"]');
+    if (isDashboardPage && currentPage !== 'founder-register' && currentPage !== 'founder-login') {
+      if (!robotsMeta) {
+        robotsMeta = document.createElement('meta');
+        robotsMeta.setAttribute('name', 'robots');
+        document.head.appendChild(robotsMeta);
+      }
+      robotsMeta.setAttribute('content', 'noindex, nofollow');
+    } else if (robotsMeta) {
+      robotsMeta.setAttribute('content', 'index, follow');
+    }
+  }, [currentPage, isDashboardPage]);
 
   // Founder Authentication Notifications & Registration Flow
   const [founderRegisteredEmail, setFounderRegisteredEmail] = useState<string>('');
@@ -964,7 +1009,7 @@ export default function App() {
             {currentPage === 'founder-login' && (
               <FounderLogin 
                 onLoginSuccess={() => {
-                  navigateToPage('founder-dashboard');
+                  navigateToPage('founder-overview');
                 }}
                 onNavigateToRegister={() => {
                   setFounderNotification(null);
@@ -976,9 +1021,17 @@ export default function App() {
               />
             )}
 
-            {/* View 14: Founder Workspace / Dashboard Redirect Target (/founders/dashboard) */}
-            {currentPage === 'founder-dashboard' && (
+            {/* View 14: Founder Workspace & Dashboard Suite (/founders/*) */}
+            {(currentPage === 'founder-dashboard' ||
+              currentPage === 'founder-overview' ||
+              currentPage === 'founder-articles' ||
+              currentPage === 'founder-podcasts' ||
+              currentPage === 'founder-planner' ||
+              currentPage === 'founder-distractions' ||
+              currentPage === 'founder-appointments') && (
               <FounderDashboard 
+                initialSubpage={currentPage === 'founder-dashboard' ? 'founder-overview' : currentPage}
+                onNavigateSubpage={(subpage) => navigateToPage(subpage)}
                 onSignOut={() => {
                   setFounderNotification(null);
                   navigateToPage('founder-login');
