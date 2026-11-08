@@ -41,6 +41,7 @@ export const FounderCommunityLanding: React.FC<FounderCommunityLandingProps> = (
         onNavigateToDigitalJobs={() => navigateToPage('digital-jobs')}
         onNavigateToFounderLogin={() => navigateToPage('founder-login')}
         onNavigateToFounderRegister={() => navigateToPage('founder-register')}
+        onNavigateToFoundersDirectory={() => navigateToPage('founder-directory')}
       />
 
       {/* 2. Hero Section */}

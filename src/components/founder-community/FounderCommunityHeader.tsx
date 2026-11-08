@@ -6,13 +6,15 @@ interface FounderCommunityHeaderProps {
   onNavigateToDigitalJobs?: () => void;
   onNavigateToFounderLogin?: () => void;
   onNavigateToFounderRegister?: () => void;
+  onNavigateToFoundersDirectory?: () => void;
 }
 
 export const FounderCommunityHeader: React.FC<FounderCommunityHeaderProps> = ({
   onJoinClick,
   onNavigateToDigitalJobs,
   onNavigateToFounderLogin,
-  onNavigateToFounderRegister
+  onNavigateToFounderRegister,
+  onNavigateToFoundersDirectory
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -66,6 +68,14 @@ export const FounderCommunityHeader: React.FC<FounderCommunityHeaderProps> = ({
           >
             Founder Stories
           </button>
+          {onNavigateToFoundersDirectory && (
+            <button
+              onClick={onNavigateToFoundersDirectory}
+              className="text-sm font-semibold text-neutral-600 hover:text-[#16834A] transition cursor-pointer"
+            >
+              Meet Founders
+            </button>
+          )}
           <button 
             onClick={() => scrollToSection('our-mission')}
             className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition cursor-pointer"
@@ -166,6 +176,17 @@ export const FounderCommunityHeader: React.FC<FounderCommunityHeaderProps> = ({
             Our Mission
           </button>
           
+          {onNavigateToFoundersDirectory && (
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onNavigateToFoundersDirectory();
+              }}
+              className="w-full text-left py-2.5 px-3 rounded-lg text-sm font-semibold text-[#16834A] hover:bg-emerald-50 transition"
+            >
+              Meet Founders
+            </button>
+          )}
           <button 
             onClick={() => scrollToSection('faq')}
             className="w-full text-left py-2.5 px-3 rounded-lg text-sm font-medium text-neutral-700 hover:text-neutral-900 hover:bg-slate-50 transition"

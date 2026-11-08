@@ -15,7 +15,7 @@ export const FounderArticleReaderModal: React.FC<FounderArticleReaderModalProps>
   isOpen,
   onClose,
   onShare,
-  authorName = 'Ezeji Patrick'
+  authorName = 'Founder'
 }) => {
   if (!isOpen || !article) return null;
 

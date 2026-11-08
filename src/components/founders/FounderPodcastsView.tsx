@@ -60,7 +60,7 @@ export const FounderPodcastsView: React.FC<FounderPodcastsViewProps> = ({
                   day: 'numeric',
                   year: 'numeric'
                 })
-              : 'Recent Episode';
+              : 'Date not provided';
 
             return (
               <div
@@ -73,11 +73,9 @@ export const FounderPodcastsView: React.FC<FounderPodcastsViewProps> = ({
                     onClick={() => onPlayPodcast(podcast)}
                     className="aspect-video w-full rounded-2xl overflow-hidden relative bg-slate-950 group/thumb cursor-pointer"
                   >
-                    <img 
-                      src={podcast.thumbnail_url || 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&w=800&q=80'} 
-                      alt={podcast.title} 
-                      className="w-full h-full object-cover group-hover/thumb:scale-105 transition duration-300 opacity-90 group-hover/thumb:opacity-100"
-                    />
+                    {podcast.thumbnail_url ? (
+                      <img src={podcast.thumbnail_url} alt={podcast.title} className="w-full h-full object-cover group-hover/thumb:scale-105 transition duration-300 opacity-90 group-hover/thumb:opacity-100" />
+                    ) : <div className="w-full h-full bg-slate-800" aria-label="No thumbnail available" />}
 
                     {/* Centered Play Button */}
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -87,9 +85,11 @@ export const FounderPodcastsView: React.FC<FounderPodcastsViewProps> = ({
                     </div>
 
                     {/* Duration badge */}
-                    <span className="absolute bottom-2.5 right-2.5 bg-black/85 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded">
-                      {podcast.duration_display}
-                    </span>
+                    {podcast.duration_display ? (
+                      <span className="absolute bottom-2.5 right-2.5 bg-black/85 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                        {podcast.duration_display}
+                      </span>
+                    ) : null}
                   </div>
 
                   {/* Title & Channel */}

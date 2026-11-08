@@ -147,8 +147,8 @@ BEGIN
   -- State 2: Active Window, Active Cooldown (v_now < window_end AND v_now < blocked_until)
   -- Request rejected. Client must wait for cooldown to expire.
   IF v_row.blocked_until IS NOT NULL AND v_now < v_row.blocked_until THEN
-    v_retry_after := pg_catalog.ceil(pg_catalog.extract(epoch FROM (v_row.blocked_until - v_now)))::INT;
-    v_reset_in := pg_catalog.ceil(pg_catalog.extract(epoch FROM (v_row.window_end - v_now)))::INT;
+    v_retry_after := pg_catalog.ceil(EXTRACT(EPOCH FROM (v_row.blocked_until - v_now)))::INT;
+    v_reset_in := pg_catalog.ceil(EXTRACT(EPOCH FROM (v_row.window_end - v_now)))::INT;
 
     RETURN pg_catalog.jsonb_build_object(
       'allowed', false,
@@ -163,7 +163,7 @@ BEGIN
   -- Cooldown has elapsed, but the original rate-limit window is still active.
   -- The counter remains exhausted (hits >= max_hits). No fresh attempts are granted until window_end.
   IF v_row.blocked_until IS NOT NULL AND v_now >= v_row.blocked_until THEN
-    v_retry_after := pg_catalog.ceil(pg_catalog.extract(epoch FROM (v_row.window_end - v_now)))::INT;
+    v_retry_after := pg_catalog.ceil(EXTRACT(EPOCH FROM (v_row.window_end - v_now)))::INT;
     v_reset_in := v_retry_after;
 
     RETURN pg_catalog.jsonb_build_object(
@@ -180,7 +180,7 @@ BEGIN
   IF v_row.hits < p_max_hits THEN
     v_hits := v_row.hits + 1;
     v_remaining := GREATEST(0, p_max_hits - v_hits);
-    v_reset_in := pg_catalog.ceil(pg_catalog.extract(epoch FROM (v_row.window_end - v_now)))::INT;
+    v_reset_in := pg_catalog.ceil(EXTRACT(EPOCH FROM (v_row.window_end - v_now)))::INT;
 
     UPDATE public.api_rate_limits
     SET hits = v_hits
@@ -203,10 +203,10 @@ BEGIN
   ELSE
     -- If no separate cooldown duration was configured (0), block for the remaining window duration
     v_blocked_until := v_row.window_end;
-    v_retry_after := pg_catalog.ceil(pg_catalog.extract(epoch FROM (v_row.window_end - v_now)))::INT;
+    v_retry_after := pg_catalog.ceil(EXTRACT(EPOCH FROM (v_row.window_end - v_now)))::INT;
   END IF;
 
-  v_reset_in := pg_catalog.ceil(pg_catalog.extract(epoch FROM (v_row.window_end - v_now)))::INT;
+  v_reset_in := pg_catalog.ceil(EXTRACT(EPOCH FROM (v_row.window_end - v_now)))::INT;
 
   UPDATE public.api_rate_limits
   SET hits = v_row.hits + 1,

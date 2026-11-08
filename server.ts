@@ -29,7 +29,6 @@ import {
 } from "./src/lib/seo-game/progressionEngine";
 
 dotenv.config();
-
 const app = express();
 const PORT = 3000;
 
@@ -614,247 +613,141 @@ app.post("/api/founder-applications", founderAppSubmissionLimiter, async (req, r
 // ==============================================================================
 
 // 0b. Founder Registration Endpoint
+// Auth users and profile rows are created as one fail-closed operation.
 app.post("/api/founders/register", founderRegisterLimiter, async (req, res) => {
+  let createdAuthUserId: string | null = null;
   try {
     const { full_name, email, password, business_name, website } = req.body || {};
-
     const cleanFullName = sanitizeText(full_name);
-    const cleanEmail = (email || "").trim().toLowerCase();
-    const cleanPassword = password || "";
+    const cleanEmail = String(email || "").trim().toLowerCase();
+    const cleanPassword = String(password || "");
     const cleanBusinessName = sanitizeText(business_name) || null;
     const cleanWebsite = sanitizeText(website) || null;
 
-    // 1. Validate required fields
-    if (!cleanFullName) {
-      return res.status(400).json({
-        success: false,
-        error: "Full Name is required."
-      });
+    if (cleanFullName.length < 2) {
+      return res.status(400).json({ success: false, error: "Please enter your complete full name." });
     }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!cleanEmail || !emailRegex.test(cleanEmail)) {
-      return res.status(400).json({
-        success: false,
-        error: "A valid email address is required."
-      });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return res.status(400).json({ success: false, error: "A valid email address is required." });
     }
-
-    if (!cleanPassword || cleanPassword.length < 8) {
-      return res.status(400).json({
-        success: false,
-        error: "Password must be at least 8 characters long."
-      });
+    if (cleanPassword.length < 8) {
+      return res.status(400).json({ success: false, error: "Password must be at least 8 characters long." });
+    }
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error("[Founder Register] SUPABASE_SERVICE_ROLE_KEY is not configured.");
+      return res.status(503).json({ success: false, error: "Founder registration is temporarily unavailable. Please contact support." });
     }
 
     const supabase = getSupabaseClient();
-    let authUserId: string | null = null;
-    let authUser: any = null;
-
-    // 2. Create user in Supabase Auth
-    try {
-      const { data: createData, error: createError } = await supabase.auth.admin.createUser({
-        email: cleanEmail,
-        password: cleanPassword,
-        email_confirm: true,
-        user_metadata: {
-          role: "founder",
-          full_name: cleanFullName,
-          business_name: cleanBusinessName,
-          website: cleanWebsite,
-          profile_status: "pending"
-        }
-      });
-
-      if (createError) {
-        const errMsg = (createError.message || "").toLowerCase();
-        if (errMsg.includes("already registered") || errMsg.includes("already been registered") || errMsg.includes("duplicate")) {
-          return res.status(409).json({
-            success: false,
-            error: "An account with this email address already exists. Please sign in instead."
-          });
-        }
-        console.warn("[Founder Register] admin.createUser notice:", createError.message);
-      } else if (createData?.user) {
-        authUserId = createData.user.id;
-        authUser = createData.user;
-      }
-    } catch (authEx: any) {
-      console.warn("[Founder Register] admin.createUser exception:", authEx?.message);
-    }
-
-    // Fallback: If admin.createUser failed or wasn't available, generate a stable UUID
-    if (!authUserId) {
-      // Check if user exists in auth.admin.listUsers
-      try {
-        const { data: listData } = await supabase.auth.admin.listUsers({ page: 1, perPage: 100 });
-        const existing = listData?.users?.find((u: any) => u.email?.toLowerCase() === cleanEmail);
-        if (existing) {
-          return res.status(409).json({
-            success: false,
-            error: "An account with this email address already exists. Please sign in instead."
-          });
-        }
-      } catch (_) {}
-      authUserId = randomUUID();
-    }
-
-    // 3. Assemble profile record (Status defaults to 'pending')
-    const profileRecord = {
-      id: authUserId,
-      user_id: authUserId,
-      full_name: cleanFullName,
+    const { data: createData, error: createError } = await supabase.auth.admin.createUser({
       email: cleanEmail,
-      business_name: cleanBusinessName,
-      website: cleanWebsite,
-      profile_status: "pending",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-
-    // 4. Try saving to public.founder_profiles in Supabase
-    try {
-      const { error: dbErr } = await supabase
-        .from("founder_profiles")
-        .upsert(profileRecord, { onConflict: "email" });
-
-      if (dbErr) {
-        console.warn("[Founder Register] Supabase founder_profiles notice:", dbErr.message);
-      }
-    } catch (sbErr: any) {
-      console.warn("[Founder Register] Supabase insert exception:", sbErr?.message);
-    }
-
-
-    console.log(`[Founder Registration] Successfully created founder account: ${cleanFullName} (${cleanEmail})`);
-
-    return res.status(201).json({
-      success: true,
-      message: "Account created successfully.",
-      user: {
-        id: authUserId,
-        email: cleanEmail,
+      password: cleanPassword,
+      email_confirm: true,
+      user_metadata: {
+        role: "founder",
         full_name: cleanFullName,
         business_name: cleanBusinessName,
         website: cleanWebsite,
         profile_status: "pending"
-      },
-      profile: profileRecord
+      }
     });
 
-  } catch (err: any) {
-    console.error("[Founder Register] Error:", err);
-    return res.status(500).json({
-      success: false,
-      error: "An unexpected error occurred while creating your account. Please try again."
+    if (createError || !createData?.user?.id) {
+      const message = (createError?.message || "").toLowerCase();
+      if (message.includes("already registered") || message.includes("already been registered") || message.includes("duplicate")) {
+        return res.status(409).json({ success: false, error: "An account with this email address already exists. Please sign in instead." });
+      }
+      console.error("[Founder Register] Auth user creation failed:", createError?.message || "No user returned");
+      return res.status(503).json({ success: false, error: "We could not create your account in the authentication service. Please try again." });
+    }
+
+    createdAuthUserId = createData.user.id;
+    const baseSlug = cleanFullName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "founder";
+    const profileRecord = {
+      id: createdAuthUserId,
+      full_name: cleanFullName,
+      email: cleanEmail,
+      business_name: cleanBusinessName,
+      website: cleanWebsite,
+      slug: `${baseSlug}-${createdAuthUserId.slice(0, 8)}`,
+      profile_status: "pending"
+    };
+
+    const { data: savedProfile, error: profileError } = await supabase
+      .from("founder_profiles")
+      .upsert(profileRecord, { onConflict: "id" })
+      .select("*")
+      .single();
+
+    if (profileError || !savedProfile) {
+      console.error("[Founder Register] Profile persistence failed:", profileError?.message || "No profile returned");
+      // Roll back the Auth user so no orphan account is reported as registered.
+      const { error: rollbackError } = await supabase.auth.admin.deleteUser(createdAuthUserId);
+      if (rollbackError) console.error("[Founder Register] Auth rollback failed:", rollbackError.message);
+      createdAuthUserId = null;
+      return res.status(500).json({ success: false, error: "Your authentication account was created, but the founder profile could not be saved. Please try again or contact support." });
+    }
+
+    console.log(`[Founder Registration] Created founder account ${createdAuthUserId}`);
+    return res.status(201).json({
+      success: true,
+      message: "Account created successfully. Your founder profile is awaiting approval.",
+      user: { id: createdAuthUserId, email: cleanEmail },
+      profile: savedProfile
     });
+  } catch (err: any) {
+    console.error("[Founder Register] Error:", err?.message || err);
+    if (createdAuthUserId) {
+      try {
+        const { error: rollbackError } = await getSupabaseClient().auth.admin.deleteUser(createdAuthUserId);
+        if (rollbackError) console.error("[Founder Register] Auth rollback failed:", rollbackError.message);
+      } catch (rollbackException: any) {
+        console.error("[Founder Register] Auth rollback exception:", rollbackException?.message);
+      }
+    }
+    return res.status(500).json({ success: false, error: "An unexpected error occurred while creating your account. Please try again." });
   }
 });
 
-// 0c. Founder Login Endpoint
+// 0c. Founder Login Verification Endpoint
+// Password authentication is performed by Supabase Auth in the browser. This endpoint,
+// retained for compatibility, accepts only a Supabase access token and never a password.
 app.post("/api/founders/login", founderLoginLimiter, async (req, res) => {
   try {
-    const { email, password } = req.body || {};
+    const authorization = String(req.headers.authorization || "");
+    const accessToken = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
+    if (!accessToken) {
+      return res.status(401).json({ success: false, error: "A valid Supabase access token is required." });
+    }
 
-    const cleanEmail = (email || "").trim().toLowerCase();
-    const cleanPassword = password || "";
-
-    if (!cleanEmail || !cleanPassword) {
-      return res.status(400).json({
-        success: false,
-        error: "Email and password are required."
-      });
+    const anonClient = getSupabaseAnonClient();
+    const { data: authData, error: authError } = await anonClient.auth.getUser(accessToken);
+    if (authError || !authData?.user) {
+      return res.status(401).json({ success: false, error: "Your sign-in session is invalid or expired." });
     }
 
     const supabase = getSupabaseClient();
-    let authUser: any = null;
-    let authSession: any = null;
-    let authFailed = false;
+    const { data: profile, error: profileError } = await supabase
+      .from("founder_profiles")
+      .select("*")
+      .eq("id", authData.user.id)
+      .maybeSingle();
 
-    // 1. Verify credentials with Supabase Auth
-    try {
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password: cleanPassword
-      });
-
-      if (!authError && authData?.user) {
-        authUser = authData.user;
-        authSession = authData.session;
-      } else if (authError) {
-        const msg = (authError.message || "").toLowerCase();
-        if (msg.includes("invalid login credentials") || msg.includes("invalid credentials")) {
-          authFailed = true;
-        }
-        console.warn("[Founder Login] signInWithPassword notice:", authError.message);
-      }
-    } catch (sbEx: any) {
-      console.warn("[Founder Login] signInWithPassword exception:", sbEx?.message);
+    if (profileError) {
+      console.error("[Founder Login] Profile lookup failed:", profileError.message);
+      return res.status(500).json({ success: false, error: "Unable to verify your founder profile." });
+    }
+    if (!profile) {
+      return res.status(404).json({ success: false, error: "No founder profile is linked to this account." });
+    }
+    if (profile.profile_status !== "approved") {
+      return res.status(403).json({ success: false, error: "Your founder profile must be approved before you can access the workspace." });
     }
 
-    if (authFailed) {
-      return res.status(401).json({
-        success: false,
-        error: "Invalid email or password. Please verify your credentials and try again."
-      });
-    }
-
-    // 2. Fetch founder profile from Supabase table or local persistence
-    let founderProfile: any = null;
-
-    try {
-      const { data: profileData } = await supabase
-        .from("founder_profiles")
-        .select("*")
-        .ilike("email", cleanEmail)
-        .maybeSingle();
-
-      if (profileData) {
-        founderProfile = profileData;
-      }
-    } catch (_) {}
-
-    // Recover missing profile row directly in Supabase if user exists in Auth
-    if (!founderProfile && authUser) {
-      founderProfile = {
-        id: authUser.id,
-        user_id: authUser.id,
-        full_name: authUser.user_metadata?.full_name || cleanEmail.split("@")[0],
-        email: cleanEmail,
-        business_name: authUser.user_metadata?.business_name || null,
-        website: authUser.user_metadata?.website || null,
-        profile_status: authUser.user_metadata?.profile_status || "pending",
-        created_at: authUser.created_at || new Date().toISOString()
-      };
-      try {
-        await supabase.from("founder_profiles").upsert(founderProfile, { onConflict: "email" });
-      } catch (_) {}
-    }
-
-    if (!founderProfile && !authUser) {
-      return res.status(401).json({
-        success: false,
-        error: "Invalid email or password. Please verify your credentials and try again."
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "Login successful.",
-      session: authSession,
-      user: authUser || {
-        id: founderProfile?.id,
-        email: cleanEmail
-      },
-      profile: founderProfile
-    });
-
+    return res.status(200).json({ success: true, profile });
   } catch (err: any) {
-    console.error("[Founder Login] Error:", err);
-    return res.status(500).json({
-      success: false,
-      error: "An unexpected error occurred during login. Please try again."
-    });
+    console.error("[Founder Login] Verification error:", err?.message || err);
+    return res.status(500).json({ success: false, error: "Unable to verify your founder session." });
   }
 });
 
@@ -890,50 +783,30 @@ app.post("/api/founders/reset-password", founderResetPasswordLimiter, async (req
   }
 });
 
-// 0e. Founder Profile Retrieval Endpoint
+// 0e. Public founder profile retrieval
+// Use an approved profile slug, never an email address. Only public-facing fields are returned.
 app.get("/api/founders/profile", async (req, res) => {
   try {
-    const emailParam = (req.query.email as string)?.trim().toLowerCase();
-    if (!emailParam) {
-      return res.status(400).json({ error: "Email query parameter is required." });
-    }
+    const slug = String(req.query.slug || "").trim();
+    if (!slug) return res.status(400).json({ success: false, error: "A public profile slug is required." });
 
     const supabase = getSupabaseClient();
-    let profile: any = null;
+    const { data: profile, error } = await supabase
+      .from("founder_profiles")
+      .select("id,full_name,headline,bio,avatar_url,slug,location,business_name,website")
+      .eq("slug", slug)
+      .eq("profile_status", "approved")
+      .maybeSingle();
 
-    try {
-      const { data } = await supabase
-        .from("founder_profiles")
-        .select("*")
-        .ilike("email", emailParam)
-        .maybeSingle();
-      if (data) profile = data;
-    } catch (_) {}
-
-    if (!profile && (emailParam === "dspacademyonline@gmail.com" || emailParam.includes("ezeji"))) {
-      profile = {
-        id: "founder_ezeji_patrick_dsp",
-        full_name: "Ezeji Patrick",
-        email: emailParam,
-        headline: "Founder, DSP Academy",
-        bio: "I'm a tech founder and community builder passionate about helping young Africans turn ideas into sustainable businesses through technology, skills and access to opportunities.",
-        business_name: "DSP Academy",
-        website: "https://dspacademy.online",
-        slug: "ezeji-patrick",
-        location: "Lagos, Nigeria",
-        profile_status: "approved",
-        avatar_url: "/assets/images/nigerian_founder_hero_1792406308716.jpg",
-        created_at: "2025-01-15T09:00:00Z"
-      };
+    if (error) {
+      console.error("[Founder Public Profile] Lookup failed:", error.message);
+      return res.status(500).json({ success: false, error: "Failed to fetch public founder profile." });
     }
-
-    if (!profile) {
-      return res.status(404).json({ error: "Profile not found." });
-    }
-
+    if (!profile) return res.status(404).json({ success: false, error: "Approved public profile not found." });
     return res.json({ success: true, profile });
   } catch (err: any) {
-    return res.status(500).json({ error: "Failed to fetch profile." });
+    console.error("[Founder Public Profile] Error:", err?.message || err);
+    return res.status(500).json({ success: false, error: "Failed to fetch public founder profile." });
   }
 });
 // META CONVERSIONS API (CAPI) SERVER PROXY & DISPATCH

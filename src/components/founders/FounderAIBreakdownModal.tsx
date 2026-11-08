@@ -30,7 +30,7 @@ export const FounderAIBreakdownModal: React.FC<FounderAIBreakdownModalProps> = (
 
     setIsGenerating(true);
 
-    // Realistic deterministic heuristics tailored for Nigerian and emerging tech startups
+    // Deterministic keyword-based suggestions; no external AI service is called.
     setTimeout(() => {
       const g = goalInput.toLowerCase();
       let suggestions: Array<{ title: string; priority: 'low' | 'medium' | 'high' | 'urgent'; estimatedMinutes: number; selected: boolean }> = [];
@@ -101,13 +101,13 @@ export const FounderAIBreakdownModal: React.FC<FounderAIBreakdownModalProps> = (
         <div className="border-b border-slate-100 pb-3 space-y-1">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-[10px] font-bold border border-emerald-200">
             <Sparkles className="w-3 h-3 text-emerald-600" />
-            <span>AI Task Breakdown</span>
+            <span>Task Breakdown Suggestions</span>
           </div>
           <h3 className="text-xl font-black text-slate-900">
             Break Down Milestone into Tasks
           </h3>
           <p className="text-xs text-slate-500">
-            Enter a big objective or milestone and get actionable sub-tasks added straight to today's planner.
+            Enter an objective or milestone to receive rule-based task suggestions. Review and select suggestions before they are saved to today's planner.
           </p>
         </div>
 
@@ -120,7 +120,7 @@ export const FounderAIBreakdownModal: React.FC<FounderAIBreakdownModalProps> = (
                 required
                 value={goalInput}
                 onChange={(e) => setGoalInput(e.target.value)}
-                placeholder="e.g. Secure our first 10 pilot schools for the DSP digital literacy program..."
+                placeholder="e.g. Complete customer discovery for a new product..."
                 className="w-full border border-slate-300 rounded-xl p-3 text-slate-800 focus:outline-none focus:border-emerald-500 bg-slate-50/50 focus:bg-white leading-relaxed text-xs"
               />
             </div>
@@ -141,12 +141,12 @@ export const FounderAIBreakdownModal: React.FC<FounderAIBreakdownModalProps> = (
                 {isGenerating ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Analyzing Milestone...</span>
+                    <span>Preparing Suggestions...</span>
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4" />
-                    <span>Generate Action Tasks</span>
+                    <span>Generate Task Suggestions</span>
                   </>
                 )}
               </button>

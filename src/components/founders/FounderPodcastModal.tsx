@@ -21,11 +21,11 @@ export const FounderPodcastModal: React.FC<FounderPodcastModalProps> = ({
   onSave
 }) => {
   const [title, setTitle] = useState('');
-  const [channelName, setChannelName] = useState('Ezeji Patrick Channel');
+  const [channelName, setChannelName] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
-  const [duration, setDuration] = useState('45:00');
+  const [duration, setDuration] = useState('');
   const [thumbnailUrl, setThumbnailUrl] = useState('');
-  const [recordedAt, setRecordedAt] = useState(new Date().toISOString().split('T')[0]);
+  const [recordedAt, setRecordedAt] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   if (!isOpen) return null;
@@ -42,16 +42,16 @@ export const FounderPodcastModal: React.FC<FounderPodcastModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !videoUrl.trim()) return;
+    if (!title.trim() || !channelName.trim() || !videoUrl.trim()) return;
     setIsSaving(true);
     try {
       await onSave({
         title: title.trim(),
-        channel_name: channelName.trim() || 'Digital Campux Stories',
+        channel_name: channelName.trim(),
         video_url: videoUrl.trim(),
-        duration_display: duration.trim() || '40:00',
-        thumbnail_url: thumbnailUrl.trim() || 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&w=800&q=80',
-        recorded_at: recordedAt
+        duration_display: duration.trim() || undefined,
+        thumbnail_url: thumbnailUrl.trim() || undefined,
+        recorded_at: recordedAt || undefined
       });
       onClose();
     } catch (e) {
@@ -101,7 +101,7 @@ export const FounderPodcastModal: React.FC<FounderPodcastModalProps> = ({
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
               onBlur={handleUrlBlur}
-              placeholder="https://www.youtube.com/watch?v=DrpZwdPNnIY"
+              placeholder="https://www.youtube.com/watch?v=VIDEO_ID"
               className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-500 bg-slate-50/50 focus:bg-white"
             />
           </div>
@@ -111,9 +111,10 @@ export const FounderPodcastModal: React.FC<FounderPodcastModalProps> = ({
               <label className="font-bold text-slate-700">Channel / Show Name</label>
               <input
                 type="text"
+                required
                 value={channelName}
                 onChange={(e) => setChannelName(e.target.value)}
-                placeholder="Ezeji Patrick Channel"
+                placeholder="Channel or show name"
                 className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-slate-800 focus:outline-none focus:border-emerald-500"
               />
             </div>

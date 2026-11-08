@@ -85,11 +85,12 @@ export const FounderVideoPlayerModal: React.FC<FounderVideoPlayerModalProps> = (
           <h2 className="text-base sm:text-lg font-bold text-white leading-snug">
             {podcast.title}
           </h2>
-          <div className="flex items-center gap-4 text-xs text-slate-400">
-            <span>Duration: {podcast.duration_display}</span>
-            <span>·</span>
-            <span>Recorded: {podcast.recorded_at}</span>
-          </div>
+          {(podcast.duration_display || podcast.recorded_at) ? (
+            <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400">
+              {podcast.duration_display ? <span>Duration: {podcast.duration_display}</span> : null}
+              {podcast.recorded_at ? <span>Recorded: {new Date(podcast.recorded_at).toLocaleDateString()}</span> : null}
+            </div>
+          ) : null}
         </div>
 
       </div>

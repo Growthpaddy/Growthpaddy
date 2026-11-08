@@ -211,7 +211,7 @@ export const FounderRegister: React.FC<FounderRegisterProps> = ({
                       setFieldErrors((prev) => ({ ...prev, full_name: '' }));
                     }
                   }}
-                  placeholder="e.g. Patrick Ezeji"
+                  placeholder="Your full name"
                   required
                   className={`w-full px-4 py-3 rounded-xl border ${
                     fieldErrors.full_name 
@@ -266,7 +266,7 @@ export const FounderRegister: React.FC<FounderRegisterProps> = ({
                         setFieldErrors((prev) => ({ ...prev, password: '' }));
                       }
                     }}
-                    placeholder="Create a secure password (min. 6 characters)"
+                    placeholder="Create a secure password (min. 8 characters)"
                     required
                     className={`w-full px-4 py-3 pr-12 rounded-xl border ${
                       fieldErrors.password 
@@ -304,7 +304,7 @@ export const FounderRegister: React.FC<FounderRegisterProps> = ({
                   type="text"
                   value={businessName}
                   onChange={(e) => setBusinessName(e.target.value)}
-                  placeholder="e.g. PayHaven or AgroLink Technologies"
+                  placeholder="Your business or venture name"
                   className="w-full px-4 py-3 rounded-xl border border-neutral-300 bg-white hover:border-neutral-400 text-sm text-[#111111] placeholder-neutral-400 focus:outline-none focus:border-[#16834A] focus:ring-2 focus:ring-[#16834A]/20 transition"
                 />
               </div>

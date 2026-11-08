@@ -32,7 +32,7 @@ export const FounderArticlesView: React.FC<FounderArticlesViewProps> = ({
   onReadArticle,
   onShareArticle
 }) => {
-  const [activeTab, setActiveTab] = useState<'all' | 'published' | 'draft' | 'pending_review'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'published' | 'draft' | 'pending_review' | 'archived'>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredArticles = articles.filter(article => {
@@ -52,6 +52,7 @@ export const FounderArticlesView: React.FC<FounderArticlesViewProps> = ({
   const publishedCount = articles.filter(a => a.status === 'published').length;
   const draftCount = articles.filter(a => a.status === 'draft').length;
   const pendingCount = articles.filter(a => a.status === 'pending_review').length;
+  const archivedCount = articles.filter(a => a.status === 'archived').length;
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-fadeIn">
@@ -124,6 +125,17 @@ export const FounderArticlesView: React.FC<FounderArticlesViewProps> = ({
           >
             Under Review ({pendingCount})
           </button>
+
+          <button
+            onClick={() => setActiveTab('archived')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+              activeTab === 'archived'
+                ? 'bg-[#059669] text-white shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            Archived ({archivedCount})
+          </button>
         </div>
 
         {/* Search input */}
@@ -166,21 +178,21 @@ export const FounderArticlesView: React.FC<FounderArticlesViewProps> = ({
                 <div className="space-y-3.5">
                   {/* Cover Image & Tags */}
                   <div className="aspect-video w-full rounded-2xl overflow-hidden relative bg-slate-100">
-                    <img 
-                      src={article.cover_image_url || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=800&q=80'} 
-                      alt={article.title} 
-                      className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                    />
+                    {article.cover_image_url ? (
+                      <img src={article.cover_image_url} alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                    ) : <div className="w-full h-full bg-slate-100" aria-label="No cover image" />}
                     
                     {/* Status Pill */}
                     <span className={`absolute top-2.5 left-2.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-2xs ${
-                      isPublished 
-                        ? 'bg-emerald-600 text-white' 
+                      isPublished
+                        ? 'bg-emerald-600 text-white'
                         : article.status === 'pending_review'
                         ? 'bg-amber-600 text-white'
+                        : article.status === 'archived'
+                        ? 'bg-slate-500 text-white'
                         : 'bg-slate-800 text-white'
                     }`}>
-                      {isPublished ? 'Published' : article.status === 'pending_review' ? 'Pending Review' : 'Draft'}
+                      {isPublished ? 'Published' : article.status === 'pending_review' ? 'Pending Review' : article.status === 'archived' ? 'Archived' : 'Draft'}
                     </span>
 
                     {/* Reading Time */}

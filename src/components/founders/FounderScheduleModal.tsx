@@ -85,7 +85,7 @@ export const FounderScheduleModal: React.FC<FounderScheduleModalProps> = ({
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Founder Mentorship Session (EdTech Pilot Review)"
+              placeholder="Meeting purpose or subject"
               className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-900 font-semibold focus:outline-none focus:border-emerald-500 bg-slate-50/50 focus:bg-white"
             />
           </div>
@@ -101,7 +101,7 @@ export const FounderScheduleModal: React.FC<FounderScheduleModalProps> = ({
                 required
                 value={attendeeName}
                 onChange={(e) => setAttendeeName(e.target.value)}
-                placeholder="e.g. Chinedu Okeke"
+                placeholder="Attendee full name"
                 className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-slate-800 focus:outline-none focus:border-emerald-500"
               />
             </div>
@@ -115,7 +115,7 @@ export const FounderScheduleModal: React.FC<FounderScheduleModalProps> = ({
                 type="email"
                 value={attendeeEmail}
                 onChange={(e) => setAttendeeEmail(e.target.value)}
-                placeholder="chinedu@example.com"
+                placeholder="name@example.com"
                 className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-slate-800 focus:outline-none focus:border-emerald-500"
               />
             </div>

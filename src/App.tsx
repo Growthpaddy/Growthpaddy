@@ -58,6 +58,8 @@ import FounderCommunityLanding from './pages/FounderCommunityLanding';
 import { FounderRegister } from './pages/founders/FounderRegister';
 import { FounderLogin } from './pages/founders/FounderLogin';
 import { FounderDashboard } from './pages/founders/FounderDashboard';
+import FounderDirectoryPage from './pages/founders/FounderDirectoryPage';
+import FounderFloatingAccess from './components/founders/FounderFloatingAccess';
 import { PageType } from './types';
 
 export default function App() {
@@ -101,6 +103,7 @@ export default function App() {
       case 'admin-login': return '/admin/login';
       case 'admin-register': return '/admin/register';
       case 'admin-approvals': return '/admin/approvals';
+      case 'founder-directory': return '/founders';
       case 'founder-register': return '/founders/register';
       case 'founder-login': return '/founders/login';
       case 'founder-dashboard': return '/founders/dashboard';
@@ -190,6 +193,9 @@ export default function App() {
     }
     if (lower === '/admin/dashboard' || lower === '/admin-dashboard' || lower === '/admin' || lower === '/admin-profile') {
       return { page: 'admin-dashboard' };
+    }
+    if (lower === '/founders') {
+      return { page: 'founder-directory' };
     }
     if (lower === '/founders/register' || lower === '/founder/register' || lower === '/founders-register') {
       return { page: 'founder-register' };
@@ -993,6 +999,11 @@ export default function App() {
               </ProtectedRoute>
             )}
 
+            {/* Public approved-founder directory (/founders) */}
+            {currentPage === 'founder-directory' && (
+              <FounderDirectoryPage canManageWeeklyFeatures={Boolean(adminUser && adminProfile?.is_active && adminProfile.user_id === adminUser.id)} />
+            )}
+
             {/* View 12: Founder Registration (/founders/register) */}
             {currentPage === 'founder-register' && (
               <FounderRegister 
@@ -1034,7 +1045,7 @@ export default function App() {
                 onNavigateSubpage={(subpage) => navigateToPage(subpage)}
                 onSignOut={() => {
                   setFounderNotification(null);
-                  navigateToPage('founder-login');
+                  window.location.assign('/');
                 }}
                 onNavigateHome={() => navigateToPage('home')}
                 onNavigateToDigitalJobs={() => navigateToPage('digital-jobs')}
@@ -1044,6 +1055,21 @@ export default function App() {
           </motion.div>
         </AnimatePresence>
       </main>
+
+      <FounderFloatingAccess
+        hidden={[
+          'founder-register',
+          'founder-login',
+          'founder-dashboard',
+          'founder-overview',
+          'founder-articles',
+          'founder-podcasts',
+          'founder-planner',
+          'founder-distractions',
+          'founder-appointments'
+        ].includes(currentPage)}
+        onGoToDashboard={() => navigateToPage('founder-overview')}
+      />
 
       {/* FOOTER MODAL - HIRE GENERAL FORM */}
       {isHireModalOpen && (

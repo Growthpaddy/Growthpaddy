@@ -162,16 +162,17 @@ export type PageType =
   | 'founder-podcasts'
   | 'founder-planner'
   | 'founder-distractions'
-  | 'founder-appointments';
+  | 'founder-appointments'
+  | 'founder-directory';
 
 export interface FounderArticle {
   id: string;
   founder_id?: string;
   title: string;
   slug: string;
-  excerpt?: string;
+  excerpt?: string | null;
   content: string;
-  cover_image_url?: string;
+  cover_image_url?: string | null;
   reading_time_minutes: number;
   status: 'draft' | 'pending_review' | 'published' | 'archived';
   views_count?: number;
@@ -186,10 +187,10 @@ export interface FounderPodcast {
   title: string;
   channel_name: string;
   video_url: string;
-  embed_url?: string;
-  duration_display: string;
-  thumbnail_url?: string;
-  recorded_at: string;
+  embed_url?: string | null;
+  duration_display?: string | null;
+  thumbnail_url?: string | null;
+  recorded_at?: string | null;
   created_at?: string;
 }
 
@@ -229,12 +230,12 @@ export interface FounderAppointment {
   founder_id?: string;
   title: string;
   attendee_name: string;
-  attendee_email?: string;
+  attendee_email?: string | null;
   start_time: string;
-  end_time?: string;
-  meeting_url?: string;
+  end_time?: string | null;
+  meeting_url?: string | null;
   status: 'upcoming' | 'completed' | 'cancelled';
-  notes?: string;
+  notes?: string | null;
   created_at?: string;
 }
 

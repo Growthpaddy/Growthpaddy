@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Calendar, 
   Target, 
@@ -22,7 +22,7 @@ import {
 } from '../../types';
 
 interface FounderPlannerViewProps {
-  dailyGoal: FounderDailyGoal;
+  dailyGoal: FounderDailyGoal | null;
   tasks: FounderTask[];
   objectives: FounderObjective[];
   keyResults: FounderKeyResult[];
@@ -48,13 +48,18 @@ export const FounderPlannerView: React.FC<FounderPlannerViewProps> = ({
   const [newTaskPriority, setNewTaskPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
   const [newTaskMinutes, setNewTaskMinutes] = useState(30);
   const [isEditingGoal, setIsEditingGoal] = useState(false);
-  const [goalInput, setGoalInput] = useState(dailyGoal.title);
-  const [benchmarkInput, setBenchmarkInput] = useState(dailyGoal.benchmark_percent);
+  const [goalInput, setGoalInput] = useState(dailyGoal?.title || '');
+  const [benchmarkInput, setBenchmarkInput] = useState(dailyGoal?.benchmark_percent ?? 80);
+
+  useEffect(() => {
+    setGoalInput(dailyGoal?.title || '');
+    setBenchmarkInput(dailyGoal?.benchmark_percent ?? 80);
+  }, [dailyGoal]);
 
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter(t => t.is_completed).length;
   const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-  const isBenchmarkMet = progressPercent >= dailyGoal.benchmark_percent;
+  const isBenchmarkMet = Boolean(dailyGoal) && progressPercent >= (dailyGoal?.benchmark_percent ?? 0);
 
   const handleCreateTask = (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,7 +107,7 @@ export const FounderPlannerView: React.FC<FounderPlannerViewProps> = ({
           className="self-start sm:self-auto inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs sm:text-sm px-5 py-2.5 rounded-xl shadow-xs transition active:scale-[0.98] cursor-pointer"
         >
           <Sparkles className="w-4 h-4 text-emerald-200" />
-          <span>Break Down Goal with AI</span>
+          <span>Break Down Goal</span>
         </button>
       </div>
 
@@ -154,17 +159,17 @@ export const FounderPlannerView: React.FC<FounderPlannerViewProps> = ({
             ) : (
               <div className="flex items-center gap-3 group">
                 <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
-                  {dailyGoal.title}
+                  {dailyGoal?.title || 'No daily goal set for today.'}
                 </h2>
                 <button
                   onClick={() => {
-                    setGoalInput(dailyGoal.title);
-                    setBenchmarkInput(dailyGoal.benchmark_percent);
+                    setGoalInput(dailyGoal?.title || '');
+                    setBenchmarkInput(dailyGoal?.benchmark_percent ?? 80);
                     setIsEditingGoal(true);
                   }}
                   className="text-xs text-emerald-700 hover:underline font-bold cursor-pointer opacity-80 group-hover:opacity-100"
                 >
-                  Edit Goal
+                  {dailyGoal ? 'Edit Goal' : 'Set Goal'}
                 </button>
               </div>
             )}
@@ -184,7 +189,7 @@ export const FounderPlannerView: React.FC<FounderPlannerViewProps> = ({
                 <Flame className="w-5 h-5 fill-emerald-500 text-emerald-500" />
               </div>
             ) : (
-              <div className="w-10 h-10 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center" title={`Target: ${dailyGoal.benchmark_percent}%`}>
+              <div className="w-10 h-10 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center" title={dailyGoal ? `Target: ${dailyGoal.benchmark_percent}%` : 'No benchmark set'}>
                 <Target className="w-5 h-5" />
               </div>
             )}
@@ -202,10 +207,10 @@ export const FounderPlannerView: React.FC<FounderPlannerViewProps> = ({
             />
           </div>
           <div className="flex items-center justify-between text-xs text-slate-500">
-            <span>Minimum Target: {dailyGoal.benchmark_percent}% completion</span>
-            <span className={isBenchmarkMet ? 'text-emerald-700 font-bold' : 'text-slate-500'}>
+            <span>{dailyGoal ? `Minimum Target: ${dailyGoal.benchmark_percent}% completion` : 'Set a daily goal to define your benchmark.'}</span>
+            {dailyGoal && <span className={isBenchmarkMet ? 'text-emerald-700 font-bold' : 'text-slate-500'}>
               {isBenchmarkMet ? '✓ Daily Benchmark Achieved' : `${Math.max(0, dailyGoal.benchmark_percent - progressPercent)}% to target`}
-            </span>
+            </span>}
           </div>
         </div>
       </div>
@@ -325,7 +330,7 @@ export const FounderPlannerView: React.FC<FounderPlannerViewProps> = ({
               ))
             ) : (
               <div className="text-center py-8 text-slate-400 text-xs">
-                No tasks added for today yet. Use the form above or generate with AI.
+                No tasks added for today yet. Use the form above or break down a milestone into suggested tasks.
               </div>
             )}
           </div>
@@ -338,16 +343,16 @@ export const FounderPlannerView: React.FC<FounderPlannerViewProps> = ({
             <div className="flex items-center gap-2">
               <Award className="w-4 h-4 text-emerald-600" />
               <h3 className="font-black text-base text-slate-900 tracking-tight">
-                Quarterly OKRs
+                Your Objectives
               </h3>
             </div>
-            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full">
-              Q1 2025
-            </span>
+
           </div>
 
           <div className="space-y-4">
-            {objectives.map((obj) => {
+            {objectives.length === 0 ? (
+              <p className="text-xs text-slate-500 text-center py-8">No objectives created yet.</p>
+            ) : objectives.map((obj) => {
               const matchedKRs = keyResults.filter(kr => kr.objective_id === obj.id);
 
               return (

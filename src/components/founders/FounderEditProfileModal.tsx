@@ -20,7 +20,7 @@ export const FounderEditProfileModal: React.FC<FounderEditProfileModalProps> = (
   const [businessName, setBusinessName] = useState(profile.business_name || '');
   const [bio, setBio] = useState(profile.bio || '');
   const [website, setWebsite] = useState(profile.website || '');
-  const [location, setLocation] = useState(profile.location || 'Lagos, Nigeria');
+  const [location, setLocation] = useState(profile.location || '');
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url || '');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -91,7 +91,7 @@ export const FounderEditProfileModal: React.FC<FounderEditProfileModalProps> = (
                 type="text"
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
-                placeholder="e.g. DSP Academy"
+                placeholder="Your business or venture"
                 className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-500 bg-slate-50/50 focus:bg-white"
               />
             </div>
@@ -103,7 +103,7 @@ export const FounderEditProfileModal: React.FC<FounderEditProfileModalProps> = (
               type="text"
               value={headline}
               onChange={(e) => setHeadline(e.target.value)}
-              placeholder="e.g. Founder, DSP Academy"
+              placeholder="Your role or headline"
               className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-500 bg-slate-50/50 focus:bg-white"
             />
           </div>
@@ -145,7 +145,7 @@ export const FounderEditProfileModal: React.FC<FounderEditProfileModalProps> = (
                 type="text"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                placeholder="Lagos, Nigeria"
+                placeholder="City, country"
                 className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-slate-800 focus:outline-none focus:border-emerald-500 bg-slate-50/50 focus:bg-white"
               />
             </div>

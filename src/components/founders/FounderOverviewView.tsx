@@ -29,7 +29,7 @@ interface FounderOverviewViewProps {
   publishedArticles: FounderArticle[];
   draftArticles: FounderArticle[];
   podcasts: FounderPodcast[];
-  dailyGoal: FounderDailyGoal;
+  dailyGoal: FounderDailyGoal | null;
   todayTasks: FounderTask[];
   distractions: FounderDistraction[];
   stats: {
@@ -79,8 +79,7 @@ export const FounderOverviewView: React.FC<FounderOverviewViewProps> = ({
   };
 
   const firstName = profile.full_name?.split(' ')[0] || 'Founder';
-  const publicSlug = profile.slug || 'ezeji-patrick';
-  const publicUrlText = `digitalcampux.com/founders/${publicSlug}`;
+  const publicUrlText = profile.slug ? `digitalcampux.com/founders/${profile.slug}` : 'Set your public profile URL';
 
   // Top 3 published articles for the grid
   const recentPublished = publishedArticles.slice(0, 3);
@@ -89,7 +88,7 @@ export const FounderOverviewView: React.FC<FounderOverviewViewProps> = ({
   // Distractions active today
   const activeDistractions = distractions.filter(d => d.is_active_today).slice(0, 4);
 
-  // Formatted date string for today's focus (e.g. "Tue, Mar 11, 2025")
+  // Formatted date string for the current local date
   const todayDateDisplay = new Date().toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
@@ -147,19 +146,19 @@ export const FounderOverviewView: React.FC<FounderOverviewViewProps> = ({
                   {profile.full_name}
                 </h2>
                 <p className="text-sm font-bold text-[#059669] mt-0.5">
-                  {profile.headline || `Founder, ${profile.business_name || 'DSP Academy'}`}
+                  {profile.headline || profile.business_name || 'Founder'}
                 </p>
               </div>
 
               <p className="text-xs sm:text-[13px] text-slate-600 leading-relaxed">
-                {profile.bio || "I'm a tech founder and community builder passionate about helping young Africans turn ideas into sustainable businesses through technology, skills and access to opportunities."}
+                {profile.bio || 'No profile bio added yet.'}
               </p>
 
               {/* Status & Public Link Row */}
               <div className="flex flex-wrap items-center gap-3 pt-1">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Published</span>
+                  <span>{profile.profile_status === 'approved' ? 'Approved' : profile.profile_status}</span>
                 </span>
 
                 <button
@@ -331,7 +330,7 @@ export const FounderOverviewView: React.FC<FounderOverviewViewProps> = ({
                         day: 'numeric',
                         year: 'numeric'
                       })
-                    : 'Recently Published';
+                    : 'Date not provided';
 
                   return (
                     <div
@@ -341,11 +340,9 @@ export const FounderOverviewView: React.FC<FounderOverviewViewProps> = ({
                       <div className="space-y-3">
                         {/* Cover Image */}
                         <div className="aspect-video w-full rounded-xl overflow-hidden relative bg-slate-100">
-                          <img 
-                            src={article.cover_image_url || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=800&q=80'} 
-                            alt={article.title} 
-                            className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                          />
+                          {article.cover_image_url ? (
+                            <img src={article.cover_image_url} alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                          ) : <div className="w-full h-full bg-slate-100" aria-label="No cover image" />}
                           <span className="absolute top-2 right-2 bg-black/75 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
                             {article.reading_time_minutes} min read
                           </span>
@@ -429,7 +426,7 @@ export const FounderOverviewView: React.FC<FounderOverviewViewProps> = ({
                         day: 'numeric',
                         year: 'numeric'
                       })
-                    : 'Recent Episode';
+                    : 'Date not provided';
 
                   return (
                     <div
@@ -442,11 +439,9 @@ export const FounderOverviewView: React.FC<FounderOverviewViewProps> = ({
                           onClick={() => onPlayPodcast(podcast)}
                           className="aspect-video w-full rounded-xl overflow-hidden relative bg-slate-900 group/thumb cursor-pointer"
                         >
-                          <img 
-                            src={podcast.thumbnail_url || 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&w=800&q=80'} 
-                            alt={podcast.title} 
-                            className="w-full h-full object-cover group-hover/thumb:scale-105 transition duration-300 opacity-90 group-hover/thumb:opacity-100"
-                          />
+                          {podcast.thumbnail_url ? (
+                            <img src={podcast.thumbnail_url} alt={podcast.title} className="w-full h-full object-cover group-hover/thumb:scale-105 transition duration-300 opacity-90 group-hover/thumb:opacity-100" />
+                          ) : <div className="w-full h-full bg-slate-800" aria-label="No thumbnail available" />}
                           
                           {/* Play Button Overlay */}
                           <div className="absolute inset-0 flex items-center justify-center">
@@ -456,9 +451,11 @@ export const FounderOverviewView: React.FC<FounderOverviewViewProps> = ({
                           </div>
 
                           {/* Duration Pill */}
-                          <span className="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-bold px-2 py-0.5 rounded">
-                            {podcast.duration_display}
-                          </span>
+                          {podcast.duration_display ? (
+                            <span className="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                              {podcast.duration_display}
+                            </span>
+                          ) : null}
                         </div>
 
                         {/* Title & Channel */}
@@ -542,7 +539,7 @@ export const FounderOverviewView: React.FC<FounderOverviewViewProps> = ({
               </div>
               
               <p className="text-xs text-slate-600 leading-relaxed font-normal">
-                {dailyGoal.title}
+                {dailyGoal?.title || 'No daily goal set for today.'}
               </p>
             </div>
 
@@ -557,7 +554,7 @@ export const FounderOverviewView: React.FC<FounderOverviewViewProps> = ({
 
               <div className="flex items-center justify-between text-[11px] text-slate-500 pt-0.5">
                 <span>{stats.completedTasksCount} of {stats.totalTasksCount} tasks completed</span>
-                <span>Daily benchmark: {dailyGoal.benchmark_percent}%</span>
+                <span>{dailyGoal ? `Daily benchmark: ${dailyGoal.benchmark_percent}%` : 'No benchmark set'}</span>
               </div>
             </div>
 

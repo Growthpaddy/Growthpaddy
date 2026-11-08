@@ -78,12 +78,16 @@ export const FounderDashboardLayout: React.FC<FounderDashboardLayoutProps> = ({
   ];
 
   const handleSignOutClick = async () => {
-    await logoutFounder();
-    onSignOut();
+    try {
+      await logoutFounder();
+      onSignOut();
+    } catch (error) {
+      console.error('Founder sign-out failed:', error);
+    }
   };
 
   const displayName = profile.full_name || 'Founder';
-  const displayTitle = profile.headline || 'Founder, Emerging Business';
+  const displayTitle = profile.headline || (profile.business_name ? `Founder at ${profile.business_name}` : 'Founder');
   const avatarUrl = profile.avatar_url;
 
   // Determine subpage title for breadcrumbs
@@ -353,38 +357,13 @@ export const FounderDashboardLayout: React.FC<FounderDashboardLayoutProps> = ({
                 aria-label="Notifications"
               >
                 <Bell className="w-4 h-4" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white" />
               </button>
 
               {/* Notification Popover */}
               {isNotificationsOpen && (
-                <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 p-3.5 space-y-2.5 z-40 animate-fadeIn">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                    <span className="text-xs font-bold text-slate-900">Notifications</span>
-                    <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full">
-                      Live Updates
-                    </span>
-                  </div>
-                  <div className="space-y-2 text-xs">
-                    <div className="p-2 rounded-xl bg-emerald-50/70 border border-emerald-100/80 flex items-start gap-2">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="font-semibold text-emerald-950">Profile Active</p>
-                        <p className="text-[11px] text-emerald-800 leading-snug">
-                          Your founder profile is public and ready to receive community inquiries.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="p-2 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-2">
-                      <Calendar className="w-3.5 h-3.5 text-slate-500 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="font-semibold text-slate-800">Daily Focus Benchmark</p>
-                        <p className="text-[11px] text-slate-600 leading-snug">
-                          Target 80% task completion to maintain top founder momentum.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 p-4 z-40 animate-fadeIn">
+                  <span className="text-xs font-bold text-slate-900">Notifications</span>
+                  <p className="text-xs text-slate-500 mt-3">No notifications yet.</p>
                 </div>
               )}
             </div>

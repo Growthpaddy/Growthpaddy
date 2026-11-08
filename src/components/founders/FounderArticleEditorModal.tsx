@@ -19,9 +19,12 @@ export const FounderArticleEditorModal: React.FC<FounderArticleEditorModalProps>
   const [slug, setSlug] = useState(initialArticle?.slug || '');
   const [excerpt, setExcerpt] = useState(initialArticle?.excerpt || '');
   const [content, setContent] = useState(initialArticle?.content || '');
-  const [coverImageUrl, setCoverImageUrl] = useState(initialArticle?.cover_image_url || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=800&q=80');
-  const [readingTime, setReadingTime] = useState(initialArticle?.reading_time_minutes || 5);
-  const [status, setStatus] = useState<'draft' | 'published' | 'pending_review'>(initialArticle?.status || 'published');
+  const [coverImageUrl, setCoverImageUrl] = useState(initialArticle?.cover_image_url || '');
+  const [readingTimeOverride, setReadingTimeOverride] = useState<number | null>(null);
+  const estimatedReadingTime = content.trim()
+    ? Math.max(1, Math.ceil((content.trim().match(/\S+/g) || []).length / 200))
+    : null;
+  const readingTime = readingTimeOverride ?? (initialArticle?.content === content ? initialArticle?.reading_time_minutes ?? estimatedReadingTime : estimatedReadingTime);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
@@ -34,10 +37,8 @@ export const FounderArticleEditorModal: React.FC<FounderArticleEditorModalProps>
   };
 
   const handleSubmit = async (submitStatus: 'draft' | 'published') => {
-    if (!title.trim()) {
-      alert('Please enter an article title.');
-      return;
-    }
+    if (!title.trim()) { alert('Please enter an article title.'); return; }
+    if (!content.trim()) { alert('Please enter the article content.'); return; }
     setIsSubmitting(true);
     try {
       await onSave({
@@ -45,9 +46,9 @@ export const FounderArticleEditorModal: React.FC<FounderArticleEditorModalProps>
         title: title.trim(),
         slug: slug.trim() || title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
         excerpt: excerpt.trim(),
-        content: content.trim() || 'No content provided.',
+        content: content.trim(),
         cover_image_url: coverImageUrl.trim(),
-        reading_time_minutes: readingTime,
+        reading_time_minutes: readingTime ?? 1,
         status: submitStatus
       });
       onClose();
@@ -108,8 +109,8 @@ export const FounderArticleEditorModal: React.FC<FounderArticleEditorModalProps>
                 type="number"
                 min="1"
                 max="60"
-                value={readingTime}
-                onChange={(e) => setReadingTime(Number(e.target.value))}
+                value={readingTime ?? ''}
+                onChange={(e) => setReadingTimeOverride(e.target.value === '' ? null : Math.max(1, Number(e.target.value)))}
                 className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-slate-700 focus:outline-none focus:border-emerald-500 text-center font-bold"
               />
             </div>
@@ -121,7 +122,7 @@ export const FounderArticleEditorModal: React.FC<FounderArticleEditorModalProps>
               type="text"
               value={coverImageUrl}
               onChange={(e) => setCoverImageUrl(e.target.value)}
-              placeholder="https://images.unsplash.com/..."
+              placeholder="https://your-image-url.example/image.jpg"
               className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-slate-700 focus:outline-none focus:border-emerald-500"
             />
           </div>
@@ -176,7 +177,7 @@ export const FounderArticleEditorModal: React.FC<FounderArticleEditorModalProps>
                 className="bg-[#059669] hover:bg-emerald-700 text-white font-bold px-6 py-2.5 rounded-xl shadow-xs transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 <Send className="w-4 h-4" />
-                <span>{isSubmitting ? 'Publishing...' : 'Publish Article'}</span>
+                <span>{isSubmitting ? 'Submitting...' : 'Submit for Review'}</span>
               </button>
             </div>
           </div>

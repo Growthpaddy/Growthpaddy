@@ -39,13 +39,16 @@ export const FounderPublicProfileModal: React.FC<FounderPublicProfileModalProps>
 
   if (!isOpen) return null;
 
-  const publicSlug = profile.slug || 'ezeji-patrick';
-  const fullShareUrl = `https://digitalcampux.com/founders/${publicSlug}`;
+  const fullShareUrl = profile.slug ? `https://digitalcampux.com/founders/${profile.slug}` : null;
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(fullShareUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
+    if (!fullShareUrl) return;
+    void navigator.clipboard.writeText(fullShareUrl).then(() => {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2500);
+    }).catch((error) => {
+      console.error('Unable to copy founder profile link:', error);
+    });
   };
 
   return (
@@ -84,12 +87,13 @@ export const FounderPublicProfileModal: React.FC<FounderPublicProfileModalProps>
                       {profile.full_name}
                     </h1>
                     <p className="text-sm font-bold text-[#059669] mt-0.5">
-                      {profile.headline || `Founder, ${profile.business_name || 'DSP Academy'}`}
+                      {profile.headline || profile.business_name || 'Founder'}
                     </p>
                   </div>
 
                   <button
                     onClick={handleCopyLink}
+                    disabled={!fullShareUrl}
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition"
                   >
                     {copied ? (
@@ -107,7 +111,7 @@ export const FounderPublicProfileModal: React.FC<FounderPublicProfileModalProps>
                 </div>
 
                 <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                  {profile.bio || "Tech founder and community builder passionate about helping young Africans turn ideas into sustainable businesses."}
+                  {profile.bio || 'No profile bio added yet.'}
                 </p>
 
                 {/* Metadata Pills */}
@@ -156,11 +160,17 @@ export const FounderPublicProfileModal: React.FC<FounderPublicProfileModalProps>
                   >
                     <div className="space-y-2.5">
                       <div className="aspect-video w-full rounded-xl overflow-hidden bg-slate-100 relative">
-                        <img 
-                          src={article.cover_image_url || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=800&q=80'} 
-                          alt={article.title} 
-                          className="w-full h-full object-cover group-hover:scale-105 transition"
-                        />
+                        {article.cover_image_url ? (
+                          <img
+                            src={article.cover_image_url}
+                            alt={article.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-400" aria-label="No article image available">
+                            <FileText className="w-8 h-8" />
+                          </div>
+                        )}
                         <span className="absolute top-2 right-2 bg-black/75 text-white text-[10px] font-bold px-2 py-0.5 rounded">
                           {article.reading_time_minutes} min read
                         </span>
@@ -172,7 +182,7 @@ export const FounderPublicProfileModal: React.FC<FounderPublicProfileModalProps>
                     </div>
 
                     <div className="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-                      <span>{article.published_at ? new Date(article.published_at).toLocaleDateString() : 'Recent'}</span>
+                      <span>{article.published_at ? new Date(article.published_at).toLocaleDateString() : 'Date not provided'}</span>
                       <span className="text-emerald-700 font-bold group-hover:underline">Read →</span>
                     </div>
                   </div>
@@ -204,19 +214,27 @@ export const FounderPublicProfileModal: React.FC<FounderPublicProfileModalProps>
                   >
                     <div className="space-y-2.5">
                       <div className="aspect-video w-full rounded-xl overflow-hidden bg-slate-900 relative">
-                        <img 
-                          src={podcast.thumbnail_url || 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&w=800&q=80'} 
-                          alt={podcast.title} 
-                          className="w-full h-full object-cover group-hover:scale-105 transition"
-                        />
+                        {podcast.thumbnail_url ? (
+                          <img
+                            src={podcast.thumbnail_url}
+                            alt={podcast.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-500" aria-label="No podcast thumbnail available">
+                            <PlaySquare className="w-9 h-9" />
+                          </div>
+                        )}
                         <div className="absolute inset-0 flex items-center justify-center">
                           <div className="w-10 h-10 rounded-full bg-white text-emerald-700 flex items-center justify-center shadow-lg">
                             <Play className="w-4 h-4 fill-emerald-700 ml-0.5" />
                           </div>
                         </div>
-                        <span className="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-bold px-2 py-0.5 rounded">
-                          {podcast.duration_display}
-                        </span>
+                        {podcast.duration_display ? (
+                          <span className="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                            {podcast.duration_display}
+                          </span>
+                        ) : null}
                       </div>
 
                       <div>

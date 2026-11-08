@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FounderProfile, logoutFounder, getCachedFounderProfile } from '../../lib/founderAuth';
+import { logoutFounder, type FounderProfile } from '../../lib/founderAuth';
 import { PageType, FounderArticle, FounderPodcast, FounderTask, FounderDailyGoal, FounderDistraction, FounderAppointment, FounderObjective, FounderKeyResult } from '../../types';
 import { 
   getFounderDashboardData,
@@ -12,11 +12,10 @@ import {
   saveFounderPodcast,
   deleteFounderPodcast,
   toggleDistractionSelection,
-  addCustomDistraction,
   saveFounderAppointment,
   updateAppointmentStatus,
-  updateFounderProfileData,
-  DEFAULT_EZEJI_PROFILE
+  deleteFounderAppointment,
+  updateFounderProfileData
 } from '../../lib/founderDashboardService';
 
 import { FounderDashboardLayout } from '../../components/founders/FounderDashboardLayout';
@@ -62,28 +61,25 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
   }, [initialSubpage]);
 
   // Main Dashboard Data State
-  const [profile, setProfile] = useState<FounderProfile>(DEFAULT_EZEJI_PROFILE);
+  const [profile, setProfile] = useState<FounderProfile | null>(null);
+  const [allArticles, setAllArticles] = useState<FounderArticle[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [publishedArticles, setPublishedArticles] = useState<FounderArticle[]>([]);
   const [draftArticles, setDraftArticles] = useState<FounderArticle[]>([]);
   const [podcasts, setPodcasts] = useState<FounderPodcast[]>([]);
-  const [dailyGoal, setDailyGoal] = useState<FounderDailyGoal>({
-    id: 'goal_init',
-    goal_date: new Date().toISOString().split('T')[0],
-    title: 'Make progress on content, partnerships and product development.',
-    benchmark_percent: 80
-  });
+  const [dailyGoal, setDailyGoal] = useState<FounderDailyGoal | null>(null);
   const [todayTasks, setTodayTasks] = useState<FounderTask[]>([]);
   const [distractions, setDistractions] = useState<FounderDistraction[]>([]);
   const [appointments, setAppointments] = useState<FounderAppointment[]>([]);
   const [objectives, setObjectives] = useState<FounderObjective[]>([]);
   const [keyResults, setKeyResults] = useState<FounderKeyResult[]>([]);
   const [stats, setStats] = useState({
-    publishedArticlesCount: 8,
-    draftArticlesCount: 3,
-    podcastsCount: 4,
-    todayProgressPercent: 72,
-    completedTasksCount: 4,
-    totalTasksCount: 6
+    publishedArticlesCount: 0,
+    draftArticlesCount: 0,
+    podcastsCount: 0,
+    todayProgressPercent: 0,
+    completedTasksCount: 0,
+    totalTasksCount: 0
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -108,9 +104,12 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
 
   // Load authoritative data from service
   const refreshData = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
     try {
       const data = await getFounderDashboardData();
       setProfile(data.profile);
+      setAllArticles(data.allArticles);
       setPublishedArticles(data.publishedArticles);
       setDraftArticles(data.draftArticles);
       setPodcasts(data.podcasts);
@@ -122,7 +121,9 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
       setKeyResults(data.keyResults);
       setStats(data.stats);
     } catch (err) {
-      console.warn('Dashboard data fetch notification:', err);
+      const message = err instanceof Error ? err.message : 'Unable to load your founder workspace.';
+      setLoadError(message);
+      setProfile(null);
     } finally {
       setIsLoading(false);
     }
@@ -162,150 +163,214 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Task Actions
+  // Mutations are persisted by the service before local state is updated.
   const handleToggleTask = async (taskId: string) => {
-    const updatedTasks = await toggleTaskCompletion(taskId);
-    setTodayTasks(updatedTasks);
-    // Recalculate stats live
-    const total = updatedTasks.length;
-    const completed = updatedTasks.filter(t => t.is_completed).length;
-    const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
-    setStats(prev => ({
-      ...prev,
-      todayProgressPercent: percent,
-      completedTasksCount: completed,
-      totalTasksCount: total
-    }));
+    try {
+      const updatedTasks = await toggleTaskCompletion(taskId);
+      setTodayTasks(updatedTasks);
+      const completed = updatedTasks.filter(task => task.is_completed).length;
+      const total = updatedTasks.length;
+      setStats(prev => ({
+        ...prev,
+        todayProgressPercent: total ? Math.round((completed / total) * 100) : 0,
+        completedTasksCount: completed,
+        totalTasksCount: total
+      }));
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not update task.');
+    }
   };
 
   const handleAddTask = async (title: string, priority: 'low' | 'medium' | 'high' | 'urgent', estimatedMinutes: number) => {
-    const updatedTasks = await createFounderTask(title, priority, estimatedMinutes);
-    setTodayTasks(updatedTasks);
-    const total = updatedTasks.length;
-    const completed = updatedTasks.filter(t => t.is_completed).length;
-    const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
-    setStats(prev => ({
-      ...prev,
-      todayProgressPercent: percent,
-      completedTasksCount: completed,
-      totalTasksCount: total
-    }));
-    showToast('Task added to today\'s planner');
+    try {
+      const updatedTasks = await createFounderTask(title, priority, estimatedMinutes);
+      setTodayTasks(updatedTasks);
+      const completed = updatedTasks.filter(task => task.is_completed).length;
+      const total = updatedTasks.length;
+      setStats(prev => ({
+        ...prev,
+        todayProgressPercent: total ? Math.round((completed / total) * 100) : 0,
+        completedTasksCount: completed,
+        totalTasksCount: total
+      }));
+      showToast("Task added to today's planner");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not add task.');
+    }
   };
 
   const handleDeleteTask = async (taskId: string) => {
-    const updatedTasks = await deleteFounderTask(taskId);
-    setTodayTasks(updatedTasks);
-    const total = updatedTasks.length;
-    const completed = updatedTasks.filter(t => t.is_completed).length;
-    const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
-    setStats(prev => ({
-      ...prev,
-      todayProgressPercent: percent,
-      completedTasksCount: completed,
-      totalTasksCount: total
-    }));
+    try {
+      const updatedTasks = await deleteFounderTask(taskId);
+      setTodayTasks(updatedTasks);
+      const completed = updatedTasks.filter(task => task.is_completed).length;
+      const total = updatedTasks.length;
+      setStats(prev => ({
+        ...prev,
+        todayProgressPercent: total ? Math.round((completed / total) * 100) : 0,
+        completedTasksCount: completed,
+        totalTasksCount: total
+      }));
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not delete task.');
+    }
   };
 
-  // Daily Goal Update
   const handleUpdateDailyGoal = async (title: string, benchmarkPercent: number) => {
-    const updated = await updateDailyGoal(title, benchmarkPercent);
-    setDailyGoal(updated);
-    showToast('Daily goal updated');
+    try {
+      const updated = await updateDailyGoal(title, benchmarkPercent);
+      setDailyGoal(updated);
+      showToast('Daily goal updated');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not save daily goal.');
+    }
   };
 
-  // Article Actions
   const handleSaveArticle = async (articleData: Partial<FounderArticle>) => {
-    await saveFounderArticle(articleData);
-    await refreshData();
-    showToast(articleData.status === 'published' ? 'Article published successfully' : 'Draft saved');
+    try {
+      await saveFounderArticle(articleData);
+      await refreshData();
+      showToast(articleData.status === 'published' ? 'Article submitted for review' : 'Draft saved');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not save article.');
+      throw err;
+    }
   };
 
   const handleDeleteArticle = async (articleId: string) => {
-    await deleteFounderArticle(articleId);
-    await refreshData();
-    showToast('Article deleted');
+    try {
+      await deleteFounderArticle(articleId);
+      await refreshData();
+      showToast('Article deleted');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not delete article.');
+    }
   };
 
-  // Podcast Actions
   const handleSavePodcast = async (data: any) => {
-    await saveFounderPodcast(data);
-    await refreshData();
-    showToast('Podcast session added');
+    try {
+      await saveFounderPodcast(data);
+      await refreshData();
+      showToast('Podcast session added');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not save podcast.');
+      throw err;
+    }
   };
 
   const handleDeletePodcast = async (podcastId: string) => {
-    await deleteFounderPodcast(podcastId);
-    await refreshData();
-    showToast('Podcast session removed');
+    try {
+      await deleteFounderPodcast(podcastId);
+      await refreshData();
+      showToast('Podcast session removed');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not delete podcast.');
+    }
   };
 
-  // Distraction Actions
   const handleToggleDistraction = async (id: string) => {
-    const updated = await toggleDistractionSelection(id);
-    setDistractions(updated);
+    try {
+      const updated = await toggleDistractionSelection(id);
+      setDistractions(updated);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not update distraction selection.');
+    }
   };
 
-  const handleAddCustomDistraction = async (name: string, category: any, icon: string) => {
-    const updated = await addCustomDistraction(name, category, icon);
-    setDistractions(updated);
-    showToast('Custom distraction added');
-  };
-
-  // Appointment Actions
   const handleScheduleAppointment = async (data: any) => {
-    await saveFounderAppointment(data);
-    await refreshData();
-    showToast('Appointment scheduled');
+    try {
+      await saveFounderAppointment(data);
+      await refreshData();
+      showToast('Appointment scheduled');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not schedule appointment.');
+      throw err;
+    }
   };
 
   const handleUpdateAppointmentStatus = async (id: string, newStatus: any) => {
-    const updated = await updateAppointmentStatus(id, newStatus);
-    setAppointments(updated);
-    showToast(`Appointment marked as ${newStatus}`);
+    try {
+      const updated = await updateAppointmentStatus(id, newStatus);
+      setAppointments(updated);
+      showToast(`Appointment marked as ${newStatus}`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not update appointment.');
+    }
   };
 
   const handleDeleteAppointment = async (id: string) => {
-    // Local filter and sync
-    setAppointments(prev => prev.filter(a => a.id !== id));
-    showToast('Appointment record removed');
+    try {
+      const updated = await deleteFounderAppointment(id);
+      setAppointments(updated);
+      showToast('Appointment record removed');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not delete appointment.');
+    }
   };
 
-  // Profile Save
   const handleSaveProfile = async (updates: Partial<FounderProfile>) => {
-    const updated = await updateFounderProfileData(updates);
-    setProfile(updated);
-    showToast('Profile updated successfully');
+    try {
+      const updated = await updateFounderProfileData(updates);
+      setProfile(updated);
+      showToast('Profile updated successfully');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not update profile.');
+      throw err;
+    }
   };
 
   // Share helpers
-  const handleShareProfile = () => {
-    const url = `https://digitalcampux.com/founders/${profile.slug || 'ezeji-patrick'}`;
-    navigator.clipboard.writeText(url);
-    showToast('Public profile link copied to clipboard!');
+  const handleShareProfile = async () => {
+    if (!profile?.slug) { showToast('Add a public profile URL slug before sharing.'); return; }
+    try { await navigator.clipboard.writeText(`https://digitalcampux.com/founders/${profile.slug}`); showToast('Public profile link copied to clipboard!'); }
+    catch { showToast('Could not copy the profile link.'); }
   };
 
-  const handleShareArticle = (art: FounderArticle) => {
-    const url = `https://digitalcampux.com/founders/${profile.slug || 'ezeji-patrick'}/articles/${art.slug}`;
-    navigator.clipboard.writeText(url);
-    showToast('Article link copied to clipboard!');
+  const handleShareArticle = async (art: FounderArticle) => {
+    if (!profile?.slug || !art.slug || art.status !== 'published') { showToast('Only published articles with a public profile URL can be shared.'); return; }
+    try { await navigator.clipboard.writeText(`https://digitalcampux.com/founders/${profile.slug}/articles/${art.slug}`); showToast('Article link copied to clipboard!'); }
+    catch { showToast('Could not copy the article link.'); }
   };
 
-  const handleSharePodcast = (pod: FounderPodcast) => {
-    navigator.clipboard.writeText(pod.video_url);
-    showToast('Podcast video link copied to clipboard!');
+  const handleSharePodcast = async (pod: FounderPodcast) => {
+    try { await navigator.clipboard.writeText(pod.video_url); showToast('Podcast video link copied to clipboard!'); }
+    catch { showToast('Could not copy the podcast link.'); }
   };
 
   // AI Task Breakdown Apply
   const handleApplyAITasks = async (newTasks: Array<{ title: string; priority: any; estimatedMinutes: number }>) => {
-    for (const t of newTasks) {
-      await createFounderTask(t.title, t.priority, t.estimatedMinutes);
+    try {
+      for (const task of newTasks) await createFounderTask(task.title, task.priority, task.estimatedMinutes);
+      await refreshData();
+      showToast(`Added ${newTasks.length} tasks to today's focus`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Some suggested tasks could not be saved.');
+      await refreshData();
     }
-    await refreshData();
-    showToast(`Added ${newTasks.length} tasks to today's focus`);
   };
 
-  const allArticlesCombined = [...publishedArticles, ...draftArticles];
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center bg-[#F3F5F3] text-slate-600 text-sm">Loading your founder workspace…</div>;
+  }
+
+  if (loadError || !profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F3F5F3] p-6">
+        <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 p-6 text-center space-y-4">
+          <h1 className="text-lg font-bold text-slate-900">Founder workspace unavailable</h1>
+          <p className="text-sm text-slate-600">{loadError || 'Your founder profile could not be loaded.'}</p>
+          <div className="flex justify-center gap-3">
+            <button onClick={refreshData} className="px-4 py-2 rounded-lg bg-emerald-700 text-white text-sm font-semibold">Retry</button>
+            <button onClick={async () => {
+              try { await logoutFounder(); }
+              catch (error) { console.error('Founder sign-out failed:', error); }
+              finally { onSignOut(); }
+            }} className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 text-sm font-semibold">Return to sign in</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <FounderDashboardLayout
@@ -355,7 +420,7 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
       {/* VIEW 2: ARTICLES */}
       {currentSubpage === 'founder-articles' && (
         <FounderArticlesView
-          articles={allArticlesCombined}
+          articles={allArticles}
           onOpenWriteArticle={() => {
             setEditingArticle(null);
             setIsArticleEditorOpen(true);
@@ -401,7 +466,6 @@ export const FounderDashboard: React.FC<FounderDashboardProps> = ({
         <FounderDistractionsView
           distractions={distractions}
           onToggleDistraction={handleToggleDistraction}
-          onAddCustomDistraction={handleAddCustomDistraction}
         />
       )}
 
