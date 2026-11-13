@@ -4747,4 +4747,13 @@ async function startServer() {
   });
 }
 
-startServer();
+// Export Express app for Vercel serverless deployment.
+export default app;
+
+// Keep local development and VPS startup working.
+if (process.env.VERCEL !== "1") {
+  startServer().catch((error) => {
+    console.error("Failed to start Growthpaddy server:", error);
+    process.exit(1);
+  });
+}
