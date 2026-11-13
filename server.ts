@@ -695,7 +695,6 @@ app.post("/api/founders/register", founderRegisterLimiter, async (req, res) => {
     // 3. Assemble profile record (Status defaults to 'pending')
     const profileRecord = {
       id: authUserId,
-      user_id: authUserId,
       full_name: cleanFullName,
       email: cleanEmail,
       business_name: cleanBusinessName,
@@ -2533,7 +2532,7 @@ app.get("/api/resume/download", async (req, res) => {
 });
 
 // ========================================================
-// THE SEO GAME — CORE ENGINE & ACTION PROCESSING ENDPOINTS
+// THE SEO GAME â€” CORE ENGINE & ACTION PROCESSING ENDPOINTS
 // ========================================================
 
 // 1. Deterministic Page Potential Calculation Endpoint
@@ -3240,7 +3239,7 @@ app.post("/api/seo-game/process-action", async (req, res) => {
 });
 
 // ========================================================
-// THE SEO GAME — PHASE 2 LIFECYCLE & SERP SIMULATION ROUTES
+// THE SEO GAME â€” PHASE 2 LIFECYCLE & SERP SIMULATION ROUTES
 // ========================================================
 
 /**
@@ -4639,7 +4638,7 @@ app.post("/api/seo-game/advance-day", async (req, res) => {
           levelTitle: progression.levelTitle
         }
       },
-      message: `Advanced to Day ${newDay}. Traffic: +${funnel.dailyClicks} clicks, Leads: +${funnel.dailyLeads}, Deals: +${funnel.dailyCustomers}. Gross Revenue: ₦${funnel.grossRevenue.toLocaleString()}, Net Profit: ₦${funnel.netProfit.toLocaleString()}. Energy: ${newEnergy}/100.`
+      message: `Advanced to Day ${newDay}. Traffic: +${funnel.dailyClicks} clicks, Leads: +${funnel.dailyLeads}, Deals: +${funnel.dailyCustomers}. Gross Revenue: â‚¦${funnel.grossRevenue.toLocaleString()}, Net Profit: â‚¦${funnel.netProfit.toLocaleString()}. Energy: ${newEnergy}/100.`
     };
 
     // 11.5 Step H-0: Record Explainable Daily World/Industry Event
