@@ -1,5 +1,1 @@
-[System.IO.File]::WriteAllText(
-    "vercel.json",
-    '{"rewrites":[{"source":"/(.*)","destination":"/index.html"}]}',
-    [System.Text.UTF8Encoding]::new($false)
-)
+{"rewrites":[{"source":"/(.*)","destination":"/index.html"}]}
