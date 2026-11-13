@@ -59,6 +59,7 @@ import { useAdminAuth } from '../../context/AdminAuthContext';
 import { QuizControlPanel } from '../../components/admin/QuizControlPanel';
 import { QuestionBank } from '../../components/admin/QuestionBank';
 import { UnlockedContactsTable } from '../../components/admin/UnlockedContactsTable';
+import { FounderManagementPanel } from '../../components/admin/FounderManagementPanel';
 import { logAuditEvent } from '../../lib/auditLogger';
 import { updateRecruiterVerificationStatus } from '../../services/recruiterVerification';
 
@@ -310,7 +311,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const { user, profile, signOut, refreshProfile } = useAdminAuth();
   
   // 4 Primary Navigation Tabs + Sub-tabs
-  const [activeTab, setActiveTab] = useState<'talents' | 'quiz_settings' | 'question_bank' | 'unlocked_contacts' | 'recruiters' | 'admins'>('talents');
+  const [activeTab, setActiveTab] = useState<'talents' | 'quiz_settings' | 'question_bank' | 'unlocked_contacts' | 'recruiters' | 'founders' | 'admins'>('talents');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'pending'>('all');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
@@ -1223,6 +1224,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </button>
 
                 <button
+                  onClick={() => { setActiveTab('founders'); setIsMobileMenuOpen(false); }}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
+                    activeTab === 'founders'
+                      ? 'bg-emerald-50 text-emerald-900 border border-emerald-200 shadow-2xs font-bold'
+                      : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <GraduationCap className="w-4 h-4 text-emerald-600" />
+                    <span>Founder Accounts</span>
+                  </div>
+                </button>
+
+                <button
                   onClick={() => { setActiveTab('admins'); setIsMobileMenuOpen(false); }}
                   className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
                     activeTab === 'admins'
@@ -1457,6 +1472,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               )}
             </button>
 
+            {/* Sub-Tab: Founder Account Approvals */}
+            <button
+              onClick={() => setActiveTab('founders')}
+              title={isSidebarCollapsed ? 'Founder Accounts' : undefined}
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center p-3' : 'justify-between px-3.5 py-2.5'} rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                activeTab === 'founders'
+                  ? 'bg-emerald-50 text-emerald-950 border border-emerald-200/90 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <GraduationCap className={`w-4 h-4 ${activeTab === 'founders' ? 'text-emerald-700' : 'text-slate-400'}`} />
+                {!isSidebarCollapsed && <span>Founder Accounts</span>}
+              </div>
+            </button>
+
             {/* Sub-Tab: Admin Approvals */}
             <button
               onClick={() => setActiveTab('admins')}
@@ -1537,6 +1568,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {activeTab === 'question_bank' && 'Question Bank'}
               {activeTab === 'unlocked_contacts' && 'Unlocked Contacts Log'}
               {activeTab === 'recruiters' && 'Recruiter Accounts'}
+              {activeTab === 'founders' && 'Founder Accounts'}
               {activeTab === 'admins' && 'Admin Permissions'}
             </span>
           </div>
@@ -2747,6 +2779,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
           )}
+
+          {/* SUB-VIEW: FOUNDER ACCOUNT APPROVALS */}
+          {activeTab === 'founders' && <FounderManagementPanel />}
 
           {/* SUB-VIEW: ADMIN APPROVALS */}
           {activeTab === 'admins' && (

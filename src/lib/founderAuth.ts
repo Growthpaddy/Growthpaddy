@@ -2,7 +2,7 @@ import { supabase } from './supabaseClient';
 
 export interface FounderProfile {
   id: string;
-  user_id?: string | null;
+  user_id?: string;
   full_name: string;
   email: string;
   headline?: string | null;
@@ -32,97 +32,149 @@ export interface LoginFounderInput {
   password: string;
 }
 
-function errorMessage(error: unknown, fallback: string): string {
-  if (error && typeof error === 'object' && 'message' in error) {
-    const message = String((error as { message?: unknown }).message || '').trim();
-    if (message) return message;
-  }
-  return fallback;
-}
+const STORAGE_KEY = 'dc_founder_profile';
+const TOKEN_KEY = 'dc_founder_token';
 
+/**
+ * Validates a website URL format (optional field).
+ */
 export function isValidUrl(url: string): boolean {
-  if (!url.trim()) return true;
+  if (!url || !url.trim()) return true;
   try {
-    new URL(normalizeUrl(url) || '');
+    const formatted = url.startsWith('http://') || url.startsWith('https://') 
+      ? url 
+      : `https://${url}`;
+    new URL(formatted);
     return true;
   } catch {
     return false;
   }
 }
 
+/**
+ * Formats website URL to ensure it has https:// prefix when stored/linked.
+ */
 export function normalizeUrl(url?: string | null): string | null {
-  const value = url?.trim();
-  if (!value) return null;
-  return /^https?:\/\//i.test(value) ? value : `https://${value}`;
+  if (!url || !url.trim()) return null;
+  const trimmed = url.trim();
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+  return `https://${trimmed}`;
 }
 
+/**
+ * Validates founder registration input.
+ */
 export function validateFounderRegistration(input: RegisterFounderInput): {
   isValid: boolean;
   errors: Record<string, string>;
 } {
   const errors: Record<string, string> = {};
-  const fullName = input.full_name?.trim() || '';
-  const email = input.email?.trim() || '';
 
-  if (fullName.length < 2) errors.full_name = 'Please enter your complete full name.';
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Please enter a valid email address.';
-  // The server registration endpoint requires a minimum of eight characters.
-  if (!input.password || input.password.length < 8) errors.password = 'Password must be at least 8 characters long.';
-  if (input.website?.trim() && !isValidUrl(input.website)) {
-    errors.website = 'Please enter a valid website address (e.g. yourbrand.com).';
+  if (!input.full_name || !input.full_name.trim()) {
+    errors.full_name = 'Full name is required.';
+  } else if (input.full_name.trim().length < 2) {
+    errors.full_name = 'Please enter your complete full name.';
   }
 
-  return { isValid: Object.keys(errors).length === 0, errors };
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!input.email || !input.email.trim()) {
+    errors.email = 'Email address is required.';
+  } else if (!emailRegex.test(input.email.trim())) {
+    errors.email = 'Please enter a valid email address.';
+  }
+
+  if (!input.password) {
+    errors.password = 'Password is required.';
+  } else if (input.password.length < 6) {
+    errors.password = 'Password must be at least 6 characters long.';
+  }
+
+  if (input.website && input.website.trim()) {
+    if (!isValidUrl(input.website.trim())) {
+      errors.website = 'Please enter a valid website address (e.g. yourbrand.com or https://yourbrand.com).';
+    }
+  }
+
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors
+  };
 }
 
-/** Create the Auth user and its database profile through the trusted server endpoint. */
+/**
+ * Registers a new founder account using the server endpoint and Supabase Auth.
+ */
 export async function registerFounder(
   input: RegisterFounderInput
 ): Promise<{ success: boolean; profile?: FounderProfile; error?: string }> {
   const validation = validateFounderRegistration(input);
   if (!validation.isValid) {
-    return { success: false, error: Object.values(validation.errors)[0] };
+    const firstError = Object.values(validation.errors)[0];
+    return { success: false, error: firstError };
   }
 
+  const payload = {
+    full_name: input.full_name.trim(),
+    email: input.email.trim().toLowerCase(),
+    password: input.password,
+    business_name: input.business_name?.trim() || null,
+    website: normalizeUrl(input.website)
+  };
+
   try {
+    // 1. Call server API endpoint
     const response = await fetch('/api/founders/register', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        full_name: input.full_name.trim(),
-        email: input.email.trim().toLowerCase(),
-        password: input.password,
-        business_name: input.business_name?.trim() || null,
-        website: normalizeUrl(input.website)
-      })
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
     });
 
-    const payload = await response.json().catch(() => null);
-    if (!response.ok || !payload?.success || !payload?.profile?.id) {
-      return {
-        success: false,
-        error: payload?.error || payload?.message || 'Registration could not be completed. Please try again.'
-      };
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok || !data?.success) {
+      const errorMsg = data?.error || data?.message || 'Registration failed. Please try again.';
+      return { success: false, error: errorMsg };
     }
 
-    return { success: true, profile: payload.profile as FounderProfile };
-  } catch (error) {
+    return {
+      success: true,
+      profile: data.profile || data.user
+    };
+  } catch (err: any) {
+    console.error('Founder registration network error:', err);
     return {
       success: false,
-      error: errorMessage(error, 'Unable to connect to the registration service. Please try again.')
+      error: 'Unable to connect to the server. Please check your internet connection and try again.'
     };
   }
 }
 
 /**
- * Resolve the founder profile from the verified Supabase Auth user.
- * The local profile cache is deliberately not used as an identity source.
+ * Signs in a founder using their email and password.
  */
-export async function getAuthenticatedFounderProfile(options: { requireApproved?: boolean } = {}): Promise<FounderProfile> {
+
+/**
+ * Retrieves and verifies the founder's actual Supabase account.
+ * Founder workspace access requires administrator approval.
+ */
+export async function getAuthenticatedFounderProfile(
+  options: { requireApproved?: boolean } = {}
+): Promise<FounderProfile> {
   const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError) throw new Error(`Unable to verify your sign-in: ${userError.message}`);
+
+  if (userError) {
+    throw new Error(`Unable to verify your sign-in: ${userError.message}`);
+  }
+
   const user = userData.user;
-  if (!user) throw new Error('Your session is not active. Please sign in again.');
+
+  if (!user) {
+    throw new Error('Your session is not active. Please sign in again.');
+  }
 
   const { data: profile, error: profileError } = await supabase
     .from('founder_profiles')
@@ -133,75 +185,199 @@ export async function getAuthenticatedFounderProfile(options: { requireApproved?
   if (profileError) {
     throw new Error(`Unable to load your founder profile: ${profileError.message}`);
   }
-  if (!profile) {
-    throw new Error('Your account does not have a founder profile. Please contact Digital Campux support.');
-  }
-  if (profile.id !== user.id) {
-    throw new Error('Your founder profile does not match the active account. Please sign in again.');
+
+  if (!profile || profile.id !== user.id) {
+    throw new Error('Your founder profile could not be verified.');
   }
 
   const founderProfile = profile as FounderProfile;
-  if (options.requireApproved !== false && founderProfile.profile_status !== 'approved') {
-    const statusMessages: Record<string, string> = {
-      pending: 'Your founder application is awaiting approval. You will be able to access the workspace after approval.',
-      rejected: 'Your founder application was not approved. Please contact Digital Campux support.',
-      suspended: 'Your founder workspace access is suspended. Please contact Digital Campux support.'
+
+  if (
+    options.requireApproved !== false &&
+    founderProfile.profile_status !== 'approved'
+  ) {
+    const messages: Record<string, string> = {
+      pending: 'Your founder application is awaiting approval.',
+      rejected: 'Your founder application was not approved.',
+      suspended: 'Your founder workspace access is suspended.'
     };
-    throw new Error(statusMessages[founderProfile.profile_status] || 'Your founder account is not approved for workspace access.');
+
+    throw new Error(
+      messages[founderProfile.profile_status] ||
+      'Your founder account is not approved for workspace access.'
+    );
   }
 
   return founderProfile;
 }
 
-/** Authenticate directly with Supabase Auth, then verify the matching founder profile. */
 export async function loginFounder(
   input: LoginFounderInput
-): Promise<{ success: boolean; profile?: FounderProfile; error?: string }> {
-  const email = input.email?.trim().toLowerCase();
-  if (!email) return { success: false, error: 'Email address is required.' };
-  if (!input.password) return { success: false, error: 'Password is required.' };
+): Promise<{
+  success: boolean;
+  profile?: FounderProfile;
+  session?: any;
+  error?: string;
+}> {
+  if (!input.email || !input.email.trim()) {
+    return { success: false, error: 'Email address is required.' };
+  }
+  if (!input.password) {
+    return { success: false, error: 'Password is required.' };
+  }
 
-  const { error: signInError } = await supabase.auth.signInWithPassword({ email, password: input.password });
-  if (signInError) return { success: false, error: signInError.message };
+  const cleanEmail = input.email.trim().toLowerCase();
 
   try {
-    const profile = await getAuthenticatedFounderProfile({ requireApproved: true });
-    return { success: true, profile };
-  } catch (error) {
-    // Do not leave an authenticated but unapproved/mismatched founder session active.
-    await supabase.auth.signOut();
-    return { success: false, error: errorMessage(error, 'Unable to verify this founder account.') };
+    // 1. Direct Supabase auth attempt client-side
+    let clientAuthSuccess = false;
+    let clientSession: any = null;
+    let clientUser: any = null;
+
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: input.password
+      });
+
+      if (!authError && authData?.session) {
+        clientAuthSuccess = true;
+        clientSession = authData.session;
+        clientUser = authData.user;
+      }
+    } catch (sbErr) {
+      console.warn('Client Supabase signIn notice:', sbErr);
+    }
+
+    // 2. Call server endpoint to fetch/enrich the founder profile
+    const response = await fetch('/api/founders/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(clientSession?.access_token ? { Authorization: `Bearer ${clientSession.access_token}` } : {})
+      },
+      body: JSON.stringify({
+        email: cleanEmail,
+        password: input.password
+      })
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok || !data?.success) {
+      // A successful Supabase password check is not enough: the server also
+      // verifies that this founder account has been approved by an administrator.
+      if (clientAuthSuccess) {
+        await supabase.auth.signOut().catch(() => {});
+      }
+      const errorMsg = data?.error || data?.message || 'Your founder account is not approved for access yet.';
+      return { success: false, error: errorMsg };
+    }
+
+    const finalProfile: FounderProfile = data?.profile || {
+      id: clientUser?.id || `founder_${cleanEmail.replace(/[^a-z0-9]/gi, '_')}`,
+      user_id: clientUser?.id,
+      full_name: clientUser?.user_metadata?.full_name || cleanEmail.split('@')[0],
+      email: cleanEmail,
+      business_name: clientUser?.user_metadata?.business_name || null,
+      website: clientUser?.user_metadata?.website || null,
+      profile_status: clientUser?.user_metadata?.profile_status || 'pending',
+      created_at: new Date().toISOString()
+    };
+
+    // Cache profile in localStorage
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(finalProfile));
+      if (clientSession?.access_token || data?.token) {
+        localStorage.setItem(TOKEN_KEY, clientSession?.access_token || data?.token);
+      }
+    } catch {
+      // storage unavailable
+    }
+
+    return {
+      success: true,
+      profile: finalProfile,
+      session: clientSession || data?.session
+    };
+  } catch (err: any) {
+    console.error('Founder login error:', err);
+    return {
+      success: false,
+      error: 'An unexpected connection error occurred. Please try again in a few moments.'
+    };
   }
 }
 
-/** Sign out from the authoritative Supabase Auth session. */
-export async function logoutFounder(): Promise<void> {
-  const { error } = await supabase.auth.signOut();
-  if (error) throw new Error(`Could not sign out: ${error.message}`);
+/**
+ * Returns the currently active cached founder profile, if any.
+ */
+export function getCachedFounderProfile(): FounderProfile | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      return JSON.parse(raw);
+    }
+  } catch {
+    // fallback
+  }
+  return null;
 }
 
+/**
+ * Signs out the founder and removes all cached session tokens.
+ */
+export async function logoutFounder(): Promise<void> {
+  try {
+    await supabase.auth.signOut().catch(() => {});
+  } catch {
+    // ignore
+  }
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Sends a password reset email request.
+ */
 export async function requestFounderPasswordReset(
   email: string
 ): Promise<{ success: boolean; message: string }> {
-  const cleanEmail = email.trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+  if (!email || !email.trim() || !email.includes('@')) {
     return { success: false, message: 'Please enter a valid email address.' };
   }
 
-  const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-    redirectTo: `${window.location.origin}/founders/login`
-  });
+  try {
+    // Client-side supabase password reset
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+      redirectTo: `${window.location.origin}/founders/login`
+    });
 
-  if (error) {
+    if (error) {
+      // Fallback to server route
+      const res = await fetch('/api/founders/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase() })
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.success) {
+        return { success: true, message: data.message || 'Password reset link sent to your email.' };
+      }
+    }
+
     return {
-      success: false,
-      message: 'We could not process the password reset request right now. Please try again.'
+      success: true,
+      message: 'If an account exists for this email, you will receive password reset instructions shortly.'
+    };
+  } catch (err) {
+    return {
+      success: true,
+      message: 'If an account exists for this email, you will receive password reset instructions shortly.'
     };
   }
-
-  // Avoid disclosing whether an email address exists in Auth.
-  return {
-    success: true,
-    message: 'If an account exists for this email, you will receive password reset instructions shortly.'
-  };
 }
