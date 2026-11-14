@@ -40,12 +40,16 @@ const TOKEN_KEY = 'dc_founder_token';
  */
 export function isValidUrl(url: string): boolean {
   if (!url || !url.trim()) return true;
+  const trimmed = url.trim();
+  if (/^(javascript|data|vbscript|file):/i.test(trimmed)) {
+    return false;
+  }
   try {
-    const formatted = url.startsWith('http://') || url.startsWith('https://') 
-      ? url 
-      : `https://${url}`;
-    new URL(formatted);
-    return true;
+    const formatted = /^https?:\/\//i.test(trimmed)
+      ? trimmed
+      : `https://${trimmed}`;
+    const parsed = new URL(formatted);
+    return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && Boolean(parsed.hostname && parsed.hostname.includes('.'));
   } catch {
     return false;
   }
@@ -57,7 +61,7 @@ export function isValidUrl(url: string): boolean {
 export function normalizeUrl(url?: string | null): string | null {
   if (!url || !url.trim()) return null;
   const trimmed = url.trim();
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+  if (/^https?:\/\//i.test(trimmed)) {
     return trimmed;
   }
   return `https://${trimmed}`;
@@ -87,8 +91,8 @@ export function validateFounderRegistration(input: RegisterFounderInput): {
 
   if (!input.password) {
     errors.password = 'Password is required.';
-  } else if (input.password.length < 6) {
-    errors.password = 'Password must be at least 6 characters long.';
+  } else if (input.password.length < 8) {
+    errors.password = 'Password must be at least 8 characters long.';
   }
 
   if (input.website && input.website.trim()) {
@@ -108,7 +112,7 @@ export function validateFounderRegistration(input: RegisterFounderInput): {
  */
 export async function registerFounder(
   input: RegisterFounderInput
-): Promise<{ success: boolean; profile?: FounderProfile; error?: string }> {
+): Promise<{ success: boolean; profile?: FounderProfile; message?: string; error?: string }> {
   const validation = validateFounderRegistration(input);
   if (!validation.isValid) {
     const firstError = Object.values(validation.errors)[0];
@@ -124,25 +128,41 @@ export async function registerFounder(
   };
 
   try {
-    // 1. Call server API endpoint
     const response = await fetch('/api/founders/register', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
       body: JSON.stringify(payload)
     });
 
-    const data = await response.json().catch(() => null);
+    const rawText = await response.text();
+    let data: any = null;
+    if (rawText && rawText.trim()) {
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        data = null;
+      }
+    }
 
     if (!response.ok || !data?.success) {
-      const errorMsg = data?.error || data?.message || 'Registration failed. Please try again.';
+      const errorMsg =
+        data?.message ||
+        data?.error ||
+        (response.status === 405 || response.status === 404
+          ? 'Registration service endpoint is currently unreachable. Please try again shortly.'
+          : response.status === 429
+          ? 'Too many registration attempts. Please wait a moment before trying again.'
+          : 'Registration failed. Please check your details and try again.');
       return { success: false, error: errorMsg };
     }
 
     return {
       success: true,
-      profile: data.profile || data.user
+      message: data.message,
+      profile: data.data?.founder || data.profile || data.user
     };
   } catch (err: any) {
     console.error('Founder registration network error:', err);

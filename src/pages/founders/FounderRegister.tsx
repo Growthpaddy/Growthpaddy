@@ -25,6 +25,7 @@ export const FounderRegister: React.FC<FounderRegisterProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
     setFormError(null);
     setFieldErrors({});
 
@@ -59,15 +60,14 @@ export const FounderRegister: React.FC<FounderRegisterProps> = ({
 
       if (!result.success) {
         setFormError(result.error || 'Failed to create your account. Please try again.');
-        setIsLoading(false);
         return;
       }
 
-      // Success: Per instructions, redirect to /founders/login with welcome notification
-      // Do NOT auto-redirect to dashboard and do NOT auto-publish profile
+      // Success: Redirect to /founders/login with welcome notification
       onNavigateToLogin(email.trim().toLowerCase());
     } catch (err: any) {
       setFormError(err?.message || 'An unexpected error occurred. Please try again.');
+    } finally {
       setIsLoading(false);
     }
   };
@@ -207,6 +207,7 @@ export const FounderRegister: React.FC<FounderRegisterProps> = ({
                   value={fullName}
                   onChange={(e) => {
                     setFullName(e.target.value);
+                    if (formError) setFormError(null);
                     if (fieldErrors.full_name) {
                       setFieldErrors((prev) => ({ ...prev, full_name: '' }));
                     }
@@ -234,6 +235,7 @@ export const FounderRegister: React.FC<FounderRegisterProps> = ({
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
+                    if (formError) setFormError(null);
                     if (fieldErrors.email) {
                       setFieldErrors((prev) => ({ ...prev, email: '' }));
                     }
@@ -262,6 +264,7 @@ export const FounderRegister: React.FC<FounderRegisterProps> = ({
                     value={password}
                     onChange={(e) => {
                       setPassword(e.target.value);
+                      if (formError) setFormError(null);
                       if (fieldErrors.password) {
                         setFieldErrors((prev) => ({ ...prev, password: '' }));
                       }
